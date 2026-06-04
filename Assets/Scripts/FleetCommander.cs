@@ -212,7 +212,7 @@ namespace Ginei
             if (targetFlag == null || !targetFlag.IsAlive) return false;
             if (selectedFleets.Count == 0 || selectedFleets[0] == null) return false;
             FleetStrength myStr = selectedFleets[0].GetComponent<FleetStrength>();
-            return myStr != null && myStr.faction != targetFlag.faction;
+            return myStr != null && FactionRelations.IsHostile(myStr, targetFlag);
         }
 
         /// <summary>攻撃目標指定モードを終了する（円の表示は LateUpdate が更新）。</summary>

@@ -157,9 +157,19 @@ namespace Ginei
             {
                 strength.admiralData = entry.admiral;
                 strength.ApplyAdmiralData();          // 名前/兵力/faction(提督由来)/色を反映
-                strength.faction = entry.faction;     // シナリオの陣営を優先して上書き
 
-                // 上書きした陣営で色を再適用
+                // 勢力を反映：FactionData があればそれを優先（enum も legacyFaction で同期）
+                if (entry.factionData != null)
+                {
+                    strength.factionData = entry.factionData;
+                    strength.faction = entry.factionData.legacyFaction;
+                }
+                else
+                {
+                    strength.faction = entry.faction; // シナリオの enum 陣営を優先して上書き
+                }
+
+                // 反映した勢力で色を再適用
                 FactionColor color = fleet.GetComponent<FactionColor>();
                 if (color != null) color.ApplyColors();
             }
@@ -175,17 +185,30 @@ namespace Ginei
             FleetWeapon weapon = fleet.GetComponent<FleetWeapon>();
             if (weapon != null) weapon.enabled = true;
 
-            // AI 制御：プレイヤー陣営以外のみ FleetAI を有効化（プレイヤーは Selectable で操作）
+            // AI 制御：プレイヤー勢力以外のみ FleetAI を有効化（プレイヤーは Selectable で操作）
             FleetAI ai = fleet.GetComponent<FleetAI>();
             if (ai != null)
             {
-                ai.enabled = (entry.faction != playerFaction);
+                ai.enabled = !IsPlayerControlled(entry, playerFaction);
             }
 
             // 名前を分かりやすく
             string admiralName = entry.admiral != null ? entry.admiral.admiralName : "Unknown";
             fleet.name = $"Fleet_{entry.faction}_{admiralName}";
             return fleet;
+        }
+
+        /// <summary>
+        /// このエントリがプレイヤー操作かを判定する。
+        /// GameSettings.playerFactionData とエントリ FactionData が揃っていれば FactionData 同一性で、
+        /// 無ければ旧 enum（entry.faction == playerFaction）で判定する（後方互換）。
+        /// </summary>
+        private bool IsPlayerControlled(ScenarioData.FleetEntry entry, Faction playerFaction)
+        {
+            FactionData playerData = GameSettings.Instance.playerFactionData;
+            if (playerData != null && entry.factionData != null)
+                return entry.factionData == playerData;
+            return entry.faction == playerFaction;
         }
     }
 }

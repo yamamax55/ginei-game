@@ -32,6 +32,8 @@ namespace Ginei
 
         [Header("設定")]
         public Faction playerFaction = Faction.同盟;
+        [Tooltip("プレイヤーが操作する勢力データ（多勢力対応。設定すると enum playerFaction より優先して操作勢力を判定）")]
+        public FactionData playerFactionData;
         public string scenarioName = "アスターテ会戦";
         public string selectedAdmiral = "ラインハルト";
         

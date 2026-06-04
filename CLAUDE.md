@@ -50,7 +50,8 @@
 | `SceneLoader` | 非同期シーン遷移＋ロード画面（コードで自動生成、`unscaledTime` 駆動） | `LoadScene(string)` |
 
 ## データ / 列挙 / ScriptableObject
-- `Faction.cs`：`enum Faction { 帝国, 同盟 }`（※将来 `FactionData`(ScriptableObject) へ移行し複数勢力化予定）。陣営の置き場所は `FleetStrength.faction`。
+- `Faction.cs`：`enum Faction { 帝国, 同盟 }`（旧式・後方互換用）。陣営の置き場所は `FleetStrength.faction`。
+- **多勢力化（B-1〜B-4）**：`FactionData`(ScriptableObject、メニュー `Ginei/Create Faction Data`→`Resources/Factions/`)＝`factionName`/`color`/`ideology`/`nonHostileFactions`/`legacyFaction`＋`IsHostileTo(other)`（既定=異勢力は敵）。`FactionRelations.IsHostile(...)` が敵対判定の唯一の窓口（双方に `FactionData` があればそれで、無ければ enum 違いで判定＝後方互換）。`IShipTarget.FactionData`／`FleetStrength.factionData`／`ScenarioData.FleetEntry.factionData`／`GameSettings.playerFactionData` で勢力を持たせる。**`FactionData` 未割当なら従来の2勢力 enum 動作のまま**。3勢力目はアセット追加＋シナリオ割当のみで動く（コード変更不要）。`legacyFaction` は既存UI/セーブ/プレイヤー操作判定の橋渡し。
 - `Formation`：`enum { 紡錘陣, 鶴翼陣, 円陣, 横陣, 方陣 }`（定義は `Squadron.cs` 内。既定=紡錘陣）。すべて旗艦＝中心(原点)・左右対称・旗艦の向き(Transform.up=前方)に追従。`ChangeFormation(int)` のインデックスはこの並び順。
 - `AIState`：`enum { 接近, 交戦, 撤退 }`（定義は `FleetAI.cs` 内）。
 - `AdmiralData`（ScriptableObject、メニュー `Ginei/Admiral Data`）：提督能力。`leadership`(統率)/`attack`(攻撃)/`defense`(防御)/`mobility`(機動)/`operation`(運営・将来用)/`intelligence`(情報・将来用)＋`baseStrength`/`admiralName`/`faction`。
@@ -78,7 +79,7 @@
 |---|---|---|
 | `BattleSetup` | Battle シーンに1つ | `[DefaultExecutionOrder(-100)]`。**`SceneManager.GetActiveScene().name != "Battle"` の場合は Awake で即 return**（Title 等に誤配置されても艦隊を湧かせない）。`ScenarioData` から艦隊生成・配置。`fleetPrefab` 必須。生成時に手置き艦隊をクリア＋`FleetRegistry.Clear()`。生成位置は原点中心に `spawnSeparation`(既定2.5)倍して両軍を離す。生成後 `OrientFleetsToEnemy` で各艦を相手陣営重心へ正対させる。プレイヤー陣営以外のみ `FleetAI` を有効化。`scenarioOverride` で直接指定可。 |
 | `BattleManager` | Battle シーンに1つ | 勝敗判定（`checkInterval` 秒ごと）・戦績記録。**生存中の部隊(旗艦)数で数える**（`FleetRegistry.GetFlagships()` の件数。退却・破棄は含まれず、配下艦も数えない）。開始時隻数は全 Start 完了後の最初の Update で記録（実行順非依存）。決着で timeScale=0→Result へ遷移。Rキーでリスタート。 |
-| `FleetRegistry` | static（シーン内在庫） | 全 `IShipTarget`（旗艦＋配下艦）を陣営別に保持。各艦が出現時 `Register`／破棄・退却時 `Unregister`。`GetEnemies(faction)`(全敵個艦)/`GetEnemyFlagships(faction)`/`GetFlagships(faction)`/`Clear()`。`ShipCombat`/`FleetWeapon`/`EscortShip`/`FleetAI`/`BattleManager` の敵探索はここを参照（`FindObjectsByType` を置換）。`BattleSetup.Awake` が `Clear()`。 |
+| `FleetRegistry` | static（シーン内在庫） | 全 `IShipTarget`（旗艦＋配下艦）を**陣営非依存の単一リスト**で保持（多勢力対応）。各艦が出現時 `Register`／破棄・退却時 `Unregister`。`AllTargets`(全個艦)/`AllFlagships`(全旗艦)/`Clear()`。敵味方は探索側が `FactionRelations.IsHostile` で判定する（陣営別バケットは廃止）。`ShipCombat`/`FleetWeapon`/`EscortShip`/`FleetAI`/`BattleManager`/`FleetCommander` がここを参照（`FindObjectsByType` を置換）。`BattleSetup.Awake` が `Clear()`。 |
 | `TitleManager` | Title シーン | 新規開始/続きから/設定/終了。`SaveManager` と連携、`continueButton`/`settingsPanel` 参照、`SetVolume`。**シナリオ選択／プレイ陣営選択UIを実行時生成**（自前 Canvas＋全画面ディマーのモーダル、初期非表示）。フロー：「会戦開始」=`StartBattle()`→`ShowScenarioSelect()` で選択画面表示／`SelectScenario(string)`・`SelectPlayerFaction(int)` で `GameSettings` に反映＆ハイライト更新／「この設定で会戦開始」=`BeginBattle()` で Save＋ResetStats＋`LoadScene("Battle")`／「戻る」=`HideScenarioSelect()`。Canvas/EventSystem(`InputSystemUIInputModule`) が無ければ生成。 |
 | `ResultManager` | Result シーン | `GameSettings` の戦績を `winnerText`/`statsText` に表示。`BackToTitle()`。 |
 | `PauseManager` | Battle シーン | Space=ポーズ／Esc=ポーズメニュー／数字1-3=倍速。`Time.timeScale` 制御。ポーズUIをコードで自動生成し EventSystem(`InputSystemUIInputModule`) を保証。`SetVolume`/`SetAlwaysShowGizmos`。 |
@@ -130,9 +131,9 @@
 - `ScenarioData.scenarioName` と `GameSettings.scenarioName` を一致させる（`BattleSetup` が名前一致で解決）。会戦アセットは `Resources` 配下に置く。
 
 ## 既知の重複・将来の整理対象（新規はここに寄せる・増やさない）
-- 陣営カラーが複数箇所に散在（`FactionColor` / `FleetHUDManager`(empireColor/allianceColor) / `FleetWeapon.beamColor` / `WeaponArc.gizmoColor`）。新たな陣営色のハードコードを増やさない。将来1箇所へ集約。
+- 陣営色は **`FactionData.color` が唯一の出所**（`FactionColor`/`FleetHUDManager` は `FactionData` があればその色、無ければ enum 既定色＝`imperial/alliance/empire/allianceColor` にフォールバック）。新たな陣営色のハードコードを増やさない。enum 既定色は後方互換のフォールバック専用。
 - `ChangeFormation(int)` が `CommandMenu` と `FleetHUDManager` に重複。一本化したい。
-- 敵探索は `FleetRegistry`（陣営別リスト）に集約済み。新たに `FindObjectsByType` での索敵を増やさない（`BattleSetup.ClearExistingFleets` の開始時除去のみ例外＝登録前の手置き艦を拾うため）。配下艦の発砲・索敵は `fireInterval` 間隔＋初回位相をランダムにずらして全艦同時更新を避ける。
+- 敵探索は `FleetRegistry`（単一在庫）＋`FactionRelations.IsHostile` に集約済み。新たに `FindObjectsByType` での索敵や「`faction` 違い＝敵」の直書きを増やさない（敵対判定は必ず `FactionRelations` 経由）。`BattleSetup.ClearExistingFleets` の開始時除去のみ `FindObjectsByType` 例外＝登録前の手置き艦を拾うため。配下艦の発砲・索敵は `fireInterval` 間隔＋初回位相をランダムにずらして全艦同時更新を避ける。
 - 日本語フォント読み込みコードが3箇所に重複（`FleetStrength`/`FleetMorale`/`DamagePopup`）。挙動は統一済み（下記）。
 
 ## 日本語表示の注意

@@ -28,7 +28,9 @@ namespace Ginei
 
             if (winnerText != null)
             {
-                winnerText.text = $"{settings.winner}軍の勝利";
+                // 多勢力対応：winnerName があればそれを表示（無ければ enum の「◯◯軍」）
+                string wname = string.IsNullOrEmpty(settings.winnerName) ? $"{settings.winner}軍" : settings.winnerName;
+                winnerText.text = (settings.winnerName == "引き分け") ? "引き分け" : $"{wname}の勝利";
                 winnerText.color = (settings.winner == Faction.帝国) ? Color.red : Color.cyan;
             }
 

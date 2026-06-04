@@ -52,16 +52,28 @@ namespace Ginei
         // ===== 自動生成エントリーポイント =====
 
         /// <summary>
-        /// Battle シーン読み込み後に1度だけ呼ばれ、HelpOverlay を自動生成する。
-        /// 重複生成ガード付き。
+        /// Battle シーンが読み込まれるたびに HelpOverlay を自動生成する。
+        /// RuntimeInitializeOnLoadMethod はアプリ起動時に1回しか呼ばれないため、
+        /// Title→Battle のような実行時のシーン遷移にも対応できるよう sceneLoaded を購読する。
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void AutoCreate()
+        private static void Bootstrap()
         {
-            // Battle シーン以外では生成しない
-            if (SceneManager.GetActiveScene().name != "Battle") return;
+            SceneManager.sceneLoaded -= OnSceneLoaded; // 二重購読防止
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            // 起動直後に既に Battle なら即生成（Battle シーンを直接再生した場合に対応）
+            TryCreate(SceneManager.GetActiveScene());
+        }
 
-            // 重複生成ガード
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            TryCreate(scene);
+        }
+
+        /// <summary>Battle シーンに HelpOverlay が無ければ生成する（重複生成ガード）。</summary>
+        private static void TryCreate(Scene scene)
+        {
+            if (scene.name != "Battle") return;
             if (Object.FindAnyObjectByType<HelpOverlay>() != null) return;
 
             GameObject go = new GameObject("HelpOverlay");

@@ -377,17 +377,30 @@ namespace Ginei
         // ────────────────────────────────────────────────
 
         /// <summary>
-        /// Battle シーン読み込み後、自動的に BlackHole を 1 体だけ配置する。
+        /// Battle シーン読み込みのたびに、自動的に BlackHole を 1 体だけ配置する。
+        /// RuntimeInitializeOnLoadMethod はアプリ起動時に1回しか呼ばれないため、
+        /// Title→Battle のような実行時のシーン遷移にも対応できるよう sceneLoaded を購読する。
         /// AutoSpawnEnabled = false にすることで無効化できる。
-        /// シーン中に既に BlackHole が存在する場合は生成しない（重複防止）。
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void AutoSpawn()
+        private static void Bootstrap()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded; // 二重購読防止
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            // 起動直後に既に Battle なら即配置（Battle シーンを直接再生した場合に対応）
+            TrySpawn(SceneManager.GetActiveScene());
+        }
+
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            TrySpawn(scene);
+        }
+
+        /// <summary>Battle シーンに BlackHole が無ければ1体だけ配置する（重複防止）。</summary>
+        private static void TrySpawn(Scene scene)
         {
             if (!AutoSpawnEnabled) return;
-            if (SceneManager.GetActiveScene().name != "Battle") return;
-
-            // 既に存在する場合は生成しない
+            if (scene.name != "Battle") return;
             if (Object.FindAnyObjectByType<BlackHole>() != null) return;
 
             GameObject go = new GameObject("BlackHole");

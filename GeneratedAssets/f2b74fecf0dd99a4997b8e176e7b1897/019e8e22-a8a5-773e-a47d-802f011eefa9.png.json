@@ -1,0 +1,28 @@
+{
+    "asset": "f2b74fecf0dd99a4997b8e176e7b1897",
+    "fileName": "019e8e22-a8a5-773e-a47d-802f011eefa9.png",
+    "prompt": "Beautiful deep space nebula with cosmic gas clouds, distant stars, purple and blue hues, realistic, high detail, sci-fi space background style, isolated on black background",
+    "negativePrompt": "",
+    "model": "flux-2-dev",
+    "modelName": "Flux 2 (Dev)",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

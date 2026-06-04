@@ -18,20 +18,14 @@ namespace Ginei
         private int initialImperialCount;
         private int initialAllianceCount;
         private bool isBattleOver = false;
+        private bool initialized = false;
 
         private void Start()
         {
             // 開始時にタイムスケールをリセット
             Time.timeScale = 1f;
-
-            // 開始時の隻数を記録
-            CountFleets(out initialImperialCount, out initialAllianceCount);
-            
-            // デバッグ: 隻数が0の場合は警告
-            if (initialImperialCount == 0 && initialAllianceCount == 0)
-            {
-                Debug.LogWarning("BattleManager: 開始時に艦隊が見つかりませんでした。");
-            }
+            AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmBattle);
+            // 開始時の隻数記録は、全艦の登録(Start)が済んだ最初の Update で行う（実行順非依存）
         }
 
         private void Update()
@@ -40,6 +34,18 @@ namespace Ginei
             if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
             {
                 RestartBattle();
+                return;
+            }
+
+            // 全 Start 完了後（＝レジストリ登録後）の最初の Update で開始時隻数を記録
+            if (!initialized)
+            {
+                CountFleets(out initialImperialCount, out initialAllianceCount);
+                initialized = true;
+                if (initialImperialCount == 0 && initialAllianceCount == 0)
+                {
+                    Debug.LogWarning("BattleManager: 開始時に艦隊が見つかりませんでした。");
+                }
                 return;
             }
 
@@ -60,22 +66,16 @@ namespace Ginei
         /// </summary>
         private void CheckVictory()
         {
-            int imperialRemaining;
-            int allianceRemaining;
+            // 生存旗艦のみをレジストリから取得（退却・破棄は含まれない。配下艦も数に含めない）
+            IReadOnlyList<FleetStrength> imperial = FleetRegistry.GetFlagships(Faction.帝国);
+            IReadOnlyList<FleetStrength> alliance = FleetRegistry.GetFlagships(Faction.同盟);
+
+            int imperialRemaining = imperial.Count;
+            int allianceRemaining = alliance.Count;
+
             int totalStrength = 0;
-
-            // 将来的には FleetRegistry から取得するように変更予定
-            FleetStrength[] allFleets = Object.FindObjectsByType<FleetStrength>(FindObjectsSortMode.None);
-            imperialRemaining = 0;
-            allianceRemaining = 0;
-
-            foreach (var fleet in allFleets)
-            {
-                if (fleet.faction == Faction.帝国) imperialRemaining++;
-                else allianceRemaining++;
-                
-                totalStrength += fleet.strength;
-            }
+            for (int i = 0; i < imperial.Count; i++) totalStrength += imperial[i].strength;
+            for (int i = 0; i < alliance.Count; i++) totalStrength += alliance[i].strength;
 
             // 勝敗確定チェック
             if (imperialRemaining == 0 || allianceRemaining == 0)
@@ -94,14 +94,9 @@ namespace Ginei
 
         private void CountFleets(out int imperial, out int alliance)
         {
-            FleetStrength[] allFleets = Object.FindObjectsByType<FleetStrength>(FindObjectsSortMode.None);
-            imperial = 0;
-            alliance = 0;
-            foreach (var fleet in allFleets)
-            {
-                if (fleet.faction == Faction.帝国) imperial++;
-                else alliance++;
-            }
+            // レジストリの生存旗艦数（退却・破棄は含まれない）
+            imperial = FleetRegistry.GetFlagships(Faction.帝国).Count;
+            alliance = FleetRegistry.GetFlagships(Faction.同盟).Count;
         }
 
         /// <summary>

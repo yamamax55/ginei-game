@@ -38,9 +38,10 @@ namespace Ginei
             SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
             foreach (var sr in renderers)
             {
-                // 選択リングは黄色に固定するため、ここでは除外する
+                // 選択リング(黄固定)と旗艦マーカー(金固定)は陣営色で塗らないので除外する
                 if (sr.gameObject.name == "SelectionRing") continue;
-                
+                if (sr.gameObject.name == "FlagshipMarker") continue;
+
                 sr.color = targetColor;
             }
 

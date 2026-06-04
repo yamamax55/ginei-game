@@ -27,21 +27,28 @@ namespace Ginei
         private ParticleSystem starSystem;
         private Transform cameraTransform;
         private Vector3 lastCameraPosition;
+        private Material starMaterial; // 実行時生成。OnDestroyで破棄
 
         private void Start()
         {
+            // メインカメラが無ければ安全に何もしない（パララックスはカメラ前提）
+            if (Camera.main == null) return;
+
             cameraTransform = Camera.main.transform;
             lastCameraPosition = cameraTransform.position;
 
             // カメラの背景色を深い宇宙色に設定
-            if (Camera.main != null)
-            {
-                Camera.main.backgroundColor = new Color(0.01f, 0.01f, 0.03f, 1f);
-                Camera.main.clearFlags = CameraClearFlags.SolidColor;
-            }
+            Camera.main.backgroundColor = new Color(0.01f, 0.01f, 0.03f, 1f);
+            Camera.main.clearFlags = CameraClearFlags.SolidColor;
 
             SetupParticleSystem();
             GenerateStars();
+        }
+
+        private void OnDestroy()
+        {
+            // 実行時生成したマテリアルを破棄（リーク防止）
+            if (starMaterial != null) Destroy(starMaterial);
         }
 
         private void LateUpdate()
@@ -70,7 +77,8 @@ namespace Ginei
             main.startSpeed = 0;
             main.startLifetime = 1000;
             main.maxParticles = 10000;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            // Localにすることで、LateUpdateのtransform移動が星に反映されパララックスが効く
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;
 
             var noise = starSystem.noise;
             noise.enabled = true;
@@ -82,11 +90,11 @@ namespace Ginei
             renderer.sortingOrder = -100;
 
             // URP 2D互換マテリアルを作成
-            Material starMat = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-            
+            starMaterial = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
+
             // 丸い星のテクスチャを生成して割り当てる
-            starMat.mainTexture = CreateStarTexture();
-            renderer.sharedMaterial = starMat;
+            starMaterial.mainTexture = CreateStarTexture();
+            renderer.sharedMaterial = starMaterial;
 
             if (starColorGradient == null || starColorGradient.alphaKeys.Length == 0)
             {

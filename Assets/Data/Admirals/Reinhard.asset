@@ -20,4 +20,4 @@ MonoBehaviour:
   mobility: 92
   operation: 70
   intelligence: 90
-  baseStrength: 1000
+  baseStrength: 10000

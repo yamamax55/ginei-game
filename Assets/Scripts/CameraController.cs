@@ -16,12 +16,14 @@ namespace Ginei
         public float dragSensitivity = 1.0f;
         
         [Header("ズーム設定")]
-        [Tooltip("ズーム速度")]
-        public float zoomSpeed = 5f;
+        [Tooltip("ズーム速度（マウスホイール）")]
+        public float zoomSpeed = 12f;
         [Tooltip("最小ズームサイズ")]
         public float minZoom = 2f;
         [Tooltip("最大ズームサイズ")]
-        public float maxZoom = 20f;
+        public float maxZoom = 30f;
+        [Tooltip("開始時のズーム（大きいほど引いた画。会戦開始時に適用）")]
+        public float startZoom = 16f;
 
         [Header("フォーカス設定")]
         [Tooltip("フォーカス時の移動の滑らかさ")]
@@ -33,16 +35,31 @@ namespace Ginei
         [Tooltip("カメラが移動可能な最大座標")]
         public Vector2 maxBounds = new Vector2(50f, 50f);
 
+        [Header("シェイク設定")]
+        [Tooltip("撃沈時のカメラ揺れの強さ")]
+        public float shakeMagnitude = 0.15f;
+        [Tooltip("撃沈時のカメラ揺れの長さ (秒)")]
+        public float shakeDuration = 0.15f;
+
         private Camera cam;
         private FleetCommander commander;
         private Vector3 velocity = Vector3.zero;
         private bool isFocusing = false;
         private Vector2 lastMousePos;
 
+        private float shakeTimer = 0f;
+        private Vector3 lastShakeOffset = Vector3.zero;
+
         private void Awake()
         {
             cam = GetComponent<Camera>();
             commander = Object.FindAnyObjectByType<FleetCommander>();
+        }
+
+        private void Start()
+        {
+            // 会戦開始時は少し引いた画から始める
+            if (cam != null) cam.orthographicSize = Mathf.Clamp(startZoom, minZoom, maxZoom);
         }
 
         private void Update()
@@ -114,7 +131,7 @@ namespace Ginei
             float scroll = Mouse.current.scroll.ReadValue().y;
             if (Mathf.Abs(scroll) > 0.01f)
             {
-                // スクロール方向に応じてサイズを変更
+                // スクロール方向に応じてサイズを変更（zoomSpeed を上げて従来より速く）
                 float newSize = cam.orthographicSize - (scroll * 0.01f * zoomSpeed);
                 cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
             }
@@ -155,6 +172,35 @@ namespace Ginei
             float x = Mathf.Clamp(transform.position.x, minBounds.x, maxBounds.x);
             float y = Mathf.Clamp(transform.position.y, minBounds.y, maxBounds.y);
             transform.position = new Vector3(x, y, transform.position.z);
+        }
+
+        /// <summary>
+        /// 撃沈時などに短いカメラシェイクを開始します。
+        /// </summary>
+        public void Shake()
+        {
+            shakeTimer = shakeDuration;
+        }
+
+        /// <summary>
+        /// パン/クランプ後にシェイクのオフセットを一時的に加える。
+        /// 毎フレーム前回のオフセットを戻すため、位置に恒久的に蓄積しない。
+        /// 撃沈で会戦終了(timeScale=0)しても揺れが見えるよう unscaled で減衰させる。
+        /// </summary>
+        private void LateUpdate()
+        {
+            // 前フレームのシェイクオフセットを戻す
+            transform.position -= lastShakeOffset;
+            lastShakeOffset = Vector3.zero;
+
+            if (shakeTimer > 0f)
+            {
+                shakeTimer -= Time.unscaledDeltaTime;
+                float damper = Mathf.Clamp01(shakeTimer / shakeDuration);
+                Vector2 rnd = Random.insideUnitCircle * shakeMagnitude * damper;
+                lastShakeOffset = new Vector3(rnd.x, rnd.y, 0f);
+                transform.position += lastShakeOffset;
+            }
         }
     }
 }

@@ -26,6 +26,7 @@ namespace Ginei
 
         private FleetStrength strength;
         private FleetWeapon weapon;
+        private TextMesh moraleLabel;
 
         private void Awake()
         {
@@ -36,19 +37,78 @@ namespace Ginei
         private void Start()
         {
             InitializeMorale();
+            CreateMoraleLabel();
         }
 
         private void Update()
         {
             UpdateMorale();
+            UpdateMoraleLabel();
+        }
+
+        private void CreateMoraleLabel()
+        {
+            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
+            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+#if UNITY_EDITOR
+            Font customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
+            if (customFont != null) jaFont = customFont;
+#endif
+            // プレハブに焼き込まれた既存 "MoraleLabel" があれば再利用（二重生成を防ぐ）
+            Transform existingLabel = transform.Find("MoraleLabel");
+            GameObject go;
+            if (existingLabel != null)
+            {
+                go = existingLabel.gameObject;
+            }
+            else
+            {
+                go = new GameObject("MoraleLabel");
+                go.transform.SetParent(transform);
+                go.transform.localPosition = new Vector3(-0.6f, 0.6f, 0f);
+                go.transform.localScale = Vector3.one * 0.15f;
+            }
+
+            moraleLabel = go.GetComponent<TextMesh>();
+            if (moraleLabel == null) moraleLabel = go.AddComponent<TextMesh>();
+            moraleLabel.font = jaFont;
+            moraleLabel.anchor = TextAnchor.LowerCenter;
+            moraleLabel.alignment = TextAlignment.Center;
+            moraleLabel.fontSize = 60;
+            moraleLabel.characterSize = 0.4f;
+
+            var mr = go.GetComponent<MeshRenderer>();
+            if (jaFont != null) mr.sharedMaterial = jaFont.material;
+
+            moraleLabel.text = "";
+        }
+
+        private void UpdateMoraleLabel()
+        {
+            if (moraleLabel == null) return;
+
+            if (IsRouted)
+            {
+                moraleLabel.text = "敗走";
+                moraleLabel.color = new Color(1f, 0.2f, 0.2f);
+            }
+            else if (GetMoraleFactor() < 1f)
+            {
+                moraleLabel.text = "士気低下";
+                moraleLabel.color = new Color(1f, 0.85f, 0.1f);
+            }
+            else
+            {
+                moraleLabel.text = "";
+            }
         }
 
         private void InitializeMorale()
         {
             if (strength != null && strength.admiralData != null)
             {
-                // 最大士気は提督の統率力に依存 (例: 統率と同じ値)
-                maxMorale = strength.admiralData.leadership;
+                // 最大士気は提督の統率力に依存 (例: 統率と同じ値)。0以下にはしない（ゼロ除算防止）
+                maxMorale = Mathf.Max(1f, strength.admiralData.leadership);
                 morale = maxMorale;
             }
         }
@@ -91,6 +151,9 @@ namespace Ginei
         /// <returns>1.0 (正常) 〜 0.5 (低士気) 等</returns>
         public float GetMoraleFactor()
         {
+            // 最大士気が未設定(0以下)なら補正なし（ゼロ除算によるNaN防止）
+            if (maxMorale <= 0) return 1.0f;
+
             // 士気が低いほど(閾値以下で)ペナルティが発生する簡易モデル
             // 例: 士気が最大値の30%以下から低下し始め、0で0.5倍になる
             float ratio = morale / maxMorale;

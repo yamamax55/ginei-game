@@ -19,6 +19,8 @@ namespace Ginei
         public TextMeshProUGUI admiralText;
         public TextMeshProUGUI factionText;
         public TextMeshProUGUI formationText;
+        [Tooltip("旗艦艦艇数と配下艦残存数を表示（任意。未割当なら非表示）")]
+        public TextMeshProUGUI shipCountText;
         public UnityEngine.UI.Slider strengthBar;
         public UnityEngine.UI.Image strengthBarFill;
         public UnityEngine.UI.Slider moraleBar;
@@ -82,6 +84,19 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
                 if (strengthBarFill != null)
                 {
                     strengthBarFill.color = (strength.faction == Faction.帝国) ? empireColor : allianceColor;
+                }
+
+                // 旗艦艦艇数＋配下艦の残存数を表示
+                if (shipCountText != null)
+                {
+                    string flagshipState = strength.IsRetreating
+                        ? "退却"
+                        : Mathf.Max(0, strength.strength).ToString();
+
+                    int aliveEscorts = 0, totalEscort = 0;
+                    if (squadron != null) squadron.GetEscortStatus(out aliveEscorts, out totalEscort);
+
+                    shipCountText.text = $"旗艦艦艇数: {flagshipState}\n配下艦: {aliveEscorts}隻 (計{totalEscort})";
                 }
             }
 

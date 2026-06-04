@@ -18,6 +18,7 @@ namespace Ginei
         public Color gizmoColor = Color.red;
 
         private LineRenderer runtimeArc;
+        private Material arcMaterial; // 実行時生成。OnDestroyで破棄
 
         private void Start()
         {
@@ -39,17 +40,27 @@ namespace Ginei
 
         private void SetupRuntimeArc()
         {
-            runtimeArc = gameObject.AddComponent<LineRenderer>();
+            // 射界線は専用の子オブジェクトに置く（FleetWeapon のビーム用 LineRenderer と衝突しないように）
+            GameObject arcObj = new GameObject("WeaponArcLine");
+            arcObj.transform.SetParent(transform, false);
+            runtimeArc = arcObj.AddComponent<LineRenderer>();
             runtimeArc.startWidth = 0.05f;
             runtimeArc.endWidth = 0.05f;
             runtimeArc.useWorldSpace = true;
             runtimeArc.loop = true;
-            runtimeArc.material = new Material(Shader.Find("Sprites/Default"));
+            arcMaterial = new Material(Shader.Find("Sprites/Default"));
+            runtimeArc.material = arcMaterial;
             runtimeArc.startColor = gizmoColor;
             runtimeArc.endColor = gizmoColor;
             runtimeArc.enabled = false;
             // Sorting order
             runtimeArc.sortingOrder = 10;
+        }
+
+        private void OnDestroy()
+        {
+            // 実行時生成したマテリアルを破棄（リーク防止）
+            if (arcMaterial != null) Destroy(arcMaterial);
         }
 
         private void UpdateRuntimeArc()

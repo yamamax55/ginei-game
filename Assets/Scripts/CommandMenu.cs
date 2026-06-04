@@ -21,13 +21,60 @@ namespace Ginei
         [Header("サブメニュー（陣形用）")]
         public GameObject formationSubMenu;
 
+        /// <summary>メニューが開いているか（Escの優先処理判定用）。</summary>
+        public bool IsOpen => menuRoot != null && menuRoot.activeSelf;
+
         private Vector2 lastClickWorldPos;
         private Selectable lastClickedFleet;
 
         private void Start()
         {
             if (commander == null) commander = Object.FindAnyObjectByType<FleetCommander>();
+            BuildFormationButtons();
             CloseMenu();
+        }
+
+        /// <summary>
+        /// 陣形サブメニューのボタンを Formation enum から動的生成する。
+        /// enum の変更（種類・順序）に自動追従し、シーン側の手配線に依存しない。
+        /// </summary>
+        private void BuildFormationButtons()
+        {
+            if (formationSubMenu == null || buttonPrefab == null) return;
+
+            // 既存の子（手配線のボタン等）を除去（buttonPrefab 自体は除く）
+            List<GameObject> toDestroy = new List<GameObject>();
+            foreach (Transform child in formationSubMenu.transform)
+            {
+                if (child.gameObject != buttonPrefab) toDestroy.Add(child.gameObject);
+            }
+            foreach (var obj in toDestroy)
+            {
+#if UNITY_EDITOR
+                if (!Application.isPlaying) DestroyImmediate(obj);
+                else Destroy(obj);
+#else
+                Destroy(obj);
+#endif
+            }
+
+            string[] names = System.Enum.GetNames(typeof(Formation));
+            for (int i = 0; i < names.Length; i++)
+            {
+                int idx = i; // クロージャ用にキャプチャ
+                GameObject btnObj = Instantiate(buttonPrefab, formationSubMenu.transform);
+                btnObj.SetActive(true);
+
+                TextMeshProUGUI textComp = btnObj.GetComponentInChildren<TextMeshProUGUI>();
+                if (textComp != null)
+                {
+                    textComp.text = names[idx];
+                    if (textComp.font == null) textComp.font = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
+                }
+
+                Button btnComp = btnObj.GetComponent<Button>();
+                if (btnComp != null) btnComp.onClick.AddListener(() => ChangeFormation(idx));
+            }
         }
 
         private void Update()

@@ -35,7 +35,6 @@ namespace Ginei
 
         private float nextSearchTime;
         private FleetStrength targetEnemy;
-        private int initialStrength;
         private FleetMorale moraleComponent;
 
         private void Awake()
@@ -45,8 +44,6 @@ namespace Ginei
             strength = GetComponent<FleetStrength>();
             weaponArc = GetComponent<WeaponArc>();
             moraleComponent = GetComponent<FleetMorale>();
-            
-            initialStrength = strength.strength;
         }
 
         private void Update()
@@ -57,7 +54,7 @@ namespace Ginei
                 currentState = AIState.撤退;
             }
             // 兵力チェックによる撤退判断
-            else if (currentState != AIState.撤退 && (float)strength.strength / initialStrength < retreatRatio)
+            else if (currentState != AIState.撤退 && (float)strength.strength / strength.maxStrength < retreatRatio)
             {
                 currentState = AIState.撤退;
             }
@@ -78,20 +75,21 @@ if (Time.time >= nextSearchTime)
         /// </summary>
         private void SearchNearestEnemy()
         {
-            FleetStrength[] allFleets = Object.FindObjectsByType<FleetStrength>(FindObjectsSortMode.None);
+            // 敵旗艦のみをレジストリから取得（接近・交戦の目標は旗艦単位）
+            IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(strength.faction);
             float minDistance = float.MaxValue;
             targetEnemy = null;
 
-            foreach (var fleet in allFleets)
+            for (int i = 0; i < enemies.Count; i++)
             {
-                if (fleet.faction != strength.faction)
+                FleetStrength fleet = enemies[i];
+                if (fleet == null || !fleet.IsAlive) continue;
+
+                float dist = Vector2.Distance(transform.position, fleet.transform.position);
+                if (dist < minDistance)
                 {
-                    float dist = Vector2.Distance(transform.position, fleet.transform.position);
-                    if (dist < minDistance)
-                    {
-                        minDistance = dist;
-                        targetEnemy = fleet;
-                    }
+                    minDistance = dist;
+                    targetEnemy = fleet;
                 }
             }
         }
@@ -130,9 +128,9 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
-                        // 射程内なら停止して射撃（FleetWeaponが自動で撃つ）
-                        // 停止するために現在の位置を目標に設定
-                        movement.SetDestination(transform.position);
+                        // 射程内ならその場で停止し、敵の方向を向いて射界を維持
+                        // （FleetWeaponが自動で撃つ。前進はしない）
+                        movement.FaceTarget(targetEnemy.transform.position);
                     }
                     break;
 

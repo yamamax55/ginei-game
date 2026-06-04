@@ -1,12 +1,15 @@
 using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace Ginei
 {
     /// <summary>
-    /// 艦隊の兵力（耐久力）を管理するクラス。
+    /// 艦隊の兵力（旗艦部隊の艦艇数）を管理するクラス。
     /// 0以下になると艦隊が消滅します。
+    /// 攻撃対象としては IShipTarget を実装し、個艦（旗艦）として被弾します。
     /// </summary>
-    public class FleetStrength : MonoBehaviour
+    public class FleetStrength : MonoBehaviour, IShipTarget
     {
         [Header("兵力設定")]
         [Tooltip("提督データ (割り当てると各能力値が反映されます)")]
@@ -24,29 +27,68 @@ namespace Ginei
         [Header("陣営設定")]
         public Faction faction;
 
+        [Header("演出設定")]
+        [Tooltip("被弾フラッシュの時間 (秒)")]
+        public float flashDuration = 0.1f;
+
+        [Header("退却設定")]
+        [Tooltip("旗艦喪失（艦艇数0）時に離脱する距離")]
+        public float retreatDistance = 50f;
+
         private TextMesh strengthDisplay;
         private FleetMorale moraleComponent;
+        private FleetMovement movement;
+
+        /// <summary>旗艦を失い退却中か（true なら戦闘・カウントから除外）。</summary>
+        public bool IsRetreating { get; private set; }
+
+        // 被弾フラッシュ用
+        private SpriteRenderer[] bodyRenderers;
+        private Color[] originalColors;
+        private bool isFlashing = false;
+        private Coroutine flashRoutine;
+
+        // 爆発パーティクルの共有マテリアル（アプリ寿命で1個だけ生成、艦ごとに使い回す）
+        private static Material explosionMaterial;
+
+        // IShipTarget 実装（旗艦＝個艦としての攻撃対象）。退却したら標的・カウント対象から外れる。
+        public Transform Transform => transform;
+        public Faction Faction => faction;
+        public bool IsAlive => !IsRetreating;
 
         private void Awake()
         {
             moraleComponent = GetComponent<FleetMorale>();
+            movement = GetComponent<FleetMovement>();
         }
 
         private void Start()
         {
             ApplyAdmiralData();
             
-            // 艦隊の右下に情報を表示するためのテキストを作成
-GameObject textObj = new GameObject("StrengthDisplay");
-            textObj.transform.SetParent(transform);
-            // 位置を右下付近に変更し、より近くに配置
-            textObj.transform.localPosition = new Vector3(0.6f, -0.6f, 0); 
-            textObj.transform.localScale = Vector3.one * 0.2f; // サイズ調整
+            // 艦隊の右下に情報表示テキストを用意
+            // プレハブに焼き込まれた既存 "StrengthDisplay" があれば再利用（二重表示を防ぐ）
+            Transform existingDisp = transform.Find("StrengthDisplay");
+            GameObject textObj;
+            if (existingDisp != null)
+            {
+                textObj = existingDisp.gameObject;
+            }
+            else
+            {
+                textObj = new GameObject("StrengthDisplay");
+                textObj.transform.SetParent(transform);
+                // 位置を右下付近に配置
+                textObj.transform.localPosition = new Vector3(0.6f, -0.6f, 0);
+                textObj.transform.localScale = Vector3.one * 0.2f; // サイズ調整
+            }
 
-            strengthDisplay = textObj.AddComponent<TextMesh>();
+            strengthDisplay = textObj.GetComponent<TextMesh>();
+            if (strengthDisplay == null) strengthDisplay = textObj.AddComponent<TextMesh>();
             
             // 日本語フォントの読み込み (文字化け対策)
-            Font jaFont = Resources.GetBuiltinResource<Font>("Arial.ttf"); // Fallback
+            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
+            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); // Fallback
 #if UNITY_EDITOR
             // エディタ上では作成したフォントを優先
             Font customJaFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
@@ -66,6 +108,15 @@ GameObject textObj = new GameObject("StrengthDisplay");
             // 色の設定は FactionColor コンポーネントに一任するため削除
 
             UpdateDisplay();
+
+            // 索敵レジストリに登録（faction はここまでに確定済み）
+            FleetRegistry.Register(this);
+        }
+
+        private void OnDestroy()
+        {
+            // レジストリ取りこぼし防止（シーン破棄・手置き艦の除去など）
+            FleetRegistry.Unregister(this);
         }
 
 
@@ -100,6 +151,8 @@ GameObject textObj = new GameObject("StrengthDisplay");
         /// <param name="rawDamage">元のダメージ量</param>
         public void TakeDamage(int rawDamage)
         {
+            if (IsRetreating) return;
+
             // 防御力によるダメージ軽減
             float defenseValue = admiralData != null ? admiralData.defense : 0f;
             // 防御100でダメージ50%カット
@@ -115,24 +168,184 @@ GameObject textObj = new GameObject("StrengthDisplay");
 
             UpdateDisplay();
 
+            // 被弾フラッシュ（陣営色は終了時に復元）
+            Flash();
+
+            AudioManager.Instance.PlayHit();
             if (strength <= 0)
             {
-                Die();
+                BeginRetreat();
             }
+        }
+
+        /// <summary>
+        /// 被弾時に艦体スプライトを一瞬白くフラッシュさせます。
+        /// 開始時に現在の色（陣営色）をキャッシュし、終了時にその色へ戻します。
+        /// </summary>
+        private void Flash()
+        {
+            if (bodyRenderers == null) CacheBodyRenderers();
+            if (bodyRenderers.Length == 0) return;
+
+            // フラッシュ中でなければ現在の色（FactionColor が設定した陣営色）をキャッシュ
+            if (!isFlashing)
+            {
+                originalColors = new Color[bodyRenderers.Length];
+                for (int i = 0; i < bodyRenderers.Length; i++)
+                {
+                    originalColors[i] = bodyRenderers[i] != null ? bodyRenderers[i].color : Color.white;
+                }
+            }
+
+            if (flashRoutine != null) StopCoroutine(flashRoutine);
+            flashRoutine = StartCoroutine(FlashRoutine());
+        }
+
+        private IEnumerator FlashRoutine()
+        {
+            isFlashing = true;
+            for (int i = 0; i < bodyRenderers.Length; i++)
+            {
+                if (bodyRenderers[i] != null) bodyRenderers[i].color = Color.white;
+            }
+
+            yield return new WaitForSeconds(flashDuration);
+
+            // キャッシュした陣営色へ復元（固定デフォルト色には戻さない）
+            for (int i = 0; i < bodyRenderers.Length; i++)
+            {
+                if (bodyRenderers[i] != null) bodyRenderers[i].color = originalColors[i];
+            }
+            isFlashing = false;
+            flashRoutine = null;
+        }
+
+        /// <summary>
+        /// 艦体スプライト（"SelectionRing" を除く子の SpriteRenderer 全部）を収集します。
+        /// </summary>
+        private void CacheBodyRenderers()
+        {
+            SpriteRenderer[] all = GetComponentsInChildren<SpriteRenderer>(true);
+            List<SpriteRenderer> list = new List<SpriteRenderer>();
+            foreach (var sr in all)
+            {
+                if (sr.gameObject.name == "SelectionRing") continue;
+                if (sr.gameObject.name == "FlagshipMarker") continue; // 旗艦マーカーは艦体ではないのでフラッシュ対象外
+                if (sr.GetComponent<EscortShip>() != null) continue;   // 配下艦は別個艦なので旗艦被弾フラッシュの対象外
+                list.Add(sr);
+            }
+            bodyRenderers = list.ToArray();
         }
 
         private void UpdateDisplay()
         {
             if (strengthDisplay != null)
             {
-                strengthDisplay.text = $"{admiralName}\n兵力: {Mathf.Max(0, strength)}";
+                strengthDisplay.text = IsRetreating
+                    ? $"{admiralName}\n退却"
+                    : $"{admiralName}\n兵力: {Mathf.Max(0, strength)}";
             }
         }
 
-        private void Die()
+        /// <summary>
+        /// 旗艦喪失（艦艇数0）時の処理。破棄せず「部隊退却」へ移行する。
+        /// 以降は IsAlive=false となり、攻撃・被弾・勝敗カウントから除外される。
+        /// </summary>
+        private void BeginRetreat()
         {
-            Debug.Log($"{admiralName} 提督の艦隊 ({faction}) は壊滅した。");
-            Destroy(gameObject);
+            if (IsRetreating) return;
+            IsRetreating = true;
+            strength = 0;
+            UpdateDisplay();
+
+            // 退却＝戦闘除外。レジストリから外す（配下艦は各自の Update で外れる）
+            FleetRegistry.Unregister(this);
+
+            // 旗艦喪失の演出（爆発＋カメラシェイク）
+            AudioManager.Instance.PlayExplosion();
+            SpawnExplosion(transform.position);
+            CameraController cam = Object.FindAnyObjectByType<CameraController>();
+            if (cam != null) cam.Shake();
+
+            // AI を停止（退却移動を毎フレーム上書きしないように）。
+            // 旗艦の FleetWeapon と配下艦 EscortShip は各 Update で IsRetreating を見て発砲を止める。
+            FleetAI ai = GetComponent<FleetAI>();
+            if (ai != null) ai.enabled = false;
+
+            // 敵と反対方向の遠方へ離脱移動
+            if (movement != null)
+            {
+                Vector2 dir = ComputeRetreatDirection();
+                movement.SetDestination((Vector2)transform.position + dir * retreatDistance);
+            }
+
+            Debug.Log($"{admiralName} 提督の艦隊 ({faction}) は旗艦を失い退却した。");
+        }
+
+        /// <summary>
+        /// 退却方向（最寄りの生存敵旗艦と反対方向）を求める。敵がいなければ陣営ごとの自陣側へ。
+        /// </summary>
+        private Vector2 ComputeRetreatDirection()
+        {
+            FleetStrength nearest = null;
+            float minDist = float.MaxValue;
+            IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(faction);
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                FleetStrength fs = enemies[i];
+                if (fs == null || !fs.IsAlive) continue;
+                float d = Vector2.Distance(transform.position, fs.transform.position);
+                if (d < minDist) { minDist = d; nearest = fs; }
+            }
+
+            if (nearest != null)
+            {
+                Vector2 dir = (Vector2)(transform.position - nearest.transform.position);
+                if (dir.sqrMagnitude > 0.0001f) return dir.normalized;
+            }
+
+            // 敵不在時のフォールバック（自陣側）。帝国は左、同盟は右へ離脱。
+            return faction == Faction.帝国 ? Vector2.left : Vector2.right;
+        }
+
+        /// <summary>
+        /// 指定位置に一発限りの爆発パーティクルを生成します。再生後に自動破棄されます。
+        /// </summary>
+        private void SpawnExplosion(Vector3 pos)
+        {
+            GameObject go = new GameObject("Explosion");
+            go.transform.position = pos;
+
+            ParticleSystem ps = go.AddComponent<ParticleSystem>();
+            ps.Stop();
+
+            var main = ps.main;
+            main.duration = 0.5f;
+            main.loop = false;
+            main.startLifetime = 0.5f;
+            main.startSpeed = 5f;
+            main.startSize = 0.3f;
+            main.startColor = new Color(1f, 0.6f, 0.1f); // 橙
+            main.stopAction = ParticleSystemStopAction.Destroy; // 終了時に自動破棄
+
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 30) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius = 0.1f;
+
+            // 共有マテリアル（毎回生成せずアプリ寿命で1個を使い回し、リークを防ぐ）
+            if (explosionMaterial == null)
+            {
+                explosionMaterial = new Material(Shader.Find("Sprites/Default"));
+            }
+            ParticleSystemRenderer psr = go.GetComponent<ParticleSystemRenderer>();
+            psr.material = explosionMaterial;
+            psr.sortingOrder = 50;
+
+            ps.Play();
         }
     }
 }

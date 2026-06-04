@@ -21,6 +21,8 @@ namespace Ginei
             }
 
             if (settingsPanel != null) settingsPanel.SetActive(false);
+
+            AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmTitle);
         }
 
         /// <summary>

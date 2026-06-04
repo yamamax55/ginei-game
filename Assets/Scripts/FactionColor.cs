@@ -9,10 +9,21 @@ namespace Ginei
     public class FactionColor : MonoBehaviour
     {
         [Header("配色設定")]
+        [Tooltip("FactionData 未割当時のフォールバック色（帝国）")]
         public Color imperialColor = new Color(0.9f, 0.2f, 0.2f); // 帝国: 赤系
+        [Tooltip("FactionData 未割当時のフォールバック色（同盟）")]
         public Color allianceColor = new Color(0.2f, 0.5f, 0.9f); // 同盟: 青系
 
         private FleetStrength fleetStrength;
+
+        /// <summary>陣営色を決定する。FactionData があればその color、無ければ enum の既定色（後方互換）。</summary>
+        private Color ResolveFactionColor()
+        {
+            if (fleetStrength != null && fleetStrength.factionData != null)
+                return fleetStrength.factionData.color;
+            Faction f = (fleetStrength != null) ? fleetStrength.faction : Faction.帝国;
+            return (f == Faction.帝国) ? imperialColor : allianceColor;
+        }
 
         private void Awake()
         {
@@ -31,8 +42,8 @@ namespace Ginei
         public void ApplyColors()
         {
             if (fleetStrength == null) fleetStrength = GetComponent<FleetStrength>();
-            
-            Color targetColor = (fleetStrength.faction == Faction.帝国) ? imperialColor : allianceColor;
+
+            Color targetColor = ResolveFactionColor();
 
             // 1. スプライトの色分け (旗艦およびSquadron配下の全艦)
             SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);

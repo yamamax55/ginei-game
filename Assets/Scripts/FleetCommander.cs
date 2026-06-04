@@ -21,7 +21,33 @@ namespace Ginei
         [Tooltip("向き指定（エイム）と判定する最小ドラッグ距離（ワールド単位）")]
         public float aimDragThreshold = 0.5f;
 
+        [Header("艦隊円表示")]
+        [Tooltip("艦隊を囲う円の線幅")]
+        public float circleWidth = 0.15f;
+
+        [Tooltip("選択中の艦隊を囲う円の色")]
+        public Color selectionCircleColor = new Color(0.3f, 1f, 0.5f, 0.9f);   // 緑
+
+        [Tooltip("攻撃目標候補（敵艦隊）を囲う円の色")]
+        public Color targetCircleColor = new Color(1f, 0.9f, 0.2f, 0.9f);      // 黄
+
+        [Tooltip("攻撃目標選択時、カーソルを合わせた敵艦隊を囲う円の色")]
+        public Color targetHoverColor = new Color(1f, 0.45f, 0.1f, 1f);        // 橙
+
         private bool isWaitingForMoveTarget = false;
+        private bool isWaitingForAttackTarget = false;
+
+        // 艦隊円（実行時生成・複数同時表示できるプール）
+        private readonly List<LineRenderer> circlePool = new List<LineRenderer>();
+        private Material circleMaterial;
+        private const int CircleSegments = 48;
+
+        // 攻撃目標指定中にカーソルを合わせている敵艦隊（ハイライト用）
+        private Squadron hoveredAttackFleet;
+
+        // 攻撃種別メニュー用の保留対象（右クリックで対象決定→メニューで通常/ミサイルを選ぶ）
+        private Squadron pendingAttackFleet;
+        private string pendingAttackName;
 
         // 移動先決定の状態
         private FormationPreview preview;
@@ -31,6 +57,9 @@ namespace Ginei
 
         /// <summary>移動先指定待ちか（Escの優先処理判定用）。</summary>
         public bool IsWaitingForMoveTarget => isWaitingForMoveTarget;
+
+        /// <summary>攻撃目標（敵旗艦）指定待ちか（Escの優先処理判定用）。</summary>
+        public bool IsWaitingForAttackTarget => isWaitingForAttackTarget;
 
         private void Awake()
         {
@@ -50,6 +79,13 @@ namespace Ginei
             {
                 HandleMoveTargeting();
                 return; // 選択モードの時は通常の選択処理は行わない
+            }
+
+            // 攻撃目標（敵旗艦）指定待ちの状態
+            if (isWaitingForAttackTarget)
+            {
+                HandleAttackTargeting();
+                return;
             }
 
             if (Mouse.current == null) return;
@@ -72,6 +108,12 @@ namespace Ginei
             }
 }
 
+        private void LateUpdate()
+        {
+            // 移動・追従後の最新位置で艦隊円を描画（選択艦隊＋攻撃目標候補）
+            UpdateFleetCircles();
+        }
+
         /// <summary>
         /// 移動コマンドの目的地指定モードを開始します。
         /// </summary>
@@ -82,6 +124,246 @@ namespace Ginei
             aimAngle = null;
             ShowPreview();
             Debug.Log("カーソルで位置→右クリック押下→押したままドラッグで向き→離して確定。Escでキャンセル。");
+        }
+
+        /// <summary>
+        /// 攻撃目標（敵旗艦）の指定モードを開始します。
+        /// この後の左クリックで敵旗艦を指定すると、選択中の全部隊がその旗艦を狙います。
+        /// </summary>
+        public void StartWaitingForAttackTarget()
+        {
+            if (selectedFleets.Count == 0) return;
+            isWaitingForAttackTarget = true;
+            Debug.Log("攻撃目標の敵艦隊を選択（カーソルで円が強調）。左クリック=通常攻撃／右クリック=攻撃種別メニュー。Escでキャンセル。");
+        }
+
+        /// <summary>
+        /// 攻撃目標指定モードの入力処理。カーソル下の敵艦隊を円で強調し、
+        /// 左クリックで通常攻撃を即時発令、右クリックで攻撃種別メニュー（通常/ミサイル）を開く。
+        /// </summary>
+        private void HandleAttackTargeting()
+        {
+            // Escでキャンセル
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                EndAttackTargeting();
+                Debug.Log("攻撃命令をキャンセルしました。");
+                return;
+            }
+
+            if (Mouse.current == null) return;
+
+            // カーソル下の敵艦隊を判定（旗艦・配下艦どちらでも親の艦隊に解決）
+            Squadron hoverFleet = null;
+            FleetStrength hoverFlag = null;
+            bool overUI = UnityEngine.EventSystems.EventSystem.current != null &&
+                          UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+            if (!overUI)
+            {
+                Collider2D collider = Physics2D.OverlapPoint(GetMouseWorldPosition());
+                if (collider != null)
+                {
+                    hoverFleet = collider.GetComponentInParent<Squadron>();
+                    hoverFlag = collider.GetComponentInParent<FleetStrength>();
+                }
+            }
+
+            bool validEnemy = IsValidEnemyTarget(hoverFlag) && hoverFleet != null;
+
+            // カーソル下の敵艦隊を記録（円のハイライトは LateUpdate の UpdateFleetCircles が描画）
+            hoveredAttackFleet = validEnemy ? hoverFleet : null;
+
+            // 左クリック：通常攻撃を即時発令
+            if (Mouse.current.leftButton.wasPressedThisFrame && !overUI)
+            {
+                if (validEnemy)
+                {
+                    ConfirmAttack(hoverFleet, hoverFlag.admiralName, false);
+                    EndAttackTargeting();
+                }
+                else
+                {
+                    Debug.Log("攻撃目標は敵艦隊を指定してください（Escでキャンセル）。");
+                }
+            }
+            // 右クリック：攻撃種別メニュー（通常/ミサイル）を開く
+            else if (Mouse.current.rightButton.wasPressedThisFrame && !overUI)
+            {
+                if (validEnemy)
+                {
+                    pendingAttackFleet = hoverFleet;
+                    pendingAttackName = hoverFlag.admiralName;
+                    EndAttackTargeting();
+
+                    CommandMenu menu = Object.FindAnyObjectByType<CommandMenu>();
+                    if (menu != null) menu.OpenAttackTypeMenu(Mouse.current.position.ReadValue());
+                    else ConfirmPendingAttack(false); // メニューが無ければ通常攻撃にフォールバック
+                }
+                else
+                {
+                    Debug.Log("攻撃目標は敵艦隊を指定してください（Escでキャンセル）。");
+                }
+            }
+        }
+
+        /// <summary>選択中部隊の敵で、生存している攻撃可能な旗艦か。</summary>
+        private bool IsValidEnemyTarget(FleetStrength targetFlag)
+        {
+            if (targetFlag == null || !targetFlag.IsAlive) return false;
+            if (selectedFleets.Count == 0 || selectedFleets[0] == null) return false;
+            FleetStrength myStr = selectedFleets[0].GetComponent<FleetStrength>();
+            return myStr != null && myStr.faction != targetFlag.faction;
+        }
+
+        /// <summary>攻撃目標指定モードを終了する（円の表示は LateUpdate が更新）。</summary>
+        private void EndAttackTargeting()
+        {
+            isWaitingForAttackTarget = false;
+            hoveredAttackFleet = null;
+        }
+
+        // ----- 艦隊円（選択艦隊＋攻撃目標候補を丸で囲う。実行時生成の LineRenderer プール）-----
+
+        /// <summary>
+        /// 選択中の艦隊（常時）と、攻撃目標指定中の敵艦隊（マウスオーバー有無に関わらず全て）を円で囲う。
+        /// </summary>
+        private void UpdateFleetCircles()
+        {
+            int used = 0;
+
+            // 選択中の艦隊：緑の円
+            foreach (var sel in selectedFleets)
+            {
+                if (sel == null) continue;
+                Squadron sq = sel.GetComponent<Squadron>();
+                if (sq == null) continue;
+                DrawCircleForFleet(used++, sq, selectionCircleColor);
+            }
+
+            // 攻撃目標指定中：全ての敵艦隊を円で表示（カーソル下は橙、他は黄）
+            if (isWaitingForAttackTarget && selectedFleets.Count > 0 && selectedFleets[0] != null)
+            {
+                FleetStrength myStr = selectedFleets[0].GetComponent<FleetStrength>();
+                if (myStr != null)
+                {
+                    IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(myStr.faction);
+                    for (int i = 0; i < enemies.Count; i++)
+                    {
+                        FleetStrength ef = enemies[i];
+                        if (ef == null || !ef.IsAlive) continue;
+                        Squadron sq = ef.GetComponent<Squadron>();
+                        if (sq == null) continue;
+                        Color c = (sq == hoveredAttackFleet) ? targetHoverColor : targetCircleColor;
+                        DrawCircleForFleet(used++, sq, c);
+                    }
+                }
+            }
+
+            // 使わなかったプールは消す
+            for (int i = used; i < circlePool.Count; i++)
+            {
+                if (circlePool[i] != null) circlePool[i].enabled = false;
+            }
+        }
+
+        private void DrawCircleForFleet(int index, Squadron sq, Color color)
+        {
+            LineRenderer lr = GetCircle(index);
+            sq.GetBoundingCircle(out Vector3 center, out float radius);
+
+            lr.startColor = color;
+            lr.endColor = color;
+            for (int i = 0; i < CircleSegments; i++)
+            {
+                float a = (2f * Mathf.PI * i) / CircleSegments;
+                lr.SetPosition(i, new Vector3(
+                    center.x + Mathf.Cos(a) * radius,
+                    center.y + Mathf.Sin(a) * radius,
+                    center.z));
+            }
+            lr.enabled = true;
+        }
+
+        /// <summary>プールから index 番目の円 LineRenderer を取得（足りなければ生成）。</summary>
+        private LineRenderer GetCircle(int index)
+        {
+            while (circlePool.Count <= index)
+            {
+                circlePool.Add(CreateCircleRenderer());
+            }
+            return circlePool[index];
+        }
+
+        private LineRenderer CreateCircleRenderer()
+        {
+            if (circleMaterial == null)
+            {
+                // 白マテリアル＋頂点色で各円の色を出し分ける（マテリアルは共有）
+                circleMaterial = new Material(Shader.Find("Sprites/Default"));
+                circleMaterial.color = Color.white;
+            }
+
+            GameObject go = new GameObject("FleetCircle");
+            LineRenderer lr = go.AddComponent<LineRenderer>();
+            lr.useWorldSpace = true;
+            lr.loop = true;
+            lr.positionCount = CircleSegments;
+            lr.startWidth = circleWidth;
+            lr.endWidth = circleWidth;
+            lr.numCapVertices = 2;
+            lr.alignment = LineAlignment.View;
+            lr.sortingOrder = 30;
+            lr.material = circleMaterial;
+            lr.enabled = false;
+            return lr;
+        }
+
+        private void OnDestroy()
+        {
+            // 実行時生成したマテリアルを破棄（リーク防止）
+            if (circleMaterial != null) Destroy(circleMaterial);
+        }
+
+        /// <summary>
+        /// 選択中の全部隊に対し、指定した敵「艦隊全体」を攻撃目標に設定し、追尾・交戦させます。
+        /// useMissile=true でミサイル攻撃（残弾がある間のみ。切れたら通常攻撃に移行）。
+        /// </summary>
+        private void ConfirmAttack(Squadron targetFleet, string targetName, bool useMissile)
+        {
+            foreach (var selectable in selectedFleets)
+            {
+                if (selectable == null) continue;
+
+                // 旗艦ではなく艦隊全体を標的に。接近は FleetWeapon の追尾が行う。
+                FleetWeapon weapon = selectable.GetComponent<FleetWeapon>();
+                if (weapon != null)
+                {
+                    weapon.SetManualTargetFleet(targetFleet);
+                    weapon.SetMissileMode(useMissile);
+                }
+            }
+
+            // 攻撃対象を画面に一定時間表示
+            string kind = useMissile ? "ミサイル攻撃" : "通常攻撃";
+            FleetHUDManager hud = Object.FindAnyObjectByType<FleetHUDManager>();
+            if (hud != null) hud.ShowMessage($"攻撃対象：{targetName}艦隊（{kind}）", 2.5f);
+
+            Debug.Log($"攻撃命令を発令しました（目標艦隊: {targetName} / {kind}）。");
+
+            DeselectAll();
+        }
+
+        /// <summary>
+        /// 攻撃種別メニューから呼ばれ、保留中の対象艦隊へ通常/ミサイル攻撃を発令する。
+        /// </summary>
+        public void ConfirmPendingAttack(bool useMissile)
+        {
+            if (pendingAttackFleet != null)
+            {
+                ConfirmAttack(pendingAttackFleet, pendingAttackName, useMissile);
+            }
+            pendingAttackFleet = null;
+            pendingAttackName = null;
         }
 
         /// <summary>
@@ -148,6 +430,11 @@ namespace Ginei
             foreach (var selectable in selectedFleets)
             {
                 if (selectable == null) continue;
+
+                // 移動命令により攻撃目標を解除（追尾を止めて指定地点へ向かう）
+                FleetWeapon weapon = selectable.GetComponent<FleetWeapon>();
+                if (weapon != null) weapon.ClearManualTarget();
+
                 FleetMovement movement = selectable.GetComponent<FleetMovement>();
                 if (movement != null) movement.SetDestination(pos, facingAngleZ);
             }

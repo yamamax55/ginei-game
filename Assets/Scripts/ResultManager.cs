@@ -25,7 +25,7 @@ namespace Ginei
         private void DisplayResults()
         {
             GameSettings settings = GameSettings.Instance;
-            
+
             if (winnerText != null)
             {
                 winnerText.text = $"{settings.winner}軍の勝利";
@@ -34,10 +34,14 @@ namespace Ginei
 
             if (statsText != null)
             {
-                statsText.text = $"【戦績】\n" +
-                                 $"帝国軍喪失数: {settings.imperialSunkCount}\n" +
-                                 $"同盟軍喪失数: {settings.allianceSunkCount}\n" +
-                                 $"残存兵力: {settings.remainingStrength}";
+                string mvp = string.IsNullOrEmpty(settings.mvpAdmiral) ? "—" : settings.mvpAdmiral;
+                string reason = string.IsNullOrEmpty(settings.victoryReason) ? "—" : settings.victoryReason;
+                statsText.text = $"【戦果】\n" +
+                                 $"帝国軍  喪失: {settings.imperialSunkCount}　残存兵力: {settings.imperialRemainingStrength}\n" +
+                                 $"同盟軍  喪失: {settings.allianceSunkCount}　残存兵力: {settings.allianceRemainingStrength}\n" +
+                                 $"\n" +
+                                 $"勝因: {reason}\n" +
+                                 $"殊勲提督(MVP): {mvp}";
             }
         }
 

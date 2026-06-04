@@ -35,8 +35,8 @@
 ## シーン構成とゲームフロー
 - シーンは3つ：**Title** → **Battle** → **Result**（シーン名はこの文字列。`SceneLoader.LoadScene(name)` で遷移）。
 - 起動〜会戦の流れ：
-  1. `TitleManager.StartBattle()` が現在の設定を `SaveManager.Save()` し、`GameSettings.ResetStats()` 後に `SceneLoader.LoadScene("Battle")`。
-  2. Battle シーンで `BattleSetup`（`[DefaultExecutionOrder(-100)]`、Awake）が `ScenarioData` を解決し、手置き艦隊をクリアしてから `fleetPrefab` を生成・配置。
+  1. `TitleManager.StartBattle()`（「会戦開始」ボタン）は**シナリオ選択画面を開くだけ**。選択画面の「この設定で会戦開始」＝`BeginBattle()` が現在の設定を `SaveManager.Save()` し、`GameSettings.ResetStats()` 後に `SceneLoader.LoadScene("Battle")`。
+  2. Battle シーンで `BattleSetup`（`[DefaultExecutionOrder(-100)]`、Awake）が `ScenarioData` を解決し、手置き艦隊をクリアしてから `fleetPrefab` を生成・配置。**Battle シーン以外（Title 等）では Awake で即 return し何もしない**（誤配置で戦闘が始まらないようガード）。
   3. `BattleManager`（Start）が開始時の隻数を記録し、`checkInterval`（1秒）ごとに全滅判定。決着で `Time.timeScale=0` → 戦績を `GameSettings` に記録 → `SceneLoader.LoadScene("Result")`。
   4. `ResultManager` が `GameSettings` の戦績を表示、`BackToTitle()` で Title へ。
 - `TitleManager.ContinueBattle()` は `SaveManager.Load()` で直近セットアップを復元して会戦へ。`continueButton` は `SaveManager.HasSave()` の時だけ活性。
@@ -54,7 +54,7 @@
 - `Formation`：`enum { 紡錘陣, 鶴翼陣, 円陣, 横陣, 方陣 }`（定義は `Squadron.cs` 内。既定=紡錘陣）。すべて旗艦＝中心(原点)・左右対称・旗艦の向き(Transform.up=前方)に追従。`ChangeFormation(int)` のインデックスはこの並び順。
 - `AIState`：`enum { 接近, 交戦, 撤退 }`（定義は `FleetAI.cs` 内）。
 - `AdmiralData`（ScriptableObject、メニュー `Ginei/Admiral Data`）：提督能力。`leadership`(統率)/`attack`(攻撃)/`defense`(防御)/`mobility`(機動)/`operation`(運営・将来用)/`intelligence`(情報・将来用)＋`baseStrength`/`admiralName`/`faction`。
-- `ScenarioData`（ScriptableObject、メニュー `Ginei/Scenario Data`）：会戦定義。`scenarioName` と `List<FleetEntry> fleets`（各エントリ＝`admiral`/`faction`/`spawnPosition`/`formation`）。`BattleSetup` が `Resources` 全走査で `scenarioName` 一致を解決。
+- `ScenarioData`（ScriptableObject、メニュー `Ginei/Scenario Data`）：会戦定義。`scenarioName` と `List<FleetEntry> fleets`（各エントリ＝`admiral`/`faction`/`spawnPosition`/`formation`）。`BattleSetup` が `Resources` 全走査で `scenarioName` 一致を解決。サンプル会戦・提督アセットはエディタメニュー `Ginei/Create Sample Scenarios`（`Assets/Editor/SampleScenarioCreator.cs`）でワンクリック生成（シナリオ→`Resources/`、提督→`Assets/Data/Admirals/`、既存提督は上書きしない）。
 - `SaveData`（`[Serializable]` 平データ）：`playerFaction`(int)/`scenarioName`/`selectedAdmiral`。`SaveManager`(static) が `persistentDataPath/setup_save.json` に JSON 保存。
 
 ## 提督能力が効く場所（実効値パターンで反映）
@@ -68,27 +68,28 @@
 - 部隊は「旗艦(`FleetStrength`)＋配下艦(`EscortShip`)」で構成。攻撃対象は**個々の艦艇**で、共通インターフェイス `IShipTarget`(`Transform`/`Faction`/`IsAlive`/`TakeDamage(int)`) を旗艦・配下艦の両方が実装する。
 - **選択・指揮・勝敗カウントは従来どおり部隊(旗艦)単位**。配下艦は個別選択しない（クリックは `GetComponentInParent` で旗艦の `Selectable` に解決）。勝敗は生存旗艦数で数える。
 - 旗艦の「艦艇数」は既存 `strength`（兵力）を流用（多め）。配下艦は1部隊 `Squadron.escortCount`(既定50)隻、1隻あたり `EscortShip.shipCount`=`Squadron.escortShipCount`(既定200)で合計兵力が過大にならないよう調整。
-- 攻撃ロジックは `ShipCombat`(static) に集約：`FindNearestEnemyInArc`/`AnyEnemyInArc`/`IsInArc`/`ComputeDamage`(提督攻撃×士気×側背面)/`IsValidTarget`(破棄済み判定)。**ダメージ式や敵探索を各所に重複実装しない**。各艦が自分の1発を撃つ（二重計算しない）。
+- 攻撃ロジックは `ShipCombat`(static) に集約：`FindNearestEnemyInArc`/`FindPrioritizedEnemyInArc`/`FindNearestEnemyInArcOfFleet`(指定艦隊の射界内最寄り)/`GetSquadronOf`(個艦→所属部隊)/`AnyEnemyInArc`/`IsInArc`/`ComputeDamage`(提督攻撃×士気×側背面)/`IsValidTarget`(破棄済み判定)。**ダメージ式や敵探索を各所に重複実装しない**。各艦が自分の1発を撃つ（二重計算しない）。
+- 配下艦(`EscortShip`)の自動索敵は `FindPrioritizedEnemyInArc` を使う：第一優先＝射界内かつ**射線の通る敵旗艦**（最寄り）、無ければ第二優先＝射界内の敵配下艦（最寄り）。射線判定 `HasClearShot` は from→旗艦の線分上に（標的以外の）**敵配下艦**がいれば遮蔽とみなし、その旗艦を第一候補から除外する＝配下艦が旗艦を守るスクリーンになる。旗艦の `FleetWeapon` は従来どおり `FindNearestEnemyInArc`／手動指定（`SetManualTarget`）に従い、射線判定は適用しない。
 - 旗艦の艦艇数が0になると**破棄せず部隊退却**（`FleetStrength.BeginRetreat`）。退却部隊は `IsAlive=false` となり、標的・発砲・勝敗カウントから一括除外される。
 
 ## 既存コンポーネント（現状＝正。これに合わせる）
 ### システム・管理層
 | クラス | 対象 | 責務 / 主なAPI |
 |---|---|---|
-| `BattleSetup` | Battle シーンに1つ | `[DefaultExecutionOrder(-100)]`。`ScenarioData` から艦隊生成・配置。`fleetPrefab` 必須。生成時に手置き艦隊をクリア＋`FleetRegistry.Clear()`。生成位置は原点中心に `spawnSeparation`(既定2.5)倍して両軍を離す。生成後 `OrientFleetsToEnemy` で各艦を相手陣営重心へ正対させる。プレイヤー陣営以外のみ `FleetAI` を有効化。`scenarioOverride` で直接指定可。 |
+| `BattleSetup` | Battle シーンに1つ | `[DefaultExecutionOrder(-100)]`。**`SceneManager.GetActiveScene().name != "Battle"` の場合は Awake で即 return**（Title 等に誤配置されても艦隊を湧かせない）。`ScenarioData` から艦隊生成・配置。`fleetPrefab` 必須。生成時に手置き艦隊をクリア＋`FleetRegistry.Clear()`。生成位置は原点中心に `spawnSeparation`(既定2.5)倍して両軍を離す。生成後 `OrientFleetsToEnemy` で各艦を相手陣営重心へ正対させる。プレイヤー陣営以外のみ `FleetAI` を有効化。`scenarioOverride` で直接指定可。 |
 | `BattleManager` | Battle シーンに1つ | 勝敗判定（`checkInterval` 秒ごと）・戦績記録。**生存中の部隊(旗艦)数で数える**（`FleetRegistry.GetFlagships()` の件数。退却・破棄は含まれず、配下艦も数えない）。開始時隻数は全 Start 完了後の最初の Update で記録（実行順非依存）。決着で timeScale=0→Result へ遷移。Rキーでリスタート。 |
 | `FleetRegistry` | static（シーン内在庫） | 全 `IShipTarget`（旗艦＋配下艦）を陣営別に保持。各艦が出現時 `Register`／破棄・退却時 `Unregister`。`GetEnemies(faction)`(全敵個艦)/`GetEnemyFlagships(faction)`/`GetFlagships(faction)`/`Clear()`。`ShipCombat`/`FleetWeapon`/`EscortShip`/`FleetAI`/`BattleManager` の敵探索はここを参照（`FindObjectsByType` を置換）。`BattleSetup.Awake` が `Clear()`。 |
-| `TitleManager` | Title シーン | 新規開始/続きから/設定/終了。`SaveManager` と連携、`continueButton`/`settingsPanel` 参照、`SetVolume`。 |
+| `TitleManager` | Title シーン | 新規開始/続きから/設定/終了。`SaveManager` と連携、`continueButton`/`settingsPanel` 参照、`SetVolume`。**シナリオ選択／プレイ陣営選択UIを実行時生成**（自前 Canvas＋全画面ディマーのモーダル、初期非表示）。フロー：「会戦開始」=`StartBattle()`→`ShowScenarioSelect()` で選択画面表示／`SelectScenario(string)`・`SelectPlayerFaction(int)` で `GameSettings` に反映＆ハイライト更新／「この設定で会戦開始」=`BeginBattle()` で Save＋ResetStats＋`LoadScene("Battle")`／「戻る」=`HideScenarioSelect()`。Canvas/EventSystem(`InputSystemUIInputModule`) が無ければ生成。 |
 | `ResultManager` | Result シーン | `GameSettings` の戦績を `winnerText`/`statsText` に表示。`BackToTitle()`。 |
 | `PauseManager` | Battle シーン | Space=ポーズ／Esc=ポーズメニュー／数字1-3=倍速。`Time.timeScale` 制御。ポーズUIをコードで自動生成し EventSystem(`InputSystemUIInputModule`) を保証。`SetVolume`/`SetAlwaysShowGizmos`。 |
 
 ### 入力・UI・カメラ
 | クラス | 対象 | 責務 / 主なAPI |
 |---|---|---|
-| `FleetCommander` | 入力統括(1) | 選択の唯一の窓口 `SelectedFleets`(`List<Selectable>`)。左ク=選択（空白で解除／別艦で切替、UIは無視）／右ク=`CommandMenu`。移動先指定モード `StartWaitingForMoveTarget()`＋`IsWaitingForMoveTarget`：カーソルで位置→**右押下で目標確定→押したままドラッグで向き→離して確定**（`SetDestination(pos, 向き)`）、Esc/で取消。`FormationPreview` で配置を半透明表示。確定/取消後 `DeselectAll`。`SelectFleet`/`GetMouseWorldPosition()`。 |
+| `FleetCommander` | 入力統括(1) | 選択の唯一の窓口 `SelectedFleets`(`List<Selectable>`)。左ク=選択（空白で解除／別艦で切替、UIは無視）／右ク=`CommandMenu`。移動先指定モード `StartWaitingForMoveTarget()`＋`IsWaitingForMoveTarget`：カーソルで位置→**右押下で目標確定→押したままドラッグで向き→離して確定**（`SetDestination(pos, 向き)`）、Esc/で取消。`FormationPreview` で配置を半透明表示。攻撃目標指定モード `StartWaitingForAttackTarget()`＋`IsWaitingForAttackTarget`：**左クリック=通常攻撃を即時発令／右クリック=攻撃種別メニュー(`CommandMenu.OpenAttackTypeMenu`、通常/ミサイル)を開く**。敵艦（旗艦/配下艦）を親までさかのぼり**その敵艦隊全体**を選択中全部隊の手動攻撃目標に設定（`ConfirmAttack`→`SetManualTargetFleet`＋`SetMissileMode`、確定で `ConfirmPendingAttack`）、`FleetHUDManager.ShowMessage` で「攻撃対象：◯◯艦隊（種別）」を表示、Escで取消。**艦隊円**(`UpdateFleetCircles`/LateUpdate、`Squadron.GetBoundingCircle`＋LineRenderer プール、マテリアル共有・頂点色で色分け)：選択中の艦隊は常時緑円、攻撃目標指定中は全敵艦隊を黄円（カーソル下は橙）で囲う。色/線幅は `selectionCircleColor`/`targetCircleColor`/`targetHoverColor`/`circleWidth`。確定/取消後 `DeselectAll`。`SelectFleet`/`GetMouseWorldPosition()`。 |
 | `CameraController` | Main Camera | パン(WASD/矢印/中ドラッグ)・ズーム(ホイール,`zoomSpeed`/min/maxZoom)・開始時は `startZoom` で少し引いた画・F=選択艦隊フォーカス・min/maxBounds クランプ・撃沈時 `Shake()`（unscaled で減衰、LateUpdate でオフセット復元）。 |
-| `CommandMenu` | uGUI | 右クリックメニュー。選択状況で 移動/攻撃/陣形変更/情報/選択 を動的生成。陣形サブメニューのボタンは `Formation` enum から動的生成（`BuildFormationButtons`、シーン手配線に非依存）。`OpenMenu`/`CloseMenu`/`IsOpen`/`ChangeFormation(int)`。画面端クランプ。 |
-| `FleetHUDManager` | uGUI | 選択艦隊の 提督/陣営/兵力バー/士気バー/陣形 を表示。任意で `shipCountText`(旗艦艦艇数＋配下艦残存数)を表示。`ChangeFormation(int)`。 |
+| `CommandMenu` | uGUI | 右クリックメニュー。選択状況で 移動/攻撃/陣形変更/情報/選択 を動的生成。「攻撃」は選択中つねに表示し、押すと `FleetCommander.StartWaitingForAttackTarget()` で目標指定モードへ移行（左ク=通常攻撃／右ク=攻撃種別メニュー）。`OpenAttackTypeMenu(screenPos)` で通常/ミサイルの選択メニューを開く。陣形サブメニューのボタンは `Formation` enum から動的生成（`BuildFormationButtons`、シーン手配線に非依存）。`OpenMenu`/`CloseMenu`/`IsOpen`/`ChangeFormation(int)`。画面端クランプ。 |
+| `FleetHUDManager` | uGUI | 選択艦隊の 提督/陣営/兵力バー/士気バー/陣形 を表示。任意で `shipCountText`(旗艦艦艇数＋配下艦残存数)を表示。`ChangeFormation(int)`。`ShowMessage(text, duration)` で画面上部に通知を実時間で一定時間表示（攻撃対象通知などに使用、TMPテキストを実行時生成）。 |
 
 ### 艦隊コンポーネント（旗艦 GameObject に付く）
 | クラス | 責務 / 主なAPI |
@@ -99,9 +100,9 @@
 | `FlagshipMarker` | 旗艦識別マーカー。頭上に金色＋黒フチのダイヤ型アイコン（子 `"FlagshipMarker"`(SpriteRenderer)）を実行時生成。配下艦には付かないので旗艦の目印になる。色は**陣営非依存の固定色**(`markerColor`、既定=金)で `FactionColor` 着色対象外＝艦に埋もれず一目で分かる。常に艦の真上・水平に表示(LateUpdate ビルボード)。`height`/`markerScale`/`sortingOrder`/`markerColor`。**root スケールは変えない**（陣形計算が狂うため）。`[RequireComponent] Squadron`。**`Squadron` が Awake で自動付与する**（プレハブ編集不要。色等を調整したい時だけ手動で付けて値を変える）。 |
 | `FleetMovement` | `SetDestination(Vector2 pos, float? facingAngleZ=null)`（回頭→加減速前進。到着後 facing 指定があればその場回頭してから停止）／`FaceTarget(Vector2)`（その場回頭、交戦中の射界維持用）。実効速度は `GetMobilityFactor()`（提督機動×士気×交戦`combatMobilityRatio`）。public: maxSpeed/acceleration/deceleration/rotationSpeed/faceThreshold/arriveDistance。 |
 | `WeaponArc` | range/halfAngle/gizmoColor。`IsInArc(Transform)`。`OnDrawGizmos` で扇形描画。実行時は子 `"WeaponArcLine"`(LineRenderer) を生成し、`GameSettings.alwaysShowGizmos` が true の時だけ表示。 |
-| `FleetWeapon` | 射界内の最寄り敵**個艦(`IShipTarget`)**を自動攻撃(`fireInterval`)。`SetManualTarget(IShipTarget)`。敵探索・ダメージ計算は `ShipCombat` に集約。側背面ボーナス(`flankMultiplier`、真後ろで最大)。`IsInCombat`。`combatMobilityRatio` はここに置く。旗艦退却中(`FleetStrength.IsRetreating`)は発砲停止。ビーム演出、`DamagePopup.Show`、`AudioManager.PlayBeam`。`[RequireComponent] WeaponArc`。 |
+| `FleetWeapon` | 射界内の最寄り敵**個艦(`IShipTarget`)**を自動攻撃(`fireInterval`)。手動攻撃目標は**艦隊単位**が基本＝`SetManualTargetFleet(Squadron)`（旗艦単艦ではなく敵艦隊全体を標的。射界内のその艦隊の最寄り艦を撃つ）。`SetManualTarget(IShipTarget)`(単艦・後方互換)/`ClearManualTarget()`/`HasManualTarget`。手動目標があると `HandlePursuit`→`PursueToward` で**追尾**：射程外(`pursuitStopRatio`)は `FleetMovement.SetDestination` で接近、射程内は `FaceTarget` で停止＆敵を向き続ける。艦隊目標は旗艦位置を追尾基準にし、敵旗艦が退却＝艦隊消滅で自動解除（単艦目標は撃沈・退却で解除）。AI制御中(`FleetAI.enabled`)の艦は追尾しない。移動命令(`FleetCommander.ExecuteMoveCommand`)で手動目標は解除される。**ミサイル攻撃**：`SetMissileMode(bool)`／`missileAmmo`(残弾)／`missileDamageMultiplier`／`missileBeamColor`／`MissileAmmo`。ミサイルモード中は残弾がある間だけ威力強化×倍率で1発消費、弾切れで自動的に通常攻撃へ移行（目標艦隊消滅・`ClearManualTarget` でも解除）。敵探索・ダメージ計算は `ShipCombat` に集約。側背面ボーナス(`flankMultiplier`、真後ろで最大)。`IsInCombat`。`combatMobilityRatio` はここに置く。旗艦退却中(`FleetStrength.IsRetreating`)は発砲停止。ビーム演出、`DamagePopup.Show`、`AudioManager.PlayBeam`。`[RequireComponent] WeaponArc`。 |
 | `FleetStrength` | `IShipTarget` 実装（旗艦＝個艦）。admiralData/admiralName/strength(=旗艦艦艇数)/maxStrength/faction。`ApplyAdmiralData()`（能力反映＋色再適用）、`TakeDamage(int)`（防御で軽減→士気低下→被弾フラッシュ→**0で破棄せず `BeginRetreat()`＝部隊退却**）。`IsRetreating`/`IsAlive`(退却で false)/`retreatDistance`。退却時：AI停止＋敵と反対方向へ離脱、以降は標的・勝敗カウントから除外。頭上ラベル(legacy `TextMesh`、子名 `"StrengthDisplay"`)。 |
-| `FleetMorale` | 士気管理。非交戦で回復・交戦で低下・被弾で低下(`OnTakeDamage`)。`GetMoraleFactor()`/`IsRouted`。頭上ラベル(子名 `"MoraleLabel"`、低下/敗走時に表示)。`[RequireComponent] FleetStrength`。 |
+| `FleetMorale` | 士気管理。非交戦で回復・交戦で低下・被弾で低下(`OnTakeDamage`)。`GetMoraleFactor()`/`IsRouted`。**敗走(士気0)は交戦が `routedRecoveryDelay` 秒途切れたら自然回復し復帰**する。頭上ラベル(子名 `"MoraleLabel"`、低下/敗走時に表示)。`[RequireComponent] FleetStrength`。 |
 | `FleetAI` | 敵/非プレイヤー艦隊。`enum AIState{接近,交戦,撤退}`。retreatRatio/searchInterval。敗走(`IsRouted`)や兵力低下で撤退へ。`[RequireComponent] FleetMovement/FleetWeapon/FleetStrength`。 |
 | `FactionColor` | 陣営色で子SpriteRenderer全部(`"SelectionRing"`/`"FlagshipMarker"`除外)/TextMesh/`FleetWeapon.beamColor`/`WeaponArc.gizmoColor` を着色。`ApplyColors()`。imperialColor/allianceColor。`[RequireComponent] FleetStrength`。 |
 
@@ -124,7 +125,7 @@
 - 選択中艦隊の唯一の窓口は `FleetCommander.SelectedFleets`。別の場所に選択管理を新設しない。
 - シーン間で共有する設定・戦績は `GameSettings.Instance` の一択。別の保管所を作らない。
 - `Squadron.memberShips` は Inspector で明示割り当て推奨（未設定だと上記マーカー名を除く全ての子を配下艦扱いにする）。
-- Esc の優先順位は「`CommandMenu` を閉じる ＞ 移動先指定キャンセル ＞ ポーズメニュー」。`PauseManager` は `CommandMenu.IsOpen`/`FleetCommander.IsWaitingForMoveTarget` を見て譲る。崩さない。
+- Esc の優先順位は「`CommandMenu` を閉じる ＞ 移動/攻撃目標指定キャンセル ＞ ポーズメニュー」。`PauseManager` は `CommandMenu.IsOpen`/`FleetCommander.IsWaitingForMoveTarget`/`FleetCommander.IsWaitingForAttackTarget` を見て譲る。崩さない。
 - シーン名 `"Title"`/`"Battle"`/`"Result"` と Build Settings の登録を一致させる。
 - `ScenarioData.scenarioName` と `GameSettings.scenarioName` を一致させる（`BattleSetup` が名前一致で解決）。会戦アセットは `Resources` 配下に置く。
 

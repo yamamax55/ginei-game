@@ -73,23 +73,39 @@ namespace Ginei
             int imperialRemaining = imperial.Count;
             int allianceRemaining = alliance.Count;
 
-            int totalStrength = 0;
-            for (int i = 0; i < imperial.Count; i++) totalStrength += imperial[i].strength;
-            for (int i = 0; i < alliance.Count; i++) totalStrength += alliance[i].strength;
-
             // 勝敗確定チェック
             if (imperialRemaining == 0 || allianceRemaining == 0)
             {
                 isBattleOver = true;
-                
+
                 // 決着時に時間を停止
                 Time.timeScale = 0f;
 
-                RecordResults(imperialRemaining, allianceRemaining, totalStrength);
-                
+                RecordResults(imperial, alliance);
+
                 // 結果画面へ遷移（非同期ロード中も時間は停止しているが、SceneLoaderがunscaledTimeを使っていれば動作する）
                 SceneLoader.Instance.LoadScene("Result");
             }
+        }
+
+        /// <summary>旗艦リストの残存兵力合計。</summary>
+        private static int SumStrength(IReadOnlyList<FleetStrength> flagships)
+        {
+            int total = 0;
+            for (int i = 0; i < flagships.Count; i++) total += flagships[i].strength;
+            return total;
+        }
+
+        /// <summary>勝者側の旗艦から与ダメージ最大の提督名を返す。いなければ空。</summary>
+        private static string FindMvpAdmiral(IReadOnlyList<FleetStrength> winnerFlagships)
+        {
+            FleetStrength best = null;
+            for (int i = 0; i < winnerFlagships.Count; i++)
+            {
+                FleetStrength fs = winnerFlagships[i];
+                if (best == null || fs.DamageDealt > best.DamageDealt) best = fs;
+            }
+            return best != null ? best.admiralName : "";
         }
 
         private void CountFleets(out int imperial, out int alliance)
@@ -100,16 +116,29 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 戦績を GameSettings に保存します。
+        /// 戦績を GameSettings に保存します（勝者・喪失数・陣営別残存兵力・MVP・勝因）。
         /// </summary>
-        private void RecordResults(int impRem, int allRem, int totalStr)
+        private void RecordResults(IReadOnlyList<FleetStrength> imperial, IReadOnlyList<FleetStrength> alliance)
         {
             GameSettings settings = GameSettings.Instance;
-            
+
+            int impRem = imperial.Count;
+            int allRem = alliance.Count;
+            int impStr = SumStrength(imperial);
+            int allStr = SumStrength(alliance);
+
             settings.winner = (impRem > 0) ? Faction.帝国 : Faction.同盟;
             settings.imperialSunkCount = initialImperialCount - impRem;
             settings.allianceSunkCount = initialAllianceCount - allRem;
-            settings.remainingStrength = totalStr;
+            settings.remainingStrength = impStr + allStr;
+            settings.imperialRemainingStrength = impStr;
+            settings.allianceRemainingStrength = allStr;
+
+            // MVP：勝者側の生存旗艦で与ダメージ最大の提督
+            settings.mvpAdmiral = FindMvpAdmiral(settings.winner == Faction.帝国 ? imperial : alliance);
+
+            // 勝因（現状は敵旗艦全滅で固定。A-4 導入後に連動）
+            settings.victoryReason = "敵旗艦全滅";
         }
 
         /// <summary>

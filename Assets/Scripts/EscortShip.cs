@@ -34,6 +34,9 @@ namespace Ginei
         private LineRenderer beamLine;
         private Material beamMaterial;
 
+        /// <summary>所属する旗艦の部隊（艦隊単位の攻撃指示・標的判定用）。</summary>
+        public Squadron ParentSquadron => parentSquadron;
+
         // IShipTarget 実装。旗艦が退却したら部隊ごと戦闘除外（標的にならない）。
         public Transform Transform => transform;
         public Faction Faction => flagship != null ? flagship.faction : Faction.帝国;
@@ -91,7 +94,8 @@ namespace Ginei
             // 敵検索は依然コストがあるため、命中の有無に関わらず fireInterval 間隔に制限する
             nextFireTime = Time.time + flagshipWeapon.fireInterval;
 
-            IShipTarget target = ShipCombat.FindNearestEnemyInArc(transform.position, transform.up,
+            // 標的優先度：第一＝射線の通る敵旗艦、第二＝敵配下艦（射線上の配下艦は旗艦を遮蔽する）
+            IShipTarget target = ShipCombat.FindPrioritizedEnemyInArc(transform.position, transform.up,
                 Faction, flagshipArc.range, flagshipArc.halfAngle);
 
             if (target != null)
@@ -114,6 +118,9 @@ namespace Ginei
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);
+
+            // MVP集計：配下艦の与ダメージも所属旗艦の戦果に加算
+            if (flagship != null) flagship.AddDamageDealt(finalDamage);
 
             DamagePopup.Show(targetPos, finalDamage, isFlank);
             FireBeam(targetPos);

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Ginei
 {
@@ -24,6 +25,13 @@ namespace Ginei
 
         private void Awake()
         {
+            // Battle シーン以外では一切動作しない（Title 等に誤って置かれても戦闘を始めない）
+            if (SceneManager.GetActiveScene().name != "Battle")
+            {
+                Debug.LogWarning($"BattleSetup: Battle シーン以外では動作しません（現在: {SceneManager.GetActiveScene().name}）。このオブジェクトはこのシーンから削除してください。");
+                return;
+            }
+
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）
             FleetRegistry.Clear();
 

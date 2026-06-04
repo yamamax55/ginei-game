@@ -22,11 +22,15 @@ namespace Ginei
         [Tooltip("ダメージ100あたりの士気低下量")]
         public float damageDrainFactor = 0.1f;
 
+        [Tooltip("敗走から回復を始めるまでの『交戦が無い』継続時間（秒）")]
+        public float routedRecoveryDelay = 5f;
+
         public bool IsRouted => morale <= 0;
 
         private FleetStrength strength;
         private FleetWeapon weapon;
         private TextMesh moraleLabel;
+        private float lastCombatTime;   // 直近に交戦していた時刻（敗走回復の待機判定用）
 
         private void Awake()
         {
@@ -115,9 +119,18 @@ namespace Ginei
 
         private void UpdateMorale()
         {
-            if (IsRouted) return;
-
             bool inCombat = (weapon != null && weapon.IsInCombat);
+            if (inCombat) lastCombatTime = Time.time;
+
+            if (IsRouted)
+            {
+                // 敗走中：交戦が routedRecoveryDelay 秒途切れたら回復を開始（士気>0で敗走解除）
+                if (!inCombat && Time.time - lastCombatTime >= routedRecoveryDelay)
+                {
+                    ChangeMorale(recoveryRate * Time.deltaTime);
+                }
+                return;
+            }
 
             if (inCombat)
             {

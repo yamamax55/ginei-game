@@ -46,6 +46,14 @@ namespace Ginei
         public int imperialSunkCount;
         public int allianceSunkCount;
         public int remainingStrength;
+        [Tooltip("帝国軍の残存兵力合計")]
+        public int imperialRemainingStrength;
+        [Tooltip("同盟軍の残存兵力合計")]
+        public int allianceRemainingStrength;
+        [Tooltip("殊勲提督（勝者側で与ダメージ最大）")]
+        public string mvpAdmiral;
+        [Tooltip("勝因")]
+        public string victoryReason;
 
         private void Awake()
         {
@@ -71,6 +79,10 @@ namespace Ginei
             imperialSunkCount = 0;
             allianceSunkCount = 0;
             remainingStrength = 0;
+            imperialRemainingStrength = 0;
+            allianceRemainingStrength = 0;
+            mvpAdmiral = "";
+            victoryReason = "";
         }
     }
 }

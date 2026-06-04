@@ -120,71 +120,91 @@ namespace Ginei
 
             // 1. Canvas
             GameObject canvasObj = new GameObject("LoadingCanvas");
-            canvasObj.transform.SetParent(transform);
+            canvasObj.transform.SetParent(transform, false);
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 999; // 最前面
-            
-            canvasObj.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+
+            CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
             canvasObj.AddComponent<GraphicRaycaster>();
 
-            // 2. Overlay Background
-            overlayRoot = new GameObject("Overlay");
-            overlayRoot.transform.SetParent(canvasObj.transform);
-            RectTransform overlayRT = overlayRoot.AddComponent<RectTransform>();
+            // 2. Overlay Background（不透明＝前のシーンを完全に隠す）
+            // 注意: UI 子要素は SetParent(parent, false) でローカル基準にする（ズレ防止）
+            overlayRoot = new GameObject("Overlay", typeof(RectTransform));
+            overlayRoot.transform.SetParent(canvasObj.transform, false);
+            RectTransform overlayRT = overlayRoot.GetComponent<RectTransform>();
             overlayRT.anchorMin = Vector2.zero;
             overlayRT.anchorMax = Vector2.one;
-            overlayRT.sizeDelta = Vector2.zero;
-            
-            UnityEngine.UI.Image bg = overlayRoot.AddComponent<UnityEngine.UI.Image>();
-            bg.color = new Color(0, 0, 0, 0.8f);
+            overlayRT.offsetMin = Vector2.zero;
+            overlayRT.offsetMax = Vector2.zero;
 
-            // 3. Loading Text
-            GameObject textObj = new GameObject("LoadingText");
-            textObj.transform.SetParent(overlayRoot.transform);
+            UnityEngine.UI.Image bg = overlayRoot.AddComponent<UnityEngine.UI.Image>();
+            bg.color = new Color(0.02f, 0.02f, 0.05f, 1f);
+
+            // 3. Loading Text（中央やや上）
+            GameObject textObj = new GameObject("LoadingText", typeof(RectTransform));
+            textObj.transform.SetParent(overlayRoot.transform, false);
             loadingText = textObj.AddComponent<TextMeshProUGUI>();
             loadingText.text = "ロード中...";
-            loadingText.fontSize = 32;
+            loadingText.fontSize = 40;
             loadingText.alignment = TextAlignmentOptions.Center;
-            
-            // Conventions.md の TMP フォント適用
+            loadingText.color = Color.white;
+
             TMP_FontAsset jaFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             if (jaFont != null) loadingText.font = jaFont;
 
-            RectTransform textRT = textObj.GetComponent<RectTransform>();
-            textRT.anchoredPosition = new Vector2(0, 50);
-            textRT.sizeDelta = new Vector2(400, 50);
+            RectTransform textRT = loadingText.rectTransform;
+            textRT.anchorMin = new Vector2(0.5f, 0.5f);
+            textRT.anchorMax = new Vector2(0.5f, 0.5f);
+            textRT.pivot = new Vector2(0.5f, 0.5f);
+            textRT.anchoredPosition = new Vector2(0f, 40f);
+            textRT.sizeDelta = new Vector2(800f, 80f);
 
-            // 4. Progress Bar (Slider)
-            GameObject sliderObj = new GameObject("ProgressBar");
-            sliderObj.transform.SetParent(overlayRoot.transform);
+            // 4. Progress Bar (Slider)（中央やや下）
+            GameObject sliderObj = new GameObject("ProgressBar", typeof(RectTransform));
+            sliderObj.transform.SetParent(overlayRoot.transform, false);
             progressBar = sliderObj.AddComponent<UnityEngine.UI.Slider>();
             progressBar.interactable = false;
+            progressBar.transition = UnityEngine.UI.Selectable.Transition.None;
+            progressBar.minValue = 0f;
+            progressBar.maxValue = 1f;
+            progressBar.value = 0f;
 
             RectTransform sliderRT = sliderObj.GetComponent<RectTransform>();
-            sliderRT.sizeDelta = new Vector2(400, 20);
-            sliderRT.anchoredPosition = new Vector2(0, -20);
+            sliderRT.anchorMin = new Vector2(0.5f, 0.5f);
+            sliderRT.anchorMax = new Vector2(0.5f, 0.5f);
+            sliderRT.pivot = new Vector2(0.5f, 0.5f);
+            sliderRT.sizeDelta = new Vector2(600f, 24f);
+            sliderRT.anchoredPosition = new Vector2(0f, -30f);
 
             // Slider Background
-            GameObject sliderBG = new GameObject("Background");
-            sliderBG.transform.SetParent(sliderObj.transform);
+            GameObject sliderBG = new GameObject("Background", typeof(RectTransform));
+            sliderBG.transform.SetParent(sliderObj.transform, false);
             UnityEngine.UI.Image bgImg = sliderBG.AddComponent<UnityEngine.UI.Image>();
             bgImg.color = new Color(0.2f, 0.2f, 0.2f, 1f);
             RectTransform bgRT = sliderBG.GetComponent<RectTransform>();
-            bgRT.anchorMin = Vector2.zero; bgRT.anchorMax = Vector2.one; bgRT.sizeDelta = Vector2.zero;
+            bgRT.anchorMin = Vector2.zero; bgRT.anchorMax = Vector2.one;
+            bgRT.offsetMin = Vector2.zero; bgRT.offsetMax = Vector2.zero;
 
-            // Slider Area & Fill
-            GameObject area = new GameObject("Fill Area");
-            area.transform.SetParent(sliderObj.transform);
-            RectTransform areaRT = area.AddComponent<RectTransform>();
-            areaRT.anchorMin = Vector2.zero; areaRT.anchorMax = Vector2.one; areaRT.sizeDelta = new Vector2(-10, -10);
+            // Slider Fill Area & Fill
+            GameObject area = new GameObject("Fill Area", typeof(RectTransform));
+            area.transform.SetParent(sliderObj.transform, false);
+            RectTransform areaRT = area.GetComponent<RectTransform>();
+            areaRT.anchorMin = Vector2.zero; areaRT.anchorMax = Vector2.one;
+            areaRT.offsetMin = Vector2.zero; areaRT.offsetMax = Vector2.zero;
 
-            GameObject fill = new GameObject("Fill");
-            fill.transform.SetParent(area.transform);
+            GameObject fill = new GameObject("Fill", typeof(RectTransform));
+            fill.transform.SetParent(area.transform, false);
             UnityEngine.UI.Image fillImg = fill.AddComponent<UnityEngine.UI.Image>();
             fillImg.color = Color.cyan;
             RectTransform fillRT = fill.GetComponent<RectTransform>();
-            fillRT.sizeDelta = Vector2.zero;
+            fillRT.anchorMin = Vector2.zero;
+            fillRT.anchorMax = Vector2.one;
+            fillRT.offsetMin = Vector2.zero;
+            fillRT.offsetMax = Vector2.zero;
 
             progressBar.fillRect = fillRT;
             progressBar.targetGraphic = fillImg;

@@ -42,6 +42,9 @@ namespace Ginei
         /// <summary>旗艦を失い退却中か（true なら戦闘・カウントから除外）。</summary>
         public bool IsRetreating { get; private set; }
 
+        /// <summary>この部隊（旗艦＋配下艦）が敵に与えた累計ダメージ。リザルトのMVP集計用。</summary>
+        public int DamageDealt { get; private set; }
+
         // 被弾フラッシュ用
         private SpriteRenderer[] bodyRenderers;
         private Color[] originalColors;
@@ -176,6 +179,14 @@ namespace Ginei
             {
                 BeginRetreat();
             }
+        }
+
+        /// <summary>
+        /// この部隊（旗艦・配下艦）が敵に与えたダメージを加算します（MVP集計用）。
+        /// </summary>
+        public void AddDamageDealt(int amount)
+        {
+            if (amount > 0) DamageDealt += amount;
         }
 
         /// <summary>

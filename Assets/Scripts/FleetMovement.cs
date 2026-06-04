@@ -28,6 +28,9 @@ namespace Ginei
         [Tooltip("目標地点に到達したとみなす距離")]
         public float arriveDistance = 0.5f;
 
+        [Tooltip("敗走時の移動速度・回頭速度の倍率")]
+        public float routedMobilityRatio = 0.5f;
+
         [Header("デバッグ用")]
         [Tooltip("現在の速度")]
         public float currentSpeed = 0f;
@@ -168,10 +171,12 @@ namespace Ginei
                 factor *= 1.0f + (strength.admiralData.mobility - 50) / 100f;
             }
 
-            // 士気による補正
+            // 士気による補正（敗走時は専用倍率を適用し、段階的な士気補正と二重に掛けない）
             if (moraleComponent != null)
             {
-                factor *= moraleComponent.GetMoraleFactor();
+                factor *= moraleComponent.IsRouted
+                    ? routedMobilityRatio
+                    : moraleComponent.GetMoraleFactor();
             }
 
             // 交戦中は機動性を低下

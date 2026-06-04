@@ -130,24 +130,7 @@ namespace Ginei
         private void SetupMenuOptions()
         {
             // 既存のボタンを削除（サブメニュー以外）
-            List<GameObject> toDestroy = new List<GameObject>();
-            foreach (Transform child in menuRect)
-            {
-                if (child.gameObject != formationSubMenu && child.gameObject != buttonPrefab)
-                {
-                    toDestroy.Add(child.gameObject);
-                }
-            }
-            
-            foreach (var obj in toDestroy)
-            {
-#if UNITY_EDITOR
-                if (!Application.isPlaying) DestroyImmediate(obj);
-                else Destroy(obj);
-#else
-                Destroy(obj);
-#endif
-            }
+            ClearDynamicButtons();
 
             formationSubMenu.SetActive(false);
 
@@ -161,16 +144,9 @@ namespace Ginei
                 CreateButton("移動", CommandMove);
                 buttonCount++;
 
-                // 2. 攻撃 (敵艦隊を右クリックしている場合)
-                if (lastClickedFleet != null)
-                {
-                    FleetStrength clickedStr = lastClickedFleet.GetComponent<FleetStrength>();
-                    if (clickedStr != null && commander.SelectedFleets[0].GetComponent<FleetStrength>().faction != clickedStr.faction)
-                    {
-                        CreateButton("攻撃", () => CommandAttack(clickedStr));
-                        buttonCount++;
-                    }
-                }
+                // 2. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
+                CreateButton("攻撃", CommandAttack);
+                buttonCount++;
 
                 // 3. 陣形変更
                 CreateButton("陣形変更", () => formationSubMenu.SetActive(!formationSubMenu.activeSelf));
@@ -233,17 +209,54 @@ namespace Ginei
             CloseMenu();
         }
 
-        private void CommandAttack(FleetStrength target)
+        private void CommandAttack()
         {
-            foreach (var fleet in commander.SelectedFleets)
+            if (commander != null)
             {
-                FleetWeapon weapon = fleet.GetComponent<FleetWeapon>();
-                if (weapon != null) weapon.SetManualTarget(target);
-                
-                FleetMovement move = fleet.GetComponent<FleetMovement>();
-                if (move != null) move.SetDestination(target.transform.position);
+                commander.StartWaitingForAttackTarget();
             }
             CloseMenu();
+        }
+
+        /// <summary>
+        /// 攻撃種別（通常/ミサイル）の選択メニューを指定スクリーン座標に開く。
+        /// 攻撃目標選択中に敵艦隊を右クリックすると FleetCommander から呼ばれる。
+        /// </summary>
+        public void OpenAttackTypeMenu(Vector2 screenPos)
+        {
+            ClearDynamicButtons();
+            if (formationSubMenu != null) formationSubMenu.SetActive(false);
+
+            CreateButton("通常攻撃", () => { if (commander != null) commander.ConfirmPendingAttack(false); CloseMenu(); });
+            CreateButton("ミサイル攻撃", () => { if (commander != null) commander.ConfirmPendingAttack(true); CloseMenu(); });
+
+            menuRoot.SetActive(true);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(menuRect);
+            menuRect.pivot = new Vector2(0, 1);
+            menuRect.position = screenPos;
+            ClampToScreen();
+        }
+
+        /// <summary>動的に生成したボタンを削除する（サブメニュー・雛形は残す）。</summary>
+        private void ClearDynamicButtons()
+        {
+            List<GameObject> toDestroy = new List<GameObject>();
+            foreach (Transform child in menuRect)
+            {
+                if (child.gameObject != formationSubMenu && child.gameObject != buttonPrefab)
+                {
+                    toDestroy.Add(child.gameObject);
+                }
+            }
+            foreach (var obj in toDestroy)
+            {
+#if UNITY_EDITOR
+                if (!Application.isPlaying) DestroyImmediate(obj);
+                else Destroy(obj);
+#else
+                Destroy(obj);
+#endif
+            }
         }
 
         public void ChangeFormation(int formationIdx)

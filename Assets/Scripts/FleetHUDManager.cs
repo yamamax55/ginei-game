@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Ginei
@@ -97,6 +98,10 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
                     if (squadron != null) squadron.GetEscortStatus(out aliveEscorts, out totalEscort);
 
                     shipCountText.text = $"旗艦艦艇数: {flagshipState}\n配下艦: {aliveEscorts}隻 (計{totalEscort})";
+
+                    // ミサイル残弾（あれば表示）
+                    FleetWeapon weapon = firstSelected.GetComponent<FleetWeapon>();
+                    if (weapon != null) shipCountText.text += $"\nミサイル: {weapon.MissileAmmo}発";
                 }
             }
 
@@ -115,6 +120,65 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
 {
                 formationText.text = $"現在陣形: {squadron.currentFormation}";
             }
+        }
+
+        // ===== 画面メッセージ（攻撃対象通知など、一定時間表示）=====
+
+        private TextMeshProUGUI messageText;
+        private Coroutine messageRoutine;
+
+        /// <summary>
+        /// 画面上部にメッセージを duration 秒間表示します（攻撃対象通知など）。
+        /// </summary>
+        public void ShowMessage(string text, float duration)
+        {
+            EnsureMessageText();
+            if (messageText == null) return;
+
+            messageText.text = text;
+            messageText.gameObject.SetActive(true);
+
+            if (messageRoutine != null) StopCoroutine(messageRoutine);
+            messageRoutine = StartCoroutine(HideMessageAfter(duration));
+        }
+
+        private IEnumerator HideMessageAfter(float duration)
+        {
+            // timeScale に依存しない実時間で消す（ポーズ・倍速でも一定時間表示）
+            yield return new WaitForSecondsRealtime(duration);
+            if (messageText != null) messageText.gameObject.SetActive(false);
+            messageRoutine = null;
+        }
+
+        private void EnsureMessageText()
+        {
+            if (messageText != null) return;
+
+            // HUD と同じ Canvas に作る（永続のロード用 Canvas を掴まないよう優先順位をつける）
+            Canvas canvas = (infoPanel != null) ? infoPanel.GetComponentInParent<Canvas>() : GetComponentInParent<Canvas>();
+            if (canvas == null) canvas = Object.FindFirstObjectByType<Canvas>();
+            if (canvas == null) return;
+
+            GameObject go = new GameObject("AttackTargetMessage", typeof(RectTransform));
+            go.transform.SetParent(canvas.transform, false);
+
+            messageText = go.AddComponent<TextMeshProUGUI>();
+            messageText.alignment = TextAlignmentOptions.Center;
+            messageText.fontSize = 34f;
+            messageText.fontStyle = FontStyles.Bold;
+            messageText.color = new Color(1f, 0.85f, 0.3f);
+            messageText.raycastTarget = false;
+            TMP_FontAsset jaFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
+            if (jaFont != null) messageText.font = jaFont;
+
+            RectTransform rt = messageText.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -80f);
+            rt.sizeDelta = new Vector2(700f, 50f);
+
+            go.SetActive(false);
         }
 
         /// <summary>

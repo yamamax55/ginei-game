@@ -235,6 +235,29 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 艦隊全体を囲う外接円（旗艦を中心、生存配下艦の最遠＋余白を半径）を求めます。
+        /// 攻撃目標選択時のハイライト表示用。
+        /// </summary>
+        public void GetBoundingCircle(out Vector3 center, out float radius)
+        {
+            center = transform.position;
+            float maxSq = 0f;
+            foreach (var m in memberShips)
+            {
+                if (m == null) continue;
+                // 実在する生存「配下艦」だけで半径を決める（提督名/兵力などの文字ラベルや
+                // マーカーは EscortShip を持たないので除外。文字は円からはみ出して重なってよい）
+                EscortShip e = m.GetComponent<EscortShip>();
+                if (e == null || !e.IsAlive) continue;
+                float d = ((Vector2)m.position - (Vector2)center).sqrMagnitude;
+                if (d > maxSq) maxSq = d;
+            }
+            radius = Mathf.Sqrt(maxSq) + spacing * 0.5f; // 艦艇に沿う小さめの余白
+            float minRadius = spacing;                   // 旗艦のみでも見える最小サイズ
+            if (radius < minRadius) radius = minRadius;
+        }
+
+        /// <summary>
         /// 消滅した配下艦をリストから除外します（陣形計算の対象から外す）。
         /// velocities と添字を揃えるため同じ位置を同時に削除します。
         /// </summary>

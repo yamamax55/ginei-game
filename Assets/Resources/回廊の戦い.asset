@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2857995d4c0f46d4e8823a9b6a257207, type: 3}
+  m_Name: "\u56DE\u5ECA\u306E\u6226\u3044"
+  m_EditorClassIdentifier: Assembly-CSharp::Ginei.ScenarioData
+  scenarioName: "\u56DE\u5ECA\u306E\u6226\u3044"
+  fleets:
+  - admiral: {fileID: 11400000, guid: 136878f6588e9ee4085478918fe1b5a0, type: 2}
+    faction: 0
+    spawnPosition: {x: 4, y: 2}
+    formation: 0
+  - admiral: {fileID: 11400000, guid: fafac2af8e3a6e74399d9ae0e78398b1, type: 2}
+    faction: 0
+    spawnPosition: {x: 4, y: -2}
+    formation: 0
+  - admiral: {fileID: 11400000, guid: 35cea87aa862d0b4abbd3594c09d5a84, type: 2}
+    faction: 1
+    spawnPosition: {x: -4, y: 2}
+    formation: 1
+  - admiral: {fileID: 11400000, guid: 40838d660a31f044d8679734d4aa8e42, type: 2}
+    faction: 1
+    spawnPosition: {x: -4, y: -2}
+    formation: 3

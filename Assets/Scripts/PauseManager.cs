@@ -63,14 +63,15 @@ namespace Ginei
             }
 
             // Esc: ポーズメニュー
-            // 優先順位「コマンドメニューを閉じる ＞ 移動先指定キャンセル ＞ ポーズ切替」。
+            // 優先順位「コマンドメニューを閉じる ＞ 移動/攻撃目標指定キャンセル ＞ ポーズ切替」。
             // 前2者が処理する状況ではポーズメニューを開かず、それぞれの処理に任せる。
             if (Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 CommandMenu commandMenu = Object.FindAnyObjectByType<CommandMenu>();
                 FleetCommander commander = Object.FindAnyObjectByType<FleetCommander>();
                 bool handledElsewhere = (commandMenu != null && commandMenu.IsOpen)
-                                        || (commander != null && commander.IsWaitingForMoveTarget);
+                                        || (commander != null && commander.IsWaitingForMoveTarget)
+                                        || (commander != null && commander.IsWaitingForAttackTarget);
                 if (!handledElsewhere)
                 {
                     TogglePauseMenu();

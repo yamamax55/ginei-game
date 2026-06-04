@@ -40,6 +40,7 @@ namespace Ginei
         // IShipTarget 実装。旗艦が退却したら部隊ごと戦闘除外（標的にならない）。
         public Transform Transform => transform;
         public Faction Faction => flagship != null ? flagship.faction : Faction.帝国;
+        public FactionData FactionData => flagship != null ? flagship.factionData : null;
         public bool IsAlive => !isDead && shipCount > 0 && (flagship == null || !flagship.IsRetreating);
 
         private void Awake()

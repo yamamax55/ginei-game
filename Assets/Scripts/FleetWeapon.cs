@@ -139,8 +139,7 @@ namespace Ginei
             if (manualTargetFleet != null)
             {
                 if (!IsFleetAlive(manualTargetFleet)) { manualTargetFleet = null; useMissiles = false; return null; }
-                Faction f = myStrength != null ? myStrength.faction : Faction.帝国;
-                return ShipCombat.FindNearestEnemyInArcOfFleet(transform.position, transform.up, f,
+                return ShipCombat.FindNearestEnemyInArcOfFleet(transform.position, transform.up,
                     weaponArc.range, weaponArc.halfAngle, manualTargetFleet);
             }
 
@@ -163,7 +162,7 @@ namespace Ginei
         /// </summary>
         private bool CheckEnemyInArc()
         {
-            return ShipCombat.AnyEnemyInArc(transform.position, transform.up, myStrength.faction,
+            return ShipCombat.AnyEnemyInArc(transform.position, transform.up, myStrength.factionData, myStrength.faction,
                 weaponArc.range, weaponArc.halfAngle);
         }
 
@@ -255,7 +254,7 @@ namespace Ginei
         private void AttackNearestEnemyInArc()
         {
             IShipTarget nearest = ShipCombat.FindNearestEnemyInArc(transform.position, transform.up,
-                myStrength.faction, weaponArc.range, weaponArc.halfAngle);
+                myStrength.factionData, myStrength.faction, weaponArc.range, weaponArc.halfAngle);
 
             if (nearest != null)
             {

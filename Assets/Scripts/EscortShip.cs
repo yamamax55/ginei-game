@@ -97,7 +97,7 @@ namespace Ginei
 
             // 標的優先度：第一＝射線の通る敵旗艦、第二＝敵配下艦（射線上の配下艦は旗艦を遮蔽する）
             IShipTarget target = ShipCombat.FindPrioritizedEnemyInArc(transform.position, transform.up,
-                Faction, flagshipArc.range, flagshipArc.halfAngle);
+                FactionData, Faction, flagshipArc.range, flagshipArc.halfAngle);
 
             if (target != null)
             {

@@ -43,6 +43,8 @@ namespace Ginei
 
         [Header("戦績")]
         public Faction winner;
+        [Tooltip("勝者勢力名（多勢力対応。3勢力以上では enum winner では表せないためこちらを表示に使う）")]
+        public string winnerName;
         public int imperialSunkCount;
         public int allianceSunkCount;
         public int remainingStrength;
@@ -83,6 +85,7 @@ namespace Ginei
             allianceRemainingStrength = 0;
             mvpAdmiral = "";
             victoryReason = "";
+            winnerName = "";
         }
     }
 }

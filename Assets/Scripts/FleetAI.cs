@@ -75,15 +75,17 @@ if (Time.time >= nextSearchTime)
         /// </summary>
         private void SearchNearestEnemy()
         {
-            // 敵旗艦のみをレジストリから取得（接近・交戦の目標は旗艦単位）
-            IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(strength.faction);
+            // 全旗艦から敵対する旗艦のみを対象に最寄りを探す（接近・交戦の目標は旗艦単位）
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
             float minDistance = float.MaxValue;
             targetEnemy = null;
 
-            for (int i = 0; i < enemies.Count; i++)
+            for (int i = 0; i < flagships.Count; i++)
             {
-                FleetStrength fleet = enemies[i];
+                FleetStrength fleet = flagships[i];
                 if (fleet == null || !fleet.IsAlive) continue;
+                if (fleet == strength) continue;                       // 自分は除外
+                if (!FactionRelations.IsHostile(strength, fleet)) continue; // 敵対勢力のみ
 
                 float dist = Vector2.Distance(transform.position, fleet.transform.position);
                 if (dist < minDistance)

@@ -304,11 +304,12 @@ namespace Ginei
         {
             FleetStrength nearest = null;
             float minDist = float.MaxValue;
-            IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(faction);
-            for (int i = 0; i < enemies.Count; i++)
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flagships.Count; i++)
             {
-                FleetStrength fs = enemies[i];
-                if (fs == null || !fs.IsAlive) continue;
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == this || !fs.IsAlive) continue;
+                if (!FactionRelations.IsHostile(this, fs)) continue; // 敵対勢力の旗艦のみ
                 float d = Vector2.Distance(transform.position, fs.transform.position);
                 if (d < minDist) { minDist = d; nearest = fs; }
             }

@@ -112,6 +112,7 @@
 | `DamagePopup` | 動的生成のダメージ数値ポップアップ。`static Show(worldPos, damage, isFlank)`。jitterで団子化防止、timeScale 追従でフェード。側背面は赤橙＋強調。**同時表示数を `MaxActive`(48) に制限**し、多数の配下艦が同時に撃っても出しすぎない（超過分は間引く）。 |
 | `SpaceBackground` | ParticleSystem で星生成、パララックス。SortingLayer `"Background"`/order -100。 |
 | `FormationPreview` | 移動先決定中に選択部隊の陣形を半透明表示（旗艦中心＋配下艦スロットに艦スプライトを淡い陣営色 alpha≒0.3 で描画）。`FleetCommander` が実行時生成し `Show(Squadron)`/`SetPose(pos, angleZ)`/`Hide()`。スロットは `Squadron.GetFormationSlots()` を利用。 |
+| `BlackHole` | 特殊地形：ブラックホール（A-5）。`pullRadius` 内の全 `IShipTarget`（旗艦＋配下艦）に引力をかけ、`coreRadius` に入った艦を `TakeDamage(CoreKillDamage)` で戦闘除外（旗艦→`BeginRetreat`、配下艦→`Destroy`）。引力は LateUpdate に外力としてトランスフォームへ加算（`FleetMovement` に触れない）、`Time.deltaTime` 依存で timeScale 追従。艦の列挙は `FleetRegistry.GetEnemies(帝国)` と `FleetRegistry.GetEnemies(同盟)` のユニオン（`FindObjectsByType` 不使用）。ビジュアルはランタイム生成のラジアルグラデスプライト（コアディスク＋降着円盤リング、sortingOrder -50/-51）。Battle シーン開始時に `[RuntimeInitializeOnLoadMethod]` で自動配置（`AutoSpawnEnabled` で無効化可）。 |
 
 ## 壊すと不具合になる依存・命名
 - 旗艦の子オブジェクト名は固定。`FactionColor`/`FleetStrength.Flash`/`Squadron` がこれらの名前で除外・再利用判定する。**変えない・重複生成しない**：

@@ -166,9 +166,10 @@ namespace Ginei
             float factor = 1.0f;
 
             // 提督の機動能力による補正（機動50で1.0倍, 100で1.5倍, 0で0.5倍）
+            // 参謀補完を反映した実効機動を使用（基準値は非破壊）
             if (strength != null && strength.admiralData != null)
             {
-                factor *= 1.0f + (strength.admiralData.mobility - 50) / 100f;
+                factor *= 1.0f + (strength.admiralData.EffectiveMobility - 50) / 100f;
             }
 
             // 士気による補正（敗走時は専用倍率を適用し、段階的な士気補正と二重に掛けない）

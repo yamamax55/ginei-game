@@ -69,7 +69,14 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
 
             if (strength != null)
             {
-                if (admiralText != null) admiralText.text = $"提督: {strength.admiralName}";
+                if (admiralText != null)
+                {
+                    // 提督名＋参謀名（参謀がいれば実効能力が補完される）
+                    string admiralLine = $"提督: {strength.admiralName}";
+                    AdmiralData ad = strength.admiralData;
+                    if (ad != null && ad.HasStaff) admiralLine += $"\n参謀: {ad.GetStaffNames()}";
+                    admiralText.text = admiralLine;
+                }
                 if (factionText != null)
                 {
                     factionText.text = $"陣営: {strength.faction}";

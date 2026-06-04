@@ -8,3 +8,5 @@
 .vs/
 *.csproj
 *.sln
+# Claude Code のローカル状態・worktree（追跡しない）
+.claude/

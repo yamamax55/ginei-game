@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -67,6 +68,20 @@ namespace Ginei
         [Tooltip("勝因")]
         public string victoryReason;
 
+        [Tooltip("勢力ごとの戦績（多勢力対応・勢力名キー。3勢力以上の Result 表示に使用）")]
+        public List<FactionStat> factionStats = new List<FactionStat>();
+
+        /// <summary>1勢力分の戦績（勢力名キー）。BattleManager が記録し ResultManager が表示する。</summary>
+        [System.Serializable]
+        public class FactionStat
+        {
+            public string factionName;   // 勢力名（FactionData.factionName、無ければ enum 名）
+            public int initialCount;     // 開始時の旗艦数
+            public int remainingCount;   // 残存旗艦数
+            public int sunkCount;        // 喪失数（initialCount - remainingCount）
+            public int remainingStrength;// 残存兵力合計
+        }
+
         private void Awake()
         {
             if (instance == null)
@@ -117,6 +132,7 @@ namespace Ginei
             mvpAdmiral = "";
             victoryReason = "";
             winnerName = "";
+            factionStats.Clear();
         }
     }
 }

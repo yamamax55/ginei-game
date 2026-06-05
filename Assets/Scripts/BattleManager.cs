@@ -19,6 +19,8 @@ namespace Ginei
         private float nextCheckTime;
         private int initialImperialCount;
         private int initialAllianceCount;
+        // 勢力名キーの開始時旗艦数（多勢力対応の戦績集計用）
+        private readonly Dictionary<string, int> initialCountByFaction = new Dictionary<string, int>();
         private bool isBattleOver = false;
         private bool initialized = false;
         private bool initialHadHostilePair = false; // 開始時に敵対する旗艦同士が居たか（自動決着の前提）
@@ -50,6 +52,7 @@ namespace Ginei
             if (!initialized)
             {
                 CountFleets(out initialImperialCount, out initialAllianceCount);
+                CountInitialByFaction();
                 ResolveScenarioAndVip();
                 initialHadHostilePair = HasHostilePair(FleetRegistry.AllFlagships);
                 initialized = true;
@@ -313,6 +316,84 @@ namespace Ginei
             }
         }
 
+        /// <summary>開始時の勢力名キー別旗艦数を記録する（多勢力対応の戦績の基準）。</summary>
+        private void CountInitialByFaction()
+        {
+            initialCountByFaction.Clear();
+            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FleetStrength fs = all[i];
+                if (fs == null) continue;
+                Increment(initialCountByFaction, FactionKey(fs), 1);
+            }
+        }
+
+        /// <summary>旗艦の勢力名キー（FactionData.factionName 優先、無ければ enum 名）。</summary>
+        private static string FactionKey(FleetStrength fs)
+            => (fs.factionData != null && !string.IsNullOrEmpty(fs.factionData.factionName))
+                ? fs.factionData.factionName
+                : fs.faction.ToString();
+
+        /// <summary>辞書の key に amount を加算する（未登録なら新規）。</summary>
+        private static void Increment(Dictionary<string, int> dict, string key, int amount)
+        {
+            dict.TryGetValue(key, out int cur);
+            dict[key] = cur + amount;
+        }
+
+        /// <summary>
+        /// 勢力名キー別の戦績（残存旗艦数・残存兵力・喪失数）を GameSettings.factionStats に記録する。
+        /// 喪失数は開始時数 - 残存数。退却・破棄された旗艦はレジストリ外なので残存に数えない。
+        /// </summary>
+        private void RecordFactionStats(GameSettings settings)
+        {
+            Dictionary<string, int> remCount = new Dictionary<string, int>();
+            Dictionary<string, int> remStrength = new Dictionary<string, int>();
+
+            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            for (int i = 0; i < alive.Count; i++)
+            {
+                FleetStrength fs = alive[i];
+                if (fs == null) continue;
+                string key = FactionKey(fs);
+                Increment(remCount, key, 1);
+                Increment(remStrength, key, fs.strength);
+            }
+
+            settings.factionStats.Clear();
+
+            // 開始時に存在した全勢力を基準に集計（残存ゼロでも喪失として出す）
+            foreach (var kv in initialCountByFaction)
+            {
+                remCount.TryGetValue(kv.Key, out int rc);
+                remStrength.TryGetValue(kv.Key, out int rs);
+                settings.factionStats.Add(new GameSettings.FactionStat
+                {
+                    factionName = kv.Key,
+                    initialCount = kv.Value,
+                    remainingCount = rc,
+                    sunkCount = Mathf.Max(0, kv.Value - rc),
+                    remainingStrength = rs
+                });
+            }
+
+            // 念のため：開始時に居なかったが残存している勢力があれば追加
+            foreach (var kv in remCount)
+            {
+                if (initialCountByFaction.ContainsKey(kv.Key)) continue;
+                remStrength.TryGetValue(kv.Key, out int rs);
+                settings.factionStats.Add(new GameSettings.FactionStat
+                {
+                    factionName = kv.Key,
+                    initialCount = kv.Value,
+                    remainingCount = kv.Value,
+                    sunkCount = 0,
+                    remainingStrength = rs
+                });
+            }
+        }
+
         /// <summary>
         /// 戦績を GameSettings に保存します（勝者・勝者名・喪失数・残存兵力・MVP・勝因）。
         /// 勝者・勝因は勝利条件評価(EvaluateVictory)の結果を受け取り、勝者名/MVPは多勢力対応で算出する。
@@ -347,6 +428,9 @@ namespace Ginei
 
             // 勝因（勝利条件の評価結果）
             settings.victoryReason = string.IsNullOrEmpty(reason) ? "敵旗艦全滅" : reason;
+
+            // 勢力名キー別の戦績（多勢力対応。ResultManager が勢力数可変で表示）
+            RecordFactionStats(settings);
         }
 
         /// <summary>

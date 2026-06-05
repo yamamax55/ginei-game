@@ -38,12 +38,28 @@ namespace Ginei
             {
                 string mvp = string.IsNullOrEmpty(settings.mvpAdmiral) ? "—" : settings.mvpAdmiral;
                 string reason = string.IsNullOrEmpty(settings.victoryReason) ? "—" : settings.victoryReason;
-                statsText.text = $"【戦果】\n" +
-                                 $"帝国軍  喪失: {settings.imperialSunkCount}　残存兵力: {settings.imperialRemainingStrength}\n" +
-                                 $"同盟軍  喪失: {settings.allianceSunkCount}　残存兵力: {settings.allianceRemainingStrength}\n" +
-                                 $"\n" +
-                                 $"勝因: {reason}\n" +
-                                 $"殊勲提督(MVP): {mvp}";
+
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                sb.Append("【戦果】\n");
+
+                // 多勢力対応：勢力名キーの戦績があれば勢力数可変で表示。
+                // 無ければ従来の帝国/同盟2勢力にフォールバック。
+                if (settings.factionStats != null && settings.factionStats.Count > 0)
+                {
+                    foreach (var fsStat in settings.factionStats)
+                    {
+                        if (fsStat == null) continue;
+                        sb.Append($"{fsStat.factionName}  喪失: {fsStat.sunkCount}　残存兵力: {fsStat.remainingStrength}\n");
+                    }
+                }
+                else
+                {
+                    sb.Append($"帝国軍  喪失: {settings.imperialSunkCount}　残存兵力: {settings.imperialRemainingStrength}\n");
+                    sb.Append($"同盟軍  喪失: {settings.allianceSunkCount}　残存兵力: {settings.allianceRemainingStrength}\n");
+                }
+
+                sb.Append($"\n勝因: {reason}\n殊勲提督(MVP): {mvp}");
+                statsText.text = sb.ToString();
             }
         }
 

@@ -92,6 +92,7 @@
 | `CameraController` | Main Camera | パン(WASD/矢印/中ドラッグ)・ズーム(ホイール,`zoomSpeed`/min/maxZoom)・開始時は `startZoom` で少し引いた画・F=選択艦隊フォーカス・min/maxBounds クランプ・撃沈時 `Shake()`（unscaled で減衰、LateUpdate でオフセット復元）。 |
 | `CommandMenu` | uGUI | 右クリックメニュー。選択状況で 移動/攻撃/陣形変更/情報/選択 を動的生成。「攻撃」は選択中つねに表示し、押すと `FleetCommander.StartWaitingForAttackTarget()` で目標指定モードへ移行（左ク=通常攻撃／右ク=攻撃種別メニュー）。`OpenAttackTypeMenu(screenPos)` で通常/ミサイルの選択メニューを開く。陣形サブメニューのボタンは `Formation` enum から動的生成（`BuildFormationButtons`、シーン手配線に非依存）。`OpenMenu`/`CloseMenu`/`IsOpen`/`ChangeFormation(int)`。画面端クランプ。 |
 | `FleetHUDManager` | uGUI | 選択艦隊の 提督/陣営/兵力バー/士気バー/陣形 を表示。任意で `shipCountText`(旗艦艦艇数＋配下艦残存数)を表示。`ChangeFormation(int)`。`ShowMessage(text, duration)` で画面上部に通知を実時間で一定時間表示（攻撃対象通知などに使用、TMPテキストを実行時生成）。 |
+| `HelpOverlay` | Battle シーン | H キーで開閉する操作ヘルプオーバーレイ。TimeScale 非依存（ポーズ中も開閉可）。`[RuntimeInitializeOnLoadMethod]` で Battle シーンに自動生成（シーン手配線不要）。Canvas/ディマー/スクロールビュー/操作一覧（選択・移動・攻撃・陣形・カメラ・ポーズ・倍速）をコードで構築。`Toggle()`/`SetVisible(bool)`。 |
 
 ### 艦隊コンポーネント（旗艦 GameObject に付く）
 | クラス | 責務 / 主なAPI |

@@ -10,3 +10,6 @@
 *.sln
 # Claude Code のローカル状態・worktree（追跡しない）
 .claude/
+# ローカルのバックアップzip・セットアップ用スクリプト（追跡しない）
+/*.zip
+/gh_setup.sh

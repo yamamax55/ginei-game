@@ -137,7 +137,7 @@ namespace Ginei
             foreach (var sr in all)
             {
                 string n = sr.gameObject.name;
-                if (n == "SelectionRing" || n == "FlagshipMarker") continue;
+                if (n == "SelectionRing" || n == "FlagshipMarker" || n == "FlagshipMarkerGlow") continue;
                 if (sr.sprite != null) return sr;
             }
             return null;

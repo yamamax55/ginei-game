@@ -7,6 +7,8 @@ namespace Ginei
 {
     /// <summary>
     /// 会戦中の勝敗判定と戦績の記録を管理するクラス。
+    /// 勝利条件（殲滅/時間防衛/旗艦撃破/護衛）を評価しつつ、敵対判定・勝者決定は
+    /// 多勢力（FactionData）対応で一般化する（FactionRelations.IsHostile / 残存旗艦数）。
     /// </summary>
     public class BattleManager : MonoBehaviour
     {
@@ -20,6 +22,12 @@ namespace Ginei
         private bool isBattleOver = false;
         private bool initialized = false;
         private bool initialHadHostilePair = false; // 開始時に敵対する旗艦同士が居たか（自動決着の前提）
+
+        // 勝利条件評価用
+        private ScenarioData activeScenario;     // この会戦の勝利条件・パラメータ
+        private float battleElapsed = 0f;        // 会戦経過時間（timeScale 追従。ポーズで停止・倍速で加速）
+        private Faction vipFaction;              // 旗艦撃破/護衛の対象VIPの陣営（開始時に解決）
+        private bool vipResolved = false;        // VIPの陣営を解決できたか
 
         private void Start()
         {
@@ -38,10 +46,11 @@ namespace Ginei
                 return;
             }
 
-            // 全 Start 完了後（＝レジストリ登録後）の最初の Update で開始時隻数・敵対状況を記録
+            // 全 Start 完了後（＝レジストリ登録後）の最初の Update で開始時隻数・勝利条件・敵対状況を記録
             if (!initialized)
             {
                 CountFleets(out initialImperialCount, out initialAllianceCount);
+                ResolveScenarioAndVip();
                 initialHadHostilePair = HasHostilePair(FleetRegistry.AllFlagships);
                 initialized = true;
                 if (FleetRegistry.AllFlagships.Count == 0)
@@ -56,6 +65,9 @@ namespace Ginei
             // 開始時に敵対する旗艦が無い構成（単一勢力など）では自動決着しない
             if (!initialHadHostilePair) return;
 
+            // 会戦経過時間を積算（timeScale 追従＝ポーズで止まり倍速で速く進む）
+            battleElapsed += Time.deltaTime;
+
             if (Time.time >= nextCheckTime)
             {
                 CheckVictory();
@@ -64,21 +76,150 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 敵対する旗艦同士が残っているかを確認し、いなくなったら決着とします（多勢力対応）。
+        /// 勝利条件を評価し、決着していれば戦績を記録して結果画面へ遷移します。
         /// </summary>
         private void CheckVictory()
         {
-            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
-
-            // まだ敵対する旗艦のペアが残っていれば戦闘継続
-            if (HasHostilePair(alive)) return;
+            if (!EvaluateVictory(out Faction winner, out string reason, out FleetStrength winnerRep)) return;
 
             isBattleOver = true;
-            Time.timeScale = 0f;          // 決着時に時間を停止
-            RecordResults(alive);
+
+            // 決着時に時間を停止
+            Time.timeScale = 0f;
+
+            RecordResults(winner, reason, winnerRep);
+
             // 結果画面へ遷移（非同期ロード中も時間は停止しているが、SceneLoaderがunscaledTimeを使う）
             SceneLoader.Instance.LoadScene("Result");
         }
+
+        /// <summary>
+        /// シナリオの勝利条件に従って決着を評価する。決着していれば true＋勝者・勝因・勝者代表旗艦を返す。
+        /// 終了の汎用条件は「敵対する旗艦のペアが残っていない」（多勢力対応の殲滅）。
+        /// </summary>
+        private bool EvaluateVictory(out Faction winner, out string reason, out FleetStrength winnerRep)
+        {
+            winner = Faction.同盟;
+            reason = "";
+            winnerRep = null;
+
+            int imp = CountLegacy(Faction.帝国);
+            int all = CountLegacy(Faction.同盟);
+
+            VictoryCondition cond = activeScenario != null ? activeScenario.victoryCondition : VictoryCondition.殲滅;
+
+            // --- 旗艦撃破 / 護衛：対象VIP旗艦の生死・時間で先に決着しうる ---
+            if ((cond == VictoryCondition.旗艦撃破 || cond == VictoryCondition.護衛)
+                && activeScenario != null && activeScenario.targetAdmiral != null && vipResolved)
+            {
+                AdmiralData vip = activeScenario.targetAdmiral;
+                bool vipAlive = FindLivingFlagshipByAdmiral(vip) != null;
+
+                if (!vipAlive)
+                {
+                    // VIP喪失 → 反対陣営の勝利
+                    winner = Opposite(vipFaction);
+                    reason = (cond == VictoryCondition.護衛)
+                        ? $"護衛対象「{vip.admiralName}」を喪失"
+                        : $"敵旗艦「{vip.admiralName}」を撃破";
+                    winnerRep = FindLivingFlagshipByLegacy(winner);
+                    return true;
+                }
+
+                // VIP生存かつ時間切れ → VIP陣営（守備側）の勝利
+                if (activeScenario.timeLimit > 0f && battleElapsed >= activeScenario.timeLimit)
+                {
+                    winner = vipFaction;
+                    reason = (cond == VictoryCondition.護衛)
+                        ? "護衛成功（制限時間まで守り切った）"
+                        : $"旗艦「{vip.admiralName}」を制限時間まで守り切った";
+                    winnerRep = FindLivingFlagshipByLegacy(winner);
+                    return true;
+                }
+            }
+
+            // --- 時間防衛：防衛側が制限時間まで生存で勝利 ---
+            if (cond == VictoryCondition.時間防衛 && activeScenario != null)
+            {
+                Faction defender = activeScenario.objectiveFaction;
+                int defenderCount = (defender == Faction.帝国) ? imp : all;
+                if (defenderCount > 0 && activeScenario.timeLimit > 0f && battleElapsed >= activeScenario.timeLimit)
+                {
+                    winner = defender;
+                    reason = "時間防衛成功";
+                    winnerRep = FindLivingFlagshipByLegacy(winner);
+                    return true;
+                }
+            }
+
+            // --- 殲滅（全条件共通の終了条件・多勢力対応）：敵対する旗艦ペアが残っていない ---
+            if (!HasHostilePair(FleetRegistry.AllFlagships))
+            {
+                winnerRep = DetermineWinner(FleetRegistry.AllFlagships);
+                if (winnerRep == null)
+                {
+                    winner = Faction.同盟; // 全旗艦喪失＝便宜上の勝者
+                    reason = "両軍壊滅";
+                }
+                else
+                {
+                    winner = LegacyOf(winnerRep);
+                    reason = "敵旗艦全滅";
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// この会戦のシナリオ（勝利条件）と、旗艦撃破/護衛の対象VIPの陣営を解決する。
+        /// </summary>
+        private void ResolveScenarioAndVip()
+        {
+            activeScenario = ScenarioData.ActiveScenario;
+            if (activeScenario == null)
+            {
+                activeScenario = ScenarioData.Resolve(GameSettings.Instance.scenarioName);
+            }
+
+            vipResolved = false;
+            if (activeScenario != null && activeScenario.targetAdmiral != null)
+            {
+                FleetStrength vipFlag = FindLivingFlagshipByAdmiral(activeScenario.targetAdmiral);
+                // 実際の陣営はシナリオで上書きされ得るので、生存中の旗艦から確定する。
+                // 開始時に見つからなければ提督データの陣営をフォールバックに使う。
+                vipFaction = (vipFlag != null) ? LegacyOf(vipFlag) : activeScenario.targetAdmiral.faction;
+                vipResolved = true;
+            }
+        }
+
+        /// <summary>指定 AdmiralData を持つ生存旗艦を探す（退却・破棄済みは登録外なので見つからない＝撃破扱い）。</summary>
+        private static FleetStrength FindLivingFlagshipByAdmiral(AdmiralData admiral)
+        {
+            if (admiral == null) return null;
+            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] != null && all[i].admiralData == admiral) return all[i];
+            }
+            return null;
+        }
+
+        /// <summary>指定の旧 enum 陣営に属する生存旗艦の代表を1隻返す（勝者名/MVP算出用）。</summary>
+        private static FleetStrength FindLivingFlagshipByLegacy(Faction f)
+        {
+            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FleetStrength fs = all[i];
+                if (fs != null && fs.IsAlive && LegacyOf(fs) == f) return fs;
+            }
+            return null;
+        }
+
+        /// <summary>陣営の反対側を返す。</summary>
+        private static Faction Opposite(Faction f) => (f == Faction.帝国) ? Faction.同盟 : Faction.帝国;
 
         /// <summary>生存旗艦の中に敵対するペアが1組でもあるか。</summary>
         private static bool HasHostilePair(IReadOnlyList<FleetStrength> flagships)
@@ -146,6 +287,19 @@ namespace Ginei
             return best != null ? best.admiralName : "";
         }
 
+        /// <summary>指定の旧 enum 陣営に属する生存旗艦数。</summary>
+        private static int CountLegacy(Faction f)
+        {
+            int n = 0;
+            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FleetStrength fs = all[i];
+                if (fs != null && LegacyOf(fs) == f) n++;
+            }
+            return n;
+        }
+
         private void CountFleets(out int imperial, out int alliance)
         {
             // 旧 enum バケツ別の生存旗艦数（後方互換の戦績集計用）
@@ -161,13 +315,15 @@ namespace Ginei
 
         /// <summary>
         /// 戦績を GameSettings に保存します（勝者・勝者名・喪失数・残存兵力・MVP・勝因）。
+        /// 勝者・勝因は勝利条件評価(EvaluateVictory)の結果を受け取り、勝者名/MVPは多勢力対応で算出する。
         /// </summary>
-        private void RecordResults(IReadOnlyList<FleetStrength> alive)
+        private void RecordResults(Faction winner, string reason, FleetStrength winnerRep)
         {
             GameSettings settings = GameSettings.Instance;
 
             // 後方互換の enum 別集計（帝国/同盟バケツ）
             int impRem = 0, allRem = 0, impStr = 0, allStr = 0;
+            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
             for (int i = 0; i < alive.Count; i++)
             {
                 FleetStrength fs = alive[i];
@@ -176,28 +332,21 @@ namespace Ginei
                 else { allRem++; allStr += fs.strength; }
             }
 
-            FleetStrength winnerRep = DetermineWinner(alive);
-            if (winnerRep != null)
-            {
-                settings.winner = LegacyOf(winnerRep);
-                settings.winnerName = (winnerRep.factionData != null) ? winnerRep.factionData.factionName : winnerRep.faction.ToString();
-                settings.victoryReason = "敵旗艦全滅";
-                settings.mvpAdmiral = FindMvpAdmiral(alive, winnerRep);
-            }
-            else
-            {
-                // 全旗艦喪失＝引き分け
-                settings.winner = Faction.同盟;
-                settings.winnerName = "引き分け";
-                settings.victoryReason = "両軍壊滅";
-                settings.mvpAdmiral = "";
-            }
-
+            settings.winner = winner;
+            settings.winnerName = (winnerRep != null)
+                ? (winnerRep.factionData != null ? winnerRep.factionData.factionName : winnerRep.faction.ToString())
+                : winner.ToString();
             settings.imperialSunkCount = initialImperialCount - impRem;
             settings.allianceSunkCount = initialAllianceCount - allRem;
             settings.remainingStrength = impStr + allStr;
             settings.imperialRemainingStrength = impStr;
             settings.allianceRemainingStrength = allStr;
+
+            // MVP：勝者勢力の生存旗艦で与ダメージ最大の提督
+            settings.mvpAdmiral = (winnerRep != null) ? FindMvpAdmiral(alive, winnerRep) : "";
+
+            // 勝因（勝利条件の評価結果）
+            settings.victoryReason = string.IsNullOrEmpty(reason) ? "敵旗艦全滅" : reason;
         }
 
         /// <summary>

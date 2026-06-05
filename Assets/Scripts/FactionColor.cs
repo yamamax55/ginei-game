@@ -14,6 +14,9 @@ namespace Ginei
         [Tooltip("FactionData 未割当時のフォールバック色（同盟）")]
         public Color allianceColor = new Color(0.2f, 0.5f, 0.9f); // 同盟: 青系
 
+        [Tooltip("旗艦の発光ハロー(FlagshipMarkerGlow)に乗せる陣営色の濃さ(アルファ)")]
+        public float flagshipGlowAlpha = 0.55f;
+
         private FleetStrength fleetStrength;
 
         /// <summary>陣営色を決定する。FactionData があればその color、無ければ enum の既定色（後方互換）。</summary>
@@ -49,9 +52,17 @@ namespace Ginei
             SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
             foreach (var sr in renderers)
             {
-                // 選択リング(黄固定)と旗艦マーカー(金固定)は陣営色で塗らないので除外する
+                // 選択リング(黄固定)と旗艦マーカー本体(金固定)は陣営色で塗らないので除外する
                 if (sr.gameObject.name == "SelectionRing") continue;
                 if (sr.gameObject.name == "FlagshipMarker") continue;
+
+                // 旗艦の発光ハローだけは陣営色を薄く乗せる（帝国/同盟の識別＋マーカー強調）。
+                // 金ダイヤ＝旗艦の目印、ハロー色＝陣営、と役割を分ける。
+                if (sr.gameObject.name == "FlagshipMarkerGlow")
+                {
+                    sr.color = new Color(targetColor.r, targetColor.g, targetColor.b, flagshipGlowAlpha);
+                    continue;
+                }
 
                 sr.color = targetColor;
             }

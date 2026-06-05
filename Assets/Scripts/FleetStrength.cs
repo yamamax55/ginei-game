@@ -38,6 +38,9 @@ namespace Ginei
         [Tooltip("旗艦喪失（艦艇数0）時に離脱する距離")]
         public float retreatDistance = 50f;
 
+        // 頭上ラベルのズーム追従の基準ズーム（CameraController.startZoom と揃える）
+        private const float LabelReferenceOrthoSize = 16f;
+
         private TextMesh strengthDisplay;
         private FleetMorale moraleComponent;
         private FleetMovement movement;
@@ -116,6 +119,12 @@ namespace Ginei
 
             UpdateDisplay();
 
+            // 頭上ラベルの文字サイズをズームに追従させる（ズームアウト時の極小化・密集時の重なりを軽減）。
+            // 基準ズームは CameraController.startZoom(16) に合わせ、現在のスケールを基準スケールとして保持。
+            LabelZoomScaler labelScaler = textObj.GetComponent<LabelZoomScaler>();
+            if (labelScaler == null) labelScaler = textObj.AddComponent<LabelZoomScaler>();
+            labelScaler.Configure(textObj.transform.localScale, LabelReferenceOrthoSize);
+
             // 索敵レジストリに登録（faction はここまでに確定済み）
             FleetRegistry.Register(this);
         }
@@ -140,7 +149,8 @@ namespace Ginei
 
             // 統率によって兵力上限を決定 (baseStrength を基準に補正)
             // 例：統率100で baseStrength * 1.5, 統率0で baseStrength * 0.5
-            float leadershipBonus = (admiralData.leadership - 50) / 100f; // -0.5 ~ +0.5
+            // 参謀補完を反映した実効統率を使用（基準値は非破壊）
+            float leadershipBonus = (admiralData.EffectiveLeadership - 50) / 100f; // -0.5 ~ +0.5
             maxStrength = Mathf.RoundToInt(admiralData.baseStrength * (1.0f + leadershipBonus));
             strength = maxStrength;
 
@@ -160,8 +170,8 @@ namespace Ginei
         {
             if (IsRetreating) return;
 
-            // 防御力によるダメージ軽減
-            float defenseValue = admiralData != null ? admiralData.defense : 0f;
+            // 防御力によるダメージ軽減（参謀補完を反映した実効防御）
+            float defenseValue = admiralData != null ? admiralData.EffectiveDefense : 0f;
             // 防御100でダメージ50%カット
             float reduction = 1.0f - Mathf.Clamp(defenseValue / 200f, 0, 0.9f);
             int finalDamage = Mathf.RoundToInt(rawDamage * reduction);
@@ -245,7 +255,8 @@ namespace Ginei
             foreach (var sr in all)
             {
                 if (sr.gameObject.name == "SelectionRing") continue;
-                if (sr.gameObject.name == "FlagshipMarker") continue; // 旗艦マーカーは艦体ではないのでフラッシュ対象外
+                if (sr.gameObject.name == "FlagshipMarker") continue;      // 旗艦マーカーは艦体ではないのでフラッシュ対象外
+                if (sr.gameObject.name == "FlagshipMarkerGlow") continue;  // 旗艦の発光ハロー(陣営色)もフラッシュしない
                 if (sr.GetComponent<EscortShip>() != null) continue;   // 配下艦は別個艦なので旗艦被弾フラッシュの対象外
                 list.Add(sr);
             }

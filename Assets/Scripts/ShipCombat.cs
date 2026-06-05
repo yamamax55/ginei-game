@@ -187,10 +187,11 @@ namespace Ginei
         public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank)
         {
             // 提督の攻撃力補正（攻撃50で1.0倍, 100で1.5倍, 0で0.5倍）
+            // 参謀補完を反映した実効攻撃を使用（基準値は非破壊）
             float attackBonus = 1.0f;
             if (admiral != null)
             {
-                attackBonus = 1.0f + (admiral.attack - 50) / 100f;
+                attackBonus = 1.0f + (admiral.EffectiveAttack - 50) / 100f;
             }
 
             // 側背面ボーナス：被弾側の正面(up)と攻撃者方向の内積で倍率を補間

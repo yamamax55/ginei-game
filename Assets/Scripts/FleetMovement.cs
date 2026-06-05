@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -31,6 +32,26 @@ namespace Ginei
         [Tooltip("敗走時の移動速度・回頭速度の倍率")]
         public float routedMobilityRatio = 0.5f;
 
+        [Header("混雑ペナルティ（艦隊接触時の減速）")]
+        [Tooltip("艦隊同士が密集・接触したとき、移動・回頭速度を低下させる")]
+        public bool enableCongestionPenalty = true;
+
+        [Tooltip("接触判定の半径倍率。1.0=外接円が触れた時点、>1=触れる前から効き始める")]
+        public float congestionRadiusScale = 1.1f;
+
+        [Tooltip("重なり量を減速へ変換する強さ。大きいほど少しの重なりで強く減速")]
+        public float congestionStrength = 1.0f;
+
+        [Tooltip("混雑時の最小機動倍率（これ以下には遅くならない＝完全停止を防ぐ）")]
+        [Range(0f, 1f)]
+        public float minCongestionFactor = 0.4f;
+
+        [Tooltip("近接スキャンの間隔（秒）。負荷軽減のため毎フレームは計算しない")]
+        public float congestionUpdateInterval = 0.2f;
+
+        [Tooltip("混雑係数の追従速度（倍率/秒）。大きいほど素早く反映、小さいほど滑らか")]
+        public float congestionSmoothSpeed = 2.0f;
+
         [Header("デバッグ用")]
         [Tooltip("現在の速度")]
         public float currentSpeed = 0f;
@@ -45,12 +66,21 @@ namespace Ginei
         private FleetWeapon weapon;
         private FleetStrength strength;
         private FleetMorale moraleComponent;
+        private Squadron squadron;
+
+        // 混雑ペナルティの状態（係数は間引き計算＋滑らかに追従）
+        private float congestionFactor = 1f;
+        private float congestionTarget = 1f;
+        private float lastCongestionUpdate = 0f;
 
         private void Awake()
         {
             weapon = GetComponent<FleetWeapon>();
             strength = GetComponent<FleetStrength>();
             moraleComponent = GetComponent<FleetMorale>();
+            squadron = GetComponent<Squadron>();
+            // 全艦が同フレームに一斉計算しないよう初回タイミングを分散
+            lastCongestionUpdate = -Random.Range(0f, congestionUpdateInterval);
         }
 
         private void Update()
@@ -166,9 +196,10 @@ namespace Ginei
             float factor = 1.0f;
 
             // 提督の機動能力による補正（機動50で1.0倍, 100で1.5倍, 0で0.5倍）
+            // 参謀補完を反映した実効機動を使用（基準値は非破壊）
             if (strength != null && strength.admiralData != null)
             {
-                factor *= 1.0f + (strength.admiralData.mobility - 50) / 100f;
+                factor *= 1.0f + (strength.admiralData.EffectiveMobility - 50) / 100f;
             }
 
             // 士気による補正（敗走時は専用倍率を適用し、段階的な士気補正と二重に掛けない）
@@ -185,7 +216,74 @@ namespace Ginei
                 factor *= weapon.combatMobilityRatio;
             }
 
+            // 艦隊同士の接触・密集による減速（混雑ペナルティ）
+            factor *= GetCongestionFactor();
+
             return factor;
+        }
+
+        /// <summary>
+        /// 他の艦隊（部隊）との接触・密集による機動低下倍率を返す（1.0=非接触, minCongestionFactor=最大混雑）。
+        /// 近接スキャンは congestionUpdateInterval ごとに間引き、係数は滑らかに追従させる。
+        /// </summary>
+        private float GetCongestionFactor()
+        {
+            if (!enableCongestionPenalty || squadron == null || strength == null) return 1f;
+
+            // 重い近接スキャンは一定間隔でのみ実行（Time.time は timeScale 追従＝ポーズ中は進まない）
+            if (Time.time - lastCongestionUpdate >= congestionUpdateInterval)
+            {
+                lastCongestionUpdate = Time.time;
+                congestionTarget = ComputeCongestionTarget();
+            }
+
+            // 目標倍率へ滑らかに追従（急なカクつき防止・離れると徐々に 1.0 へ戻る）
+            congestionFactor = Mathf.MoveTowards(congestionFactor, congestionTarget,
+                congestionSmoothSpeed * Time.deltaTime);
+            return congestionFactor;
+        }
+
+        /// <summary>
+        /// 現在の他艦隊との外接円の重なり量から、目標とする混雑倍率を算出する。
+        /// </summary>
+        private float ComputeCongestionTarget()
+        {
+            squadron.GetBoundingCircle(out Vector3 myCenter, out float myRadius);
+
+            float congestion = 0f;
+            // 全旗艦を対象（陣営問わず接触すれば混雑）。多勢力対応の単一在庫を参照。
+            AccumulateOverlap(FleetRegistry.AllFlagships, myCenter, myRadius, ref congestion);
+
+            float t = Mathf.Clamp01(congestion * congestionStrength);
+            return Mathf.Lerp(1f, minCongestionFactor, t);
+        }
+
+        /// <summary>
+        /// 指定旗艦リストの各艦隊と自艦隊の外接円の重なり量（半径和で正規化）を加算する。
+        /// 自分自身・退却/破棄済みは除外。陣営問わず接触すれば混雑とみなす。
+        /// </summary>
+        private void AccumulateOverlap(IReadOnlyList<FleetStrength> flagships,
+            Vector3 myCenter, float myRadius, ref float congestion)
+        {
+            if (flagships == null) return;
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == strength || !fs.IsAlive) continue;
+
+                Squadron other = fs.GetComponent<Squadron>();
+                if (other == null) continue;
+
+                other.GetBoundingCircle(out Vector3 oc, out float orad);
+                float dist = Vector2.Distance(myCenter, oc);
+                float contactDist = (myRadius + orad) * congestionRadiusScale;
+                float overlap = contactDist - dist;
+                if (overlap <= 0f) continue;
+
+                // 半径和で正規化し、艦隊の大小に依らず 0〜1 程度の寄与にする
+                float denom = Mathf.Max(0.0001f, myRadius + orad);
+                congestion += overlap / denom;
+            }
         }
 
         /// <summary>

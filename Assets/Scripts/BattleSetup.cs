@@ -43,6 +43,9 @@ namespace Ginei
                 return;
             }
 
+            // 勝利条件評価のため、解決したシナリオを公開（BattleManager が参照）
+            ScenarioData.ActiveScenario = scenario;
+
             if (fleetPrefab == null)
             {
                 Debug.LogError("BattleSetup: fleetPrefab が未設定です。Inspector で艦隊プレハブを割り当ててください。");

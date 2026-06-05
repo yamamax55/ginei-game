@@ -53,16 +53,18 @@
 - `Faction.cs`：`enum Faction { 帝国, 同盟 }`（※将来 `FactionData`(ScriptableObject) へ移行し複数勢力化予定）。陣営の置き場所は `FleetStrength.faction`。
 - `Formation`：`enum { 紡錘陣, 鶴翼陣, 円陣, 横陣, 方陣 }`（定義は `Squadron.cs` 内。既定=紡錘陣）。すべて旗艦＝中心(原点)・左右対称・旗艦の向き(Transform.up=前方)に追従。`ChangeFormation(int)` のインデックスはこの並び順。
 - `AIState`：`enum { 接近, 交戦, 撤退 }`（定義は `FleetAI.cs` 内）。
-- `AdmiralData`（ScriptableObject、メニュー `Ginei/Admiral Data`）：提督能力。`leadership`(統率)/`attack`(攻撃)/`defense`(防御)/`mobility`(機動)/`operation`(運営・将来用)/`intelligence`(情報・将来用)＋`baseStrength`/`admiralName`/`faction`。
+- `AdmiralData`（ScriptableObject、メニュー `Ginei/Admiral Data`）：提督能力。`leadership`(統率)/`attack`(攻撃)/`defense`(防御)/`mobility`(機動)/`operation`(運営・将来用)/`intelligence`(情報・将来用)＋`baseStrength`/`admiralName`/`faction`。**参謀**：`staffOfficers`(最大`MaxStaff`=3名、提督データを流用)＋`staffBonusRatio`(0〜1)。各能力の**実効値**は `EffectiveLeadership`/`EffectiveAttack`/`EffectiveDefense`/`EffectiveMobility`/`EffectiveOperation`/`EffectiveIntelligence`＝「基準値＋参謀の当該能力の最高値×`staffBonusRatio`」(上限`MaxStatValue`=100、基準フィールドは非破壊)。`HasStaff`/`GetStaffNames()`。**能力を読む側は必ず Effectivexxx を参照する**（基準フィールドを直接読まない）。
 - `ScenarioData`（ScriptableObject、メニュー `Ginei/Scenario Data`）：会戦定義。`scenarioName` と `List<FleetEntry> fleets`（各エントリ＝`admiral`/`faction`/`spawnPosition`/`formation`）。`BattleSetup` が `Resources` 全走査で `scenarioName` 一致を解決。サンプル会戦・提督アセットはエディタメニュー `Ginei/Create Sample Scenarios`（`Assets/Editor/SampleScenarioCreator.cs`）でワンクリック生成（シナリオ→`Resources/`、提督→`Assets/Data/Admirals/`、既存提督は上書きしない）。
 - `SaveData`（`[Serializable]` 平データ）：`playerFaction`(int)/`scenarioName`/`selectedAdmiral`。`SaveManager`(static) が `persistentDataPath/setup_save.json` に JSON 保存。
 
 ## 提督能力が効く場所（実効値パターンで反映）
-- `leadership` → `FleetStrength.ApplyAdmiralData()` が `maxStrength` を補正。`FleetMorale` の `maxMorale`。
-- `attack` → `FleetWeapon.PerformAttack()` のダメージ倍率（50で1.0倍、100で1.5倍、0で0.5倍）。
-- `defense` → `FleetStrength.TakeDamage()` の被ダメージ軽減（最大90%カット）。
-- `mobility` → `FleetMovement.GetMobilityFactor()` の速度/回頭補正。
-- `operation`/`intelligence` は現状未使用（将来用）。
+> 下記はすべて `AdmiralData.Effectivexxx`（参謀補完済みの実効値）を読む。基準フィールドを直接読まないこと。
+- `leadership`(→`EffectiveLeadership`) → `FleetStrength.ApplyAdmiralData()` が `maxStrength` を補正。`FleetMorale` の `maxMorale`。
+- `attack`(→`EffectiveAttack`) → `ShipCombat.ComputeDamage()` のダメージ倍率（50で1.0倍、100で1.5倍、0で0.5倍）。
+- `defense`(→`EffectiveDefense`) → `FleetStrength.TakeDamage()` の被ダメージ軽減（最大90%カット）。
+- `mobility`(→`EffectiveMobility`) → `FleetMovement.GetMobilityFactor()` の速度/回頭補正。
+- `operation`/`intelligence`(→`EffectiveOperation`/`EffectiveIntelligence`) は現状未使用（将来用）。
+- **参謀**：`AdmiralData.staffOfficers`(最大3名)が各能力の実効値を「最高値×`staffBonusRatio`」で底上げ。HUDは `FleetHUDManager` が提督名の下に参謀名を表示。基準値は書き換えない。
 
 ## 個艦戦闘モデル（部隊＝旗艦＋配下艦）
 - 部隊は「旗艦(`FleetStrength`)＋配下艦(`EscortShip`)」で構成。攻撃対象は**個々の艦艇**で、共通インターフェイス `IShipTarget`(`Transform`/`Faction`/`IsAlive`/`TakeDamage(int)`) を旗艦・配下艦の両方が実装する。

@@ -145,7 +145,8 @@ namespace Ginei
 
             // 統率によって兵力上限を決定 (baseStrength を基準に補正)
             // 例：統率100で baseStrength * 1.5, 統率0で baseStrength * 0.5
-            float leadershipBonus = (admiralData.leadership - 50) / 100f; // -0.5 ~ +0.5
+            // 参謀補完を反映した実効統率を使用（基準値は非破壊）
+            float leadershipBonus = (admiralData.EffectiveLeadership - 50) / 100f; // -0.5 ~ +0.5
             maxStrength = Mathf.RoundToInt(admiralData.baseStrength * (1.0f + leadershipBonus));
             strength = maxStrength;
 
@@ -165,8 +166,8 @@ namespace Ginei
         {
             if (IsRetreating) return;
 
-            // 防御力によるダメージ軽減
-            float defenseValue = admiralData != null ? admiralData.defense : 0f;
+            // 防御力によるダメージ軽減（参謀補完を反映した実効防御）
+            float defenseValue = admiralData != null ? admiralData.EffectiveDefense : 0f;
             // 防御100でダメージ50%カット
             float reduction = 1.0f - Mathf.Clamp(defenseValue / 200f, 0, 0.9f);
             int finalDamage = Mathf.RoundToInt(rawDamage * reduction);

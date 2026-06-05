@@ -112,7 +112,8 @@ namespace Ginei
             if (strength != null && strength.admiralData != null)
             {
                 // 最大士気は提督の統率力に依存 (例: 統率と同じ値)。0以下にはしない（ゼロ除算防止）
-                maxMorale = Mathf.Max(1f, strength.admiralData.leadership);
+                // 参謀補完を反映した実効統率を使用（基準値は非破壊）
+                maxMorale = Mathf.Max(1f, strength.admiralData.EffectiveLeadership);
                 morale = maxMorale;
             }
         }

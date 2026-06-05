@@ -1,0 +1,70 @@
+name: Unity CI
+
+# 各PR・master への push でプロジェクトのコンパイル（ビルド）を検証する。
+# Unity ライセンス（Personal）の Secrets が未設定の間はビルドをスキップし、警告だけ出す。
+# セットアップ手順は .github/workflows/README-unity-ci.md を参照。
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+  workflow_dispatch:
+
+# 同一ブランチの古い実行はキャンセルして無料枠を節約
+concurrency:
+  group: unity-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build StandaloneLinux64 (コンパイル検証)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Library をキャッシュしてビルドを高速化（Assets/Packages/ProjectSettings の変化でキー更新）
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-StandaloneLinux64-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-StandaloneLinux64-
+            Library-
+
+      # ライセンス Secret の有無を判定（中身はログに出さず空かどうかだけ確認）
+      - name: Check Unity license secret
+        id: lic
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Unity ライセンス未設定::UNITY_LICENSE Secret が未設定のためビルドをスキップしました。.github/workflows/README-unity-ci.md の手順で Secrets を設定するとコンパイル検証が有効になります。"
+          fi
+
+      # Unity ビルド（コンパイル検証）。unityVersion は ProjectVersion.txt から自動検出。
+      - name: Build project
+        if: steps.lic.outputs.ok == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneLinux64
+
+      # 生成物（任意・確認用）。ビルドが走った時だけ保存。
+      - name: Upload build artifact
+        if: steps.lic.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Build-StandaloneLinux64
+          path: build
+          retention-days: 7
+          if-no-files-found: ignore

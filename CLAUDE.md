@@ -53,16 +53,18 @@
 - `Faction.cs`：`enum Faction { 帝国, 同盟 }`（※将来 `FactionData`(ScriptableObject) へ移行し複数勢力化予定）。陣営の置き場所は `FleetStrength.faction`。
 - `Formation`：`enum { 紡錘陣, 鶴翼陣, 円陣, 横陣, 方陣 }`（定義は `Squadron.cs` 内。既定=紡錘陣）。すべて旗艦＝中心(原点)・左右対称・旗艦の向き(Transform.up=前方)に追従。`ChangeFormation(int)` のインデックスはこの並び順。
 - `AIState`：`enum { 接近, 交戦, 撤退 }`（定義は `FleetAI.cs` 内）。
-- `AdmiralData`（ScriptableObject、メニュー `Ginei/Admiral Data`）：提督能力。`leadership`(統率)/`attack`(攻撃)/`defense`(防御)/`mobility`(機動)/`operation`(運営・将来用)/`intelligence`(情報・将来用)＋`baseStrength`/`admiralName`/`faction`。
+- `AdmiralData`（ScriptableObject、メニュー `Ginei/Admiral Data`）：提督能力。`leadership`(統率)/`attack`(攻撃)/`defense`(防御)/`mobility`(機動)/`operation`(運営・将来用)/`intelligence`(情報・将来用)＋`baseStrength`/`admiralName`/`faction`。**参謀**：`staffOfficers`(最大`MaxStaff`=3名、提督データを流用)＋`staffBonusRatio`(0〜1)。各能力の**実効値**は `EffectiveLeadership`/`EffectiveAttack`/`EffectiveDefense`/`EffectiveMobility`/`EffectiveOperation`/`EffectiveIntelligence`＝「基準値＋参謀の当該能力の最高値×`staffBonusRatio`」(上限`MaxStatValue`=100、基準フィールドは非破壊)。`HasStaff`/`GetStaffNames()`。**能力を読む側は必ず Effectivexxx を参照する**（基準フィールドを直接読まない）。
 - `ScenarioData`（ScriptableObject、メニュー `Ginei/Scenario Data`）：会戦定義。`scenarioName` と `List<FleetEntry> fleets`（各エントリ＝`admiral`/`faction`/`spawnPosition`/`formation`）。**勝利条件**：`VictoryCondition`(`enum { 殲滅, 時間防衛, 旗艦撃破, 護衛 }`)＋`objectiveFaction`(時間防衛の防衛側)/`timeLimit`(秒、0以下で無制限)/`targetAdmiral`(旗艦撃破・護衛のVIP)。`static ActiveScenario`（`BattleSetup` が解決時に公開、`BattleManager` が参照）／`static Resolve(name)`（フォールバック解決）。`BattleSetup` が `Resources` 全走査で `scenarioName` 一致を解決。サンプル会戦・提督アセットはエディタメニュー `Ginei/Create Sample Scenarios`（`Assets/Editor/SampleScenarioCreator.cs`）でワンクリック生成（シナリオ→`Resources/`、提督→`Assets/Data/Admirals/`、既存提督は上書きしない）。
 - `SaveData`（`[Serializable]` 平データ）：`playerFaction`(int)/`scenarioName`/`selectedAdmiral`。`SaveManager`(static) が `persistentDataPath/setup_save.json` に JSON 保存。
 
 ## 提督能力が効く場所（実効値パターンで反映）
-- `leadership` → `FleetStrength.ApplyAdmiralData()` が `maxStrength` を補正。`FleetMorale` の `maxMorale`。
-- `attack` → `FleetWeapon.PerformAttack()` のダメージ倍率（50で1.0倍、100で1.5倍、0で0.5倍）。
-- `defense` → `FleetStrength.TakeDamage()` の被ダメージ軽減（最大90%カット）。
-- `mobility` → `FleetMovement.GetMobilityFactor()` の速度/回頭補正。
-- `operation`/`intelligence` は現状未使用（将来用）。
+> 下記はすべて `AdmiralData.Effectivexxx`（参謀補完済みの実効値）を読む。基準フィールドを直接読まないこと。
+- `leadership`(→`EffectiveLeadership`) → `FleetStrength.ApplyAdmiralData()` が `maxStrength` を補正。`FleetMorale` の `maxMorale`。
+- `attack`(→`EffectiveAttack`) → `ShipCombat.ComputeDamage()` のダメージ倍率（50で1.0倍、100で1.5倍、0で0.5倍）。
+- `defense`(→`EffectiveDefense`) → `FleetStrength.TakeDamage()` の被ダメージ軽減（最大90%カット）。
+- `mobility`(→`EffectiveMobility`) → `FleetMovement.GetMobilityFactor()` の速度/回頭補正。
+- `operation`/`intelligence`(→`EffectiveOperation`/`EffectiveIntelligence`) は現状未使用（将来用）。
+- **参謀**：`AdmiralData.staffOfficers`(最大3名)が各能力の実効値を「最高値×`staffBonusRatio`」で底上げ。HUDは `FleetHUDManager` が提督名の下に参謀名を表示。基準値は書き換えない。
 
 ## 個艦戦闘モデル（部隊＝旗艦＋配下艦）
 - 部隊は「旗艦(`FleetStrength`)＋配下艦(`EscortShip`)」で構成。攻撃対象は**個々の艦艇**で、共通インターフェイス `IShipTarget`(`Transform`/`Faction`/`IsAlive`/`TakeDamage(int)`) を旗艦・配下艦の両方が実装する。
@@ -97,19 +99,20 @@
 | `Selectable` | 選択状態と `selectionRing` 表示。`SetSelected(bool)`/`IsSelected`。 |
 | `Squadron` | 旗艦中心の陣形配置(SmoothDamp追従、向きは旗艦同期)。Start で旗艦スプライトを流用し `escortCount`(既定50)隻まで配下艦を生成（手置きの子があれば含めて補う）。配下艦は `memberScale`(既定0.8)で縮小（root スケールは変えない）。各配下艦に `EscortShip` 付与＋艦艇数=`escortShipCount`(既定200)設定(`SetupEscorts`)。生成後 `FactionColor.ApplyColors` で着色。Awake で `FlagshipMarker` 自動付与。陣形スロットは隻数/陣形変化時のみ再計算しキャッシュ。交戦中(`FleetWeapon.IsInCombat`)は `combatSmoothTime`(既定1.2)でゆっくり追従（穴埋め移動も緩やか）、非交戦時は `smoothTime`(0.3)。消滅艦は `RemoveMember` で除外（`velocities` と添字同期）。`GetEscortStatus`(HUD用)/`GetFormationSlots`/`GetShipSprite`/`GetShipColor`(プレビュー用)。`currentFormation`/`spacing`/`smoothTime`/`combatSmoothTime`/`escortCount`/`escortShipCount`/`memberShips`/`memberScale`。`Formation` enum 定義元。 |
 | `EscortShip` | 配下艦の戦闘単位。`IShipTarget` 実装。`shipCount`(艦艇数、旗艦より少なめ既定200、通常は `Squadron.escortShipCount` が設定)＋陣営は所属旗艦に従属。出現時 `FleetRegistry.Register`／消滅・退却時 `Unregister`、初回発砲位相をランダム化。`TakeDamage` で減算、0以下で `Squadron.RemoveMember`＋`Destroy`。被弾判定用 `CircleCollider2D`(trigger) を Awake で自動付与。攻撃は旗艦の `WeaponArc`/`FleetWeapon` を流用し、自分の位置・向きで射界内最寄り敵を撃つ（自前 LineRenderer ビーム、`fireInterval` 間隔にスロットル）。旗艦退却中は `IsAlive=false`＋発砲停止。**`Squadron` が Start で自動付与**。 |
-| `FlagshipMarker` | 旗艦識別マーカー。頭上に金色＋黒フチのダイヤ型アイコン（子 `"FlagshipMarker"`(SpriteRenderer)）を実行時生成。配下艦には付かないので旗艦の目印になる。色は**陣営非依存の固定色**(`markerColor`、既定=金)で `FactionColor` 着色対象外＝艦に埋もれず一目で分かる。常に艦の真上・水平に表示(LateUpdate ビルボード)。`height`/`markerScale`/`sortingOrder`/`markerColor`。**root スケールは変えない**（陣形計算が狂うため）。`[RequireComponent] Squadron`。**`Squadron` が Awake で自動付与する**（プレハブ編集不要。色等を調整したい時だけ手動で付けて値を変える）。 |
+| `FlagshipMarker` | 旗艦識別マーカー。頭上に金色＋黒フチのダイヤ型アイコン（子 `"FlagshipMarker"`(SpriteRenderer)）＋その背後の**発光ハロー**（子 `"FlagshipMarkerGlow"`(SpriteRenderer、放射グラデ円)）を実行時生成。配下艦には付かないので旗艦の目印になる。**金ダイヤ＝旗艦の固定マーク**(`markerColor`、既定=金、`FactionColor` 着色対象外)、**ハロー＝陣営色**(`FactionColor` が `FlagshipMarkerGlow` を陣営色×`flagshipGlowAlpha` で塗る)で役割を分離＝旗艦か配下か・帝国か同盟かを一目で識別。ハローは `pulseSpeed`/`pulseAmount` で `unscaledTime` 脈動して目立たせ、`sortingOrder`(既定30、ビーム等より前面)で常時前面。常に艦の真上・水平に表示(LateUpdate ビルボード)。`height`/`markerScale`/`sortingOrder`/`markerColor`/`glowScale`/`pulseSpeed`/`pulseAmount`/`defaultGlowColor`。**root スケールは変えない**（陣形計算が狂うため）。`[RequireComponent] Squadron`。**`Squadron` が Awake で自動付与する**（プレハブ編集不要。色等を調整したい時だけ手動で付けて値を変える）。 |
 | `FleetMovement` | `SetDestination(Vector2 pos, float? facingAngleZ=null)`（回頭→加減速前進。到着後 facing 指定があればその場回頭してから停止）／`FaceTarget(Vector2)`（その場回頭、交戦中の射界維持用）。実効速度は `GetMobilityFactor()`（提督機動×士気×交戦`combatMobilityRatio`）。public: maxSpeed/acceleration/deceleration/rotationSpeed/faceThreshold/arriveDistance。 |
 | `WeaponArc` | range/halfAngle/gizmoColor。`IsInArc(Transform)`。`OnDrawGizmos` で扇形描画。実行時は子 `"WeaponArcLine"`(LineRenderer) を生成し、`GameSettings.alwaysShowGizmos` が true の時だけ表示。 |
 | `FleetWeapon` | 射界内の最寄り敵**個艦(`IShipTarget`)**を自動攻撃(`fireInterval`)。手動攻撃目標は**艦隊単位**が基本＝`SetManualTargetFleet(Squadron)`（旗艦単艦ではなく敵艦隊全体を標的。射界内のその艦隊の最寄り艦を撃つ）。`SetManualTarget(IShipTarget)`(単艦・後方互換)/`ClearManualTarget()`/`HasManualTarget`。手動目標があると `HandlePursuit`→`PursueToward` で**追尾**：射程外(`pursuitStopRatio`)は `FleetMovement.SetDestination` で接近、射程内は `FaceTarget` で停止＆敵を向き続ける。艦隊目標は旗艦位置を追尾基準にし、敵旗艦が退却＝艦隊消滅で自動解除（単艦目標は撃沈・退却で解除）。AI制御中(`FleetAI.enabled`)の艦は追尾しない。移動命令(`FleetCommander.ExecuteMoveCommand`)で手動目標は解除される。**ミサイル攻撃**：`SetMissileMode(bool)`／`missileAmmo`(残弾)／`missileDamageMultiplier`／`missileBeamColor`／`MissileAmmo`。ミサイルモード中は残弾がある間だけ威力強化×倍率で1発消費、弾切れで自動的に通常攻撃へ移行（目標艦隊消滅・`ClearManualTarget` でも解除）。敵探索・ダメージ計算は `ShipCombat` に集約。側背面ボーナス(`flankMultiplier`、真後ろで最大)。`IsInCombat`。`combatMobilityRatio` はここに置く。旗艦退却中(`FleetStrength.IsRetreating`)は発砲停止。ビーム演出、`DamagePopup.Show`、`AudioManager.PlayBeam`。`[RequireComponent] WeaponArc`。 |
 | `FleetStrength` | `IShipTarget` 実装（旗艦＝個艦）。admiralData/admiralName/strength(=旗艦艦艇数)/maxStrength/faction。`ApplyAdmiralData()`（能力反映＋色再適用）、`TakeDamage(int)`（防御で軽減→士気低下→被弾フラッシュ→**0で破棄せず `BeginRetreat()`＝部隊退却**）。`IsRetreating`/`IsAlive`(退却で false)/`retreatDistance`。退却時：AI停止＋敵と反対方向へ離脱、以降は標的・勝敗カウントから除外。頭上ラベル(legacy `TextMesh`、子名 `"StrengthDisplay"`)。 |
 | `FleetMorale` | 士気管理。非交戦で回復・交戦で低下・被弾で低下(`OnTakeDamage`)。`GetMoraleFactor()`/`IsRouted`。**敗走(士気0)は交戦が `routedRecoveryDelay` 秒途切れたら自然回復し復帰**する。頭上ラベル(子名 `"MoraleLabel"`、低下/敗走時に表示)。`[RequireComponent] FleetStrength`。 |
 | `FleetAI` | 敵/非プレイヤー艦隊。`enum AIState{接近,交戦,撤退}`。retreatRatio/searchInterval。敗走(`IsRouted`)や兵力低下で撤退へ。`[RequireComponent] FleetMovement/FleetWeapon/FleetStrength`。 |
-| `FactionColor` | 陣営色で子SpriteRenderer全部(`"SelectionRing"`/`"FlagshipMarker"`除外)/TextMesh/`FleetWeapon.beamColor`/`WeaponArc.gizmoColor` を着色。`ApplyColors()`。imperialColor/allianceColor。`[RequireComponent] FleetStrength`。 |
+| `FactionColor` | 陣営色で子SpriteRenderer全部(`"SelectionRing"`/`"FlagshipMarker"`除外)/TextMesh/`FleetWeapon.beamColor`/`WeaponArc.gizmoColor` を着色。例外で `"FlagshipMarkerGlow"`(旗艦の発光ハロー)だけは陣営色×`flagshipGlowAlpha` を乗せる（陣営識別＋マーカー強調）。`ApplyColors()`。imperialColor/allianceColor/flagshipGlowAlpha。`[RequireComponent] FleetStrength`。 |
 
 ### 表示・背景
 | クラス | 責務 / 主なAPI |
 |---|---|
-| `DamagePopup` | 動的生成のダメージ数値ポップアップ。`static Show(worldPos, damage, isFlank)`。jitterで団子化防止、timeScale 追従でフェード。側背面は赤橙＋強調。**同時表示数を `MaxActive`(48) に制限**し、多数の配下艦が同時に撃っても出しすぎない（超過分は間引く）。 |
+| `DamagePopup` | 動的生成のダメージ数値ポップアップ。`static Show(worldPos, damage, isFlank)`。連続生成は縦に段積み(`StackSlots`/`StackStep`)＋水平に微ジッターして団子化防止、timeScale 追従でフェード。側背面は赤橙＋強調。**同時表示数を `MaxActive`(24) に制限**し、多数の配下艦が同時に撃っても出しすぎない（超過分は間引く）。`LabelZoomScaler` で文字サイズをズーム追従。 |
+| `LabelZoomScaler` | ワールド空間ラベル(TextMesh)の `localScale` をカメラ `orthographicSize` に追従させ、画面上の見かけ大きさをほぼ一定に保つ（密集時の重なり・極小/極大表示を防ぐ）。`Configure(baseScale, referenceOrthoSize)`。基準ズームは `CameraController.startZoom`(16) と揃える。`StrengthDisplay`(頭上ラベル)・`DamagePopup` が利用。**旗艦 root には付けない**（陣形計算が狂う）＝ラベル専用の子/単独オブジェクト限定。 |
 | `SpaceBackground` | ParticleSystem で星生成、パララックス。SortingLayer `"Background"`/order -100。 |
 | `FormationPreview` | 移動先決定中に選択部隊の陣形を半透明表示（旗艦中心＋配下艦スロットに艦スプライトを淡い陣営色 alpha≒0.3 で描画）。`FleetCommander` が実行時生成し `Show(Squadron)`/`SetPose(pos, angleZ)`/`Hide()`。スロットは `Squadron.GetFormationSlots()` を利用。 |
 
@@ -120,6 +123,7 @@
   - `"MoraleLabel"`（士気ラベル。`FleetMorale` が生成）。
   - `"WeaponArcLine"`（射界線。`WeaponArc` が生成。`FleetWeapon` のビーム用 LineRenderer と別物）。
   - `"FlagshipMarker"`（旗艦識別マーカー。`FlagshipMarker` が生成する子 SpriteRenderer。固定の金色＝`FactionColor` も `FleetStrength.Flash` も着色対象から除外する。`Squadron` の配下艦自動収集もこの名前を除外する）。
+  - `"FlagshipMarkerGlow"`（旗艦の発光ハロー。`FlagshipMarker` が `"FlagshipMarker"` の子として生成する SpriteRenderer。**`FactionColor` だけは陣営色で塗る**が、`FleetStrength.Flash`(被弾フラッシュ)・`Squadron` の配下艦スプライト流用元探索は**除外**する。`Squadron.CollectExistingMembers` は直下の子のみ走査するため入れ子のハローは元から対象外）。
 - 旗艦と配下艦の見分けは「`FlagshipMarker` のマーカー」＋「`Squadron.memberScale` による配下艦の縮小」で行う。**旗艦 root のスケールは変えない**（`Squadron` の陣形計算が `TransformPoint` を使うため、root 拡大で陣形間隔が狂う）。
 - `combatMobilityRatio` は `FleetWeapon` にある。`FleetMovement` が `IsInCombat` と共に読む。移動側に重複定義しない。
 - 選択中艦隊の唯一の窓口は `FleetCommander.SelectedFleets`。別の場所に選択管理を新設しない。

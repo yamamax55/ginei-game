@@ -186,12 +186,24 @@ namespace Ginei
             beamLine.material.color = flagshipWeapon.beamColor;
 
             beamLine.enabled = true;
-            beamLine.SetPosition(0, transform.position);
-            beamLine.SetPosition(1, targetPos);
+            // 終点は命中点。万一射程を超える点を渡されても射程端でクランプし、画面端まで伸びるのを防ぐ。
+            Vector3 origin = transform.position;
+            beamLine.SetPosition(0, origin);
+            beamLine.SetPosition(1, ClampBeamEnd(origin, targetPos));
 
             yield return new WaitForSeconds(flagshipWeapon.beamDuration);
 
             beamLine.enabled = false;
+        }
+
+        /// <summary>ビーム終点を射程内にクランプする（射程外まで線が伸びるのを防ぐ）。</summary>
+        private Vector3 ClampBeamEnd(Vector3 origin, Vector3 target)
+        {
+            float maxRange = flagshipArc != null ? flagshipArc.range : 0f;
+            if (maxRange <= 0f) return target;
+            Vector3 dir = target - origin;
+            if (dir.magnitude <= maxRange) return target;
+            return origin + dir.normalized * maxRange;
         }
 
         private void OnDestroy()

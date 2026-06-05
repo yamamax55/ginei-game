@@ -216,9 +216,10 @@ namespace Ginei
             viewportRT.anchorMax = Vector2.one;
             viewportRT.sizeDelta = Vector2.zero;
             viewportRT.anchoredPosition = Vector2.zero;
-            // Mask には Image が必要
+            // ドラッグ受け用に透明 Image を置き、クリップは RectMask2D で行う。
+            // ※ Mask＋alpha0 Image だとステンシルが書かれず中身が全てクリップされて消えるため使わない。
             viewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
-            viewport.AddComponent<Mask>().showMaskGraphic = false;
+            viewport.AddComponent<RectMask2D>();
             scrollRect.viewport = viewportRT;
 
             // Content（縦並び・自動伸長）

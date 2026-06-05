@@ -32,6 +32,10 @@ namespace Ginei
         [Tooltip("敗走時の移動速度・回頭速度の倍率")]
         public float routedMobilityRatio = 0.5f;
 
+        [Tooltip("後退（向きを保ったまま下がる）時の速度倍率。前進より遅くする")]
+        [Range(0f, 1f)]
+        public float reverseSpeedRatio = 0.5f;
+
         [Header("混雑ペナルティ（艦隊接触時の減速）")]
         [Tooltip("艦隊同士が密集・接触したとき、移動・回頭速度を低下させる")]
         public bool enableCongestionPenalty = true;
@@ -62,6 +66,9 @@ namespace Ginei
         // 到着時の向き指定（null=指定なし＝従来通り）。到着後その場で回頭する。
         private float? arrivalFacing = null;
         private bool isOrientingAtArrival = false;
+
+        // 後退モード（true=回頭せず現在の向きを保ったまま目標へ並進＝射界を維持して下がる）
+        private bool isReverse = false;
 
         private FleetWeapon weapon;
         private FleetStrength strength;
@@ -100,10 +107,22 @@ namespace Ginei
             Vector2 direction = targetPosition - currentPos;
             float distance = direction.magnitude;
 
+            // 後退モードは前方へは進ませない：目標方向から前方成分（現在の向き Transform.up 方向）を
+            // 取り除き、後方／横方向の成分だけで移動する。真正面を指定すると移動量ゼロ＝動かない。
+            if (isReverse)
+            {
+                Vector2 up = transform.up;
+                float forwardComponent = Vector2.Dot(direction, up);
+                if (forwardComponent > 0f) direction -= up * forwardComponent;
+                distance = direction.magnitude;
+            }
+
             // 実効速度の計算（提督機動・士気・交戦による補正）
             float mobilityFactor = GetMobilityFactor();
             float effectiveRotationSpeed = rotationSpeed * mobilityFactor;
             float effectiveMaxSpeed = maxSpeed * mobilityFactor;
+            // 後退時は前進より遅い上限速度を使う
+            float modeMaxSpeed = effectiveMaxSpeed * (isReverse ? reverseSpeedRatio : 1f);
 
             // 1. 到着判定
             if (isMoving && distance < arriveDistance)
@@ -114,10 +133,11 @@ namespace Ginei
             }
 
             // 2. 回頭処理（目標方向が極小のときは回頭せず現在の向きを維持）
+            // 後退モードでは一切回頭せず現在の向き（射界）を保つ。angleDiff=0 のまま＝加速ガードも通る。
             float currentAngle = transform.eulerAngles.z;
             float nextAngle = currentAngle;
             float angleDiff = 0f;
-            if (distance >= arriveDistance)
+            if (!isReverse && distance >= arriveDistance)
             {
                 float targetAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
                 nextAngle = Mathf.MoveTowardsAngle(currentAngle, targetAngle, effectiveRotationSpeed * Time.deltaTime);
@@ -138,7 +158,7 @@ namespace Ginei
                     
                     if (distance > brakingDistance + arriveDistance)
                     {
-                        targetSpeed = effectiveMaxSpeed;
+                        targetSpeed = modeMaxSpeed;
                     }
                     else
                     {
@@ -169,7 +189,11 @@ namespace Ginei
             // 4. 移動実行
             if (currentSpeed > 0)
             {
-                transform.position += transform.up * (currentSpeed * Time.deltaTime);
+                // 後退時は回頭せず、目標方向へそのまま並進（向き＝射界を維持して下がる）。
+                Vector3 moveDir = transform.up;
+                if (isReverse)
+                    moveDir = distance > 0.0001f ? (Vector3)(direction / distance) : Vector3.zero;
+                transform.position += moveDir * (currentSpeed * Time.deltaTime);
             }
 
             // 5. 到着後の向き合わせ（指定があれば、実効回頭速度でその場回頭してから停止）
@@ -295,7 +319,23 @@ namespace Ginei
         {
             targetPosition = pos;
             isMoving = true;
+            isReverse = false;
             arrivalFacing = facingAngleZ;
+            isOrientingAtArrival = false;
+        }
+
+        /// <summary>
+        /// 後退で目標地点へ移動する。回頭せず現在の向き（射界）を保ったまま、
+        /// reverseSpeedRatio 倍の速度で並進する。戦いながらの離脱に使う。
+        /// 前方へは進まない（目標の前方成分は除去し、後方／横成分のみで移動）。
+        /// </summary>
+        /// <param name="pos">目標のワールド座標</param>
+        public void SetReverseDestination(Vector2 pos)
+        {
+            targetPosition = pos;
+            isMoving = true;
+            isReverse = true;
+            arrivalFacing = null;
             isOrientingAtArrival = false;
         }
 
@@ -309,6 +349,7 @@ namespace Ginei
             // targetPosition を自位置にしておくことで、MoveProcess 側の回頭は
             // 「目標方向が極小ならスキップ」のガードに掛かり、回頭の競合を防ぐ。
             isMoving = false;
+            isReverse = false;            // その場回頭へ切替（後退モードは解除）
             isOrientingAtArrival = false; // 交戦時の射界維持を優先（到着回頭は中断）
             arrivalFacing = null;
             targetPosition = transform.position;

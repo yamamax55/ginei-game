@@ -251,6 +251,19 @@ namespace Ginei
             }
         }
 
+        /// <summary>勢力名から Resources/Factions の FactionData を解決する（見つからなければ null）。</summary>
+        private FactionData ResolvePlayerFactionData(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            FactionData[] factions = Resources.LoadAll<FactionData>("Factions");
+            if (factions == null) return null;
+            foreach (var fd in factions)
+            {
+                if (fd != null && fd.factionName == name) return fd;
+            }
+            return null;
+        }
+
         /// <summary>選択中のボタンを金色＋黒太字＋「●」でハイライトする。</summary>
         private void RefreshHighlights()
         {
@@ -642,10 +655,11 @@ namespace Ginei
                 DestroySelectionUI();
 
                 GameSettings settings = GameSettings.Instance;
-                settings.playerFaction = (Faction)data.playerFaction;
-                // セーブは enum のみ保持（FactionData 復元は B-7 で対応）。
-                // 直前選択の FactionData が残ると enum と食い違うためクリアしておく。
-                settings.playerFactionData = null;
+                // 勢力を復元：保存した FactionData 名を Resources/Factions から解決。
+                // 見つかればそれを採用し legacyFaction を enum 側へ。無ければ enum にフォールバック。
+                FactionData fd = ResolvePlayerFactionData(data.playerFactionName);
+                settings.playerFactionData = fd;
+                settings.playerFaction = (fd != null) ? fd.legacyFaction : (Faction)data.playerFaction;
                 settings.scenarioName = data.scenarioName;
                 settings.selectedAdmiral = data.selectedAdmiral;
 
@@ -664,6 +678,8 @@ namespace Ginei
             SaveData data = new SaveData
             {
                 playerFaction = (int)settings.playerFaction,
+                // FactionData で選んでいればその名前も保存（続きからで勢力を正確に復元）
+                playerFactionName = settings.playerFactionData != null ? settings.playerFactionData.factionName : "",
                 scenarioName = settings.scenarioName,
                 selectedAdmiral = settings.selectedAdmiral
             };

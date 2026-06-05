@@ -33,6 +33,13 @@ namespace Ginei
         [Tooltip("コア近傍(coreRadius×この倍率)では最低でも pullStrength で確実に吸い込む（縁での停滞防止）")]
         public float coreCaptureScale = 2.0f;
 
+        [Header("配置")]
+        [Tooltip("出現時、艦隊の初期位置(引力圏)に重ならないよう安全な場所へ自動でずらす")]
+        public bool avoidFleetsOnSpawn = true;
+
+        [Tooltip("艦隊から確保する追加クリアランス（pullRadius に加算した距離だけ旗艦から離す）")]
+        public float spawnClearance = 4f;
+
         [Header("ビジュアル設定")]
         [Tooltip("コア（暗黒円）の表示半径スケール（ワールド単位）")]
         public float coreVisualRadius = 1.5f;
@@ -133,6 +140,9 @@ namespace Ginei
         private Transform ringTransform;
         private ParticleSystem pullEffect;
 
+        // 初回 LateUpdate での安全位置への退避を一度だけ行うためのフラグ
+        private bool spawnPositioned = false;
+
         // コアに吸収済みの艦（同フレームの二重処理防止）
         private readonly HashSet<IShipTarget> absorbedThisSession = new HashSet<IShipTarget>();
 
@@ -157,6 +167,14 @@ namespace Ginei
 
         private void LateUpdate()
         {
+            // 初回のみ：旗艦が Start でレジストリ登録された後（＝この最初の LateUpdate 時点）に、
+            // 引力圏が艦隊の初期位置に重ならない安全な場所へ退避する。描画前なのでちらつかない。
+            if (!spawnPositioned)
+            {
+                spawnPositioned = true;
+                if (avoidFleetsOnSpawn) PositionClearOfFleets();
+            }
+
             ApplyGravity();
         }
 
@@ -371,6 +389,67 @@ namespace Ginei
                 Vector3 dir = (center - pos).normalized;
                 t.Transform.position += dir * force;
             }
+        }
+
+        // ────────────────────────────────────────────────
+        // 出現時の安全配置（艦隊の初期位置に重ならないよう退避）
+        // ────────────────────────────────────────────────
+
+        // 既定位置が艦隊と重なるときに試す代替候補（戦場周辺。原点対称で偏りを抑える）
+        private static readonly Vector2[] SpawnCandidates =
+        {
+            new Vector2(8f, 8f), new Vector2(-8f, 8f), new Vector2(8f, -8f), new Vector2(-8f, -8f),
+            new Vector2(0f, 16f), new Vector2(0f, -16f), new Vector2(16f, 0f), new Vector2(-16f, 0f),
+            new Vector2(12f, 12f), new Vector2(-12f, 12f), new Vector2(12f, -12f), new Vector2(-12f, -12f),
+            new Vector2(0f, 22f), new Vector2(0f, -22f), new Vector2(22f, 0f), new Vector2(-22f, 0f),
+        };
+
+        /// <summary>
+        /// 現在位置が旗艦の引力圏(pullRadius＋spawnClearance)に重なっていれば、
+        /// 候補位置の中から全旗艦に対して十分離れた場所へ移動する。
+        /// 完全に安全な候補が無ければ、最も旗艦から遠い候補を選ぶ。
+        /// </summary>
+        private void PositionClearOfFleets()
+        {
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            if (flagships == null || flagships.Count == 0) return; // 艦隊が無ければ既定位置のまま
+
+            float clearance = pullRadius + spawnClearance;
+            Vector2 current = transform.position;
+
+            // 既定位置が既に安全ならそのまま（従来の見た目を尊重）
+            if (MinDistanceToFleets(current, flagships) >= clearance) return;
+
+            Vector2 best = current;
+            float bestMin = MinDistanceToFleets(current, flagships);
+
+            for (int i = 0; i < SpawnCandidates.Length; i++)
+            {
+                Vector2 c = SpawnCandidates[i];
+                float m = MinDistanceToFleets(c, flagships);
+                if (m >= clearance)
+                {
+                    transform.position = new Vector3(c.x, c.y, transform.position.z);
+                    return;
+                }
+                if (m > bestMin) { bestMin = m; best = c; }
+            }
+
+            transform.position = new Vector3(best.x, best.y, transform.position.z);
+        }
+
+        /// <summary>指定座標から最も近い生存旗艦までの距離を返す（旗艦が無ければ大きな値）。</summary>
+        private static float MinDistanceToFleets(Vector2 pos, IReadOnlyList<FleetStrength> flagships)
+        {
+            float min = float.MaxValue;
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength fs = flagships[i];
+                if (fs == null || !fs.IsAlive) continue;
+                float d = Vector2.Distance(pos, fs.transform.position);
+                if (d < min) min = d;
+            }
+            return min;
         }
 
         /// <summary>

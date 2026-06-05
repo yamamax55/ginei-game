@@ -16,25 +16,25 @@ MonoBehaviour:
   fleets:
   - admiral: {fileID: 11400000, guid: 71e064fff3767d34c9e931f68b3acb56, type: 2}
     faction: 0
-    spawnPosition: {x: 6, y: 3}
+    spawnPosition: {x: 7, y: 4}
     formation: 0
   - admiral: {fileID: 11400000, guid: 136878f6588e9ee4085478918fe1b5a0, type: 2}
     faction: 0
-    spawnPosition: {x: 6, y: 0}
+    spawnPosition: {x: 7, y: 0}
     formation: 3
   - admiral: {fileID: 11400000, guid: fafac2af8e3a6e74399d9ae0e78398b1, type: 2}
     faction: 0
-    spawnPosition: {x: 6, y: -3}
+    spawnPosition: {x: 7, y: -4}
     formation: 3
   - admiral: {fileID: 11400000, guid: 35cea87aa862d0b4abbd3594c09d5a84, type: 2}
     faction: 1
-    spawnPosition: {x: -6, y: 3}
+    spawnPosition: {x: -7, y: 4}
     formation: 1
   - admiral: {fileID: 11400000, guid: 7adb924ef420cd745a0144a80b6b73c1, type: 2}
     faction: 1
-    spawnPosition: {x: -6, y: 0}
+    spawnPosition: {x: -7, y: 0}
     formation: 3
   - admiral: {fileID: 11400000, guid: 99a1c1e8b15deab419bd2270b6d5d613, type: 2}
     faction: 1
-    spawnPosition: {x: -6, y: -3}
+    spawnPosition: {x: -7, y: -4}
     formation: 4

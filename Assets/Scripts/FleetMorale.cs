@@ -52,12 +52,8 @@ namespace Ginei
 
         private void CreateMoraleLabel()
         {
-            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
-            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-#if UNITY_EDITOR
-            Font customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
-            if (customFont != null) jaFont = customFont;
-#endif
+            // 日本語フォントは FontProvider に集約（Unity6 の Arial.ttf 禁止対応も一元化）
+            Font jaFont = FontProvider.JapaneseFont;
             // プレハブに焼き込まれた既存 "MoraleLabel" があれば再利用（二重生成を防ぐ）
             Transform existingLabel = transform.Find("MoraleLabel");
             GameObject go;

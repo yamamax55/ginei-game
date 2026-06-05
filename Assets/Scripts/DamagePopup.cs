@@ -59,13 +59,8 @@ namespace Ginei
 
         private void Init(int damage, bool isFlank)
         {
-            // フォント読み込み（FleetStrength と同じパターン）
-            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
-            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-#if UNITY_EDITOR
-            Font customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
-            if (customFont != null) jaFont = customFont;
-#endif
+            // フォント読み込みは FontProvider に集約（日本語・Unity6 の Arial.ttf 禁止対応もそこで一元化）
+            Font jaFont = FontProvider.JapaneseFont;
 
             textMesh = gameObject.AddComponent<TextMesh>();
             textMesh.font = jaFont;

@@ -140,10 +140,10 @@
 - 陣営色は **`FactionData.color` が唯一の出所**（`FactionColor`/`FleetHUDManager` は `FactionData` があればその色、無ければ enum 既定色＝`imperial/alliance/empire/allianceColor` にフォールバック）。新たな陣営色のハードコードを増やさない。enum 既定色は後方互換のフォールバック専用。
 - `ChangeFormation(int)` が `CommandMenu` と `FleetHUDManager` に重複。一本化したい。
 - 敵探索は `FleetRegistry`（単一在庫）＋`FactionRelations.IsHostile` に集約済み。新たに `FindObjectsByType` での索敵や「`faction` 違い＝敵」の直書きを増やさない（敵対判定は必ず `FactionRelations` 経由）。`BattleSetup.ClearExistingFleets` の開始時除去のみ `FindObjectsByType` 例外＝登録前の手置き艦を拾うため。配下艦の発砲・索敵は `fireInterval` 間隔＋初回位相をランダムにずらして全艦同時更新を避ける。
-- 日本語フォント読み込みコードが3箇所に重複（`FleetStrength`/`FleetMorale`/`DamagePopup`）。挙動は統一済み（下記）。
+- 日本語フォント読み込みは `FontProvider.JapaneseFont`(static) に集約済み（`FleetStrength`/`FleetMorale`/`DamagePopup` が参照）。新規の legacy TextMesh も必ずここを使う。
 
 ## 日本語表示の注意
-- 頭上ラベル/ダメージ表示は legacy `TextMesh`：実行時フォントは `Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")`。**Unity6 で `"Arial.ttf"` は廃止され例外を投げる**（過去に一瞬で艦隊が消えるバグの原因）。エディタ内では `Assets/Fonts/msgothic.ttc` があれば優先。
+- 頭上ラベル/ダメージ表示は legacy `TextMesh`：実行時フォントは **`FontProvider.JapaneseFont`** が解決する（唯一の窓口）。中身は `Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")`。**Unity6 で `"Arial.ttf"` は廃止され例外を投げる**（過去に一瞬で艦隊が消えるバグの原因）。エディタ内では `Assets/Fonts/msgothic.ttc` があれば優先。
 - UI の TMP は `Resources` の `"JapaneseFont_TMP"`(TMP_FontAsset) をフォールバックに使う。
 
 ## NG リスト

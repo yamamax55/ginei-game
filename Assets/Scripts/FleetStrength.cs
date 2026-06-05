@@ -96,14 +96,8 @@ namespace Ginei
             strengthDisplay = textObj.GetComponent<TextMesh>();
             if (strengthDisplay == null) strengthDisplay = textObj.AddComponent<TextMesh>();
             
-            // 日本語フォントの読み込み (文字化け対策)
-            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
-            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); // Fallback
-#if UNITY_EDITOR
-            // エディタ上では作成したフォントを優先
-            Font customJaFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
-            if (customJaFont != null) jaFont = customJaFont;
-#endif
+            // 日本語フォントの読み込み（文字化け対策）。解決は FontProvider に集約。
+            Font jaFont = FontProvider.JapaneseFont;
             strengthDisplay.font = jaFont;
             if (jaFont != null)
             {

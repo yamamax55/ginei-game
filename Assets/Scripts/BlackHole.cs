@@ -86,6 +86,15 @@ namespace Ginei
         public static bool AutoSpawnEnabled = true;
 
         // ────────────────────────────────────────────────
+        // 静的レジストリ（シーン内の全 BlackHole。AI の回避判定が参照する）
+        // ────────────────────────────────────────────────
+
+        private static readonly List<BlackHole> active = new List<BlackHole>();
+
+        /// <summary>シーン内に存在する生存中の BlackHole 一覧（FleetAI の回避に使用）。</summary>
+        public static IReadOnlyList<BlackHole> All => active;
+
+        // ────────────────────────────────────────────────
         // 定数
         // ────────────────────────────────────────────────
 
@@ -134,6 +143,16 @@ namespace Ginei
         private void Awake()
         {
             CreateVisuals();
+        }
+
+        private void OnEnable()
+        {
+            if (!active.Contains(this)) active.Add(this); // AI 回避用レジストリへ登録
+        }
+
+        private void OnDisable()
+        {
+            active.Remove(this);
         }
 
         private void LateUpdate()

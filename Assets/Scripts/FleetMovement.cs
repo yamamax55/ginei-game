@@ -107,6 +107,16 @@ namespace Ginei
             Vector2 direction = targetPosition - currentPos;
             float distance = direction.magnitude;
 
+            // 後退モードは前方へは進ませない：目標方向から前方成分（現在の向き Transform.up 方向）を
+            // 取り除き、後方／横方向の成分だけで移動する。真正面を指定すると移動量ゼロ＝動かない。
+            if (isReverse)
+            {
+                Vector2 up = transform.up;
+                float forwardComponent = Vector2.Dot(direction, up);
+                if (forwardComponent > 0f) direction -= up * forwardComponent;
+                distance = direction.magnitude;
+            }
+
             // 実効速度の計算（提督機動・士気・交戦による補正）
             float mobilityFactor = GetMobilityFactor();
             float effectiveRotationSpeed = rotationSpeed * mobilityFactor;
@@ -317,6 +327,7 @@ namespace Ginei
         /// <summary>
         /// 後退で目標地点へ移動する。回頭せず現在の向き（射界）を保ったまま、
         /// reverseSpeedRatio 倍の速度で並進する。戦いながらの離脱に使う。
+        /// 前方へは進まない（目標の前方成分は除去し、後方／横成分のみで移動）。
         /// </summary>
         /// <param name="pos">目標のワールド座標</param>
         public void SetReverseDestination(Vector2 pos)

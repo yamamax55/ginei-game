@@ -109,7 +109,8 @@
 ### 表示・背景
 | クラス | 責務 / 主なAPI |
 |---|---|
-| `DamagePopup` | 動的生成のダメージ数値ポップアップ。`static Show(worldPos, damage, isFlank)`。jitterで団子化防止、timeScale 追従でフェード。側背面は赤橙＋強調。**同時表示数を `MaxActive`(48) に制限**し、多数の配下艦が同時に撃っても出しすぎない（超過分は間引く）。 |
+| `DamagePopup` | 動的生成のダメージ数値ポップアップ。`static Show(worldPos, damage, isFlank)`。連続生成は縦に段積み(`StackSlots`/`StackStep`)＋水平に微ジッターして団子化防止、timeScale 追従でフェード。側背面は赤橙＋強調。**同時表示数を `MaxActive`(24) に制限**し、多数の配下艦が同時に撃っても出しすぎない（超過分は間引く）。`LabelZoomScaler` で文字サイズをズーム追従。 |
+| `LabelZoomScaler` | ワールド空間ラベル(TextMesh)の `localScale` をカメラ `orthographicSize` に追従させ、画面上の見かけ大きさをほぼ一定に保つ（密集時の重なり・極小/極大表示を防ぐ）。`Configure(baseScale, referenceOrthoSize)`。基準ズームは `CameraController.startZoom`(16) と揃える。`StrengthDisplay`(頭上ラベル)・`DamagePopup` が利用。**旗艦 root には付けない**（陣形計算が狂う）＝ラベル専用の子/単独オブジェクト限定。 |
 | `SpaceBackground` | ParticleSystem で星生成、パララックス。SortingLayer `"Background"`/order -100。 |
 | `FormationPreview` | 移動先決定中に選択部隊の陣形を半透明表示（旗艦中心＋配下艦スロットに艦スプライトを淡い陣営色 alpha≒0.3 で描画）。`FleetCommander` が実行時生成し `Show(Squadron)`/`SetPose(pos, angleZ)`/`Hide()`。スロットは `Squadron.GetFormationSlots()` を利用。 |
 

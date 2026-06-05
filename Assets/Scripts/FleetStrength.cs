@@ -35,6 +35,9 @@ namespace Ginei
         [Tooltip("旗艦喪失（艦艇数0）時に離脱する距離")]
         public float retreatDistance = 50f;
 
+        // 頭上ラベルのズーム追従の基準ズーム（CameraController.startZoom と揃える）
+        private const float LabelReferenceOrthoSize = 16f;
+
         private TextMesh strengthDisplay;
         private FleetMorale moraleComponent;
         private FleetMovement movement;
@@ -111,6 +114,12 @@ namespace Ginei
             // 色の設定は FactionColor コンポーネントに一任するため削除
 
             UpdateDisplay();
+
+            // 頭上ラベルの文字サイズをズームに追従させる（ズームアウト時の極小化・密集時の重なりを軽減）。
+            // 基準ズームは CameraController.startZoom(16) に合わせ、現在のスケールを基準スケールとして保持。
+            LabelZoomScaler labelScaler = textObj.GetComponent<LabelZoomScaler>();
+            if (labelScaler == null) labelScaler = textObj.AddComponent<LabelZoomScaler>();
+            labelScaler.Configure(textObj.transform.localScale, LabelReferenceOrthoSize);
 
             // 索敵レジストリに登録（faction はここまでに確定済み）
             FleetRegistry.Register(this);

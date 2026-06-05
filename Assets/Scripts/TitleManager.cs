@@ -54,6 +54,7 @@ namespace Ginei
             public Image bg;
             public TextMeshProUGUI text;
             public string label;
+            public FactionData faction; // 陣営ボタンのとき対応する FactionData（enum フォールバック時は null）
         }
 
         private void Start()
@@ -136,10 +137,28 @@ namespace Ginei
                 }
             }
 
-            // プレイ陣営（index = Faction enum: 0=帝国, 1=同盟）
+            // プレイ陣営：Resources/Factions の FactionData を列挙してボタン生成。
+            // アセットが無ければ従来の2勢力 enum ボタンにフォールバック。
             CreateLabel(panel.transform, "■ プレイ陣営", 22f);
-            factionOptions.Add(CreateButton(panel.transform, "帝国", () => SelectPlayerFaction((int)Faction.帝国)));
-            factionOptions.Add(CreateButton(panel.transform, "同盟", () => SelectPlayerFaction((int)Faction.同盟)));
+            FactionData[] factions = Resources.LoadAll<FactionData>("Factions");
+            if (factions != null && factions.Length > 0)
+            {
+                foreach (var fd in factions)
+                {
+                    if (fd == null) continue;
+                    FactionData captured = fd;
+                    OptionButton ob = CreateButton(panel.transform, fd.factionName, () => SelectPlayerFactionData(captured));
+                    ob.faction = fd;
+                    factionOptions.Add(ob);
+                }
+                EnsureDefaultPlayerFaction(factions);
+            }
+            else
+            {
+                // フォールバック：従来の2勢力 enum（index = Faction enum: 0=帝国, 1=同盟）
+                factionOptions.Add(CreateButton(panel.transform, "帝国", () => SelectPlayerFaction((int)Faction.帝国)));
+                factionOptions.Add(CreateButton(panel.transform, "同盟", () => SelectPlayerFaction((int)Faction.同盟)));
+            }
 
             // 現在の選択表示（大きめ・黄色）
             selectionLabel = CreateLabel(panel.transform, "", 18f);
@@ -191,13 +210,45 @@ namespace Ginei
             Debug.Log($"TitleManager: シナリオ選択 → {name}");
         }
 
-        /// <summary>プレイ陣営を選択（GameSettings.playerFaction に反映）。</summary>
+        /// <summary>プレイ陣営を選択（GameSettings.playerFaction に反映）。enum フォールバック用。</summary>
         public void SelectPlayerFaction(int faction)
         {
             GameSettings.Instance.playerFaction = (Faction)faction;
+            GameSettings.Instance.playerFactionData = null; // enum 選択時は FactionData をクリア
             RefreshHighlights();
             UpdateSelectionLabel();
             Debug.Log($"TitleManager: プレイ陣営選択 → {(Faction)faction}");
+        }
+
+        /// <summary>プレイ陣営を FactionData で選択（多勢力対応。legacyFaction を enum 側へ橋渡し）。</summary>
+        public void SelectPlayerFactionData(FactionData fd)
+        {
+            if (fd == null) return;
+            GameSettings.Instance.playerFactionData = fd;
+            GameSettings.Instance.playerFaction = fd.legacyFaction; // 既存UI/セーブ/操作判定の橋渡し
+            RefreshHighlights();
+            UpdateSelectionLabel();
+            Debug.Log($"TitleManager: プレイ陣営選択 → {fd.factionName}");
+        }
+
+        /// <summary>
+        /// FactionData 駆動時の既定プレイ陣営を決める。未設定なら現在の enum playerFaction に
+        /// 対応する FactionData、無ければ先頭を選ぶ。
+        /// </summary>
+        private void EnsureDefaultPlayerFaction(FactionData[] factions)
+        {
+            if (GameSettings.Instance.playerFactionData != null) return;
+            FactionData def = null;
+            foreach (var fd in factions)
+            {
+                if (fd != null && fd.legacyFaction == GameSettings.Instance.playerFaction) { def = fd; break; }
+            }
+            if (def == null && factions.Length > 0) def = factions[0];
+            if (def != null)
+            {
+                GameSettings.Instance.playerFactionData = def;
+                GameSettings.Instance.playerFaction = def.legacyFaction;
+            }
         }
 
         /// <summary>選択中のボタンを金色＋黒太字＋「●」でハイライトする。</summary>
@@ -210,9 +261,13 @@ namespace Ginei
             }
 
             int f = (int)GameSettings.Instance.playerFaction;
+            FactionData selData = GameSettings.Instance.playerFactionData;
             for (int i = 0; i < factionOptions.Count; i++)
             {
-                ApplyStyle(factionOptions[i], i == f);
+                OptionButton ob = factionOptions[i];
+                // FactionData ボタンは同一性で、enum フォールバックボタンは index=enum で判定
+                bool selected = ob.faction != null ? (ob.faction == selData) : (i == f);
+                ApplyStyle(ob, selected);
             }
         }
 
@@ -233,7 +288,8 @@ namespace Ginei
             if (selectionLabel != null)
             {
                 GameSettings gs = GameSettings.Instance;
-                selectionLabel.text = $"― 選択中 ―\n{gs.scenarioName}\n{gs.playerFaction}軍でプレイ";
+                string factionName = gs.playerFactionData != null ? gs.playerFactionData.factionName : gs.playerFaction.ToString();
+                selectionLabel.text = $"― 選択中 ―\n{gs.scenarioName}\n{factionName}軍でプレイ";
             }
         }
 
@@ -587,6 +643,9 @@ namespace Ginei
 
                 GameSettings settings = GameSettings.Instance;
                 settings.playerFaction = (Faction)data.playerFaction;
+                // セーブは enum のみ保持（FactionData 復元は B-7 で対応）。
+                // 直前選択の FactionData が残ると enum と食い違うためクリアしておく。
+                settings.playerFactionData = null;
                 settings.scenarioName = data.scenarioName;
                 settings.selectedAdmiral = data.selectedAdmiral;
 

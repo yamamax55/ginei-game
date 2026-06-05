@@ -274,12 +274,8 @@ namespace Ginei
 
         public void ChangeFormation(int formationIdx)
         {
-            Formation f = (Formation)formationIdx;
-            foreach (var fleet in commander.SelectedFleets)
-            {
-                Squadron sq = fleet.GetComponent<Squadron>();
-                if (sq != null) sq.currentFormation = f;
-            }
+            // 陣形変更の実体は FleetCommander に集約（重複排除）。ここではメニューを閉じるだけ担当。
+            if (commander != null) commander.ChangeFormation(formationIdx);
             CloseMenu();
         }
 

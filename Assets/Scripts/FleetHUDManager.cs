@@ -203,18 +203,8 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
         /// <param name="formationIdx">Formation enumのインデックス</param>
         public void ChangeFormation(int formationIdx)
         {
-            if (commander == null) return;
-
-            Formation newFormation = (Formation)formationIdx;
-
-            foreach (var selected in commander.SelectedFleets)
-            {
-                Squadron squadron = selected.GetComponent<Squadron>();
-                if (squadron != null)
-                {
-                    squadron.currentFormation = newFormation;
-                }
-            }
+            // 陣形変更の実体は FleetCommander に集約（重複排除）。ここは委譲のみ。
+            if (commander != null) commander.ChangeFormation(formationIdx);
         }
     }
 }

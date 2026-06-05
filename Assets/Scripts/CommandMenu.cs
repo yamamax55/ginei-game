@@ -144,7 +144,11 @@ namespace Ginei
                 CreateButton("移動", CommandMove);
                 buttonCount++;
 
-                // 2. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
+                // 2. 後退 (向きを保ったまま下がる＝戦いながら離脱)
+                CreateButton("後退", CommandReverse);
+                buttonCount++;
+
+                // 3. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
                 CreateButton("攻撃", CommandAttack);
                 buttonCount++;
 
@@ -205,6 +209,15 @@ namespace Ginei
             if (commander != null)
             {
                 commander.StartWaitingForMoveTarget();
+            }
+            CloseMenu();
+        }
+
+        private void CommandReverse()
+        {
+            if (commander != null)
+            {
+                commander.StartWaitingForReverseTarget();
             }
             CloseMenu();
         }

@@ -54,6 +54,7 @@ namespace Ginei
         private bool isAiming = false;        // 右ボタン押下後、向き決め中か
         private Vector2 moveTargetPos;        // 右押下で確定した目標地点
         private float? aimAngle = null;       // 指定された向き（z角）。null=未指定
+        private bool moveIsReverse = false;   // 後退モードでの移動先指定中か（向きは現在の向きを維持）
 
         /// <summary>移動先指定待ちか（Escの優先処理判定用）。</summary>
         public bool IsWaitingForMoveTarget => isWaitingForMoveTarget;
@@ -117,13 +118,24 @@ namespace Ginei
         /// <summary>
         /// 移動コマンドの目的地指定モードを開始します。
         /// </summary>
-        public void StartWaitingForMoveTarget()
+        public void StartWaitingForMoveTarget() => BeginMoveTargeting(false);
+
+        /// <summary>
+        /// 後退コマンドの目的地指定モードを開始します（向きは現在の向きを維持して下がる）。
+        /// </summary>
+        public void StartWaitingForReverseTarget() => BeginMoveTargeting(true);
+
+        /// <summary>移動／後退の目的地指定モードを開始する共通処理。</summary>
+        private void BeginMoveTargeting(bool reverse)
         {
             isWaitingForMoveTarget = true;
+            moveIsReverse = reverse;
             isAiming = false;
             aimAngle = null;
             ShowPreview();
-            Debug.Log("カーソルで位置→右クリック押下→押したままドラッグで向き→離して確定。Escでキャンセル。");
+            Debug.Log(reverse
+                ? "後退：カーソルで位置→右クリックで確定（向き＝射界は現在のまま維持）。Escでキャンセル。"
+                : "カーソルで位置→右クリック押下→押したままドラッグで向き→離して確定。Escでキャンセル。");
         }
 
         /// <summary>
@@ -383,6 +395,17 @@ namespace Ginei
 
             Vector2 mouseWorld = GetMouseWorldPosition();
 
+            // 後退モード：向きは現在の向きのまま。位置だけ指定し、右クリックで即確定。
+            if (moveIsReverse)
+            {
+                if (preview != null) preview.SetPose(mouseWorld, DefaultFacingAngle());
+                if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+                {
+                    ExecuteReverseCommand(mouseWorld);
+                }
+                return;
+            }
+
             if (!isAiming)
             {
                 // 押す前：カーソル位置に既定の向きでプレビュー追従
@@ -448,6 +471,29 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 後退移動を実行します（向き＝射界を保ったまま目標地点へ下がる）。
+        /// </summary>
+        private void ExecuteReverseCommand(Vector2 pos)
+        {
+            foreach (var selectable in selectedFleets)
+            {
+                if (selectable == null) continue;
+
+                // 後退中も追尾はさせない（手動目標の追尾は前進命令を出し後退と競合するため解除）。
+                // 射界内の敵には FleetWeapon が自動で発砲を続ける＝戦いながら下がれる。
+                FleetWeapon weapon = selectable.GetComponent<FleetWeapon>();
+                if (weapon != null) weapon.ClearManualTarget();
+
+                FleetMovement movement = selectable.GetComponent<FleetMovement>();
+                if (movement != null) movement.SetReverseDestination(pos);
+            }
+            EndMoveTargeting();
+            Debug.Log("後退命令を発令しました。");
+
+            DeselectAll();
+        }
+
+        /// <summary>
         /// 移動先指定をキャンセルします。
         /// </summary>
         private void CancelMoveTargetSelection()
@@ -460,6 +506,7 @@ namespace Ginei
         private void EndMoveTargeting()
         {
             isWaitingForMoveTarget = false;
+            moveIsReverse = false;
             isAiming = false;
             aimAngle = null;
             if (preview != null) preview.Hide();

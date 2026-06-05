@@ -38,6 +38,13 @@ namespace Ginei
         [Tooltip("回避ステアリングの強さ（大きいほど強く進路を曲げて避ける）")]
         public float blackHoleAvoidStrength = 2.0f;
 
+        [Header("撤退")]
+        [Tooltip("撤退時、敵が近い間は後退移動で下がる（側背面＝背中を見せない退却）")]
+        public bool useReverseRetreat = true;
+
+        [Tooltip("この距離以内に敵がいる撤退では後退移動を使う（遠ければ通常移動で素早く離脱）")]
+        public float reverseRetreatRange = 14f;
+
         private FleetMovement movement;
         private FleetWeapon weapon;
         private FleetStrength strength;
@@ -161,8 +168,15 @@ if (Time.time >= nextSearchTime)
                     {
                         // 敵と反対方向へ逃げる（逃走先のブラックホールも迂回）
                         Vector2 awayDir = ((Vector2)transform.position - (Vector2)targetEnemy.transform.position).normalized;
-                        Vector2 fleeTarget = pos + awayDir * 20f;
-                        movement.SetDestination(SteerAroundBlackHoles(pos, fleeTarget));
+                        Vector2 fleeTarget = SteerAroundBlackHoles(pos, pos + awayDir * 20f);
+
+                        // 敵が近い間は後退移動で下がる（向き＝射界を保ち背中を見せない）。
+                        // 遠ければ通常移動（回頭して素早く離脱）。
+                        float distToEnemy = Vector2.Distance(pos, targetEnemy.transform.position);
+                        if (useReverseRetreat && distToEnemy <= reverseRetreatRange)
+                            movement.SetReverseDestination(fleeTarget);
+                        else
+                            movement.SetDestination(fleeTarget);
                     }
                     break;
             }

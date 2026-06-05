@@ -250,7 +250,8 @@ namespace Ginei
             foreach (var sr in all)
             {
                 if (sr.gameObject.name == "SelectionRing") continue;
-                if (sr.gameObject.name == "FlagshipMarker") continue; // 旗艦マーカーは艦体ではないのでフラッシュ対象外
+                if (sr.gameObject.name == "FlagshipMarker") continue;      // 旗艦マーカーは艦体ではないのでフラッシュ対象外
+                if (sr.gameObject.name == "FlagshipMarkerGlow") continue;  // 旗艦の発光ハロー(陣営色)もフラッシュしない
                 if (sr.GetComponent<EscortShip>() != null) continue;   // 配下艦は別個艦なので旗艦被弾フラッシュの対象外
                 list.Add(sr);
             }

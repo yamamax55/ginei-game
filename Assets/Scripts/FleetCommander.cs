@@ -396,10 +396,23 @@ namespace Ginei
             Vector2 mouseWorld = GetMouseWorldPosition();
 
             // 後退モード：向きは現在の向きのまま。位置だけ指定し、右クリックで即確定。
+            // 後退できない前方（現在の向き側）にはプレビューを出さず、確定もしない。
             if (moveIsReverse)
             {
-                if (preview != null) preview.SetPose(mouseWorld, DefaultFacingAngle());
-                if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+                bool canReverseHere = IsReversibleTarget(mouseWorld);
+                if (preview != null)
+                {
+                    if (canReverseHere)
+                    {
+                        if (!preview.gameObject.activeSelf) preview.gameObject.SetActive(true);
+                        preview.SetPose(mouseWorld, DefaultFacingAngle());
+                    }
+                    else
+                    {
+                        preview.Hide();
+                    }
+                }
+                if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && canReverseHere)
                 {
                     ExecuteReverseCommand(mouseWorld);
                 }
@@ -445,6 +458,18 @@ namespace Ginei
             if (selectedFleets.Count > 0 && selectedFleets[0] != null)
                 return selectedFleets[0].transform.eulerAngles.z;
             return 0f;
+        }
+
+        /// <summary>
+        /// 後退で到達できる目標か（前方＝現在の向き側でないか）を判定する。
+        /// 前方成分が正なら後退できない（FleetMovement が前方成分を除去するため）。
+        /// </summary>
+        private bool IsReversibleTarget(Vector2 target)
+        {
+            if (selectedFleets.Count == 0 || selectedFleets[0] == null) return true;
+            Vector2 pos = selectedFleets[0].transform.position;
+            Vector2 up = selectedFleets[0].transform.up;
+            return Vector2.Dot(target - pos, up) <= 0f;
         }
 
         /// <summary>

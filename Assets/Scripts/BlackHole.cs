@@ -191,11 +191,9 @@ namespace Ginei
 
             if (dt <= 0f) return; // ポーズ中は引力計算をスキップ
 
-            // ── 帝国＋同盟のすべての IShipTarget を列挙（FleetRegistry 経由） ──
-            // GetEnemies(帝国) → 同盟の全艦、GetEnemies(同盟) → 帝国の全艦
-            // 両者の和集合がフィールド上の全艦艇を網羅する（陣営は2つのみ）。
-            ProcessFactionTargets(FleetRegistry.GetEnemies(Faction.帝国), center, dt);
-            ProcessFactionTargets(FleetRegistry.GetEnemies(Faction.同盟), center, dt);
+            // ── フィールド上のすべての IShipTarget を列挙（FleetRegistry 経由） ──
+            // ブラックホールは陣営を問わず全艦を引き寄せる。多勢力対応の単一在庫から全艦を処理する。
+            ProcessFactionTargets(FleetRegistry.AllTargets, center, dt);
         }
 
         // スナップショット用バッファ（フレームごとに再利用してアロケーションを抑える）

@@ -212,7 +212,7 @@ namespace Ginei
             if (targetFlag == null || !targetFlag.IsAlive) return false;
             if (selectedFleets.Count == 0 || selectedFleets[0] == null) return false;
             FleetStrength myStr = selectedFleets[0].GetComponent<FleetStrength>();
-            return myStr != null && myStr.faction != targetFlag.faction;
+            return myStr != null && FactionRelations.IsHostile(myStr, targetFlag);
         }
 
         /// <summary>攻撃目標指定モードを終了する（円の表示は LateUpdate が更新）。</summary>
@@ -246,11 +246,13 @@ namespace Ginei
                 FleetStrength myStr = selectedFleets[0].GetComponent<FleetStrength>();
                 if (myStr != null)
                 {
-                    IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(myStr.faction);
-                    for (int i = 0; i < enemies.Count; i++)
+                    // 全旗艦から敵対する勢力の旗艦のみを円で表示（多勢力対応）
+                    IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+                    for (int i = 0; i < flagships.Count; i++)
                     {
-                        FleetStrength ef = enemies[i];
+                        FleetStrength ef = flagships[i];
                         if (ef == null || !ef.IsAlive) continue;
+                        if (!FactionRelations.IsHostile(myStr, ef)) continue;
                         Squadron sq = ef.GetComponent<Squadron>();
                         if (sq == null) continue;
                         Color c = (sq == hoveredAttackFleet) ? targetHoverColor : targetCircleColor;

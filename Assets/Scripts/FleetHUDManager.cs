@@ -32,6 +32,14 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
         public Color allianceColor = new Color(0.2f, 0.4f, 0.8f); // 青系
         public Color panelBgColor = new Color(0.05f, 0.05f, 0.1f, 0.9f); // 濃紺
 
+        /// <summary>選択艦隊の陣営色を決定する。FactionData があればその color、無ければ enum の既定色。</summary>
+        private Color ResolveFactionColor(FleetStrength fs)
+        {
+            if (fs != null && fs.factionData != null) return fs.factionData.color;
+            Faction f = (fs != null) ? fs.faction : Faction.帝国;
+            return (f == Faction.帝国) ? empireColor : allianceColor;
+        }
+
         private void Start()
         {
             if (commander == null)
@@ -79,8 +87,9 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
                 }
                 if (factionText != null)
                 {
-                    factionText.text = $"陣営: {strength.faction}";
-                    factionText.color = (strength.faction == Faction.帝国) ? empireColor : allianceColor;
+                    string fname = (strength.factionData != null) ? strength.factionData.factionName : strength.faction.ToString();
+                    factionText.text = $"陣営: {fname}";
+                    factionText.color = ResolveFactionColor(strength);
                 }
 
                 if (strengthBar != null)
@@ -91,7 +100,7 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
 
                 if (strengthBarFill != null)
                 {
-                    strengthBarFill.color = (strength.faction == Faction.帝国) ? empireColor : allianceColor;
+                    strengthBarFill.color = ResolveFactionColor(strength);
                 }
 
                 // 旗艦艦艇数＋配下艦の残存数を表示

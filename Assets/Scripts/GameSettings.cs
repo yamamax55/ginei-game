@@ -32,6 +32,8 @@ namespace Ginei
 
         [Header("設定")]
         public Faction playerFaction = Faction.同盟;
+        [Tooltip("プレイヤーが操作する勢力データ（多勢力対応。設定すると enum playerFaction より優先して操作勢力を判定）")]
+        public FactionData playerFactionData;
         public string scenarioName = "アスターテ会戦";
         public string selectedAdmiral = "ラインハルト";
         
@@ -43,6 +45,8 @@ namespace Ginei
 
         [Header("戦績")]
         public Faction winner;
+        [Tooltip("勝者勢力名（多勢力対応。3勢力以上では enum winner では表せないためこちらを表示に使う）")]
+        public string winnerName;
         public int imperialSunkCount;
         public int allianceSunkCount;
         public int remainingStrength;
@@ -83,6 +87,7 @@ namespace Ginei
             allianceRemainingStrength = 0;
             mvpAdmiral = "";
             victoryReason = "";
+            winnerName = "";
         }
     }
 }

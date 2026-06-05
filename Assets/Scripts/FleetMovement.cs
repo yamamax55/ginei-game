@@ -251,8 +251,8 @@ namespace Ginei
             squadron.GetBoundingCircle(out Vector3 myCenter, out float myRadius);
 
             float congestion = 0f;
-            AccumulateOverlap(FleetRegistry.GetFlagships(Faction.帝国), myCenter, myRadius, ref congestion);
-            AccumulateOverlap(FleetRegistry.GetFlagships(Faction.同盟), myCenter, myRadius, ref congestion);
+            // 全旗艦を対象（陣営問わず接触すれば混雑）。多勢力対応の単一在庫を参照。
+            AccumulateOverlap(FleetRegistry.AllFlagships, myCenter, myRadius, ref congestion);
 
             float t = Mathf.Clamp01(congestion * congestionStrength);
             return Mathf.Lerp(1f, minCongestionFactor, t);

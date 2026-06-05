@@ -70,8 +70,11 @@ namespace Ginei
             [Tooltip("提督データ（能力値・兵力・名前の元）")]
             public AdmiralData admiral;
 
-            [Tooltip("所属陣営")]
+            [Tooltip("所属陣営（FactionData 未指定時に使う旧 enum。FactionData があればそちらを優先）")]
             public Faction faction;
+
+            [Tooltip("所属勢力データ（多勢力対応。割り当てると enum faction より優先され、敵対判定・色がこれに従う）")]
+            public FactionData factionData;
 
             [Tooltip("生成位置（XY平面）")]
             public Vector2 spawnPosition;

@@ -27,6 +27,9 @@ namespace Ginei
         [Header("陣営設定")]
         public Faction faction;
 
+        [Tooltip("所属勢力データ（多勢力対応の出所。割り当てると敵対判定・色がこれを優先。未割当なら enum faction で従来動作）")]
+        public FactionData factionData;
+
         [Header("演出設定")]
         [Tooltip("被弾フラッシュの時間 (秒)")]
         public float flashDuration = 0.1f;
@@ -60,6 +63,7 @@ namespace Ginei
         // IShipTarget 実装（旗艦＝個艦としての攻撃対象）。退却したら標的・カウント対象から外れる。
         public Transform Transform => transform;
         public Faction Faction => faction;
+        public FactionData FactionData => factionData;
         public bool IsAlive => !IsRetreating;
 
         private void Awake()
@@ -311,11 +315,12 @@ namespace Ginei
         {
             FleetStrength nearest = null;
             float minDist = float.MaxValue;
-            IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(faction);
-            for (int i = 0; i < enemies.Count; i++)
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flagships.Count; i++)
             {
-                FleetStrength fs = enemies[i];
-                if (fs == null || !fs.IsAlive) continue;
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == this || !fs.IsAlive) continue;
+                if (!FactionRelations.IsHostile(this, fs)) continue; // 敵対勢力の旗艦のみ
                 float d = Vector2.Distance(transform.position, fs.transform.position);
                 if (d < minDist) { minDist = d; nearest = fs; }
             }

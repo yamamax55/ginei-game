@@ -115,6 +115,7 @@
 | `LabelZoomScaler` | ワールド空間ラベル(TextMesh)の `localScale` をカメラ `orthographicSize` に追従させ、画面上の見かけ大きさをほぼ一定に保つ（密集時の重なり・極小/極大表示を防ぐ）。`Configure(baseScale, referenceOrthoSize)`。基準ズームは `CameraController.startZoom`(16) と揃える。`StrengthDisplay`(頭上ラベル)・`DamagePopup` が利用。**旗艦 root には付けない**（陣形計算が狂う）＝ラベル専用の子/単独オブジェクト限定。 |
 | `SpaceBackground` | ParticleSystem で星生成、パララックス。SortingLayer `"Background"`/order -100。 |
 | `FormationPreview` | 移動先決定中に選択部隊の陣形を半透明表示（旗艦中心＋配下艦スロットに艦スプライトを淡い陣営色 alpha≒0.3 で描画）。`FleetCommander` が実行時生成し `Show(Squadron)`/`SetPose(pos, angleZ)`/`Hide()`。スロットは `Squadron.GetFormationSlots()` を利用。 |
+| `BlackHole` | 特殊地形：ブラックホール（A-5）。`pullRadius` 内の全 `IShipTarget`（旗艦＋配下艦）に引力をかけ、`coreRadius` に入った艦を `TakeDamage(CoreKillDamage)` で戦闘除外（旗艦→`BeginRetreat`、配下艦→`Destroy`）。引力は LateUpdate に外力としてトランスフォームへ加算（`FleetMovement` に触れない）、`Time.deltaTime` 依存で timeScale 追従。艦の列挙は `FleetRegistry.GetEnemies(帝国)` と `FleetRegistry.GetEnemies(同盟)` のユニオン（`FindObjectsByType` 不使用）。ビジュアルはランタイム生成のラジアルグラデスプライト（コアディスク＋降着円盤リング、sortingOrder -50/-51）。Battle シーン開始時に `[RuntimeInitializeOnLoadMethod]` で自動配置（`AutoSpawnEnabled` で無効化可）。 |
 
 ## 壊すと不具合になる依存・命名
 - 旗艦の子オブジェクト名は固定。`FactionColor`/`FleetStrength.Flash`/`Squadron` がこれらの名前で除外・再利用判定する。**変えない・重複生成しない**：

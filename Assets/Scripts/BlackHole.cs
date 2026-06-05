@@ -10,7 +10,7 @@ namespace Ginei
     /// - coreRadius に入った艦艇は TakeDamage(大ダメージ) で戦闘除外する。
     /// - 引力は LateUpdate（FleetMovement.Update 後）にトランスフォームへ直接加算する外力。
     ///   FleetMovement の移動ロジックには一切触れない。
-    /// - 艦の列挙は FleetRegistry の帝国・同盟リストをユニオンして行う（FindObjectsByType 不使用）。
+    /// - 艦の列挙は FleetRegistry.AllTargets（陣営非依存の全艦在庫）で行う（FindObjectsByType 不使用）。
     /// - 実行時生成のスプライト・マテリアルはアプリ寿命で共有し、インスタンス固有分は OnDestroy で破棄。
     /// - Battle シーン開始時に [RuntimeInitializeOnLoadMethod] が 1 体だけ自動配置する（シーン手置き不要）。
     /// </summary>
@@ -25,10 +25,13 @@ namespace Ginei
         public float pullRadius = 12f;
 
         [Tooltip("艦艇が戦闘除外される消滅コアの半径（ワールド単位）")]
-        public float coreRadius = 1.5f;
+        public float coreRadius = 2.0f;
 
         [Tooltip("引力の強さ（単位/秒、距離 0 でのピーク値）")]
-        public float pullStrength = 6f;
+        public float pullStrength = 10f;
+
+        [Tooltip("コア近傍(coreRadius×この倍率)では最低でも pullStrength で確実に吸い込む（縁での停滞防止）")]
+        public float coreCaptureScale = 2.0f;
 
         [Header("ビジュアル設定")]
         [Tooltip("コア（暗黒円）の表示半径スケール（ワールド単位）")]
@@ -52,6 +55,25 @@ namespace Ginei
         [Tooltip("降着円盤のパルス強度（0=なし）")]
         public float pulseAmount = 0.06f;
 
+        [Header("吸引エフェクト")]
+        [Tooltip("渦を巻いて中心へ吸い込まれる吸引パーティクルを表示するか")]
+        public bool showPullEffect = true;
+
+        [Tooltip("吸引パーティクルの色")]
+        public Color pullEffectColor = new Color(0.7f, 0.45f, 1f, 0.9f);
+
+        [Tooltip("吸引パーティクルの毎秒放出数")]
+        public float pullEffectRate = 90f;
+
+        [Tooltip("吸引パーティクルの寿命（秒）。中心へ到達するまでの時間の目安")]
+        public float pullEffectLifetime = 2.5f;
+
+        [Tooltip("吸引パーティクルが中心へ向かう速さ（単位/秒）")]
+        public float pullEffectInwardSpeed = 5f;
+
+        [Tooltip("吸引パーティクルの渦巻きの強さ（velocityOverLifetime.orbitalZ。大きいほど強く回る）")]
+        public float pullEffectSwirl = 2.0f;
+
         [Header("消滅演出")]
         [Tooltip("コア吸収時の爆発パーティクルを生成するか")]
         public bool spawnAbsorbEffect = true;
@@ -70,6 +92,7 @@ namespace Ginei
         // ソーティングオーダー（背景 -100 より手前、艦 ~0 より後ろ）
         private const int CoreSortingOrder = -50;
         private const int AccretionSortingOrder = -51;
+        private const int PullFxSortingOrder = -50; // 降着円盤より手前・艦より後ろ
 
         // コア吸収ダメージ（大ダメージで旗艦＝BeginRetreat・配下艦＝Destroy を発動させる）
         private const int CoreKillDamage = int.MaxValue / 2;
@@ -83,6 +106,8 @@ namespace Ginei
         private static Sprite sharedRingSprite;
         // 消滅演出用パーティクルマテリアル
         private static Material sharedAbsorbMaterial;
+        // 吸引エフェクト用パーティクルマテリアル
+        private static Material sharedPullMaterial;
 
         // ────────────────────────────────────────────────
         // インスタンスごとのマテリアル（OnDestroy で破棄する）
@@ -97,6 +122,7 @@ namespace Ginei
 
         private Transform coreTransform;
         private Transform ringTransform;
+        private ParticleSystem pullEffect;
 
         // コアに吸収済みの艦（同フレームの二重処理防止）
         private readonly HashSet<IShipTarget> absorbedThisSession = new HashSet<IShipTarget>();
@@ -161,6 +187,80 @@ namespace Ginei
             coreSR.material = coreMaterial;
 
             coreTransform = coreObj.transform;
+
+            // ── 吸引エフェクト（渦を巻いて中心へ流れ込むパーティクル）──
+            if (showPullEffect) BuildPullEffect();
+        }
+
+        /// <summary>
+        /// 渦を巻きながら中心へ吸い込まれる吸引パーティクルを生成する。
+        /// pullRadius の円盤全体から放出し、radial で中心へ・orbitalZ で渦を巻かせる。
+        /// timeScale 追従（ポーズで停止・倍速で加速）。
+        /// </summary>
+        private void BuildPullEffect()
+        {
+            GameObject fx = new GameObject("PullEffect");
+            fx.transform.SetParent(transform);
+            fx.transform.localPosition = Vector3.zero;
+            fx.transform.localRotation = Quaternion.identity;
+
+            ParticleSystem ps = fx.AddComponent<ParticleSystem>();
+            ps.Stop();
+
+            var main = ps.main;
+            main.loop = true;
+            main.duration = 3f;
+            main.startLifetime = pullEffectLifetime;
+            main.startSpeed = 0f; // 速度は velocityOverLifetime で与える
+            main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.22f);
+            main.startColor = pullEffectColor;
+            main.simulationSpace = ParticleSystemSimulationSpace.Local; // radial/orbital を中心基準に
+            main.maxParticles = 1000;
+            main.useUnscaledTime = false; // timeScale 追従
+
+            var emission = ps.emission;
+            emission.rateOverTime = pullEffectRate;
+
+            var shape = ps.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius = pullRadius;
+            shape.radiusThickness = 1f; // 円盤全体から放出
+            shape.arc = 360f;
+
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.Local;
+            vel.radial = new ParticleSystem.MinMaxCurve(-pullEffectInwardSpeed); // 中心へ
+            vel.orbitalZ = new ParticleSystem.MinMaxCurve(pullEffectSwirl);       // 渦巻き
+
+            var colOL = ps.colorOverLifetime;
+            colOL.enabled = true;
+            Gradient grad = new Gradient();
+            grad.SetKeys(
+                new[] { new GradientColorKey(pullEffectColor, 0f), new GradientColorKey(Color.white, 1f) },
+                new[]
+                {
+                    new GradientAlphaKey(0f, 0f),
+                    new GradientAlphaKey(1f, 0.25f),
+                    new GradientAlphaKey(1f, 0.8f),
+                    new GradientAlphaKey(0f, 1f)
+                });
+            colOL.color = grad;
+
+            var sizeOL = ps.sizeOverLifetime;
+            sizeOL.enabled = true;
+            sizeOL.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.25f));
+
+            // 共有マテリアル（アプリ寿命で1個のみ生成、インスタンスでは破棄しない）
+            if (sharedPullMaterial == null)
+                sharedPullMaterial = new Material(Shader.Find("Sprites/Default"));
+            var psr = fx.GetComponent<ParticleSystemRenderer>();
+            psr.material = sharedPullMaterial;
+            psr.sortingOrder = PullFxSortingOrder;
+
+            ps.Play();
+            pullEffect = ps;
         }
 
         // ────────────────────────────────────────────────
@@ -227,9 +327,7 @@ namespace Ginei
                     {
                         absorbedThisSession.Add(t);
                         if (spawnAbsorbEffect) SpawnAbsorbEffect(pos);
-                        // 旗艦：TakeDamage → 0 → BeginRetreat（IsAlive=false、退却・カウント除外）
-                        // 配下艦：TakeDamage → 0 → Die → Destroy（即消滅）
-                        t.TakeDamage(CoreKillDamage);
+                        AbsorbTarget(t);
                     }
                     continue;
                 }
@@ -241,13 +339,36 @@ namespace Ginei
                 float ratio = Mathf.Clamp01(1f - (dist - coreRadius) / span);
                 float force = pullStrength * ratio * dt;
 
-                // 1 フレームでコアを超えてテレポートしないようクランプ
-                float maxDisplace = Mathf.Max(0f, dist - coreRadius - 0.01f);
+                // コア近傍では最低でも pullStrength で確実に吸い込む（縁で停滞して残らないように）
+                if (dist <= coreRadius * coreCaptureScale)
+                    force = Mathf.Max(force, pullStrength * dt);
+
+                // 中心を通り越して反対側へ飛ばないようにのみクランプ（コア内への進入は許可）。
+                // コア内に入れば次フレームの消滅判定(dist <= coreRadius)で戦闘除外される。
+                float maxDisplace = Mathf.Max(0f, dist - 0.01f);
                 force = Mathf.Min(force, maxDisplace);
                 if (force <= 0f) continue;
 
                 Vector3 dir = (center - pos).normalized;
                 t.Transform.position += dir * force;
+            }
+        }
+
+        /// <summary>
+        /// コアに到達した艦を消滅させる。
+        /// 旗艦は TakeDamage だと「退却（IsAlive=false）」になりブラックホール内に居座るため、
+        /// ブラックホールでは部隊（旗艦＋配下艦）ごと即時破棄して確実に消滅させる。
+        /// 配下艦は従来どおり撃沈処理（TakeDamage → Die → Destroy）。
+        /// </summary>
+        private void AbsorbTarget(IShipTarget t)
+        {
+            if (t is FleetStrength flagship)
+            {
+                Destroy(flagship.gameObject); // OnDestroy で FleetRegistry から解除（配下艦も各自解除）
+            }
+            else
+            {
+                t.TakeDamage(CoreKillDamage);
             }
         }
 

@@ -58,8 +58,11 @@ namespace Ginei
 
         private void Start()
         {
-            // 会戦開始時は少し引いた画から始める
-            if (cam != null) cam.orthographicSize = Mathf.Clamp(startZoom, minZoom, maxZoom);
+            // 会戦開始時のズームは設定画面の値（GameSettings.cameraStartZoom）を優先。
+            // 未取得時は Inspector の startZoom にフォールバック。
+            float z = startZoom;
+            if (GameSettings.Instance != null) z = GameSettings.Instance.cameraStartZoom;
+            if (cam != null) cam.orthographicSize = Mathf.Clamp(z, minZoom, maxZoom);
         }
 
         private void Update()

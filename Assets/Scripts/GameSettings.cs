@@ -42,6 +42,14 @@ namespace Ginei
         public float masterVolume = 1f;
         public float defaultTimeScale = 1f;
         public bool alwaysShowGizmos = false;
+        [Tooltip("会戦開始時のカメラズーム（大きいほど引いた画。CameraController が Start で参照）")]
+        public float cameraStartZoom = 16f;
+
+        // システム設定の永続化キー（PlayerPrefs）
+        private const string PrefVolume = "Ginei_MasterVolume";
+        private const string PrefTimeScale = "Ginei_DefaultTimeScale";
+        private const string PrefGizmos = "Ginei_AlwaysShowGizmos";
+        private const string PrefZoom = "Ginei_CameraStartZoom";
 
         [Header("戦績")]
         public Faction winner;
@@ -67,12 +75,33 @@ namespace Ginei
                 if (Application.isPlaying)
                 {
                     DontDestroyOnLoad(gameObject);
+                    LoadPrefs();   // 保存済みのシステム設定を復元
                 }
             }
             else if (instance != this)
             {
                 Destroy(gameObject);
             }
+        }
+
+        /// <summary>システム設定を PlayerPrefs から復元する（無ければ既定値のまま）。</summary>
+        public void LoadPrefs()
+        {
+            masterVolume = PlayerPrefs.GetFloat(PrefVolume, masterVolume);
+            defaultTimeScale = PlayerPrefs.GetFloat(PrefTimeScale, defaultTimeScale);
+            alwaysShowGizmos = PlayerPrefs.GetInt(PrefGizmos, alwaysShowGizmos ? 1 : 0) == 1;
+            cameraStartZoom = PlayerPrefs.GetFloat(PrefZoom, cameraStartZoom);
+            AudioListener.volume = masterVolume;
+        }
+
+        /// <summary>システム設定を PlayerPrefs に保存する（設定画面の変更を永続化）。</summary>
+        public void SavePrefs()
+        {
+            PlayerPrefs.SetFloat(PrefVolume, masterVolume);
+            PlayerPrefs.SetFloat(PrefTimeScale, defaultTimeScale);
+            PlayerPrefs.SetInt(PrefGizmos, alwaysShowGizmos ? 1 : 0);
+            PlayerPrefs.SetFloat(PrefZoom, cameraStartZoom);
+            PlayerPrefs.Save();
         }
 
         /// <summary>

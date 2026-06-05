@@ -588,6 +588,22 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 選択中の全艦隊の陣形を変更します（陣形変更ロジックの実体・唯一の窓口）。
+        /// CommandMenu / FleetHUDManager はここに委譲する。
+        /// </summary>
+        /// <param name="formationIdx">Formation enum のインデックス</param>
+        public void ChangeFormation(int formationIdx)
+        {
+            Formation f = (Formation)formationIdx;
+            foreach (var selectable in selectedFleets)
+            {
+                if (selectable == null) continue;
+                Squadron sq = selectable.GetComponent<Squadron>();
+                if (sq != null) sq.currentFormation = f;
+            }
+        }
+
+        /// <summary>
         /// 全ての選択を解除します。
         /// </summary>
         public void DeselectAll()

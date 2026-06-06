@@ -8,3 +8,5 @@
 .vs/
 *.csproj
 *.sln
+# Claude Code internal worktrees / session-local data (never commit)
+.claude/

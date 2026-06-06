@@ -46,11 +46,42 @@ namespace Ginei
         [Tooltip("配下艦リスト（手置きがあれば使用、無ければ自動生成）")]
         public List<Transform> memberShips = new List<Transform>();
 
+        [Header("配下艦の挙動（#69 リアル化）")]
+        [Tooltip("スロットへ追従する最大速度の倍率（旗艦 maxSpeed×この値が上限。遅れは取り戻せるがワープしない）")]
+        public float catchUpRatio = 1.3f;
+
+        [Tooltip("配下艦が進行方向へ回頭する速度（度/秒）。移動中はこの速さで進行方向へ向き直る")]
+        public float escortRotationSpeed = 180f;
+
+        [Tooltip("この速さ(units/秒)以上で移動中は進行方向を向く。未満（定位置付近）では旗艦の向きへ戻す")]
+        public float headingMoveThreshold = 0.5f;
+
+        [Tooltip("定位置付近で旗艦の向き（射界）へ戻す回頭速度（度/秒）")]
+        public float alignToFlagshipSpeed = 360f;
+
+        [Header("配下艦の分離（重なり・すり抜け防止）")]
+        [Tooltip("同一部隊内の配下艦同士が保つ最小間隔（0で無効）")]
+        public float minSeparation = 0.6f;
+
+        [Tooltip("分離の押し離し強度（0〜1。大きいほど一気に最小間隔まで開く）")]
+        [Range(0f, 1f)]
+        public float separationStrength = 0.5f;
+
+        [Tooltip("分離スキャンの間引き間隔（秒）。0で毎フレーム。重い時は大きく")]
+        public float separationUpdateInterval = 0.1f;
+
         // SmoothDamp用の速度バッファ（memberShips と添字同期）
         private List<Vector2> velocities = new List<Vector2>();
 
         // 交戦中判定に使う旗艦の武装（Start でキャッシュ）
         private FleetWeapon flagshipWeapon;
+
+        // 速度上限の基準＝旗艦の最高速（Start でキャッシュ。無ければフォールバック）
+        private FleetMovement flagshipMovement;
+        private float flagshipMaxSpeed = 6f;
+
+        // 分離スキャンの間引き用タイマー（timeScale 追従の Time.time 基準）
+        private float nextSeparationTime = 0f;
 
         // 陣形スロットのキャッシュ（隻数・陣形が変わった時だけ再計算）
         private List<Vector2> cachedSlots = new List<Vector2>();
@@ -75,6 +106,10 @@ namespace Ginei
             InitVelocities();
             RecolorFleet();            // 生成した配下艦にも陣営色を反映
             flagshipWeapon = GetComponent<FleetWeapon>();
+            flagshipMovement = GetComponent<FleetMovement>();
+            if (flagshipMovement != null) flagshipMaxSpeed = flagshipMovement.maxSpeed;
+            // 分離スキャンの初回位相を分散（全部隊が同フレームに走らないように）
+            nextSeparationTime = Time.time + Random.value * Mathf.Max(0f, separationUpdateInterval);
         }
 
         /// <summary>
@@ -276,6 +311,7 @@ namespace Ginei
 
         /// <summary>
         /// 陣形に基づいた各艦の目標座標を計算し、SmoothDampで追従させます。
+        /// #69：速度上限（ワープ防止）・進行方向への回頭・分離（重なり防止）で動きを現実的にする。
         /// </summary>
         private void UpdateShipPositions()
         {
@@ -284,6 +320,12 @@ namespace Ginei
             // 交戦中はゆっくり追従（穴埋め移動も緩やかに）。非交戦時は従来の機敏さ。
             bool inCombat = (flagshipWeapon != null && flagshipWeapon.IsInCombat);
             float st = inCombat ? combatSmoothTime : smoothTime;
+
+            float dt = Time.deltaTime;
+            // 速度上限＝旗艦の最高速 × catchUpRatio（遅れは取り戻せるがワープしない）。
+            float maxSpeed = (flagshipMovement != null ? flagshipMovement.maxSpeed : flagshipMaxSpeed)
+                             * Mathf.Max(0.1f, catchUpRatio);
+            float maxStep = maxSpeed * dt;
 
             for (int i = 0; i < memberShips.Count; i++)
             {
@@ -296,11 +338,95 @@ namespace Ginei
 
                 Vector2 currentPos = memberShips[i].position;
                 Vector2 velocity = velocities[i];
-                Vector2 nextPos = Vector2.SmoothDamp(currentPos, targetWorldPos, ref velocity, st);
+                // SmoothDamp 自体に maxSpeed を渡して、旗艦回頭時の外周艦の異常加速を抑える。
+                Vector2 nextPos = Vector2.SmoothDamp(currentPos, (Vector2)targetWorldPos, ref velocity, st, maxSpeed);
+
+                // 1フレームの移動量も上限でクランプ（瞬間移動＝ワープを確実に防ぐ）。
+                Vector2 delta = nextPos - currentPos;
+                if (dt > 0f && delta.magnitude > maxStep)
+                {
+                    delta = delta.normalized * maxStep;
+                    nextPos = currentPos + delta;
+                    if (velocity.magnitude > maxSpeed) velocity = velocity.normalized * maxSpeed;
+                }
                 velocities[i] = velocity;
 
                 memberShips[i].position = new Vector3(nextPos.x, nextPos.y, targetWorldPos.z);
-                memberShips[i].rotation = transform.rotation; // 向きは旗艦に同期
+
+                // 向き：十分な速度で移動中は進行方向へ弧を描いて回頭、定位置付近では旗艦の向き（射界）へ戻す。
+                UpdateEscortFacing(memberShips[i], delta, dt);
+            }
+
+            // 同一部隊内のすり抜け・重なりを押し離しで解消（間引き＋位相分散で軽量に）。
+            ApplySeparation();
+        }
+
+        /// <summary>
+        /// 配下艦の向きを更新。移動中(閾値以上)は進行方向(+Y=前方)へ回頭、
+        /// 定位置付近では旗艦の向きへ戻す。回頭は速度制限つき（瞬間的な向き反転を防ぐ）。
+        /// ※移動中は前を向けない＝撃ちにくい、という挙動は仕様として許容（#69）。
+        /// </summary>
+        private void UpdateEscortFacing(Transform ship, Vector2 delta, float dt)
+        {
+            if (dt <= 0f) return;
+            float speed = delta.magnitude / dt;
+
+            Quaternion targetRot;
+            float rotSpeed;
+            if (speed >= headingMoveThreshold && delta.sqrMagnitude > 1e-6f)
+            {
+                // 進行方向を前方(Transform.up)に向ける：up が角度φのとき z 回転は φ-90°。
+                float ang = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg - 90f;
+                targetRot = Quaternion.Euler(0f, 0f, ang);
+                rotSpeed = escortRotationSpeed;
+            }
+            else
+            {
+                // 定位置：旗艦の向き（射界）へ戻す
+                targetRot = transform.rotation;
+                rotSpeed = alignToFlagshipSpeed;
+            }
+            ship.rotation = Quaternion.RotateTowards(ship.rotation, targetRot, rotSpeed * dt);
+        }
+
+        /// <summary>
+        /// 同一部隊内の配下艦同士が minSeparation 未満に重なったら、半分ずつ押し離して
+        /// すり抜け・団子を防ぐ。間引き(separationUpdateInterval)＋初回位相分散で負荷を抑える。
+        /// 旗艦(transform)は対象外＝root は動かさない。
+        /// </summary>
+        private void ApplySeparation()
+        {
+            if (minSeparation <= 0f || separationStrength <= 0f) return;
+            if (separationUpdateInterval > 0f)
+            {
+                if (Time.time < nextSeparationTime) return;
+                nextSeparationTime = Time.time + separationUpdateInterval;
+            }
+
+            float minSq = minSeparation * minSeparation;
+            int n = memberShips.Count;
+            for (int i = 0; i < n; i++)
+            {
+                Transform a = memberShips[i];
+                if (a == null) continue;
+                Vector2 pa = a.position;
+                for (int j = i + 1; j < n; j++)
+                {
+                    Transform b = memberShips[j];
+                    if (b == null) continue;
+                    Vector2 pb = b.position;
+                    Vector2 d = pa - pb;
+                    float dsq = d.sqrMagnitude;
+                    if (dsq < minSq && dsq > 1e-6f)
+                    {
+                        float dist = Mathf.Sqrt(dsq);
+                        Vector2 push = d / dist * ((minSeparation - dist) * 0.5f * separationStrength);
+                        pa += push;
+                        pb -= push;
+                        a.position = new Vector3(pa.x, pa.y, a.position.z);
+                        b.position = new Vector3(pb.x, pb.y, b.position.z);
+                    }
+                }
             }
         }
 

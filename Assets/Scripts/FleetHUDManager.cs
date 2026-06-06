@@ -134,21 +134,21 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
 
             if (squadron != null && formationText != null)
             {
-                string line = $"現在陣形: {squadron.currentFormation}";
                 AdmiralData ad = (strength != null) ? strength.admiralData : null;
                 if (ad != null && ad.hasPreferredFormation)
                 {
                     bool match = ad.IsPreferredFormation(squadron.currentFormation);
-                    line += $"\n得意陣形: {ad.preferredFormation}";
-                    if (match) line += " ★";
-                    // 一致時は得意陣形ボーナス中＝強調（金色）、不一致は通常色
+                    // 得意陣形は同一行に併記（FormationText は高さ約1行ぶんのため、改行2行目が
+                    // 見切れないよう1行に収める）。一致時は★＋金色で強調。
+                    string star = match ? " ★" : "";
+                    formationText.text = $"現在陣形: {squadron.currentFormation}　得意陣形: {ad.preferredFormation}{star}";
                     formationText.color = match ? new Color(1f, 0.85f, 0.3f) : Color.white;
                 }
                 else
                 {
+                    formationText.text = $"現在陣形: {squadron.currentFormation}";
                     formationText.color = Color.white;
                 }
-                formationText.text = line;
             }
         }
 

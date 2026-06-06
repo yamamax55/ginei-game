@@ -11,6 +11,7 @@
 | [`worldbuilding-bible.md`](./worldbuilding-bible.md) | 世界観バイブル（数百年後設定／4勢力／命名／年表／未発見宙域／階級ラダー） | #15 | PR #89 |
 | [`phase-c-strategy.md`](./phase-c-strategy.md) | Phase C 戦略レイヤー **上位方針**（シームレス戦略↔戦術・銀河グラフ・回廊戦闘） | EPIC #33 | master 済 |
 | [`phase-c-core-design.md`](./phase-c-core-design.md) | Phase C **コア実装設計**（C-1 グラフ＋時間制ワープ／C-2 ズーム切替／C-3 有界回廊戦闘） | #34 #35 #36 | PR #97 |
+| [`phase-c-late-design.md`](./phase-c-late-design.md) | Phase C **後半設計**（C-4 リアルタイム並行・複数戦線／C-7 要塞／C-8 自動解決） | #37〜#41 | PR #103 |
 | [`wartime-logistics-design.md`](./wartime-logistics-design.md) | **戦時兵站**（L-1 資源／L-2 補給線／L-3 通商破壊／L-4 人口・徴募）＋**ZOC定義** | EPIC #92・#93〜#96・ZOC #100 | PR #98 |
 | [`communist-faction-design.md`](./communist-faction-design.md) | **共産勢力の非対称設計**（物量／政治将校／不退転＋内部対立。エンジン非フォーク） | #17 | PR #99 |
 | [`politics-prototype-design.md`](./politics-prototype-design.md) | **政治プロト：階級と提案**（青=可決可能/赤=不相応・戦果→merit→昇進） | EPIC #14 | PR #101 |
@@ -19,7 +20,7 @@
 
 ## 推奨の読む順
 1. **世界観**：`worldbuilding-bible.md`（勢力・命名・年表の前提）
-2. **戦略レイヤー（上位→実装）**：`phase-c-strategy.md` → `phase-c-core-design.md`
+2. **戦略レイヤー（上位→コア→後半）**：`phase-c-strategy.md` → `phase-c-core-design.md` → `phase-c-late-design.md`
 3. **兵站**：`wartime-logistics-design.md`（C-6補給の拡張・ZOC）
 4. **勢力の深掘り**：`communist-faction-design.md`
 5. **政治**：`politics-prototype-design.md`

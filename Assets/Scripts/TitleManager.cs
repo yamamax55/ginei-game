@@ -93,19 +93,31 @@ namespace Ginei
             dimRT.offsetMin = Vector2.zero; dimRT.offsetMax = Vector2.zero;
             dim.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
 
-            // 画面中央に縦並びのパネルを生成（dim の後＝手前に描画）
-            GameObject panel = new GameObject("ScenarioSelectPanel",
-                typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            panel.transform.SetParent(canvas.transform, false);
+            // 画面中央に「枠（スクロール領域）」を生成し、その中に縦並びの内容を入れる。
+            // 内容が画面より高くなっても枠内でスクロールでき、上下が見切れない（dim の後＝手前に描画）。
+            GameObject frame = new GameObject("ScenarioSelectFrame",
+                typeof(RectTransform), typeof(Image), typeof(ScrollRect), typeof(RectMask2D));
+            frame.transform.SetParent(canvas.transform, false);
+
+            RectTransform frameRT = frame.GetComponent<RectTransform>();
+            frameRT.anchorMin = new Vector2(0.5f, 0.5f);
+            frameRT.anchorMax = new Vector2(0.5f, 0.5f);
+            frameRT.pivot = new Vector2(0.5f, 0.5f);
+            frameRT.anchoredPosition = Vector2.zero;
+            frameRT.sizeDelta = new Vector2(460f, 900f);   // 高さは内容に合わせて後で調整（上限）
+            frame.GetComponent<Image>().color = new Color(0.05f, 0.07f, 0.12f, 0.97f);
+
+            // スクロール内容（VerticalLayoutGroup＋ContentSizeFitter）。これが従来の「パネル」。
+            GameObject panel = new GameObject("ScenarioSelectContent",
+                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            panel.transform.SetParent(frame.transform, false);
 
             RectTransform rt = panel.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = new Vector2(0f, 1f);   // 上辺基準＝上から下へ伸びる（縦スクロール用）
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = new Vector2(380f, 100f);
-
-            panel.GetComponent<Image>().color = new Color(0.05f, 0.07f, 0.12f, 0.97f);
+            rt.sizeDelta = new Vector2(0f, 0f);
 
             VerticalLayoutGroup vlg = panel.GetComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(14, 14, 14, 14);
@@ -119,6 +131,15 @@ namespace Ginei
             ContentSizeFitter csf = panel.GetComponent<ContentSizeFitter>();
             csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // スクロール設定（縦のみ・枠外はマスクで隠す）
+            ScrollRect scroll = frame.GetComponent<ScrollRect>();
+            scroll.content = rt;
+            scroll.viewport = frameRT;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
 
             // シナリオ一覧
             CreateLabel(panel.transform, "■ シナリオ選択", 22f);
@@ -184,6 +205,13 @@ namespace Ginei
 
             RefreshHighlights();
             UpdateSelectionLabel();
+
+            // 内容の高さを測り、枠の高さを内容に合わせる（画面に収まらない分だけスクロール）。
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+            float contentHeight = LayoutUtility.GetPreferredHeight(rt);
+            const float maxFrameHeight = 940f;   // 1080 リファレンス基準で上下に余白を残す
+            frameRT.sizeDelta = new Vector2(460f, Mathf.Min(contentHeight, maxFrameHeight));
 
             // 初期は非表示（「会戦開始」を押したら表示する）
             if (selectionRoot != null) selectionRoot.SetActive(false);
@@ -314,7 +342,10 @@ namespace Ginei
             Canvas canvas = go.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 50;
-            go.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            CanvasScaler scaler = go.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f); // タイトル用Canvasと同じ基準（未設定だと800x600で過剰拡大→見切れ）
+            scaler.matchWidthOrHeight = 0.5f;                       // 幅/高さの中間でマッチ（縦長UIの見切れを抑制）
             go.AddComponent<GraphicRaycaster>();
             return canvas;
         }

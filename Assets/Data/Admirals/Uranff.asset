@@ -21,3 +21,5 @@ MonoBehaviour:
   operation: 80
   intelligence: 80
   baseStrength: 8500
+  hasPreferredFormation: 1
+  preferredFormation: 3

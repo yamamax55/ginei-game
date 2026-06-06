@@ -27,11 +27,30 @@ namespace Ginei
         private Vector2 lastClickWorldPos;
         private Selectable lastClickedFleet;
 
+        // 陣形サブメニューの配置制御用（Start でキャッシュ）
+        private RectTransform formationSubRect;
+        private LayoutElement formationSubLayout;
+
         private void Start()
         {
             if (commander == null) commander = Object.FindAnyObjectByType<FleetCommander>();
             BuildFormationButtons();
+            CacheFormationSubMenu();
             CloseMenu();
+        }
+
+        /// <summary>
+        /// 陣形サブメニューを親（メインメニュー）のレイアウトグループから除外する。
+        /// これをしないと VerticalLayoutGroup がサブメニューを縦積みの一員として扱い、
+        /// メインメニューのボタンと重なる（陣形メニュー重なり対策）。
+        /// </summary>
+        private void CacheFormationSubMenu()
+        {
+            if (formationSubMenu == null) return;
+            formationSubRect = formationSubMenu.GetComponent<RectTransform>();
+            formationSubLayout = formationSubMenu.GetComponent<LayoutElement>();
+            if (formationSubLayout == null) formationSubLayout = formationSubMenu.AddComponent<LayoutElement>();
+            formationSubLayout.ignoreLayout = true; // 親レイアウトに巻き込ませない（重なり防止）
         }
 
         /// <summary>
@@ -161,7 +180,7 @@ namespace Ginei
                 buttonCount++;
 
                 // 3. 陣形変更
-                CreateButton("陣形変更", () => formationSubMenu.SetActive(!formationSubMenu.activeSelf));
+                CreateButton("陣形変更", ToggleFormationSubMenu);
                 buttonCount++;
                 
                 // 4. 情報 (選択中も情報は出せると便利なので残す)
@@ -305,6 +324,50 @@ namespace Ginei
 #else
                 Destroy(obj);
 #endif
+            }
+        }
+
+        /// <summary>陣形サブメニューの開閉。開くときはメインメニューの脇（画面端と反対側）へ配置する。</summary>
+        private void ToggleFormationSubMenu()
+        {
+            if (formationSubMenu == null) return;
+            bool show = !formationSubMenu.activeSelf;
+            formationSubMenu.SetActive(show);
+            if (show) PositionFormationSubMenu();
+        }
+
+        /// <summary>
+        /// 陣形サブメニューをメインメニューの左右どちらかの脇に配置する。
+        /// メインメニューが画面の右寄りなら左へ、左寄りなら右へ開く（近い画面端と反対側＝見切れ回避）。
+        /// メインメニューの辺にアンカーするので、メニュー幅やキャンバス縮尺に依存しない。
+        /// </summary>
+        private void PositionFormationSubMenu()
+        {
+            if (formationSubRect == null || menuRect == null) return;
+
+            if (formationSubLayout != null) formationSubLayout.ignoreLayout = true; // 念のため再保証
+            formationSubMenu.transform.SetAsLastSibling();                          // メニュー前面へ
+
+            // メインメニューのサイズ・位置を確定
+            LayoutRebuilder.ForceRebuildLayoutImmediate(menuRect);
+
+            // メインメニューが画面右半分にあるなら左へ、左半分なら右へ開く（position はオーバーレイで画面px）
+            bool openLeft = menuRect.position.x > Screen.width * 0.5f;
+            const float gap = 4f;
+
+            if (openLeft)
+            {
+                // メインメニューの左隣：親(menuRect)の左上にアンカーし、自分の右上を合わせて左へ
+                formationSubRect.anchorMin = formationSubRect.anchorMax = new Vector2(0f, 1f);
+                formationSubRect.pivot = new Vector2(1f, 1f);
+                formationSubRect.anchoredPosition = new Vector2(-gap, 0f);
+            }
+            else
+            {
+                // メインメニューの右隣：親の右上にアンカーし、自分の左上を合わせて右へ
+                formationSubRect.anchorMin = formationSubRect.anchorMax = new Vector2(1f, 1f);
+                formationSubRect.pivot = new Vector2(0f, 1f);
+                formationSubRect.anchoredPosition = new Vector2(gap, 0f);
             }
         }
 

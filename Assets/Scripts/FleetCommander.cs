@@ -63,14 +63,14 @@ namespace Ginei
         [Tooltip("選択矩形の枠の色")]
         public Color selectionBoxBorderColor = new Color(0.3f, 1f, 0.5f, 0.95f);
         [Tooltip("選択矩形の塗りの色")]
-        public Color selectionBoxFillColor = new Color(0.3f, 1f, 0.5f, 0.18f);
+        public Color selectionBoxFillColor = new Color(0.3f, 1f, 0.5f, 0.12f);
 
         // ドラッグ矩形選択の状態（実行時）
         private bool leftPressedInWorld = false;   // 左押下がワールド上で始まったか（UI上で始まったら無視）
         private bool isBoxSelecting = false;       // ドラッグ矩形選択中か
         private Vector2 dragStartScreen;           // ドラッグ開始のスクリーン座標
         private GameObject selectionBoxCanvas;     // 選択矩形用 Canvas（実行時生成）
-        private RectTransform selectionBoxBorder;  // 選択矩形の枠
+        private RectTransform selectionBoxRect;    // 選択矩形（半透明の塗り＝本体）
 
         /// <summary>移動先指定待ちか（Escの優先処理判定用）。</summary>
         public bool IsWaitingForMoveTarget => isWaitingForMoveTarget;
@@ -751,20 +751,31 @@ namespace Ginei
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 80;   // 通常UIより手前（クリックは奪わない＝Raycaster なし）
 
-            // 枠（左下アンカー＝スクリーンピクセルでそのまま配置）
-            selectionBoxBorder = NewBox(selectionBoxCanvas.transform, "Border", selectionBoxBorderColor);
-            selectionBoxBorder.anchorMin = Vector2.zero;
-            selectionBoxBorder.anchorMax = Vector2.zero;
-            selectionBoxBorder.pivot = Vector2.zero;
+            // 本体＝半透明の塗りのみ（中の艦隊が透けて見えるよう、不透明な面で覆わない）。
+            // 左下アンカー＝スクリーンピクセルでそのまま配置。
+            selectionBoxRect = NewBox(selectionBoxCanvas.transform, "Box", selectionBoxFillColor);
+            selectionBoxRect.anchorMin = Vector2.zero;
+            selectionBoxRect.anchorMax = Vector2.zero;
+            selectionBoxRect.pivot = Vector2.zero;
 
-            // 塗り（枠の内側を 2px インセットで埋める）
-            RectTransform fill = NewBox(selectionBoxBorder, "Fill", selectionBoxFillColor);
-            fill.anchorMin = Vector2.zero;
-            fill.anchorMax = Vector2.one;
-            fill.offsetMin = new Vector2(2f, 2f);
-            fill.offsetMax = new Vector2(-2f, -2f);
+            // 枠＝四辺の細い線だけ（不透明な面で中を覆わない）
+            AddEdge(new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, 2f));   // 上
+            AddEdge(new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 2f));   // 下
+            AddEdge(new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(2f, 0f));   // 左
+            AddEdge(new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(2f, 0f));   // 右
 
             selectionBoxCanvas.SetActive(false);
+        }
+
+        /// <summary>選択矩形の枠（細い辺）を1本生成。size の 0 成分はアンカーに追従、非0 成分が線の太さ。</summary>
+        private void AddEdge(Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 size)
+        {
+            RectTransform e = NewBox(selectionBoxRect, "Edge", selectionBoxBorderColor);
+            e.anchorMin = anchorMin;
+            e.anchorMax = anchorMax;
+            e.pivot = pivot;
+            e.anchoredPosition = Vector2.zero;
+            e.sizeDelta = size;
         }
 
         private static RectTransform NewBox(Transform parent, string name, Color color)
@@ -783,8 +794,8 @@ namespace Ginei
             EnsureSelectionBoxVisual();
             if (!selectionBoxCanvas.activeSelf) selectionBoxCanvas.SetActive(true);
             Rect r = ScreenRect(aScreen, bScreen);
-            selectionBoxBorder.anchoredPosition = new Vector2(r.xMin, r.yMin);
-            selectionBoxBorder.sizeDelta = new Vector2(r.width, r.height);
+            selectionBoxRect.anchoredPosition = new Vector2(r.xMin, r.yMin);
+            selectionBoxRect.sizeDelta = new Vector2(r.width, r.height);
         }
 
         private void HideSelectionBoxVisual()

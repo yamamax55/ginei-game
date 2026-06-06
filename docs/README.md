@@ -15,6 +15,8 @@
 | [`wartime-logistics-design.md`](./wartime-logistics-design.md) | **戦時兵站**（L-1 資源／L-2 補給線／L-3 通商破壊／L-4 人口・徴募）＋**ZOC定義** | EPIC #92・#93〜#96・ZOC #100 | PR #98 |
 | [`communist-faction-design.md`](./communist-faction-design.md) | **共産勢力の非対称設計**（物量／政治将校／不退転＋内部対立。エンジン非フォーク） | #17 | PR #99 |
 | [`politics-prototype-design.md`](./politics-prototype-design.md) | **政治プロト：階級と提案**（青=可決可能/赤=不相応・戦果→merit→昇進） | EPIC #14 | PR #101 |
+| [`emergent-campaign-design.md`](./emergent-campaign-design.md) | **創発キャンペーン**（モード併存・地理/歴史/地政学から政体創発・1惑星/フォグ・チョーク保証） | EPIC #117・#118〜#121／内政 #109 | PR #122 |
+| [`roadmap.md`](./roadmap.md) | **ロードマップ**（現Issueベースの実装計画・依存・推奨スプリント） | — | PR #105 |
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。
 
@@ -24,6 +26,8 @@
 3. **兵站**：`wartime-logistics-design.md`（C-6補給の拡張・ZOC）
 4. **勢力の深掘り**：`communist-faction-design.md`
 5. **政治**：`politics-prototype-design.md`
+6. **創発キャンペーン（統合・併存）**：`emergent-campaign-design.md`（戦略＋内政＋政体創発を1枚に。内政は EPIC #109）
+- **計画全体**：`roadmap.md`（依存関係・推奨スプリント）
 
 ## 実装の土台（既に master にある主要システム）
 > 設計書はこれらに接続する。詳細は `CLAUDE.md` の「既存コンポーネント」表を参照。

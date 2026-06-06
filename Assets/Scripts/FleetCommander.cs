@@ -51,7 +51,16 @@ namespace Ginei
         private string pendingAttackName;
 
         // 移動先決定の状態
-        private FormationPreview preview;
+        // 移動先プレビュー：選択した各艦隊ぶんの半透明ゴースト（複数選択で全艦隊分を表示）
+        private readonly List<MovePreviewUnit> movePreviews = new List<MovePreviewUnit>();
+
+        /// <summary>移動先プレビュー1艦隊ぶん（ゴースト＋選択群の重心からの相対位置）。</summary>
+        private class MovePreviewUnit
+        {
+            public Selectable sel;
+            public FormationPreview preview;   // Squadron が無ければ null
+            public Vector2 offset;             // 選択群の重心からの相対位置（隊形維持用）
+        }
         private bool isAiming = false;        // 右ボタン押下後、向き決め中か
         private Vector2 moveTargetPos;        // 右押下で確定した目標地点
         private float? aimAngle = null;       // 指定された向き（z角）。null=未指定
@@ -409,17 +418,13 @@ namespace Ginei
             if (moveIsReverse)
             {
                 bool canReverseHere = IsReversibleTarget(mouseWorld);
-                if (preview != null)
+                if (canReverseHere)
                 {
-                    if (canReverseHere)
-                    {
-                        if (!preview.gameObject.activeSelf) preview.gameObject.SetActive(true);
-                        preview.SetPose(mouseWorld, DefaultFacingAngle());
-                    }
-                    else
-                    {
-                        preview.Hide();
-                    }
+                    SetPreviewsPose(mouseWorld, DefaultFacingAngle());
+                }
+                else
+                {
+                    SetPreviewsActive(false);
                 }
                 if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && canReverseHere)
                 {
@@ -430,8 +435,8 @@ namespace Ginei
 
             if (!isAiming)
             {
-                // 押す前：カーソル位置に既定の向きでプレビュー追従
-                if (preview != null) preview.SetPose(mouseWorld, DefaultFacingAngle());
+                // 押す前：カーソル位置に既定の向きで全プレビュー追従
+                SetPreviewsPose(mouseWorld, DefaultFacingAngle());
 
                 // 右ボタン押下：押した位置を目標地点として確定し、向き決め開始
                 if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
@@ -451,7 +456,7 @@ namespace Ginei
                 }
 
                 float angle = aimAngle ?? DefaultFacingAngle();
-                if (preview != null) preview.SetPose(moveTargetPos, angle);
+                SetPreviewsPose(moveTargetPos, angle);
 
                 // 離したら確定（ドラッグ無し＝向き指定なし）
                 if (Mouse.current != null && Mouse.current.rightButton.wasReleasedThisFrame)
@@ -486,16 +491,17 @@ namespace Ginei
         /// </summary>
         private void ExecuteMoveCommand(Vector2 pos, float? facingAngleZ)
         {
-            foreach (var selectable in selectedFleets)
+            // 隊形を保つため、各艦隊は「目標地点＋重心からのオフセット」へ向かう（重なり防止）
+            foreach (var mu in movePreviews)
             {
-                if (selectable == null) continue;
+                if (mu.sel == null) continue;
 
                 // 移動命令により攻撃目標を解除（追尾を止めて指定地点へ向かう）
-                FleetWeapon weapon = selectable.GetComponent<FleetWeapon>();
+                FleetWeapon weapon = mu.sel.GetComponent<FleetWeapon>();
                 if (weapon != null) weapon.ClearManualTarget();
 
-                FleetMovement movement = selectable.GetComponent<FleetMovement>();
-                if (movement != null) movement.SetDestination(pos, facingAngleZ);
+                FleetMovement movement = mu.sel.GetComponent<FleetMovement>();
+                if (movement != null) movement.SetDestination(pos + mu.offset, facingAngleZ);
             }
             EndMoveTargeting();
             Debug.Log("移動命令を発令しました。");
@@ -509,17 +515,17 @@ namespace Ginei
         /// </summary>
         private void ExecuteReverseCommand(Vector2 pos)
         {
-            foreach (var selectable in selectedFleets)
+            foreach (var mu in movePreviews)
             {
-                if (selectable == null) continue;
+                if (mu.sel == null) continue;
 
                 // 後退中も追尾はさせない（手動目標の追尾は前進命令を出し後退と競合するため解除）。
                 // 射界内の敵には FleetWeapon が自動で発砲を続ける＝戦いながら下がれる。
-                FleetWeapon weapon = selectable.GetComponent<FleetWeapon>();
+                FleetWeapon weapon = mu.sel.GetComponent<FleetWeapon>();
                 if (weapon != null) weapon.ClearManualTarget();
 
-                FleetMovement movement = selectable.GetComponent<FleetMovement>();
-                if (movement != null) movement.SetReverseDestination(pos);
+                FleetMovement movement = mu.sel.GetComponent<FleetMovement>();
+                if (movement != null) movement.SetReverseDestination(pos + mu.offset);
             }
             EndMoveTargeting();
             Debug.Log("後退命令を発令しました。");
@@ -543,22 +549,76 @@ namespace Ginei
             moveIsReverse = false;
             isAiming = false;
             aimAngle = null;
-            if (preview != null) preview.Hide();
+            ClearMovePreviews();
         }
 
-        /// <summary>選択先頭部隊の陣形でプレビューを構築・表示する。</summary>
+        /// <summary>選択中の全艦隊ぶんの移動先プレビューを構築・表示する（重心からの相対位置を保持）。</summary>
         private void ShowPreview()
         {
-            if (selectedFleets.Count == 0 || selectedFleets[0] == null) return;
-            Squadron squad = selectedFleets[0].GetComponent<Squadron>();
-            if (squad == null) return;
+            ClearMovePreviews();
+            if (selectedFleets.Count == 0) return;
 
-            if (preview == null)
+            // 選択群の重心（null は除外）
+            Vector2 centroid = Vector2.zero;
+            int n = 0;
+            foreach (var s in selectedFleets)
             {
-                GameObject go = new GameObject("FormationPreview");
-                preview = go.AddComponent<FormationPreview>();
+                if (s == null) continue;
+                centroid += (Vector2)s.transform.position;
+                n++;
             }
-            preview.Show(squad);
+            if (n == 0) return;
+            centroid /= n;
+
+            // 各艦隊ぶんのゴーストを生成し、重心からの相対位置を記録
+            foreach (var s in selectedFleets)
+            {
+                if (s == null) continue;
+                MovePreviewUnit mu = new MovePreviewUnit
+                {
+                    sel = s,
+                    offset = (Vector2)s.transform.position - centroid
+                };
+                Squadron squad = s.GetComponent<Squadron>();
+                if (squad != null)
+                {
+                    GameObject go = new GameObject("FormationPreview");
+                    mu.preview = go.AddComponent<FormationPreview>();
+                    mu.preview.Show(squad);
+                }
+                movePreviews.Add(mu);
+            }
+        }
+
+        /// <summary>全プレビューを「目標地点＋各オフセット」に配置し、向きを揃える。</summary>
+        private void SetPreviewsPose(Vector2 target, float angleZ)
+        {
+            foreach (var mu in movePreviews)
+            {
+                if (mu.preview == null) continue;
+                if (mu.sel == null) { mu.preview.Hide(); continue; }   // 破棄された艦のゴーストは隠す
+                if (!mu.preview.gameObject.activeSelf) mu.preview.gameObject.SetActive(true);
+                mu.preview.SetPose(target + mu.offset, angleZ);
+            }
+        }
+
+        /// <summary>全プレビューの表示/非表示を一括切替（後退不可地点などで使う）。</summary>
+        private void SetPreviewsActive(bool on)
+        {
+            foreach (var mu in movePreviews)
+            {
+                if (mu.preview != null) mu.preview.gameObject.SetActive(on);
+            }
+        }
+
+        /// <summary>移動先プレビューを全破棄してリストを空にする（堅牢化：残骸を残さない）。</summary>
+        private void ClearMovePreviews()
+        {
+            foreach (var mu in movePreviews)
+            {
+                if (mu != null && mu.preview != null) Destroy(mu.preview.gameObject);
+            }
+            movePreviews.Clear();
         }
 
         /// <summary>

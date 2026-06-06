@@ -41,6 +41,22 @@ namespace Ginei
         [Tooltip("この提督が率いる際の基準兵力")]
         public int baseStrength = 10000;
 
+        [Header("得意陣形（#104）")]
+        [Tooltip("得意陣形ボーナスを有効にするか（false＝未設定＝従来どおりボーナス無し＝後方互換）")]
+        public bool hasPreferredFormation = false;
+
+        [Tooltip("この提督の得意陣形。部隊の現在陣形が一致する間、移動・防御にボーナス（hasPreferredFormation=true のとき）")]
+        public Formation preferredFormation = Formation.紡錘陣;
+
+        /// <summary>
+        /// 部隊の現在陣形 current が、この提督の得意陣形と一致するか。
+        /// hasPreferredFormation が false（未設定）なら常に false＝ボーナス無し（後方互換）。
+        /// </summary>
+        public bool IsPreferredFormation(Formation current)
+        {
+            return hasPreferredFormation && current == preferredFormation;
+        }
+
         [Header("参謀（最大3名・能力補完）")]
         [Tooltip("能力を補完する参謀（最大3名・提督データを流用）。各能力は参謀の最高値×staffBonusRatio だけ底上げされる")]
         public AdmiralData[] staffOfficers = new AdmiralData[0];

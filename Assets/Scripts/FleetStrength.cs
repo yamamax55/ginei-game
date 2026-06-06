@@ -38,12 +38,18 @@ namespace Ginei
         [Tooltip("旗艦喪失（艦艇数0）時に離脱する距離")]
         public float retreatDistance = 50f;
 
+        [Header("得意陣形ボーナス（#104）")]
+        [Tooltip("提督の得意陣形と現在陣形が一致する間の被ダメージ軽減率（0=無効, 0.15で被ダメージ15%カット）。実効値パターン＝基準ダメージ・防御計算は非破壊")]
+        [Range(0f, 0.9f)]
+        public float preferredFormationDamageReduction = 0.15f;
+
         // 頭上ラベルのズーム追従の基準ズーム（CameraController.startZoom と揃える）
         private const float LabelReferenceOrthoSize = 16f;
 
         private TextMesh strengthDisplay;
         private FleetMorale moraleComponent;
         private FleetMovement movement;
+        private Squadron squadron;
 
         /// <summary>旗艦を失い退却中か（true なら戦闘・カウントから除外）。</summary>
         public bool IsRetreating { get; private set; }
@@ -70,6 +76,7 @@ namespace Ginei
         {
             moraleComponent = GetComponent<FleetMorale>();
             movement = GetComponent<FleetMovement>();
+            squadron = GetComponent<Squadron>();
         }
 
         private void Start()
@@ -169,6 +176,14 @@ namespace Ginei
             // 防御100でダメージ50%カット
             float reduction = 1.0f - Mathf.Clamp(defenseValue / 200f, 0, 0.9f);
             int finalDamage = Mathf.RoundToInt(rawDamage * reduction);
+
+            // 得意陣形ボーナス：現在陣形が提督の得意陣形と一致する間だけ被ダメージをさらに軽減（実効値パターン）
+            if (admiralData != null && squadron != null
+                && admiralData.IsPreferredFormation(squadron.currentFormation)
+                && preferredFormationDamageReduction > 0f)
+            {
+                finalDamage = Mathf.RoundToInt(finalDamage * (1f - Mathf.Clamp(preferredFormationDamageReduction, 0f, 0.9f)));
+            }
 
             strength -= finalDamage;
             

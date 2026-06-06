@@ -56,6 +56,10 @@ namespace Ginei
         [Tooltip("混雑係数の追従速度（倍率/秒）。大きいほど素早く反映、小さいほど滑らか")]
         public float congestionSmoothSpeed = 2.0f;
 
+        [Header("得意陣形ボーナス（#104）")]
+        [Tooltip("提督の得意陣形と現在陣形が一致する間の移動・回頭速度の倍率（1.0=実質無効。例:1.15で+15%）。実効値パターン＝基準 maxSpeed/rotationSpeed は非破壊")]
+        public float preferredFormationMobilityBonus = 1.15f;
+
         [Header("デバッグ用")]
         [Tooltip("現在の速度")]
         public float currentSpeed = 0f;
@@ -238,6 +242,13 @@ namespace Ginei
             if (weapon != null && weapon.IsInCombat)
             {
                 factor *= weapon.combatMobilityRatio;
+            }
+
+            // 得意陣形ボーナス：現在陣形が提督の得意陣形と一致する間だけ移動補正（実効値パターン）
+            if (strength != null && strength.admiralData != null && squadron != null
+                && strength.admiralData.IsPreferredFormation(squadron.currentFormation))
+            {
+                factor *= Mathf.Max(0.1f, preferredFormationMobilityBonus);
             }
 
             // 艦隊同士の接触・密集による減速（混雑ペナルティ）

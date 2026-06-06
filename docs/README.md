@@ -17,6 +17,7 @@
 | [`politics-prototype-design.md`](./politics-prototype-design.md) | **政治プロト：階級と提案**（青=可決可能/赤=不相応・戦果→merit→昇進） | EPIC #14 | PR #101 |
 | [`emergent-campaign-design.md`](./emergent-campaign-design.md) | **創発キャンペーン**（モード併存・地理/歴史/地政学から政体創発・1惑星/フォグ・チョーク保証） | EPIC #117・#118〜#121／内政 #109 | PR #122 |
 | [`planetary-battle-design.md`](./planetary-battle-design.md) | **惑星の戦い**（回廊突破→惑星領域→侵略値で占領・軌道防衛=アルテミスの首飾り・航行不能領域） | EPIC #131・#132〜#135 | PR #136 |
+| [`fleet-organization-design.md`](./fleet-organization-design.md) | **艦隊編制基盤**（艦隊番号=第13艦隊・提督配属・永久欠番／軍団→軍集団梯団・直轄部隊集中投資・任務戦術） | EPIC #148・#146/#147／政府 #141 | PR 新規 |
 | [`roadmap.md`](./roadmap.md) | **ロードマップ**（現Issueベースの実装計画・依存・推奨スプリント） | — | PR #105 |
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。
@@ -28,6 +29,7 @@
 4. **勢力の深掘り**：`communist-faction-design.md`
 5. **政治**：`politics-prototype-design.md`
 6. **創発キャンペーン（統合・併存）**：`emergent-campaign-design.md`（戦略＋内政＋政体創発を1枚に。内政は EPIC #109）
+7. **艦隊編制**：`fleet-organization-design.md`（艦隊番号・提督配属・永久欠番／軍団梯団・直轄・任務戦術。政府#141・文民統制#145 と接続）
 - **計画全体**：`roadmap.md`（依存関係・推奨スプリント）
 
 ## 実装の土台（既に master にある主要システム）
@@ -44,6 +46,8 @@
 - **戦時兵站（Phase C/D）**：EPIC #92 ＋ L-1〜L-3（#93〜#95, Phase C）／L-4（#96, Phase D）＋ ZOC #100。着手順 L-1→ZOC→L-2→L-3→L-4。
 - **世界観/勢力**：#15（バイブル）／#16（4勢力定義・済PR）／#17（共産非対称）。
 - **政治**：EPIC #14（階級と提案）。RankSystem の上に乗る。
+- **政府/群像（Phase D）**：EPIC #141（政府役職基盤）＋ GOV-1〜4（役職#142／文民#143／既存接続#144／文民統制#145）。役職＝階級(#14)と別軸の権限スコープ。`ICharacter` で軍人/文民を共通化。
+- **艦隊編制（Phase D）**：EPIC #148 ＋ 艦隊番号#146（提督配属・永久欠番）／軍団#147（梯団・直轄・任務戦術）。**ランタイム在庫 `FleetRegistry` とは別の `OrderOfBattle` 台帳**に乗る。任免は #141/#145 に従う。
 
 ## メモ
 - 各設計書の **【要・作者判断】** は作者の確定待ち（数値・創作裁定）。

@@ -16,6 +16,7 @@
 | [`communist-faction-design.md`](./communist-faction-design.md) | **共産勢力の非対称設計**（物量／政治将校／不退転＋内部対立。エンジン非フォーク） | #17 | PR #99 |
 | [`politics-prototype-design.md`](./politics-prototype-design.md) | **政治プロト：階級と提案**（青=可決可能/赤=不相応・戦果→merit→昇進） | EPIC #14 | PR #101 |
 | [`emergent-campaign-design.md`](./emergent-campaign-design.md) | **創発キャンペーン**（モード併存・地理/歴史/地政学から政体創発・1惑星/フォグ・チョーク保証） | EPIC #117・#118〜#121／内政 #109 | PR #122 |
+| [`planetary-battle-design.md`](./planetary-battle-design.md) | **惑星の戦い**（回廊突破→惑星領域→侵略値で占領・軌道防衛=アルテミスの首飾り・航行不能領域） | EPIC #131・#132〜#135 | PR #136 |
 | [`roadmap.md`](./roadmap.md) | **ロードマップ**（現Issueベースの実装計画・依存・推奨スプリント） | — | PR #105 |
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。

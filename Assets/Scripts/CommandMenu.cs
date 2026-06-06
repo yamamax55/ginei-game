@@ -144,8 +144,20 @@ namespace Ginei
                 CreateButton("移動", CommandMove);
                 buttonCount++;
 
-                // 2. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
+                // 2. 後退 (向きを保ったまま下がる＝戦いながら離脱)
+                CreateButton("後退", CommandReverse);
+                buttonCount++;
+
+                // 3. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
                 CreateButton("攻撃", CommandAttack);
+                buttonCount++;
+
+                // 3b. 標準命令（#85）：アタックムーブ／停止／その場保持
+                CreateButton("アタックムーブ", CommandAttackMove);
+                buttonCount++;
+                CreateButton("停止", CommandStop);
+                buttonCount++;
+                CreateButton("その場保持", CommandHold);
                 buttonCount++;
 
                 // 3. 陣形変更
@@ -191,6 +203,13 @@ namespace Ginei
                 {
                     textComp.font = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
                 }
+                // 長いラベル（アタックムーブ/その場保持）が折り返して縦に伸び・見切れるのを防ぐ：
+                // 折り返し禁止＋自動縮小で常に1行に収める（ボタン高さ・メニュー高さを一定に保つ）。
+                textComp.enableWordWrapping = false;
+                float baseSize = textComp.fontSize;
+                textComp.enableAutoSizing = true;
+                textComp.fontSizeMin = 10f;
+                textComp.fontSizeMax = baseSize > 0f ? baseSize : 24f;
             }
             
             Button btnComp = btnObj.GetComponent<Button>();
@@ -209,12 +228,42 @@ namespace Ginei
             CloseMenu();
         }
 
+        private void CommandReverse()
+        {
+            if (commander != null)
+            {
+                commander.StartWaitingForReverseTarget();
+            }
+            CloseMenu();
+        }
+
         private void CommandAttack()
         {
             if (commander != null)
             {
                 commander.StartWaitingForAttackTarget();
             }
+            CloseMenu();
+        }
+
+        /// <summary>アタックムーブ：目標地点を指定→進撃しつつ捕捉した敵と交戦（#85）。</summary>
+        private void CommandAttackMove()
+        {
+            if (commander != null) commander.StartWaitingForAttackMove();
+            CloseMenu();
+        }
+
+        /// <summary>停止：選択中の全艦隊をその場で停止（#85）。</summary>
+        private void CommandStop()
+        {
+            if (commander != null) commander.StopSelected();
+            CloseMenu();
+        }
+
+        /// <summary>その場保持：移動せず射界内の敵に自動発砲（#85）。</summary>
+        private void CommandHold()
+        {
+            if (commander != null) commander.HoldSelected();
             CloseMenu();
         }
 
@@ -261,12 +310,8 @@ namespace Ginei
 
         public void ChangeFormation(int formationIdx)
         {
-            Formation f = (Formation)formationIdx;
-            foreach (var fleet in commander.SelectedFleets)
-            {
-                Squadron sq = fleet.GetComponent<Squadron>();
-                if (sq != null) sq.currentFormation = f;
-            }
+            // 陣形変更の実体は FleetCommander に集約（重複排除）。ここではメニューを閉じるだけ担当。
+            if (commander != null) commander.ChangeFormation(formationIdx);
             CloseMenu();
         }
 

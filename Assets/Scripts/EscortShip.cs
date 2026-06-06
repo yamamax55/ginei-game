@@ -40,6 +40,7 @@ namespace Ginei
         // IShipTarget 実装。旗艦が退却したら部隊ごと戦闘除外（標的にならない）。
         public Transform Transform => transform;
         public Faction Faction => flagship != null ? flagship.faction : Faction.帝国;
+        public FactionData FactionData => flagship != null ? flagship.factionData : null;
         public bool IsAlive => !isDead && shipCount > 0 && (flagship == null || !flagship.IsRetreating);
 
         private void Awake()
@@ -96,7 +97,7 @@ namespace Ginei
 
             // 標的優先度：第一＝射線の通る敵旗艦、第二＝敵配下艦（射線上の配下艦は旗艦を遮蔽する）
             IShipTarget target = ShipCombat.FindPrioritizedEnemyInArc(transform.position, transform.up,
-                Faction, flagshipArc.range, flagshipArc.halfAngle);
+                FactionData, Faction, flagshipArc.range, flagshipArc.halfAngle);
 
             if (target != null)
             {

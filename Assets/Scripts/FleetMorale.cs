@@ -52,12 +52,8 @@ namespace Ginei
 
         private void CreateMoraleLabel()
         {
-            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
-            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-#if UNITY_EDITOR
-            Font customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
-            if (customFont != null) jaFont = customFont;
-#endif
+            // 日本語フォントは FontProvider に集約（Unity6 の Arial.ttf 禁止対応も一元化）
+            Font jaFont = FontProvider.JapaneseFont;
             // プレハブに焼き込まれた既存 "MoraleLabel" があれば再利用（二重生成を防ぐ）
             Transform existingLabel = transform.Find("MoraleLabel");
             GameObject go;
@@ -112,7 +108,8 @@ namespace Ginei
             if (strength != null && strength.admiralData != null)
             {
                 // 最大士気は提督の統率力に依存 (例: 統率と同じ値)。0以下にはしない（ゼロ除算防止）
-                maxMorale = Mathf.Max(1f, strength.admiralData.leadership);
+                // 参謀補完を反映した実効統率を使用（基準値は非破壊）
+                maxMorale = Mathf.Max(1f, strength.admiralData.EffectiveLeadership);
                 morale = maxMorale;
             }
         }

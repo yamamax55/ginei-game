@@ -23,8 +23,17 @@ namespace Ginei
         private Material mat;
 
         // 大量ヒット時の出しすぎ防止：同時表示数の上限。超過分は間引く（生成しない）。
-        public const int MaxActive = 48;
+        // 多数の配下艦が同時に撃つため、可読性優先で控えめにする。
+        public const int MaxActive = 24;
         private static int activeCount = 0;
+
+        // 縦方向の段積み：連続生成を一定段にずらして団子化を防ぐ（重なって読めないのを軽減）。
+        private const int StackSlots = 4;
+        private const float StackStep = 0.45f;
+        private static int stackSlot = 0;
+
+        // 文字サイズのズーム追従に使う基準ズーム（CameraController.startZoom と揃える）。
+        private const float ReferenceOrthoSize = 16f;
 
         /// <summary>
         /// ダメージポップアップを生成します。
@@ -39,22 +48,19 @@ namespace Ginei
             activeCount++;
 
             var go = new GameObject("DamagePopup");
-            // 同一座標への重なり（団子化）を防ぐため、水平に小さくばらつかせる
-            Vector3 jitter = new Vector3(Random.Range(-0.4f, 0.4f), Random.Range(0f, 0.2f), 0f);
-            go.transform.position = worldPos + jitter;
+            // 団子化を防ぐ：水平はわずかに、垂直はスロットで段階的にずらして縦に積む
+            int slot = stackSlot % StackSlots;
+            stackSlot++;
+            Vector3 offset = new Vector3(Random.Range(-0.2f, 0.2f), slot * StackStep, 0f);
+            go.transform.position = worldPos + offset;
             var popup = go.AddComponent<DamagePopup>();
             popup.Init(damage, isFlank);
         }
 
         private void Init(int damage, bool isFlank)
         {
-            // フォント読み込み（FleetStrength と同じパターン）
-            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
-            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-#if UNITY_EDITOR
-            Font customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
-            if (customFont != null) jaFont = customFont;
-#endif
+            // フォント読み込みは FontProvider に集約（日本語・Unity6 の Arial.ttf 禁止対応もそこで一元化）
+            Font jaFont = FontProvider.JapaneseFont;
 
             textMesh = gameObject.AddComponent<TextMesh>();
             textMesh.font = jaFont;
@@ -82,6 +88,10 @@ namespace Ginei
 
             // フェード用にマテリアルインスタンスを取得
             mat = meshRenderer.material;
+
+            // 文字サイズをズームに追従させ、画面上での見かけ大きさを一定に保つ（重なり軽減・可読性）
+            LabelZoomScaler scaler = gameObject.AddComponent<LabelZoomScaler>();
+            scaler.Configure(Vector3.one, ReferenceOrthoSize);
 
             StartCoroutine(Animate());
         }

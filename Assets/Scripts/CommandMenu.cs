@@ -203,6 +203,13 @@ namespace Ginei
                 {
                     textComp.font = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
                 }
+                // 長いラベル（アタックムーブ/その場保持）が折り返して縦に伸び・見切れるのを防ぐ：
+                // 折り返し禁止＋自動縮小で常に1行に収める（ボタン高さ・メニュー高さを一定に保つ）。
+                textComp.enableWordWrapping = false;
+                float baseSize = textComp.fontSize;
+                textComp.enableAutoSizing = true;
+                textComp.fontSizeMin = 10f;
+                textComp.fontSizeMax = baseSize > 0f ? baseSize : 24f;
             }
             
             Button btnComp = btnObj.GetComponent<Button>();

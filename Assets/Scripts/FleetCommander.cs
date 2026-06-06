@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using System.Collections.Generic;
 
 namespace Ginei
@@ -56,6 +57,21 @@ namespace Ginei
         private float? aimAngle = null;       // 指定された向き（z角）。null=未指定
         private bool moveIsReverse = false;   // 後退モードでの移動先指定中か（向きは現在の向きを維持）
 
+        [Header("ドラッグ矩形選択 (#82)")]
+        [Tooltip("クリックとドラッグを区別する最小移動量（ピクセル）")]
+        public float dragSelectPixelThreshold = 8f;
+        [Tooltip("選択矩形の枠の色")]
+        public Color selectionBoxBorderColor = new Color(0.3f, 1f, 0.5f, 0.95f);
+        [Tooltip("選択矩形の塗りの色")]
+        public Color selectionBoxFillColor = new Color(0.3f, 1f, 0.5f, 0.18f);
+
+        // ドラッグ矩形選択の状態（実行時）
+        private bool leftPressedInWorld = false;   // 左押下がワールド上で始まったか（UI上で始まったら無視）
+        private bool isBoxSelecting = false;       // ドラッグ矩形選択中か
+        private Vector2 dragStartScreen;           // ドラッグ開始のスクリーン座標
+        private GameObject selectionBoxCanvas;     // 選択矩形用 Canvas（実行時生成）
+        private RectTransform selectionBoxBorder;  // 選択矩形の枠
+
         /// <summary>移動先指定待ちか（Escの優先処理判定用）。</summary>
         public bool IsWaitingForMoveTarget => isWaitingForMoveTarget;
 
@@ -91,15 +107,8 @@ namespace Ginei
 
             if (Mouse.current == null) return;
 
-            // 左クリック: 通常選択
-            if (Mouse.current.leftButton.wasPressedThisFrame)
-            {
-                // UIクリック中なら無視
-                if (UnityEngine.EventSystems.EventSystem.current != null && 
-                    UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
-
-                HandleSelection();
-            }
+            // 左ボタン: クリック選択／ドラッグ矩形選択（#82。Shiftで追加選択）
+            HandleLeftSelectionInput();
 
             // 右クリック: コマンドメニューの呼び出し
             if (Mouse.current.rightButton.wasPressedThisFrame)
@@ -555,13 +564,13 @@ namespace Ginei
         /// <summary>
         /// クリック位置のオブジェクトを選択します。
         /// </summary>
-        private void HandleSelection()
+        private void HandleSelection(bool additive)
         {
             Vector2 worldPos = GetMouseWorldPosition();
             Collider2D collider = Physics2D.OverlapPoint(worldPos);
 
-            // 全ての選択を一旦解除
-            DeselectAll();
+            // 追加選択(Shift)でなければ一旦すべて解除
+            if (!additive) DeselectAll();
 
             if (collider != null)
             {
@@ -628,6 +637,159 @@ namespace Ginei
             {
                 menu.OpenMenu(Mouse.current.position.ReadValue());
             }
+        }
+
+        // ===== ドラッグ矩形選択（#82）=====
+
+        /// <summary>
+        /// 左ボタン入力を処理。短く押せばクリック選択、ドラッグすれば矩形選択。
+        /// Shift 押下中は既存選択に追加する。UI 上で押し始めた場合は無視。
+        /// </summary>
+        private void HandleLeftSelectionInput()
+        {
+            Mouse mouse = Mouse.current;
+            if (mouse == null) return;
+
+            // 押下：開始点を記録（UI 上なら無視）
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                if (IsPointerOverUI())
+                {
+                    leftPressedInWorld = false;
+                    return;
+                }
+                leftPressedInWorld = true;
+                isBoxSelecting = false;
+                dragStartScreen = mouse.position.ReadValue();
+            }
+            // 押し続け：閾値を超えたら矩形選択に移行し、枠を更新
+            else if (leftPressedInWorld && mouse.leftButton.isPressed)
+            {
+                Vector2 cur = mouse.position.ReadValue();
+                if (!isBoxSelecting &&
+                    (cur - dragStartScreen).sqrMagnitude >= dragSelectPixelThreshold * dragSelectPixelThreshold)
+                {
+                    isBoxSelecting = true;
+                }
+                if (isBoxSelecting) UpdateSelectionBoxVisual(dragStartScreen, cur);
+            }
+            // 離す：矩形選択 or クリック選択を確定
+            else if (leftPressedInWorld && mouse.leftButton.wasReleasedThisFrame)
+            {
+                leftPressedInWorld = false;
+                bool additive = IsShiftHeld();
+                if (isBoxSelecting)
+                {
+                    BoxSelect(dragStartScreen, mouse.position.ReadValue(), additive);
+                    isBoxSelecting = false;
+                    HideSelectionBoxVisual();
+                }
+                else
+                {
+                    HandleSelection(additive);
+                }
+            }
+        }
+
+        /// <summary>
+        /// スクリーン矩形内の「プレイヤーが操作できる艦隊」をすべて選択する。
+        /// additive=false なら既存選択を解除してから選び直す。
+        /// </summary>
+        private void BoxSelect(Vector2 aScreen, Vector2 bScreen, bool additive)
+        {
+            if (mainCamera == null) return;
+            if (!additive) DeselectAll();
+
+            Rect rect = ScreenRect(aScreen, bScreen);
+            // 全旗艦から、プレイヤー操作艦（FleetAI が無効）で矩形内のものを選択
+            foreach (FleetStrength fs in FleetRegistry.AllFlagships)
+            {
+                if (fs == null) continue;
+
+                FleetAI ai = fs.GetComponent<FleetAI>();
+                if (ai != null && ai.enabled) continue;   // AI/敵 は対象外
+
+                Selectable sel = fs.GetComponent<Selectable>();
+                if (sel == null) continue;
+
+                Vector3 sp = mainCamera.WorldToScreenPoint(fs.transform.position);
+                if (sp.z < 0f) continue;                    // カメラ後方は除外
+                if (rect.Contains(new Vector2(sp.x, sp.y)))
+                {
+                    SelectFleet(sel);
+                }
+            }
+        }
+
+        private static Rect ScreenRect(Vector2 a, Vector2 b)
+        {
+            return new Rect(
+                Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y),
+                Mathf.Abs(a.x - b.x), Mathf.Abs(a.y - b.y));
+        }
+
+        private static bool IsShiftHeld()
+        {
+            Keyboard kb = Keyboard.current;
+            return kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
+        }
+
+        private static bool IsPointerOverUI()
+        {
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            return es != null && es.IsPointerOverGameObject();
+        }
+
+        // ----- 選択矩形のビジュアル（スクリーン空間オーバーレイ・実行時生成）-----
+
+        private void EnsureSelectionBoxVisual()
+        {
+            if (selectionBoxCanvas != null) return;
+
+            selectionBoxCanvas = new GameObject("DragSelectCanvas");
+            Canvas canvas = selectionBoxCanvas.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 80;   // 通常UIより手前（クリックは奪わない＝Raycaster なし）
+
+            // 枠（左下アンカー＝スクリーンピクセルでそのまま配置）
+            selectionBoxBorder = NewBox(selectionBoxCanvas.transform, "Border", selectionBoxBorderColor);
+            selectionBoxBorder.anchorMin = Vector2.zero;
+            selectionBoxBorder.anchorMax = Vector2.zero;
+            selectionBoxBorder.pivot = Vector2.zero;
+
+            // 塗り（枠の内側を 2px インセットで埋める）
+            RectTransform fill = NewBox(selectionBoxBorder, "Fill", selectionBoxFillColor);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = Vector2.one;
+            fill.offsetMin = new Vector2(2f, 2f);
+            fill.offsetMax = new Vector2(-2f, -2f);
+
+            selectionBoxCanvas.SetActive(false);
+        }
+
+        private static RectTransform NewBox(Transform parent, string name, Color color)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(RawImage));
+            go.transform.SetParent(parent, false);
+            RawImage img = go.GetComponent<RawImage>();
+            img.texture = Texture2D.whiteTexture;
+            img.color = color;
+            img.raycastTarget = false;
+            return go.GetComponent<RectTransform>();
+        }
+
+        private void UpdateSelectionBoxVisual(Vector2 aScreen, Vector2 bScreen)
+        {
+            EnsureSelectionBoxVisual();
+            if (!selectionBoxCanvas.activeSelf) selectionBoxCanvas.SetActive(true);
+            Rect r = ScreenRect(aScreen, bScreen);
+            selectionBoxBorder.anchoredPosition = new Vector2(r.xMin, r.yMin);
+            selectionBoxBorder.sizeDelta = new Vector2(r.width, r.height);
+        }
+
+        private void HideSelectionBoxVisual()
+        {
+            if (selectionBoxCanvas != null) selectionBoxCanvas.SetActive(false);
         }
 
         /// <summary>

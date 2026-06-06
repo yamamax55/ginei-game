@@ -339,6 +339,16 @@ namespace Ginei
             isOrientingAtArrival = false;
         }
 
+        /// <summary>その場で停止する（前進を止め、残速度は自然減速。向きは現状維持）。#85 標準命令で使用。</summary>
+        public void Stop()
+        {
+            isMoving = false;
+            isReverse = false;
+            isOrientingAtArrival = false;
+            arrivalFacing = null;
+            targetPosition = transform.position;
+        }
+
         /// <summary>
         /// 前進せず、その場で指定座標の方向へ回頭する（交戦中に敵を向いて射界を維持するため）。
         /// </summary>

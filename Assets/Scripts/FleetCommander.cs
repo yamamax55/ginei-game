@@ -65,6 +65,7 @@ namespace Ginei
         private Vector2 moveTargetPos;        // 右押下で確定した目標地点
         private float? aimAngle = null;       // 指定された向き（z角）。null=未指定
         private bool moveIsReverse = false;   // 後退モードでの移動先指定中か（向きは現在の向きを維持）
+        private bool pendingAttackMove = false; // 移動指定フローを「アタックムーブ」として確定するか（#85）
 
         [Header("ドラッグ矩形選択 (#82)")]
         [Tooltip("クリックとドラッグを区別する最小移動量（ピクセル）")]
@@ -143,11 +144,22 @@ namespace Ginei
         /// </summary>
         public void StartWaitingForReverseTarget() => BeginMoveTargeting(true);
 
+        /// <summary>
+        /// アタックムーブの目的地指定モードを開始します（#85）。移動指定フロー＆プレビューを流用し、
+        /// 確定時に「進撃しつつ捕捉した敵と交戦する」標準命令を全選択艦隊へ与えます。
+        /// </summary>
+        public void StartWaitingForAttackMove()
+        {
+            BeginMoveTargeting(false);
+            pendingAttackMove = true;
+        }
+
         /// <summary>移動／後退の目的地指定モードを開始する共通処理。</summary>
         private void BeginMoveTargeting(bool reverse)
         {
             isWaitingForMoveTarget = true;
             moveIsReverse = reverse;
+            pendingAttackMove = false;   // 既定は通常移動。アタックムーブは StartWaitingForAttackMove で上書き
             isAiming = false;
             aimAngle = null;
             ShowPreview();
@@ -500,11 +512,23 @@ namespace Ginei
                 FleetWeapon weapon = mu.sel.GetComponent<FleetWeapon>();
                 if (weapon != null) weapon.ClearManualTarget();
 
-                FleetMovement movement = mu.sel.GetComponent<FleetMovement>();
-                if (movement != null) movement.SetDestination(pos + mu.offset, facingAngleZ);
+                if (pendingAttackMove)
+                {
+                    // アタックムーブ：継続命令コンポーネントに委ねる（進みつつ捕捉した敵と交戦）
+                    FleetStandardOrder order = EnsureStandardOrder(mu.sel);
+                    if (order != null) order.SetAttackMove(pos + mu.offset);
+                }
+                else
+                {
+                    // 通常移動：標準命令の stance は解除して指定地点へ
+                    FleetStandardOrder order = mu.sel.GetComponent<FleetStandardOrder>();
+                    if (order != null) order.ClearOrder();
+                    FleetMovement movement = mu.sel.GetComponent<FleetMovement>();
+                    if (movement != null) movement.SetDestination(pos + mu.offset, facingAngleZ);
+                }
             }
+            Debug.Log(pendingAttackMove ? "アタックムーブを発令しました。" : "移動命令を発令しました。");
             EndMoveTargeting();
-            Debug.Log("移動命令を発令しました。");
 
             // 命令後に選択を解除
             DeselectAll();
@@ -524,6 +548,10 @@ namespace Ginei
                 FleetWeapon weapon = mu.sel.GetComponent<FleetWeapon>();
                 if (weapon != null) weapon.ClearManualTarget();
 
+                // 後退は手動の移動命令なので標準命令(アタックムーブ/保持)を解除
+                FleetStandardOrder order = mu.sel.GetComponent<FleetStandardOrder>();
+                if (order != null) order.ClearOrder();
+
                 FleetMovement movement = mu.sel.GetComponent<FleetMovement>();
                 if (movement != null) movement.SetReverseDestination(pos + mu.offset);
             }
@@ -531,6 +559,43 @@ namespace Ginei
             Debug.Log("後退命令を発令しました。");
 
             DeselectAll();
+        }
+
+        /// <summary>選択中の全艦隊を停止させる（標準命令解除＋追尾解除＋その場で停止）。#85</summary>
+        public void StopSelected()
+        {
+            foreach (var sel in selectedFleets)
+            {
+                if (sel == null) continue;
+                FleetStandardOrder order = sel.GetComponent<FleetStandardOrder>();
+                if (order != null) order.ClearOrder();
+                FleetWeapon weapon = sel.GetComponent<FleetWeapon>();
+                if (weapon != null) weapon.ClearManualTarget();
+                FleetMovement movement = sel.GetComponent<FleetMovement>();
+                if (movement != null) movement.Stop();
+            }
+            Debug.Log("停止命令を発令しました。");
+        }
+
+        /// <summary>選択中の全艦隊に「その場保持」を命じる（移動せず射界内の敵に自動発砲）。#85</summary>
+        public void HoldSelected()
+        {
+            foreach (var sel in selectedFleets)
+            {
+                if (sel == null) continue;
+                FleetStandardOrder order = EnsureStandardOrder(sel);
+                if (order != null) order.SetHold();
+            }
+            Debug.Log("その場保持を発令しました。");
+        }
+
+        /// <summary>艦隊に FleetStandardOrder（標準命令の継続処理）を保証して返す。#85</summary>
+        private FleetStandardOrder EnsureStandardOrder(Selectable sel)
+        {
+            if (sel == null) return null;
+            FleetStandardOrder order = sel.GetComponent<FleetStandardOrder>();
+            if (order == null) order = sel.gameObject.AddComponent<FleetStandardOrder>();
+            return order;
         }
 
         /// <summary>
@@ -547,6 +612,7 @@ namespace Ginei
         {
             isWaitingForMoveTarget = false;
             moveIsReverse = false;
+            pendingAttackMove = false;
             isAiming = false;
             aimAngle = null;
             ClearMovePreviews();

@@ -152,6 +152,14 @@ namespace Ginei
                 CreateButton("攻撃", CommandAttack);
                 buttonCount++;
 
+                // 3b. 標準命令（#85）：アタックムーブ／停止／その場保持
+                CreateButton("アタックムーブ", CommandAttackMove);
+                buttonCount++;
+                CreateButton("停止", CommandStop);
+                buttonCount++;
+                CreateButton("その場保持", CommandHold);
+                buttonCount++;
+
                 // 3. 陣形変更
                 CreateButton("陣形変更", () => formationSubMenu.SetActive(!formationSubMenu.activeSelf));
                 buttonCount++;
@@ -228,6 +236,27 @@ namespace Ginei
             {
                 commander.StartWaitingForAttackTarget();
             }
+            CloseMenu();
+        }
+
+        /// <summary>アタックムーブ：目標地点を指定→進撃しつつ捕捉した敵と交戦（#85）。</summary>
+        private void CommandAttackMove()
+        {
+            if (commander != null) commander.StartWaitingForAttackMove();
+            CloseMenu();
+        }
+
+        /// <summary>停止：選択中の全艦隊をその場で停止（#85）。</summary>
+        private void CommandStop()
+        {
+            if (commander != null) commander.StopSelected();
+            CloseMenu();
+        }
+
+        /// <summary>その場保持：移動せず射界内の敵に自動発砲（#85）。</summary>
+        private void CommandHold()
+        {
+            if (commander != null) commander.HoldSelected();
             CloseMenu();
         }
 

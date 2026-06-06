@@ -45,6 +45,13 @@ namespace Ginei
         [Tooltip("この距離以内に敵がいる撤退では後退移動を使う（遠ければ通常移動で素早く離脱）")]
         public float reverseRetreatRange = 14f;
 
+        [Header("ZOC回避 #81")]
+        [Tooltip("交戦意図のない移動（接近の通過・撤退）で、敵ZOCを横切らないよう進路を補正する")]
+        public bool avoidEnemyZoc = true;
+
+        [Tooltip("ZOC回避ステアリングの強さ（大きいほど強く進路を曲げて避ける）")]
+        public float zocAvoidStrength = 1.5f;
+
         private FleetMovement movement;
         private FleetWeapon weapon;
         private FleetStrength strength;
@@ -144,8 +151,12 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
-                        // 敵に向かって移動（進路上のブラックホールは迂回）
-                        movement.SetDestination(SteerAroundBlackHoles(pos, targetEnemy.transform.position));
+                        // 敵に向かって移動（進路上のブラックホールは迂回）。
+                        // 進路上の「交戦対象以外」の敵ZOCは避ける（対象のZOCは意図して踏み込むので無視）。
+                        Vector2 dest = SteerAroundBlackHoles(pos, targetEnemy.transform.position);
+                        if (avoidEnemyZoc)
+                            dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
+                        movement.SetDestination(dest);
                     }
                     break;
 
@@ -169,6 +180,9 @@ if (Time.time >= nextSearchTime)
                         // 敵と反対方向へ逃げる（逃走先のブラックホールも迂回）
                         Vector2 awayDir = ((Vector2)transform.position - (Vector2)targetEnemy.transform.position).normalized;
                         Vector2 fleeTarget = SteerAroundBlackHoles(pos, pos + awayDir * 20f);
+                        // 逃走先の進路上に敵ZOCがあれば迂回（敵の支配領域へ飛び込まない）
+                        if (avoidEnemyZoc)
+                            fleeTarget = ZoneOfControl.SteerAround(strength, pos, fleeTarget, zocAvoidStrength, null);
 
                         // 敵が近い間は後退移動で下がる（向き＝射界を保ち背中を見せない）。
                         // 遠ければ通常移動（回頭して素早く離脱）。

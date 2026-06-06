@@ -35,6 +35,12 @@ namespace Ginei
         [Tooltip("攻撃目標選択時、カーソルを合わせた敵艦隊を囲う円の色")]
         public Color targetHoverColor = new Color(1f, 0.45f, 0.1f, 1f);        // 橙
 
+        [Tooltip("選択中の自艦隊のZOC（支配領域）を示す薄い円の色 #81")]
+        public Color zocSelfColor = new Color(0.3f, 1f, 0.5f, 0.28f);          // 薄緑
+
+        [Tooltip("攻撃目標指定中に敵艦隊のZOCを示す薄い円の色 #81（情報過多を避けこの時だけ表示）")]
+        public Color zocEnemyColor = new Color(1f, 0.3f, 0.3f, 0.3f);          // 薄赤
+
         private bool isWaitingForMoveTarget = false;
         private bool isWaitingForAttackTarget = false;
 
@@ -273,13 +279,24 @@ namespace Ginei
         {
             int used = 0;
 
-            // 選択中の艦隊：緑の円
+            // 選択中の艦隊：緑の円＋（ZOCを張れるなら）薄いZOC円
             foreach (var sel in selectedFleets)
             {
                 if (sel == null) continue;
                 Squadron sq = sel.GetComponent<Squadron>();
                 if (sq == null) continue;
                 DrawCircleForFleet(used++, sq, selectionCircleColor);
+
+                FleetStrength fs = sel.GetComponent<FleetStrength>();
+                if (fs != null)
+                {
+                    float zr = ZoneOfControl.GetRadius(fs);
+                    if (zr > 0f)
+                    {
+                        sq.GetBoundingCircle(out Vector3 c, out _);
+                        DrawCircleRadius(used++, c, zr, zocSelfColor);
+                    }
+                }
             }
 
             // 攻撃目標指定中：全ての敵艦隊を円で表示（カーソル下は橙、他は黄）
@@ -299,6 +316,14 @@ namespace Ginei
                         if (sq == null) continue;
                         Color c = (sq == hoveredAttackFleet) ? targetHoverColor : targetCircleColor;
                         DrawCircleForFleet(used++, sq, c);
+
+                        // 敵ZOC（薄赤）：攻撃目標指定中のみ表示（情報過多を避ける）
+                        float zr = ZoneOfControl.GetRadius(ef);
+                        if (zr > 0f)
+                        {
+                            sq.GetBoundingCircle(out Vector3 zc, out _);
+                            DrawCircleRadius(used++, zc, zr, zocEnemyColor);
+                        }
                     }
                 }
             }
@@ -312,9 +337,14 @@ namespace Ginei
 
         private void DrawCircleForFleet(int index, Squadron sq, Color color)
         {
-            LineRenderer lr = GetCircle(index);
             sq.GetBoundingCircle(out Vector3 center, out float radius);
+            DrawCircleRadius(index, center, radius, color);
+        }
 
+        /// <summary>中心・半径・色を直接指定して円を描く（ZOC円など外接円以外の半径用）。</summary>
+        private void DrawCircleRadius(int index, Vector3 center, float radius, Color color)
+        {
+            LineRenderer lr = GetCircle(index);
             lr.startColor = color;
             lr.endColor = color;
             for (int i = 0; i < CircleSegments; i++)

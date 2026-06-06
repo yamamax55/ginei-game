@@ -56,6 +56,24 @@ namespace Ginei
         [Tooltip("混雑係数の追従速度（倍率/秒）。大きいほど素早く反映、小さいほど滑らか")]
         public float congestionSmoothSpeed = 2.0f;
 
+        [Header("ZOC（支配領域・敵の素通り妨害） #81")]
+        [Tooltip("敵艦隊の支配領域(ZOC)内で移動・回頭が減速するか")]
+        public bool enableZoc = true;
+
+        [Tooltip("ZOC半径＝この部隊の外接円半径×この倍率（自部隊がZOCを張る範囲）")]
+        public float zocRadiusScale = 1.5f;
+
+        [Tooltip("敵ZOC最深部での機動倍率（0.5＝半減、圏外は1.0）。混雑ペナルティとは別系統")]
+        [Range(0f, 1f)]
+        public float zocSpeedFactor = 0.5f;
+
+        [Tooltip("混雑×ZOC の合算下限（これ以下には遅くしない＝完全停止を防ぐ）")]
+        [Range(0f, 1f)]
+        public float minCombinedFactor = 0.25f;
+
+        [Tooltip("ZOCスキャンの間隔（秒）。負荷軽減のため毎フレームは計算しない")]
+        public float zocUpdateInterval = 0.2f;
+
         [Header("得意陣形ボーナス（#104）")]
         [Tooltip("提督の得意陣形と現在陣形が一致する間の移動・回頭速度の倍率（1.0=実質無効。例:1.15で+15%）。実効値パターン＝基準 maxSpeed/rotationSpeed は非破壊")]
         public float preferredFormationMobilityBonus = 1.15f;
@@ -84,6 +102,11 @@ namespace Ginei
         private float congestionTarget = 1f;
         private float lastCongestionUpdate = 0f;
 
+        // ZOC 減速の状態（混雑と同様に間引き計算＋滑らかに追従）
+        private float zocFactor = 1f;
+        private float zocTarget = 1f;
+        private float lastZocUpdate = 0f;
+
         private void Awake()
         {
             weapon = GetComponent<FleetWeapon>();
@@ -92,6 +115,7 @@ namespace Ginei
             squadron = GetComponent<Squadron>();
             // 全艦が同フレームに一斉計算しないよう初回タイミングを分散
             lastCongestionUpdate = -Random.Range(0f, congestionUpdateInterval);
+            lastZocUpdate = -Random.Range(0f, zocUpdateInterval);
         }
 
         private void Update()
@@ -251,10 +275,33 @@ namespace Ginei
                 factor *= Mathf.Max(0.1f, preferredFormationMobilityBonus);
             }
 
-            // 艦隊同士の接触・密集による減速（混雑ペナルティ）
-            factor *= GetCongestionFactor();
+            // 減速ペナルティを2系統で算出して合算（下限つき）：
+            //  ・混雑(GetCongestionFactor)＝全陣営対象の物理的密集
+            //  ・ZOC(GetZocFactor)＝敵対部隊の支配領域（敵の素通り・離脱の妨害）
+            float penalty = GetCongestionFactor() * GetZocFactor();
+            penalty = Mathf.Max(penalty, minCombinedFactor); // 完全停止を防ぐ合算下限
+            factor *= penalty;
 
             return factor;
+        }
+
+        /// <summary>
+        /// 敵対部隊のZOC（支配領域）内にいることによる機動低下倍率を返す
+        /// （1.0=敵ZOC外, zocSpeedFactor=敵ZOC最深部）。混雑ペナルティとは独立系統。
+        /// スキャンは zocUpdateInterval ごとに間引き、係数は滑らかに追従させる（Time.time＝timeScale 追従）。
+        /// </summary>
+        private float GetZocFactor()
+        {
+            if (!enableZoc || strength == null) return 1f;
+
+            if (Time.time - lastZocUpdate >= zocUpdateInterval)
+            {
+                lastZocUpdate = Time.time;
+                float intensity = ZoneOfControl.HostileIntensityAt(strength, transform.position);
+                zocTarget = Mathf.Lerp(1f, zocSpeedFactor, intensity); // 侵入度0..1 → 倍率1..zocSpeedFactor
+            }
+            zocFactor = Mathf.MoveTowards(zocFactor, zocTarget, congestionSmoothSpeed * Time.deltaTime);
+            return zocFactor;
         }
 
         /// <summary>

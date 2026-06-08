@@ -297,13 +297,19 @@ namespace Ginei
             ClearExistingFleets();
             ScenarioData.ActiveScenario = null; // 勝利条件なし（攻城の決着は戦略側の TickSieges）
 
-            // 中心の惑星＋首飾り射程リング＋接近限界の押し出し
+            // 中心の惑星＋首飾り射程リング＋接近限界の押し出し＋攻城進行（S-AV/ゲージ）
             var arena = new GameObject("SiegeArena").AddComponent<SiegeArena>();
             arena.transform.position = Vector3.zero;
-            Color planetCol = (BattleHandoff.planetOwner == Faction.帝国)
+            arena.approachRadius = siegeApproachRadius;
+            arena.planetScale = siegePlanetScale;
+            arena.planetColor = (BattleHandoff.planetOwner == Faction.帝国)
                 ? new Color(0.85f, 0.3f, 0.25f) : new Color(0.3f, 0.5f, 0.9f);
-            string label = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
-            arena.Configure(siegeApproachRadius, siegePlanetScale, planetCol, label);
+            arena.planetLabel = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
+            arena.besiegerFaction = BattleHandoff.besiegerFaction;
+            arena.planetOwner = BattleHandoff.planetOwner;
+            arena.initialDefenseRatio = BattleHandoff.planetDefenseRatio;
+            arena.initialInvasionRatio = BattleHandoff.planetInvasionRatio;
+            arena.Build();
 
             // 攻城艦隊を惑星の周囲に円環状に配置（首飾り射程の外・惑星へ正対）。突入した艦隊はプレイヤー操作。
             Faction playerFaction = GameSettings.Instance.playerFaction;

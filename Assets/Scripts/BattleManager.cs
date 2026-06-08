@@ -149,8 +149,15 @@ namespace Ginei
         /// </summary>
         private void ReturnFromPlanetSiege()
         {
+            // 戦術マップでの攻城進捗（制空権/侵略値/占領）を割合で書き戻す（GalaxyView が惑星へ反映）。
+            // arena が無くても必ず resolve して受け渡しを完結させる（Pending の残留防止）。
+            SiegeArena arena = FindFirstObjectByType<SiegeArena>();
+            if (arena != null)
+                BattleHandoff.SetSiegeResult(arena.DefenseRatio, arena.InvasionRatio, arena.Captured);
+            else
+                BattleHandoff.SetSiegeResult(BattleHandoff.planetDefenseRatio, BattleHandoff.planetInvasionRatio, false);
+
             string ret = BattleHandoff.returnScene;
-            BattleHandoff.Clear();
             Time.timeScale = 1f;
             SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(ret) ? "Strategy" : ret);
         }

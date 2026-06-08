@@ -153,7 +153,7 @@ namespace Ginei
                 AdmiralData s = staffOfficers[i];
                 if (s == null || s == this) continue;
                 if (counted > 0) result += "、";
-                result += s.admiralName;
+                result += s.ShortName;
                 counted++;
             }
             return result;

@@ -123,8 +123,8 @@ namespace Ginei
                     // VIP喪失 → 反対陣営の勝利
                     winner = Opposite(vipFaction);
                     reason = (cond == VictoryCondition.護衛)
-                        ? $"護衛対象「{vip.admiralName}」を喪失"
-                        : $"敵旗艦「{vip.admiralName}」を撃破";
+                        ? $"護衛対象「{vip.FullName}」を喪失"
+                        : $"敵旗艦「{vip.FullName}」を撃破";
                     winnerRep = FindLivingFlagshipByLegacy(winner);
                     return true;
                 }
@@ -135,7 +135,7 @@ namespace Ginei
                     winner = vipFaction;
                     reason = (cond == VictoryCondition.護衛)
                         ? "護衛成功（制限時間まで守り切った）"
-                        : $"旗艦「{vip.admiralName}」を制限時間まで守り切った";
+                        : $"旗艦「{vip.FullName}」を制限時間まで守り切った";
                     winnerRep = FindLivingFlagshipByLegacy(winner);
                     return true;
                 }
@@ -287,7 +287,8 @@ namespace Ginei
                 if (fs == null || winnerRep == null || !SameFaction(winnerRep, fs)) continue;
                 if (best == null || fs.DamageDealt > best.DamageDealt) best = fs;
             }
-            return best != null ? best.admiralName : "";
+            if (best == null) return "";
+            return best.admiralData != null ? best.admiralData.FullName : best.admiralName;
         }
 
         /// <summary>指定の旧 enum 陣営に属する生存旗艦数。</summary>

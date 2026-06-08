@@ -124,6 +124,32 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 同一回廊上で出会った敵対艦隊を戦闘で解決する（回廊内で味方と敵がぶつかる＝戦闘開始・C-3）。
+        /// 兵力差で勝敗（ResolveCorridorBattle）。敗者は除去、勝者は残存兵力で進行を続ける（相打ちは両方除去）。
+        /// 解決した戦闘数を返す。毎フレーム呼ぶ想定（Tick の後）。
+        /// </summary>
+        public static int ResolveEncounters(StrategicFleetRegistry reg)
+        {
+            if (reg == null) return 0;
+            int count = 0;
+            foreach (var e in FindEncounters(reg))
+            {
+                StrategicFleet a = e.a, b = e.b;
+                if (a == null || b == null) continue;
+                if (reg.GetFleet(a.id) == null || reg.GetFleet(b.id) == null) continue; // 既に除去済み
+
+                var r = ResolveCorridorBattle(a.strength, b.strength);
+                StrategicFleet winner = r.attackerWon ? a : b;
+                StrategicFleet loser = r.attackerWon ? b : a;
+                reg.Remove(loser);
+                winner.strength = r.survivorStrength;
+                if (winner.strength <= 0) reg.Remove(winner); // 相打ち
+                count++;
+            }
+            return count;
+        }
+
+        /// <summary>
         /// 前線回廊への侵攻＝回廊戦闘を起動・解決して戦略状態へ書き戻す（C-3 抽象版）。
         /// fromSystemId（攻撃側星系）と toSystemId（敵星系）が前線回廊でつながっていること、
         /// fromSystem に「toSystem 所有者と敵対する停泊艦隊」が居ることが前提。

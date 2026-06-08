@@ -73,6 +73,10 @@ namespace Ginei
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
             reg.Tick(dt);
 
+            // 回廊で出会った敵対艦隊は戦闘（味方と敵がぶつかる＝戦闘開始）
+            int battles = StrategyRules.ResolveEncounters(reg);
+            if (battles > 0) { battleMsg = $"回廊戦闘 発生！（{battles}件）"; battleMsgTimer = 2.5f; }
+
             occupyTimer += dt;
             if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
 
@@ -106,6 +110,7 @@ namespace Ginei
             reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250 });
             reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300 });
             reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f) { strength = 150 });
+            reg.Add(new StrategicFleet(4, 3, Faction.帝国, 1.3f) { strength = 200 }); // ドラコ防衛・前線で衝突用
         }
 
         // ===== 描画 =====
@@ -170,7 +175,7 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:ワープ・赤い前線へ侵攻 / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:進軍(友軍FTL・赤い前線は亜光速→敵と出会うと戦闘) / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.75f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -230,7 +235,7 @@ namespace Ginei
 
                 var pts = new List<Vector3>();
                 pts.Add(FleetWorldPos(f));
-                var path = GalaxyPathfinder.FindPath(map, f.destinationSystemId, f.FinalDestinationId, avoidFtlBlocked: true);
+                var path = GalaxyPathfinder.FindPath(map, f.destinationSystemId, f.FinalDestinationId);
                 if (path.Count == 0)
                 {
                     StarSystem dst = map.GetSystem(f.destinationSystemId);
@@ -316,30 +321,13 @@ namespace Ginei
                 }
                 else if (!additive) selectedFleets.Clear();
             }
-            // 右クリック：前線越しの敵星系なら回廊戦闘を起動、そうでなければ通常ワープ
+            // 右クリック：選択艦隊を目的星系へ進軍（友軍はFTL、赤い前線は亜光速で越える。
+            // 同じ前線回廊で敵対艦隊と出会えば自動で戦闘になる）
             else if (Mouse.current.rightButton.wasPressedThisFrame)
             {
                 int sysId = NearestSystem(WorldMouse(), systemScale + 0.5f);
-                if (sysId < 0 || selectedFleets.Count == 0) return;
-
-                // 前線侵攻：選択中の停泊艦から、クリック星系へ前線回廊で隣接していれば侵攻
-                foreach (var f in selectedFleets)
-                {
-                    if (f == null || f.IsMoving) continue;
-                    Corridor cc = map.GetCorridor(f.currentSystemId, sysId);
-                    if (cc != null && StrategyRules.IsFtlBlocked(map, cc)
-                        && StrategyRules.EngageFrontline(map, reg, f.currentSystemId, sysId, out var res))
-                    {
-                        battleMsg = res.attackerWon
-                            ? $"回廊戦闘：攻撃側 勝利（残存 {res.survivorStrength}）"
-                            : $"回廊戦闘：防衛側 勝利（残存 {res.survivorStrength}）";
-                        battleMsgTimer = 3f;
-                        return; // 1回の侵攻で確定
-                    }
-                }
-
-                // 前線でなければ通常ワープ
-                foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
+                if (sysId >= 0 && selectedFleets.Count > 0)
+                    foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
             }
         }
 

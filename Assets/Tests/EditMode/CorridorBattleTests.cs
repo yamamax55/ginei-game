@@ -105,5 +105,43 @@ namespace Ginei.Tests
 
             Assert.IsFalse(StrategyRules.EngageFrontline(m, reg, 0, 1, out _));
         }
+
+        // ───────── ResolveEncounters（回廊で出会った敵対艦隊が戦う）─────────
+
+        private GalaxyMap LineMap()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(new StarSystem(0, "A", Vector2.zero, Faction.帝国));
+            m.AddSystem(new StarSystem(1, "B", Vector2.right, Faction.帝国));
+            m.AddCorridor(new Corridor(0, 1, 4f));
+            return m;
+        }
+
+        [Test]
+        public void ResolveEncounters_HostileOnSameCorridor_LoserRemoved_WinnerContinues()
+        {
+            var m = LineMap();
+            var reg = new StrategicFleetRegistry(m);
+            var imp = new StrategicFleet(1, 0, Faction.帝国) { strength = 300 }; imp.BeginWarp(m, 1);  // 0→1
+            var ally = new StrategicFleet(2, 1, Faction.同盟) { strength = 200 }; ally.BeginWarp(m, 0); // 1→0（同一回廊）
+            reg.Add(imp); reg.Add(ally);
+
+            Assert.AreEqual(1, StrategyRules.ResolveEncounters(reg));
+            Assert.IsNull(reg.GetFleet(2));      // 敗者(同盟200)除去
+            Assert.AreEqual(100, imp.strength);  // 勝者 残存100
+            Assert.IsTrue(imp.IsMoving);         // 勝者は回廊を進み続ける
+        }
+
+        [Test]
+        public void ResolveEncounters_SameFaction_NoBattle()
+        {
+            var m = LineMap();
+            var reg = new StrategicFleetRegistry(m);
+            var a = new StrategicFleet(1, 0, Faction.帝国) { strength = 300 }; a.BeginWarp(m, 1);
+            var b = new StrategicFleet(2, 1, Faction.帝国) { strength = 200 }; b.BeginWarp(m, 0);
+            reg.Add(a); reg.Add(b);
+
+            Assert.AreEqual(0, StrategyRules.ResolveEncounters(reg)); // 同勢力は戦わない
+        }
     }
 }

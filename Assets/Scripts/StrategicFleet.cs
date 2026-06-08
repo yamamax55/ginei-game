@@ -19,6 +19,9 @@ namespace Ginei
         /// <summary>ワープ速度（コスト/秒）。回廊 length をこの速度で消化する。</summary>
         public float warpSpeed = 1f;
 
+        /// <summary>前線回廊（FTL不可）を進むときの速度倍率（&lt;1＝亜光速で遅い）。</summary>
+        public float sublightFactor = 0.35f;
+
         public int currentSystemId;       // 停泊中の星系（移動中は出発元）
         public int destinationSystemId;   // 移動中の目的地
 
@@ -26,13 +29,20 @@ namespace Ginei
 
         private float corridorLength;
         private float traveled;
+        private bool sublightHop;          // 現在のホップが前線回廊（亜光速）か
         private List<int> route;   // 多ホップ経路の残り（次の目的地より先の星系ID列）
+
+        /// <summary>現在のホップの実効速度（前線は亜光速で遅い）。</summary>
+        private float CurrentSpeed => warpSpeed * (sublightHop ? Mathf.Max(0f, sublightFactor) : 1f);
+
+        /// <summary>現在のホップが前線回廊（FTL不可・亜光速）を進んでいるか。</summary>
+        public bool IsSublight => IsMoving && sublightHop;
 
         /// <summary>現在の回廊での進行度（0..1）。停泊中は1。</summary>
         public float Progress => corridorLength > 0f ? Mathf.Clamp01(traveled / corridorLength) : 1f;
 
         /// <summary>到着までの推定時間（秒）。停泊中・速度0は0。</summary>
-        public float Eta => (IsMoving && warpSpeed > 0f) ? Mathf.Max(0f, (corridorLength - traveled) / warpSpeed) : 0f;
+        public float Eta => (IsMoving && CurrentSpeed > 0f) ? Mathf.Max(0f, (corridorLength - traveled) / CurrentSpeed) : 0f;
 
         /// <summary>多ホップ経路がまだ残っているか（途中星系を経由中）。</summary>
         public bool HasRoute => route != null && route.Count > 0;
@@ -61,10 +71,10 @@ namespace Ginei
             if (map == null || IsMoving || destId == currentSystemId) return false;
             Corridor c = map.GetCorridor(currentSystemId, destId);
             if (c == null) return false;                       // 回廊以外＝移動不可
-            if (StrategyRules.IsFtlBlocked(map, c)) return false; // 前線回廊はFTL不可（回廊内戦闘＝C-3）
             destinationSystemId = destId;
             corridorLength = Mathf.Max(0.0001f, c.length);
             traveled = 0f;
+            sublightHop = StrategyRules.IsFtlBlocked(map, c);  // 前線回廊は亜光速（FTL不可でも遅い航行は可）
             IsMoving = true;
             return true;
         }
@@ -79,18 +89,18 @@ namespace Ginei
         {
             if (map == null) return false;
 
-            // 移動中：現在のホップは維持し、到達予定星系から goalId への経路に引き直す（前線回避）。
+            // 移動中：現在のホップは維持し、到達予定星系から goalId への経路に引き直す（前線も亜光速で越える）。
             if (IsMoving)
             {
-                List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId, avoidFtlBlocked: true);
-                if (p.Count == 0) return false; // 到達不能（前線越しのみ等）
+                List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId);
+                if (p.Count == 0) return false; // 到達不能
                 route = (p.Count > 1) ? p.GetRange(1, p.Count - 1) : new List<int>();
                 return true;
             }
 
             if (goalId == currentSystemId) return false;
-            List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId, avoidFtlBlocked: true);
-            if (path == null || path.Count < 2) return false; // 到達不能（前線越しのみ等）
+            List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId);
+            if (path == null || path.Count < 2) return false; // 到達不能
 
             int firstHop = path[1];
             route = (path.Count > 2) ? path.GetRange(2, path.Count - 2) : new List<int>();
@@ -112,7 +122,7 @@ namespace Ginei
         private bool TickInternal(GalaxyMap map, float deltaTime)
         {
             if (!IsMoving) return false;
-            traveled += warpSpeed * deltaTime;
+            traveled += CurrentSpeed * deltaTime;
             if (traveled >= corridorLength)
             {
                 currentSystemId = destinationSystemId;

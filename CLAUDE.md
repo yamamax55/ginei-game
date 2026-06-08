@@ -136,6 +136,8 @@
 | `GalaxyView` | 戦略マップのデモ可視化（MonoBehaviour）。`StrategySession` から銀河を復元（往復で状態保持）。星系/回廊/艦隊を実行時生成（ディスクスプライト・LineRenderer・TextMesh）。左ク=選択(Shift追加)／右ク=星系へ進軍 or 回廊上で停止保持（近い方=星系/回廊で曖昧解決）。Space/1/2/3 で速度。前線回廊は赤。**二層遷移(#586)**：回廊接触は即・実会戦へ強制遷移せず `BeginEngagements` で「交戦中の回廊」として固着表示（赤点滅・⚔交戦ラベル）。**交戦中の回廊をダブルクリック=潜行**（`TryDescend`→`BattleHandoff.Queue`→`Battle` シーン＝手動指揮）。放置は `autoResolveDelay`(銀河時間)後に `ResolveEncounters` で自動解決（Space停止で猶予停止＝intervene 可）。`Start` で `ApplyHandoffResult` 反映後、観ていない他戦線を `ResolveEncounters` で自動侵攻（統一時間の近似）。 |
 | `BattleHandoff` | static シーン跨ぎの会戦受け渡し（C-3）。`StrengthScale`(40＝戦略兵力↔戦術 baseStrength)。`Pending`/`Resolved`/`factionA/B`/`strengthA/B`/`admiralA/B`/`fleetIdA/B`/`returnScene`/`sideAWon`/`survivorStrength`。`Queue(a,b,returnScene)`/`SetResult(aWon,survivors)`/`Clear()`。`BattleSetup` が Awake で `Pending` なら `SetupFromHandoff()` で2勢力を生成、`BattleManager` が決着で `WriteHandoffResultAndReturn`→残存兵力を `StrengthScale` で割り戻して `SetResult`→`returnScene` へ。 |
 | `StrategySession` | static 戦略世界状態（銀河グラフ＋艦隊レジストリ）をシーン遷移を跨いで保持（C-3）。`Map`/`Reg`/`HasState`/`Set`/`Clear`。Battle へ往復しても盤面を失わない（再生中は static が生存）。 |
+| `Planet` | 惑星攻城の対象（#131 惑星戦・PB-3〜7）。`[Serializable]` 純データ。`systemId`/`owner`/`orbitalDefense`(制空権＝ピラー・ドメイン/超兵器・>0で艦隊接近不可)/`maxOrbitalDefense`/`invasionProgress`(侵略値)/`invasionThreshold`＋`DomainDown`(制空権崩壊)/`Captured`(占領)/`FleetApproachBlocked`(接近限界 PB-5)。コロニー・要塞も同枠(PB-6)。攻略の解決は `PlanetSiegeRules` が唯一の窓口。 |
+| `PlanetSiegeRules` | static 惑星攻城ロジック（#131・#208 自動解決の数値モデル・純ロジック）。二段階：①S-AV(#757)が制空権を抑制→`DomainDown`／②ダウン後に侵略値を蓄積→閾値で占領（`owner` を攻撃側へフリップ）。`Tick(planet,attacker,attackerSAV,dt[,SiegeParams])`(1tick一段階・状態遷移 `SiegeTickResult{domainWentDown,captured}` を返す)＋`SiegeParams{suppressRate,invadeRate,defenseRegen}`(`Default`=1/1/0)。戦闘式・占領判定をここへ集約。 |
 
 ## 壊すと不具合になる依存・命名
 - 旗艦の子オブジェクト名は固定。`FactionColor`/`FleetStrength.Flash`/`Squadron` がこれらの名前で除外・再利用判定する。**変えない・重複生成しない**：
@@ -174,7 +176,7 @@
 
 ## テスト基盤（EditMode）
 - アセンブリ定義で分離：`Ginei.Runtime`(`Assets/Scripts`)／`Ginei.Editor`(`Assets/Editor`)／`Ginei.Tests.EditMode`(`Assets/Tests/EditMode`、`Ginei.Runtime`＋`nunit.framework`参照、`defineConstraints: UNITY_INCLUDE_TESTS`)。
-- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode) で担保する：`RankSystem`/`FactionData`/`FactionRelations`/`AdmiralData`(命名)/`ProtagonistRules`/`DamagePopup`(スタイル)＋戦略レイヤー(`GalaxyMap`/`StrategicFleet`/`GalaxyPathfinder`/`StrategicFleetRegistry`/`StrategyRules`)。
+- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode) で担保する：`RankSystem`/`FactionData`/`FactionRelations`/`AdmiralData`(命名)/`ProtagonistRules`/`DamagePopup`(スタイル)＋戦略レイヤー(`GalaxyMap`/`StrategicFleet`/`GalaxyPathfinder`/`StrategicFleetRegistry`/`StrategyRules`)＋惑星攻城(`PlanetSiegeRules`/`Planet`)。
 - シーン/UI/MonoBehaviour 挙動はエディタ Play で目視検証（テスト対象外）。新規の純ロジックを足したら EditMode テストを併記する。
 
 ## 運用

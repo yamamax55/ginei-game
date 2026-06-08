@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9058026634af4156a0dfa51b6c42c532, type: 3}
+  m_Name: Alliance
+  m_EditorClassIdentifier: Assembly-CSharp::Ginei.FactionData
+  factionName: "\u540C\u76DF"
+  color: {r: 0.2, g: 0.5, b: 0.9, a: 1}
+  ideology: "\u6C11\u4E3B\u6D3E\uFF08\u5171\u548C\u5236\uFF09"
+  nonHostileFactions: []
+  legacyFaction: 1
+  ranks:
+  - tier: 5
+    rankName: "\u51C6\u5C06"
+  - tier: 6
+    rankName: "\u5C11\u5C06"
+  - tier: 7
+    rankName: "\u4E2D\u5C06"
+  - tier: 8
+    rankName: "\u5927\u5C06"
+  - tier: 10
+    rankName: "\u5143\u5E25"

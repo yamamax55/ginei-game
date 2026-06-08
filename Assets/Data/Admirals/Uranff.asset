@@ -11,9 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
   m_Name: Uranff
-  m_EditorClassIdentifier: Assembly-CSharp::Ginei.AdmiralData
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
   admiralName: "\u30A6\u30E9\u30F3\u30D5"
   faction: 1
+  givenName: 
+  middleName: 
+  familyName: 
+  nobleParticle: 
+  regnalNumber: 0
+  epithet: 
+  callName: 
   leadership: 86
   attack: 83
   defense: 82
@@ -23,3 +30,5 @@ MonoBehaviour:
   baseStrength: 8500
   hasPreferredFormation: 1
   preferredFormation: 3
+  staffOfficers: []
+  staffBonusRatio: 0.2

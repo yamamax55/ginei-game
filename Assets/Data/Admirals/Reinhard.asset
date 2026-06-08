@@ -11,9 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
   m_Name: Reinhard
-  m_EditorClassIdentifier: Assembly-CSharp::Ginei.AdmiralData
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
   admiralName: "\u30E9\u30A4\u30F3\u30CF\u30EB\u30C8"
   faction: 0
+  givenName: 
+  middleName: 
+  familyName: 
+  nobleParticle: 
+  regnalNumber: 0
+  epithet: 
+  callName: 
   leadership: 98
   attack: 95
   defense: 88
@@ -23,3 +30,5 @@ MonoBehaviour:
   baseStrength: 10000
   hasPreferredFormation: 1
   preferredFormation: 0
+  staffOfficers: []
+  staffBonusRatio: 0.2

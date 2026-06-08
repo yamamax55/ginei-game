@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
+  m_Name: Brandt
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
+  admiralName: "\u30D6\u30E9\u30F3\u30C8"
+  faction: 0
+  givenName: "\u30D6\u30E9\u30F3\u30C8"
+  middleName: 
+  familyName: 
+  nobleParticle: 
+  regnalNumber: 3
+  epithet: 
+  callName: 
+  leadership: 84
+  attack: 88
+  defense: 82
+  mobility: 86
+  operation: 74
+  intelligence: 78
+  baseStrength: 8500
+  hasPreferredFormation: 1
+  preferredFormation: 0
+  staffOfficers: []
+  staffBonusRatio: 0.2

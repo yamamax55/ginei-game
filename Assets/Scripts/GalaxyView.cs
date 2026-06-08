@@ -100,6 +100,35 @@ namespace Ginei
                 battleMsg = others > 0 ? $"実会戦の結果を反映（観ていない{others}戦線は自動解決）" : "実会戦の結果を反映しました";
                 battleMsgTimer = 3f;
             }
+
+            // 惑星攻城の戦術マップでの進捗を惑星へ書き戻す（#131）
+            if (BattleHandoff.siegeResolved) ApplySiegeResult();
+        }
+
+        /// <summary>戦術マップでの攻城進捗（割合）を戦略の惑星へ反映する（#131）。占領なら所有フリップ＋再建。</summary>
+        private void ApplySiegeResult()
+        {
+            StarSystem s = map.GetSystem(BattleHandoff.planetSystemId);
+            if (s != null && s.planet != null)
+            {
+                Planet p = s.planet;
+                if (BattleHandoff.siegeResultCaptured)
+                {
+                    p.owner = BattleHandoff.besiegerFaction;
+                    s.owner = BattleHandoff.besiegerFaction;
+                    p.orbitalDefense = p.maxOrbitalDefense; // 新所有者が制空権を再建
+                    p.invasionProgress = 0f;
+                    battleMsg = $"{s.systemName} を占領しました";
+                }
+                else
+                {
+                    p.orbitalDefense = Mathf.Clamp01(BattleHandoff.siegeResultDefense) * p.maxOrbitalDefense;
+                    p.invasionProgress = Mathf.Clamp01(BattleHandoff.siegeResultInvasion) * p.invasionThreshold;
+                    battleMsg = $"{s.systemName} の攻城を進めました";
+                }
+                battleMsgTimer = 3f;
+            }
+            BattleHandoff.Clear();
         }
 
         private void Update()
@@ -521,7 +550,8 @@ namespace Ginei
             if (besieger == null) return false;
 
             float defRatio = s.planet.maxOrbitalDefense > 0f ? s.planet.orbitalDefense / s.planet.maxOrbitalDefense : 0f;
-            BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio,
+            float invRatio = s.planet.invasionThreshold > 0f ? s.planet.invasionProgress / s.planet.invasionThreshold : 0f;
+            BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio, invRatio,
                 besieger.faction, besieger.strength, "Strategy");
             SceneManager.LoadScene("Battle");
             return true;

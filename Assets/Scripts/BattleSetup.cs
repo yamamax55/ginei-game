@@ -34,8 +34,6 @@ namespace Ginei
         public int siegeBesiegerFleetStrength = 200;
         [Tooltip("中心の惑星の見た目スケール")]
         public float siegePlanetScale = 3f;
-        [Tooltip("制空権（軌道防衛＝S-AV）の最大耐久。攻城艦隊がこれを削り切るとドメイン・ダウン＝接近限界が解ける")]
-        public float siegeOrbitalDefenseMax = 20000f;
 
         private void Awake()
         {
@@ -299,16 +297,19 @@ namespace Ginei
             ClearExistingFleets();
             ScenarioData.ActiveScenario = null; // 勝利条件なし（攻城の決着は戦略側の TickSieges）
 
-            // 中心の惑星＋首飾り射程リング＋接近限界の押し出し
+            // 中心の惑星＋首飾り射程リング＋接近限界の押し出し＋攻城進行（S-AV/ゲージ）
             var arena = new GameObject("SiegeArena").AddComponent<SiegeArena>();
             arena.transform.position = Vector3.zero;
-            Color planetCol = (BattleHandoff.planetOwner == Faction.帝国)
+            arena.approachRadius = siegeApproachRadius;
+            arena.planetScale = siegePlanetScale;
+            arena.planetColor = (BattleHandoff.planetOwner == Faction.帝国)
                 ? new Color(0.85f, 0.3f, 0.25f) : new Color(0.3f, 0.5f, 0.9f);
-            string label = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
-            // 制空権は最大耐久＋戦略側の残り割合で開始（攻城途中で突入すれば既に削れた状態で始まる）
-            float startRatio = Mathf.Clamp01(BattleHandoff.planetDefenseRatio);
-            arena.Configure(siegeApproachRadius, siegePlanetScale, planetCol, label,
-                BattleHandoff.planetOwner, siegeOrbitalDefenseMax, startRatio);
+            arena.planetLabel = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
+            arena.besiegerFaction = BattleHandoff.besiegerFaction;
+            arena.planetOwner = BattleHandoff.planetOwner;
+            arena.initialDefenseRatio = BattleHandoff.planetDefenseRatio;
+            arena.initialInvasionRatio = BattleHandoff.planetInvasionRatio;
+            arena.Build();
 
             // 攻城艦隊を惑星の周囲に円環状に配置（首飾り射程の外・惑星へ正対）。突入した艦隊はプレイヤー操作。
             Faction playerFaction = GameSettings.Instance.playerFaction;

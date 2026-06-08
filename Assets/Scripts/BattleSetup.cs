@@ -328,6 +328,8 @@ namespace Ginei
             ScenarioData.ActiveScenario = null; // 勝利条件なし（戦闘判定しない）
 
             var view = new GameObject("SystemView").AddComponent<SystemView>();
+            view.systemId = BattleHandoff.systemViewId;
+            view.ownerFaction = BattleHandoff.systemViewOwner;
             view.systemName = string.IsNullOrEmpty(BattleHandoff.systemViewName) ? "星系" : BattleHandoff.systemViewName;
             // 恒星の色は所有勢力でうっすら寄せる（無所属＝既定の暖色）
             if (BattleHandoff.systemViewOwner == Faction.同盟) view.starColor = new Color(0.7f, 0.85f, 1f);

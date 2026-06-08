@@ -42,6 +42,12 @@ namespace Ginei
     }
 
     /// <summary>
+    /// 勢力の統治政策（#112・ハイブリッド内政の「薄い国策レイヤー」#767）。勢力層が選び、下位の惑星/星系へ
+    /// modifier として波及する（勢力は固有データを最小限＝この政策だけ持つ）。既定=民生＝中立（後方互換）。
+    /// </summary>
+    public enum GovernancePolicy { 民生, 動員, 弾圧, 解放 }
+
+    /// <summary>
     /// 内政の数値解決（#109 P-1/P-2 最小ループ・純ロジック test-first）。攻城/戦略から呼ばれる唯一の窓口。
     /// 安定度は「目標値へ時間で収束」する：目標＝基準＋思想一致(±)−戦時−補給不足−(未統合ぶんの占領不満)。
     /// 占領直後は <see cref="Province.integration"/>=0 で占領不満が最大→時間で integration↑→安定が回復する。
@@ -64,14 +70,26 @@ namespace Ginei
         public const float MinOutputFactor = 0.3f;          // 安定0でも最低限の産出
         public const float MaxStability = 100f;
 
+        // --- 統治政策（#112）の効果（勢力の薄い国策レイヤー・#767）。民生＝基準(0)＝後方互換 ---
+        public const float PolicyCivilStability = 0f;        // 民生：中立（基準）
+        public const float PolicyMobilizeStability = -10f;   // 動員：戦時動員の負担で安定−
+        public const float PolicySuppressStability = 12f;    // 弾圧：力による秩序で安定+
+        public const float PolicyLiberateStability = -3f;    // 解放：短期はわずかに安定−
+        public const float PolicySuppressIntegrationMul = 0.5f; // 弾圧：統合が遅い（恨みが残る）
+        public const float PolicyLiberateIntegrationMul = 1.8f; // 解放：統合が速い（民心を得る）
+
         /// <summary>
         /// 安定度の目標値（収束先）を算出する純関数。プリミティブのみ＝テスト容易。
         /// </summary>
         /// <param name="integration">占領統合度(0..1)。低いほど占領不満で目標が下がる。</param>
         /// <param name="ideologyMod">思想一致の補正（一致=+、不一致=−、不明=0。<see cref="IdeologyModifier"/>）。</param>
         public static float EquilibriumStability(float integration, float ideologyMod, bool supplyOk, bool atWar)
+            => EquilibriumStability(integration, ideologyMod, supplyOk, atWar, GovernancePolicy.民生);
+
+        /// <summary>統治政策(#112)を含めた安定度の目標値（純関数）。民生は基準＝従来と同値。</summary>
+        public static float EquilibriumStability(float integration, float ideologyMod, bool supplyOk, bool atWar, GovernancePolicy policy)
         {
-            float target = BaseStability + ideologyMod;
+            float target = BaseStability + ideologyMod + PolicyStabilityModifier(policy);
             if (!supplyOk) target -= SupplyPenalty;
             if (atWar) target -= WarPenalty;
             // 未統合ぶんの占領不満（integration=1 で消える）
@@ -79,18 +97,45 @@ namespace Ginei
             return Mathf.Clamp(target, 0f, MaxStability);
         }
 
+        /// <summary>統治政策の安定度補正（#112・薄い国策レイヤー）。民生=0（基準）。</summary>
+        public static float PolicyStabilityModifier(GovernancePolicy policy)
+        {
+            switch (policy)
+            {
+                case GovernancePolicy.動員: return PolicyMobilizeStability;
+                case GovernancePolicy.弾圧: return PolicySuppressStability;
+                case GovernancePolicy.解放: return PolicyLiberateStability;
+                default:                   return PolicyCivilStability; // 民生＝基準
+            }
+        }
+
+        /// <summary>統治政策の統合速度倍率（弾圧=遅い・解放=速い・他=等倍）。</summary>
+        public static float PolicyIntegrationMultiplier(GovernancePolicy policy)
+        {
+            switch (policy)
+            {
+                case GovernancePolicy.弾圧: return PolicySuppressIntegrationMul;
+                case GovernancePolicy.解放: return PolicyLiberateIntegrationMul;
+                default:                   return 1f;
+            }
+        }
+
         /// <summary>
         /// 1tick の内政更新：統合度を進め、安定度を目標へ寄せる（戦略時間に dt 比例＝timeScale 追従）。
         /// </summary>
         public static void Tick(Province p, FactionData ownerData, bool supplyOk, bool atWar, float deltaTime)
+            => Tick(p, ownerData, supplyOk, atWar, deltaTime, GovernancePolicy.民生);
+
+        /// <summary>統治政策(#112)を反映した1tick内政更新。政策が統合速度と安定度目標へ波及する。民生は従来と同値。</summary>
+        public static void Tick(Province p, FactionData ownerData, bool supplyOk, bool atWar, float deltaTime, GovernancePolicy policy)
         {
             if (p == null || deltaTime <= 0f) return;
 
-            // 占領地の統合を時間で進める（自国領は既に 1）
-            p.integration = Mathf.Clamp01(p.integration + IntegrationRate * deltaTime);
+            // 占領地の統合を時間で進める（自国領は既に 1）。政策で速度が変わる（弾圧=遅い/解放=速い）。
+            p.integration = Mathf.Clamp01(p.integration + IntegrationRate * PolicyIntegrationMultiplier(policy) * deltaTime);
 
             float mod = IdeologyModifier(ownerData, p.nativeIdeology);
-            float target = EquilibriumStability(p.integration, mod, supplyOk, atWar);
+            float target = EquilibriumStability(p.integration, mod, supplyOk, atWar, policy);
             p.stability = Mathf.MoveTowards(p.stability, target, StabilitySpeed * deltaTime);
             p.stability = Mathf.Clamp(p.stability, 0f, MaxStability);
         }

@@ -8,6 +8,9 @@ namespace Ginei
     /// </summary>
     public static class BattleHandoff
     {
+        /// <summary>戦略の抽象兵力 → 戦術の基準兵力(baseStrength) への倍率。残存はこの逆算で戦略へ戻す。</summary>
+        public const int StrengthScale = 40;
+
         public static bool Pending;   // 実会戦を予約済み（Battleシーンはこれを見て遭遇から生成）
         public static bool Resolved;  // Battleシーンが結果を書き込んだ
 

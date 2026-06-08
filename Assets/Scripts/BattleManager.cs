@@ -90,10 +90,39 @@ namespace Ginei
             // 決着時に時間を停止
             Time.timeScale = 0f;
 
+            // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る
+            if (BattleHandoff.Pending)
+            {
+                WriteHandoffResultAndReturn(winner);
+                return;
+            }
+
             RecordResults(winner, reason, winnerRep);
 
             // 結果画面へ遷移（非同期ロード中も時間は停止しているが、SceneLoaderがunscaledTimeを使う）
             SceneLoader.Instance.LoadScene("Result");
+        }
+
+        /// <summary>
+        /// 実会戦の勝敗・勝者残存兵力を BattleHandoff に書き戻し、戦略シーンへ戻る（C-3）。
+        /// 残存は戦術スケールの兵力を BattleHandoff.StrengthScale で戦略スケールへ逆算する。
+        /// </summary>
+        private void WriteHandoffResultAndReturn(Faction winner)
+        {
+            int winnerTactical = 0;
+            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            for (int i = 0; i < alive.Count; i++)
+            {
+                FleetStrength fs = alive[i];
+                if (fs != null && LegacyOf(fs) == winner) winnerTactical += fs.strength;
+            }
+
+            bool aWon = winner == BattleHandoff.factionA;
+            int survivorStrategic = Mathf.Max(1, Mathf.RoundToInt(winnerTactical / (float)BattleHandoff.StrengthScale));
+            BattleHandoff.SetResult(aWon, survivorStrategic);
+
+            Time.timeScale = 1f; // 戦略へ戻すので通常速度へ
+            SceneLoader.Instance.LoadScene(BattleHandoff.returnScene);
         }
 
         /// <summary>

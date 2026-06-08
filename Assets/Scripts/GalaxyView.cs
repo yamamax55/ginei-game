@@ -37,6 +37,8 @@ namespace Ginei
         public float autoResolveDelay = 2.5f;
         [Tooltip("ダブルクリック判定の猶予（実時間・秒）")]
         public float doubleClickWindow = 0.35f;
+        [Tooltip("星系の点をクリックしたと見なす半径（ハブ星系で回廊より星系を優先＝惑星へ入れる）")]
+        public float systemClickRadius = 0.65f;
 
         [Header("惑星攻城（#131）")]
         [Tooltip("S-AV戦力あたりの制空権抑制速度")]
@@ -281,12 +283,12 @@ namespace Ginei
                 Planet p = s.planet;
                 if (!p.DomainDown)
                 {
-                    sl.text = $"⛨{Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%";
+                    sl.text = $"制空{Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%";
                     sl.color = defenseColor;
                 }
                 else
                 {
-                    sl.text = $"侵{Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%";
+                    sl.text = $"侵攻{Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%";
                     sl.color = invadeColor;
                 }
             }
@@ -370,9 +372,55 @@ namespace Ginei
                 banner.color = combatColor;
                 return;
             }
+            if (TryBesiegeStatus(out string bt, out Color bc)) { banner.text = bt; banner.color = bc; return; }
             string speed = paused ? "停止" : $"x{galaxySpeed:0.#}";
             banner.text = $"速度 {speed}　選択 {selectedFleets.Count}隻";
             banner.color = Color.white;
+        }
+
+        /// <summary>
+        /// 選択中の艦隊が敵の防衛惑星に停泊していれば、攻城の状況（制空権制圧/侵攻/係争中）を返す。
+        /// 「敵惑星に入ったのに何も起きない」を防ぐ説明用フィードバック（#131）。
+        /// </summary>
+        private bool TryBesiegeStatus(out string text, out Color col)
+        {
+            text = ""; col = Color.white;
+            for (int i = 0; i < selectedFleets.Count; i++)
+            {
+                StrategicFleet f = selectedFleets[i];
+                if (f == null || f.IsOnCorridor) continue;
+                StarSystem s = map.GetSystem(f.currentSystemId);
+                if (s == null || s.planet == null) continue;
+                Planet p = s.planet;
+                if (!FactionRelations.IsHostile(null, f.faction, null, p.owner)) continue; // 自国/友軍の惑星
+
+                bool contested = false;
+                var present = reg.FleetsAt(s.id);
+                for (int k = 0; k < present.Count; k++)
+                {
+                    StrategicFleet g = present[k];
+                    if (g != null && !FactionRelations.IsHostile(null, g.faction, null, p.owner)) { contested = true; break; }
+                }
+
+                if (contested)
+                {
+                    text = $"{s.systemName}：係争中（敵守備隊あり）＝攻城停止。守備隊を排除せよ";
+                    col = combatColor;
+                }
+                else if (!p.DomainDown)
+                {
+                    text = $"{s.systemName} を攻城中：制空権 {Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%（S-AVが制圧）";
+                    col = defenseColor;
+                }
+                else if (!p.Captured)
+                {
+                    text = $"{s.systemName} へ侵攻中：侵略 {Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%";
+                    col = invadeColor;
+                }
+                else continue;
+                return true;
+            }
+            return false;
         }
 
         // ===== 入力 =====
@@ -421,20 +469,26 @@ namespace Ginei
                 int sysId = NearestSystemDist(w, out float sysD);
                 bool hasCorr = NearestCorridor(w, out Corridor c, out float fracFromA, out float corrD);
 
-                if (sysId >= 0 && (!hasCorr || sysD <= corrD) && sysD <= 1.6f)
+                if (sysId >= 0 && sysD <= systemClickRadius)
                 {
-                    // 星系へ進軍
+                    // 星系の点の上＝最優先で進軍。ハブ星系は放射状の回廊が中心を通るため
+                    // 近さ比較だと回廊が勝って惑星へ入れない → 星系の判定半径を優先する。
                     foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
                 }
                 else if (hasCorr && corrD <= 0.6f)
                 {
-                    // 回廊上のクリック位置で停止保持
+                    // 回廊の線上（星系から離れた位置）＝その位置で停止保持
                     foreach (var f in selectedFleets)
                     {
                         if (f == null) continue;
                         if (f.currentSystemId == c.aId) f.HoldOnCorridor(map, c.bId, fracFromA);
                         else if (f.currentSystemId == c.bId) f.HoldOnCorridor(map, c.aId, 1f - fracFromA);
                     }
+                }
+                else if (sysId >= 0 && sysD <= 1.6f)
+                {
+                    // 星系の近く（フォールバック）＝進軍
+                    foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
                 }
             }
         }

@@ -11,18 +11,37 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2857995d4c0f46d4e8823a9b6a257207, type: 3}
   m_Name: "\u30F4\u30A1\u30F3\u30D5\u30EA\u30FC\u30C8\u661F\u57DF\u4F1A\u6226"
-  m_EditorClassIdentifier: Assembly-CSharp::Ginei.ScenarioData
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.ScenarioData
   scenarioName: "\u30F4\u30A1\u30F3\u30D5\u30EA\u30FC\u30C8\u661F\u57DF\u4F1A\u6226"
+  victoryCondition: 0
+  objectiveFaction: 1
+  timeLimit: 180
+  targetAdmiral: {fileID: 0}
   fleets:
   - admiral: {fileID: 11400000, guid: 71e064fff3767d34c9e931f68b3acb56, type: 2}
     faction: 0
+    factionData: {fileID: 0}
     spawnPosition: {x: 5, y: 2}
     formation: 0
+    fleetNumber: 1
+    fleetName: 
+    corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
+    armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
   - admiral: {fileID: 11400000, guid: 4fa8bdef9389e9140b2f5b14dbe1db8e, type: 2}
     faction: 0
+    factionData: {fileID: 0}
     spawnPosition: {x: 5, y: -2}
     formation: 3
+    fleetNumber: 2
+    fleetName: 
+    corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
+    armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
   - admiral: {fileID: 11400000, guid: 35cea87aa862d0b4abbd3594c09d5a84, type: 2}
     faction: 1
+    factionData: {fileID: 0}
     spawnPosition: {x: -5, y: 0}
     formation: 1
+    fleetNumber: 13
+    fleetName: 
+    corps: "\u540C\u76DF\u4E3B\u529B\u8ECD\u56E3"
+    armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"

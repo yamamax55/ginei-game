@@ -27,6 +27,39 @@ namespace Ginei
         [Header("陣営設定")]
         public Faction faction;
 
+        [Header("艦隊編制（#146・任意）")]
+        [Tooltip("艦隊番号（0＝未指定＝従来どおり提督名のみ表示）")]
+        public int fleetNumber = 0;
+        [Tooltip("艦隊の固有名（無ければ「第N艦隊」）")]
+        public string fleetUnitName = "";
+
+        [Tooltip("所属軍団名（#147・表示用。空＝なし）")]
+        public string corpsName = "";
+        [Tooltip("所属軍集団名（#147・表示用。空＝なし）")]
+        public string armyGroupName = "";
+
+        /// <summary>艦隊番号が割り当てられているか（#146）。</summary>
+        public bool HasFleetNumber => fleetNumber > 0;
+        /// <summary>艦隊表示名（固有名→「第N艦隊」。番号未指定なら空）。</summary>
+        public string FleetLabel => !HasFleetNumber ? "" : (!string.IsNullOrEmpty(fleetUnitName) ? fleetUnitName : $"第{fleetNumber}艦隊");
+
+        /// <summary>梯団に所属しているか（#147）。</summary>
+        public bool HasEchelon => !string.IsNullOrEmpty(corpsName) || !string.IsNullOrEmpty(armyGroupName);
+        /// <summary>梯団パス「軍集団 ⊃ 軍団」（あるものだけ・#147）。無ければ空。</summary>
+        public string EchelonPath
+        {
+            get
+            {
+                bool g = !string.IsNullOrEmpty(armyGroupName), c = !string.IsNullOrEmpty(corpsName);
+                if (g && c) return $"{armyGroupName} ⊃ {corpsName}";
+                if (c) return corpsName;
+                return g ? armyGroupName : "";
+            }
+        }
+
+        [Tooltip("所属勢力データ（多勢力対応の出所。割り当てると敵対判定・色がこれを優先。未割当なら enum faction で従来動作）")]
+        public FactionData factionData;
+
         [Header("演出設定")]
         [Tooltip("被弾フラッシュの時間 (秒)")]
         public float flashDuration = 0.1f;
@@ -35,9 +68,18 @@ namespace Ginei
         [Tooltip("旗艦喪失（艦艇数0）時に離脱する距離")]
         public float retreatDistance = 50f;
 
+        [Header("得意陣形ボーナス（#104）")]
+        [Tooltip("提督の得意陣形と現在陣形が一致する間の被ダメージ軽減率（0=無効, 0.15で被ダメージ15%カット）。実効値パターン＝基準ダメージ・防御計算は非破壊")]
+        [Range(0f, 0.9f)]
+        public float preferredFormationDamageReduction = 0.15f;
+
+        // 頭上ラベルのズーム追従の基準ズーム（CameraController.startZoom と揃える）
+        private const float LabelReferenceOrthoSize = 16f;
+
         private TextMesh strengthDisplay;
         private FleetMorale moraleComponent;
         private FleetMovement movement;
+        private Squadron squadron;
 
         /// <summary>旗艦を失い退却中か（true なら戦闘・カウントから除外）。</summary>
         public bool IsRetreating { get; private set; }
@@ -57,12 +99,14 @@ namespace Ginei
         // IShipTarget 実装（旗艦＝個艦としての攻撃対象）。退却したら標的・カウント対象から外れる。
         public Transform Transform => transform;
         public Faction Faction => faction;
+        public FactionData FactionData => factionData;
         public bool IsAlive => !IsRetreating;
 
         private void Awake()
         {
             moraleComponent = GetComponent<FleetMorale>();
             movement = GetComponent<FleetMovement>();
+            squadron = GetComponent<Squadron>();
         }
 
         private void Start()
@@ -89,14 +133,8 @@ namespace Ginei
             strengthDisplay = textObj.GetComponent<TextMesh>();
             if (strengthDisplay == null) strengthDisplay = textObj.AddComponent<TextMesh>();
             
-            // 日本語フォントの読み込み (文字化け対策)
-            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
-            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); // Fallback
-#if UNITY_EDITOR
-            // エディタ上では作成したフォントを優先
-            Font customJaFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
-            if (customJaFont != null) jaFont = customJaFont;
-#endif
+            // 日本語フォントの読み込み（文字化け対策）。解決は FontProvider に集約。
+            Font jaFont = FontProvider.JapaneseFont;
             strengthDisplay.font = jaFont;
             if (jaFont != null)
             {
@@ -111,6 +149,12 @@ namespace Ginei
             // 色の設定は FactionColor コンポーネントに一任するため削除
 
             UpdateDisplay();
+
+            // 頭上ラベルの文字サイズをズームに追従させる（ズームアウト時の極小化・密集時の重なりを軽減）。
+            // 基準ズームは CameraController.startZoom(16) に合わせ、現在のスケールを基準スケールとして保持。
+            LabelZoomScaler labelScaler = textObj.GetComponent<LabelZoomScaler>();
+            if (labelScaler == null) labelScaler = textObj.AddComponent<LabelZoomScaler>();
+            labelScaler.Configure(textObj.transform.localScale, LabelReferenceOrthoSize);
 
             // 索敵レジストリに登録（faction はここまでに確定済み）
             FleetRegistry.Register(this);
@@ -131,12 +175,13 @@ namespace Ginei
         {
             if (admiralData == null) return;
 
-            admiralName = admiralData.admiralName;
+            admiralName = admiralData.EpithetName;
             faction = admiralData.faction;
 
             // 統率によって兵力上限を決定 (baseStrength を基準に補正)
             // 例：統率100で baseStrength * 1.5, 統率0で baseStrength * 0.5
-            float leadershipBonus = (admiralData.leadership - 50) / 100f; // -0.5 ~ +0.5
+            // 参謀補完を反映した実効統率を使用（基準値は非破壊）
+            float leadershipBonus = (admiralData.EffectiveLeadership - 50) / 100f; // -0.5 ~ +0.5
             maxStrength = Mathf.RoundToInt(admiralData.baseStrength * (1.0f + leadershipBonus));
             strength = maxStrength;
 
@@ -156,11 +201,19 @@ namespace Ginei
         {
             if (IsRetreating) return;
 
-            // 防御力によるダメージ軽減
-            float defenseValue = admiralData != null ? admiralData.defense : 0f;
+            // 防御力によるダメージ軽減（参謀補完を反映した実効防御）
+            float defenseValue = admiralData != null ? admiralData.EffectiveDefense : 0f;
             // 防御100でダメージ50%カット
             float reduction = 1.0f - Mathf.Clamp(defenseValue / 200f, 0, 0.9f);
             int finalDamage = Mathf.RoundToInt(rawDamage * reduction);
+
+            // 得意陣形ボーナス：現在陣形が提督の得意陣形と一致する間だけ被ダメージをさらに軽減（実効値パターン）
+            if (admiralData != null && squadron != null
+                && admiralData.IsPreferredFormation(squadron.currentFormation)
+                && preferredFormationDamageReduction > 0f)
+            {
+                finalDamage = Mathf.RoundToInt(finalDamage * (1f - Mathf.Clamp(preferredFormationDamageReduction, 0f, 0.9f)));
+            }
 
             strength -= finalDamage;
             
@@ -241,7 +294,8 @@ namespace Ginei
             foreach (var sr in all)
             {
                 if (sr.gameObject.name == "SelectionRing") continue;
-                if (sr.gameObject.name == "FlagshipMarker") continue; // 旗艦マーカーは艦体ではないのでフラッシュ対象外
+                if (sr.gameObject.name == "FlagshipMarker") continue;      // 旗艦マーカーは艦体ではないのでフラッシュ対象外
+                if (sr.gameObject.name == "FlagshipMarkerGlow") continue;  // 旗艦の発光ハロー(陣営色)もフラッシュしない
                 if (sr.GetComponent<EscortShip>() != null) continue;   // 配下艦は別個艦なので旗艦被弾フラッシュの対象外
                 list.Add(sr);
             }
@@ -252,9 +306,10 @@ namespace Ginei
         {
             if (strengthDisplay != null)
             {
+                string head = HasFleetNumber ? $"{FleetLabel} {admiralName}" : admiralName;
                 strengthDisplay.text = IsRetreating
-                    ? $"{admiralName}\n退却"
-                    : $"{admiralName}\n兵力: {Mathf.Max(0, strength)}";
+                    ? $"{head}\n退却"
+                    : $"{head}\n兵力: {Mathf.Max(0, strength)}";
             }
         }
 
@@ -300,11 +355,12 @@ namespace Ginei
         {
             FleetStrength nearest = null;
             float minDist = float.MaxValue;
-            IReadOnlyList<FleetStrength> enemies = FleetRegistry.GetEnemyFlagships(faction);
-            for (int i = 0; i < enemies.Count; i++)
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flagships.Count; i++)
             {
-                FleetStrength fs = enemies[i];
-                if (fs == null || !fs.IsAlive) continue;
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == this || !fs.IsAlive) continue;
+                if (!FactionRelations.IsHostile(this, fs)) continue; // 敵対勢力の旗艦のみ
                 float d = Vector2.Distance(transform.position, fs.transform.position);
                 if (d < minDist) { minDist = d; nearest = fs; }
             }

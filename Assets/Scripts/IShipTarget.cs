@@ -11,8 +11,11 @@ namespace Ginei
         /// <summary>対象の Transform（位置・向きの取得用）。</summary>
         Transform Transform { get; }
 
-        /// <summary>所属陣営。</summary>
+        /// <summary>所属陣営（旧 enum。後方互換・UI・セーブ用）。</summary>
         Faction Faction { get; }
+
+        /// <summary>所属勢力データ（多勢力対応の出所。未割り当てなら null＝enum にフォールバック）。</summary>
+        FactionData FactionData { get; }
 
         /// <summary>生存しているか（破棄予定・艦艇数0なら false）。</summary>
         bool IsAlive { get; }

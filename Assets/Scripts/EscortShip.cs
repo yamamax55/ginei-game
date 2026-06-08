@@ -40,6 +40,7 @@ namespace Ginei
         // IShipTarget 実装。旗艦が退却したら部隊ごと戦闘除外（標的にならない）。
         public Transform Transform => transform;
         public Faction Faction => flagship != null ? flagship.faction : Faction.帝国;
+        public FactionData FactionData => flagship != null ? flagship.factionData : null;
         public bool IsAlive => !isDead && shipCount > 0 && (flagship == null || !flagship.IsRetreating);
 
         private void Awake()
@@ -96,7 +97,7 @@ namespace Ginei
 
             // 標的優先度：第一＝射線の通る敵旗艦、第二＝敵配下艦（射線上の配下艦は旗艦を遮蔽する）
             IShipTarget target = ShipCombat.FindPrioritizedEnemyInArc(transform.position, transform.up,
-                Faction, flagshipArc.range, flagshipArc.halfAngle);
+                FactionData, Faction, flagshipArc.range, flagshipArc.halfAngle);
 
             if (target != null)
             {
@@ -186,12 +187,24 @@ namespace Ginei
             beamLine.material.color = flagshipWeapon.beamColor;
 
             beamLine.enabled = true;
-            beamLine.SetPosition(0, transform.position);
-            beamLine.SetPosition(1, targetPos);
+            // 終点は命中点。万一射程を超える点を渡されても射程端でクランプし、画面端まで伸びるのを防ぐ。
+            Vector3 origin = transform.position;
+            beamLine.SetPosition(0, origin);
+            beamLine.SetPosition(1, ClampBeamEnd(origin, targetPos));
 
             yield return new WaitForSeconds(flagshipWeapon.beamDuration);
 
             beamLine.enabled = false;
+        }
+
+        /// <summary>ビーム終点を射程内にクランプする（射程外まで線が伸びるのを防ぐ）。</summary>
+        private Vector3 ClampBeamEnd(Vector3 origin, Vector3 target)
+        {
+            float maxRange = flagshipArc != null ? flagshipArc.range : 0f;
+            if (maxRange <= 0f) return target;
+            Vector3 dir = target - origin;
+            if (dir.magnitude <= maxRange) return target;
+            return origin + dir.normalized * maxRange;
         }
 
         private void OnDestroy()

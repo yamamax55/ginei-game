@@ -27,11 +27,30 @@ namespace Ginei
         private Vector2 lastClickWorldPos;
         private Selectable lastClickedFleet;
 
+        // 陣形サブメニューの配置制御用（Start でキャッシュ）
+        private RectTransform formationSubRect;
+        private LayoutElement formationSubLayout;
+
         private void Start()
         {
             if (commander == null) commander = Object.FindAnyObjectByType<FleetCommander>();
             BuildFormationButtons();
+            CacheFormationSubMenu();
             CloseMenu();
+        }
+
+        /// <summary>
+        /// 陣形サブメニューを親（メインメニュー）のレイアウトグループから除外する。
+        /// これをしないと VerticalLayoutGroup がサブメニューを縦積みの一員として扱い、
+        /// メインメニューのボタンと重なる（陣形メニュー重なり対策）。
+        /// </summary>
+        private void CacheFormationSubMenu()
+        {
+            if (formationSubMenu == null) return;
+            formationSubRect = formationSubMenu.GetComponent<RectTransform>();
+            formationSubLayout = formationSubMenu.GetComponent<LayoutElement>();
+            if (formationSubLayout == null) formationSubLayout = formationSubMenu.AddComponent<LayoutElement>();
+            formationSubLayout.ignoreLayout = true; // 親レイアウトに巻き込ませない（重なり防止）
         }
 
         /// <summary>
@@ -144,20 +163,30 @@ namespace Ginei
                 CreateButton("移動", CommandMove);
                 buttonCount++;
 
-                // 2. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
+                // 2. 後退 (向きを保ったまま下がる＝戦いながら離脱)
+                CreateButton("後退", CommandReverse);
+                buttonCount++;
+
+                // 3. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
                 CreateButton("攻撃", CommandAttack);
                 buttonCount++;
 
+                // 3b. 標準命令（#85）：アタックムーブ／停止／その場保持
+                CreateButton("アタックムーブ", CommandAttackMove);
+                buttonCount++;
+                CreateButton("停止", CommandStop);
+                buttonCount++;
+                CreateButton("その場保持", CommandHold);
+                buttonCount++;
+
                 // 3. 陣形変更
-                CreateButton("陣形変更", () => formationSubMenu.SetActive(!formationSubMenu.activeSelf));
+                CreateButton("陣形変更", ToggleFormationSubMenu);
                 buttonCount++;
                 
-                // 4. 情報 (選択中も情報は出せると便利なので残す)
-                if (lastClickedFleet != null)
-                {
-                    CreateButton("情報", () => { ShowFleetInfo(lastClickedFleet); CloseMenu(); });
-                    buttonCount++;
-                }
+                // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
+                Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];
+                CreateButton("情報", () => { ShowFleetInfo(infoTarget); CloseMenu(); });
+                buttonCount++;
 
                 // 「選択」「選択解除」は要件により非表示
             }
@@ -191,6 +220,13 @@ namespace Ginei
                 {
                     textComp.font = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
                 }
+                // 長いラベル（アタックムーブ/その場保持）が折り返して縦に伸び・見切れるのを防ぐ：
+                // 折り返し禁止＋自動縮小で常に1行に収める（ボタン高さ・メニュー高さを一定に保つ）。
+                textComp.enableWordWrapping = false;
+                float baseSize = textComp.fontSize;
+                textComp.enableAutoSizing = true;
+                textComp.fontSizeMin = 10f;
+                textComp.fontSizeMax = baseSize > 0f ? baseSize : 24f;
             }
             
             Button btnComp = btnObj.GetComponent<Button>();
@@ -209,12 +245,42 @@ namespace Ginei
             CloseMenu();
         }
 
+        private void CommandReverse()
+        {
+            if (commander != null)
+            {
+                commander.StartWaitingForReverseTarget();
+            }
+            CloseMenu();
+        }
+
         private void CommandAttack()
         {
             if (commander != null)
             {
                 commander.StartWaitingForAttackTarget();
             }
+            CloseMenu();
+        }
+
+        /// <summary>アタックムーブ：目標地点を指定→進撃しつつ捕捉した敵と交戦（#85）。</summary>
+        private void CommandAttackMove()
+        {
+            if (commander != null) commander.StartWaitingForAttackMove();
+            CloseMenu();
+        }
+
+        /// <summary>停止：選択中の全艦隊をその場で停止（#85）。</summary>
+        private void CommandStop()
+        {
+            if (commander != null) commander.StopSelected();
+            CloseMenu();
+        }
+
+        /// <summary>その場保持：移動せず射界内の敵に自動発砲（#85）。</summary>
+        private void CommandHold()
+        {
+            if (commander != null) commander.HoldSelected();
             CloseMenu();
         }
 
@@ -259,29 +325,61 @@ namespace Ginei
             }
         }
 
+        /// <summary>陣形サブメニューの開閉。開くときはメインメニューの脇（画面端と反対側）へ配置する。</summary>
+        private void ToggleFormationSubMenu()
+        {
+            if (formationSubMenu == null) return;
+            bool show = !formationSubMenu.activeSelf;
+            formationSubMenu.SetActive(show);
+            if (show) PositionFormationSubMenu();
+        }
+
+        /// <summary>
+        /// 陣形サブメニューをメインメニューの左右どちらかの脇に配置する。
+        /// メインメニューが画面の右寄りなら左へ、左寄りなら右へ開く（近い画面端と反対側＝見切れ回避）。
+        /// メインメニューの辺にアンカーするので、メニュー幅やキャンバス縮尺に依存しない。
+        /// </summary>
+        private void PositionFormationSubMenu()
+        {
+            if (formationSubRect == null || menuRect == null) return;
+
+            if (formationSubLayout != null) formationSubLayout.ignoreLayout = true; // 念のため再保証
+            formationSubMenu.transform.SetAsLastSibling();                          // メニュー前面へ
+
+            // メインメニューのサイズ・位置を確定
+            LayoutRebuilder.ForceRebuildLayoutImmediate(menuRect);
+
+            // メインメニューが画面右半分にあるなら左へ、左半分なら右へ開く（position はオーバーレイで画面px）
+            bool openLeft = menuRect.position.x > Screen.width * 0.5f;
+            const float gap = 4f;
+
+            if (openLeft)
+            {
+                // メインメニューの左隣：親(menuRect)の左上にアンカーし、自分の右上を合わせて左へ
+                formationSubRect.anchorMin = formationSubRect.anchorMax = new Vector2(0f, 1f);
+                formationSubRect.pivot = new Vector2(1f, 1f);
+                formationSubRect.anchoredPosition = new Vector2(-gap, 0f);
+            }
+            else
+            {
+                // メインメニューの右隣：親の右上にアンカーし、自分の左上を合わせて右へ
+                formationSubRect.anchorMin = formationSubRect.anchorMax = new Vector2(1f, 1f);
+                formationSubRect.pivot = new Vector2(0f, 1f);
+                formationSubRect.anchoredPosition = new Vector2(gap, 0f);
+            }
+        }
+
         public void ChangeFormation(int formationIdx)
         {
-            Formation f = (Formation)formationIdx;
-            foreach (var fleet in commander.SelectedFleets)
-            {
-                Squadron sq = fleet.GetComponent<Squadron>();
-                if (sq != null) sq.currentFormation = f;
-            }
+            // 陣形変更の実体は FleetCommander に集約（重複排除）。ここではメニューを閉じるだけ担当。
+            if (commander != null) commander.ChangeFormation(formationIdx);
             CloseMenu();
         }
 
         private void ShowFleetInfo(Selectable fleet)
         {
-            FleetStrength str = fleet.GetComponent<FleetStrength>();
-            Squadron sq = fleet.GetComponent<Squadron>();
-            if (str != null)
-            {
-                Debug.Log($"艦隊情報: {str.admiralName} ({str.faction}) - 兵力: {str.strength}/{str.maxStrength}");
-            }
-            if (sq != null)
-            {
-                Debug.Log($"現在陣形: {sq.currentFormation}");
-            }
+            // 詳細はモーダルの FleetDetailPanel に表示（表示中はポーズ）。HUDとは別。
+            if (fleet != null) FleetDetailPanel.Show(fleet);
         }
 
         private void ClampToScreen()

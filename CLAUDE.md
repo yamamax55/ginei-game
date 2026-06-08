@@ -46,7 +46,7 @@
 | クラス | 役割 | 主なフィールド/API |
 |---|---|---|
 | `GameSettings` | 設定と戦績の保管庫（シーン間共有の唯一の窓口） | `playerFaction`/`scenarioName`/`selectedAdmiral`/`masterVolume`/`defaultTimeScale`/`alwaysShowGizmos`/`cameraStartZoom`(会戦開始ズーム、`CameraController` が Start で参照)、戦績 `winner`/`imperialSunkCount`/`allianceSunkCount`/`remainingStrength`（旧2勢力・後方互換）＋**`factionStats`(`List<FactionStat>`＝勢力名キーの撃沈/残存。多勢力対応)**、`ResetStats()`。システム設定(`masterVolume`/`defaultTimeScale`/`alwaysShowGizmos`/`cameraStartZoom`)は `LoadPrefs()`/`SavePrefs()` で **PlayerPrefs に永続化**(Awake で復元、設定画面の「戻る」で保存) |
-| `AudioManager` | BGM/SE の一元管理 | `PlayBGM`/`StopBGM`/`PlaySE`/`PlayBeam`/`PlayHit`/`PlayExplosion`/`PlayUIClick`。音量は `bgmVolume`/`seVolume`×`GameSettings.masterVolume` |
+| `AudioManager` | BGM/SE の一元管理 | `PlayBGM`/`StopBGM`/`PlaySE`/`PlayBeam`/`PlayHit`/`PlayExplosion`/`PlayUIClick`。音量は `bgmVolume`/`seVolume`×`GameSettings.masterVolume`。**SEはボイスプール(`seVoiceCount`)で重ね発音**。**`PlayBeam` は多数艦の同時発砲で氾濫しないよう実時間で間引き(`beamMinInterval`)＋1発ごとにピッチ揺らぎ(`beamPitchJitter`)**。ビーム音は Inspector 未割当なら `Resources/shot_1`(`beamClipResource`) を自動ロード＝コード生成の AudioManager でも鳴る |
 | `SceneLoader` | 非同期シーン遷移＋ロード画面（コードで自動生成、`unscaledTime` 駆動） | `LoadScene(string)` |
 
 ## データ / 列挙 / ScriptableObject
@@ -117,6 +117,7 @@
 | クラス | 責務 / 主なAPI |
 |---|---|
 | `DamagePopup` | 動的生成のダメージ数値ポップアップ。`static Show(worldPos, damage, isFlank)`。連続生成は縦に段積み(`StackSlots`/`StackStep`)＋水平に微ジッターして団子化防止、timeScale 追従でフェード。側背面は赤橙＋強調。**同時表示数を `MaxActive`(24) に制限**し、多数の配下艦が同時に撃っても出しすぎない（超過分は間引く）。`LabelZoomScaler` で文字サイズをズーム追従。 |
+| `BeamFx` | ビーム（艦の主砲）の見た目を一元化する **static ヘルパー**。`CreateMaterial()`(Sprites/Default＝URP安全)／`ConfigureLine(lr, width)`(中央が太いテーパー幅カーブ＋丸端)／`ApplyGradient(lr, beam)`(白熱コア`CoreWhiteness`→陣営色のグラデ・色変化時のみ呼ぶ＝GC節約)／`Play(lr, mat, width, dur, origin, end)`(発射→アルファ＆幅をしぼめる放電フェードの IEnumerator、`Time.deltaTime` 追従)。**旗艦(`FleetWeapon`)・配下艦(`EscortShip`)の両方がここを使い、ビーム描画を重複させない**。マテリアルは呼び出し側が生成し OnDestroy で破棄。 |
 | `LabelZoomScaler` | ワールド空間ラベル(TextMesh)の `localScale` をカメラ `orthographicSize` に追従させ、画面上の見かけ大きさをほぼ一定に保つ（密集時の重なり・極小/極大表示を防ぐ）。`Configure(baseScale, referenceOrthoSize)`。基準ズームは `CameraController.startZoom`(16) と揃える。`StrengthDisplay`(頭上ラベル)・`DamagePopup` が利用。**旗艦 root には付けない**（陣形計算が狂う）＝ラベル専用の子/単独オブジェクト限定。 |
 | `SpaceBackground` | ParticleSystem で星生成、パララックス。SortingLayer `"Background"`/order -100。 |
 | `FormationPreview` | 移動先決定中に選択部隊の陣形を半透明表示（旗艦中心＋配下艦スロットに艦スプライトを淡い陣営色 alpha≒0.3 で描画）。`FleetCommander` が実行時生成し `Show(Squadron)`/`SetPose(pos, angleZ)`/`Hide()`。スロットは `Squadron.GetFormationSlots()` を利用。 |
@@ -171,6 +172,7 @@
 - 敵探索は `FleetRegistry`（単一在庫）＋`FactionRelations.IsHostile` に集約済み。新たに `FindObjectsByType` での索敵や「`faction` 違い＝敵」の直書きを増やさない（敵対判定は必ず `FactionRelations` 経由）。`BattleSetup.ClearExistingFleets` の開始時除去のみ `FindObjectsByType` 例外＝登録前の手置き艦を拾うため。配下艦の発砲・索敵は `fireInterval` 間隔＋初回位相をランダムにずらして全艦同時更新を避ける。
 - **ZOC（支配領域）判定は `ZoneOfControl`(static) が唯一の窓口(#81)**：`CanProject`(退却=IsAlive false・敗走=IsRouted でZOC消失)／`GetRadius`(外接円×`FleetMovement.zocRadiusScale`)／`HostileIntensityAt`(敵ZOC最深侵入度0..1)／`SteerAround`(AI回避の目標補正)。半径倍率等の調整値は各艦の `FleetMovement` に持たせ `ZoneOfControl` はそれを読むだけ（重複パラメータを増やさない）。列挙は `FleetRegistry.AllFlagships`＋`FactionRelations.IsHostile`。新たなZOC判定の直書きを増やさずここへ集約する。
 - 日本語フォント読み込みは `FontProvider.JapaneseFont`(static) に集約済み（`FleetStrength`/`FleetMorale`/`DamagePopup` が参照）。新規の legacy TextMesh も必ずここを使う。
+- ビーム描画は `BeamFx`(static) に集約済み（`FleetWeapon`/`EscortShip` が参照）。LineRenderer のマテリアル/幅カーブ/グラデ/フェードをここで一元化。新規のビーム表現も `Sprites/Default` 直書きを増やさずここに寄せる。
 
 ## UI Toolkit 段階移行（#UI統一・見切れ防止）
 - 新規/複雑なUIは **UI Toolkit（UITK）** へ段階移行する（既存の uGUI コード生成パネルは順次置換）。flexbox＋`ScrollView` でレイアウト自動＝**見切れが原理的に起きない**、テーマ USS で**統一**。

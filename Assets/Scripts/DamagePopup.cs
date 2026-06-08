@@ -23,8 +23,54 @@ namespace Ginei
         private Material mat;
 
         // 大量ヒット時の出しすぎ防止：同時表示数の上限。超過分は間引く（生成しない）。
-        public const int MaxActive = 48;
+        // 多数の配下艦が同時に撃つため、可読性優先で控えめにする。
+        public const int MaxActive = 24;
         private static int activeCount = 0;
+
+        // 縦方向の段積み：連続生成を一定段にずらして団子化を防ぐ（重なって読めないのを軽減）。
+        private const int StackSlots = 4;
+        private const float StackStep = 0.45f;
+        private static int stackSlot = 0;
+
+        // 文字サイズのズーム追従に使う基準ズーム（CameraController.startZoom と揃える）。
+        private const float ReferenceOrthoSize = 16f;
+
+        // ===== 表示スタイル（#744：側背面は「側背面！」等の文字を出さず色＋大きさだけで示す＝引き算）=====
+
+        /// <summary>側背面ヒットの表示色（濃い赤橙）。</summary>
+        public static readonly Color FlankColor = new Color(1f, 0.35f, 0.08f, 1f);
+
+        /// <summary>通常ヒットの表示色。</summary>
+        public static readonly Color NormalColor = Color.white;
+
+        /// <summary>ダメージポップアップの見た目（文字・色・サイズ）。</summary>
+        public readonly struct PopupStyle
+        {
+            public readonly string text;
+            public readonly Color color;
+            public readonly int fontSize;
+            public readonly float characterSize;
+
+            public PopupStyle(string text, Color color, int fontSize, float characterSize)
+            {
+                this.text = text;
+                this.color = color;
+                this.fontSize = fontSize;
+                this.characterSize = characterSize;
+            }
+        }
+
+        /// <summary>
+        /// ダメージ表示のスタイルを返す（#744）。側背面でも「側背面！」のような文字は付けず、
+        /// 数値だけを出し、色（濃赤橙）と大きさで区別する＝連呼を排した引き算表現。
+        /// </summary>
+        public static PopupStyle GetStyle(int damage, bool isFlank)
+        {
+            string text = damage.ToString();
+            return isFlank
+                ? new PopupStyle(text, FlankColor, 80, 0.22f)
+                : new PopupStyle(text, NormalColor, 60, 0.18f);
+        }
 
         /// <summary>
         /// ダメージポップアップを生成します。
@@ -39,42 +85,31 @@ namespace Ginei
             activeCount++;
 
             var go = new GameObject("DamagePopup");
-            // 同一座標への重なり（団子化）を防ぐため、水平に小さくばらつかせる
-            Vector3 jitter = new Vector3(Random.Range(-0.4f, 0.4f), Random.Range(0f, 0.2f), 0f);
-            go.transform.position = worldPos + jitter;
+            // 団子化を防ぐ：水平はわずかに、垂直はスロットで段階的にずらして縦に積む
+            int slot = stackSlot % StackSlots;
+            stackSlot++;
+            Vector3 offset = new Vector3(Random.Range(-0.2f, 0.2f), slot * StackStep, 0f);
+            go.transform.position = worldPos + offset;
             var popup = go.AddComponent<DamagePopup>();
             popup.Init(damage, isFlank);
         }
 
         private void Init(int damage, bool isFlank)
         {
-            // フォント読み込み（FleetStrength と同じパターン）
-            // Unity 6 では "Arial.ttf" は廃止され例外を投げるため "LegacyRuntime.ttf" を使う
-            Font jaFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-#if UNITY_EDITOR
-            Font customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/msgothic.ttc");
-            if (customFont != null) jaFont = customFont;
-#endif
+            // フォント読み込みは FontProvider に集約（日本語・Unity6 の Arial.ttf 禁止対応もそこで一元化）
+            Font jaFont = FontProvider.JapaneseFont;
 
             textMesh = gameObject.AddComponent<TextMesh>();
             textMesh.font = jaFont;
             textMesh.anchor = TextAnchor.MiddleCenter;
             textMesh.alignment = TextAlignment.Center;
 
-            if (isFlank)
-            {
-                textMesh.text = $"{damage}\n側背面!";
-                textMesh.fontSize = 80;
-                textMesh.characterSize = 0.22f;
-                textMesh.color = new Color(1f, 0.4f, 0.1f, 1f); // 赤橙
-            }
-            else
-            {
-                textMesh.text = damage.ToString();
-                textMesh.fontSize = 60;
-                textMesh.characterSize = 0.18f;
-                textMesh.color = Color.white;
-            }
+            // #744：側背面は文字（「側背面!」）を出さず、色＋大きさだけで示す（引き算）。
+            PopupStyle style = GetStyle(damage, isFlank);
+            textMesh.text = style.text;
+            textMesh.fontSize = style.fontSize;
+            textMesh.characterSize = style.characterSize;
+            textMesh.color = style.color;
 
             meshRenderer = GetComponent<MeshRenderer>();
             if (jaFont != null)
@@ -82,6 +117,10 @@ namespace Ginei
 
             // フェード用にマテリアルインスタンスを取得
             mat = meshRenderer.material;
+
+            // 文字サイズをズームに追従させ、画面上での見かけ大きさを一定に保つ（重なり軽減・可読性）
+            LabelZoomScaler scaler = gameObject.AddComponent<LabelZoomScaler>();
+            scaler.Configure(Vector3.one, ReferenceOrthoSize);
 
             StartCoroutine(Animate());
         }

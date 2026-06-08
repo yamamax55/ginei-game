@@ -11,13 +11,26 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
   m_Name: Yang
-  m_EditorClassIdentifier: Assembly-CSharp::Ginei.AdmiralData
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
   admiralName: "\u30E4\u30F3"
   faction: 1
-  leadership: 92
-  attack: 98
+  givenName: 
+  middleName: 
+  familyName: "\u30A6\u30A7\u30F3\u30EA\u30FC"
+  nobleParticle: 
+  regnalNumber: 0
+  epithet: "\u30DF\u30E9\u30AF\u30EB"
+  callName: 
+  isProtagonist: 1
+  rankTier: 7
+  leadership: 96
+  attack: 88
   defense: 90
-  mobility: 96
-  operation: 60
-  intelligence: 100
+  mobility: 80
+  operation: 85
+  intelligence: 99
   baseStrength: 10000
+  hasPreferredFormation: 1
+  preferredFormation: 2
+  staffOfficers: []
+  staffBonusRatio: 0.2

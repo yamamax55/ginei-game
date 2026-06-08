@@ -8,5 +8,11 @@
 .vs/
 *.csproj
 *.sln
-# Claude Code internal worktrees / session-local data (never commit)
+# Claude Code のローカル状態・worktree（追跡しない）
 .claude/
+# ローカルのバックアップzip・セットアップ用スクリプト（追跡しない）
+/*.zip
+/gh_setup.sh
+
+# Plastic SCM (Unity VCS) のローカル作業メタ：git追跡しない
+.plastic/

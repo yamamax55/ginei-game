@@ -265,6 +265,20 @@ MonoBehaviour:
   rotationSpeed: 60
   faceThreshold: 10
   arriveDistance: 0.5
+  routedMobilityRatio: 0.5
+  reverseSpeedRatio: 0.5
+  enableCongestionPenalty: 1
+  congestionRadiusScale: 1.1
+  congestionStrength: 1
+  minCongestionFactor: 0.4
+  congestionUpdateInterval: 0.2
+  congestionSmoothSpeed: 2
+  enableZoc: 1
+  zocRadiusScale: 1.5
+  zocSpeedFactor: 0.5
+  minCombinedFactor: 0.25
+  zocUpdateInterval: 0.2
+  preferredFormationMobilityBonus: 1.15
   currentSpeed: 0
 --- !u!114 &3748951871262790711
 MonoBehaviour:
@@ -291,12 +305,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7de402a475bd8884db701d3d26c8481e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.FleetWeapon
   damage: 100
   fireInterval: 1
   flankMultiplier: 2
+  missileAmmo: 10
+  missileDamageMultiplier: 3
+  missileBeamColor: {r: 1, g: 0.5, b: 0.1, a: 1}
   combatMobilityRatio: 0.3
+  pursuitStopRatio: 0.9
   beamWidth: 0.2
   beamDuration: 0.1
   beamColor: {r: 0.2, g: 0.5, b: 0.9, a: 0.8}
@@ -317,7 +335,10 @@ MonoBehaviour:
   strength: 9550
   maxStrength: 10000
   faction: 1
+  factionData: {fileID: 0}
   flashDuration: 0.1
+  retreatDistance: 50
+  preferredFormationDamageReduction: 0.15
 --- !u!114 &5379558326343095513
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -345,6 +366,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.FactionColor
   imperialColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
   allianceColor: {r: 0.2, g: 0.5, b: 0.9, a: 1}
+  flagshipGlowAlpha: 0.55
 --- !u!114 &5981108228172265115
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -359,14 +381,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.Squadron
   currentFormation: 0
   spacing: 2
-  columns: 3
   smoothTime: 0.3
+  combatSmoothTime: 1.2
+  escortCount: 50
+  escortShipCount: 200
+  memberScale: 0.8
   memberShips:
   - {fileID: 9143583804582508326}
   - {fileID: 1746193068831806453}
   - {fileID: 76653779230460392}
   - {fileID: 5132304159832819264}
   - {fileID: 8569726625464882064}
+  catchUpRatio: 1.3
+  escortRotationSpeed: 180
+  headingMoveThreshold: 0.5
+  alignToFlagshipSpeed: 360
+  minSeparation: 0.6
+  separationStrength: 0.5
+  separationUpdateInterval: 0.1
 --- !u!114 &3142600478323617334
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -384,6 +416,7 @@ MonoBehaviour:
   recoveryRate: 0.5
   combatDrainRate: 0.2
   damageDrainFactor: 0.1
+  routedRecoveryDelay: 5
 --- !u!120 &5326830166507559843
 LineRenderer:
   serializedVersion: 3
@@ -518,6 +551,13 @@ MonoBehaviour:
   currentState: 0
   retreatRatio: 0.3
   searchInterval: 2
+  avoidBlackHoles: 1
+  blackHoleSafeMargin: 3
+  blackHoleAvoidStrength: 2
+  useReverseRetreat: 1
+  reverseRetreatRange: 14
+  avoidEnemyZoc: 1
+  zocAvoidStrength: 1.5
 --- !u!1 &5499684093861285280
 GameObject:
   m_ObjectHideFlags: 0

@@ -11,9 +11,18 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
   m_Name: Attenborough
-  m_EditorClassIdentifier: Assembly-CSharp::Ginei.AdmiralData
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
   admiralName: "\u30A2\u30C3\u30C6\u30F3\u30DC\u30ED\u30FC"
   faction: 1
+  givenName: 
+  middleName: 
+  familyName: 
+  nobleParticle: 
+  regnalNumber: 0
+  epithet: 
+  callName: 
+  isProtagonist: 0
+  rankTier: 7
   leadership: 85
   attack: 84
   defense: 80
@@ -21,3 +30,7 @@ MonoBehaviour:
   operation: 75
   intelligence: 82
   baseStrength: 8000
+  hasPreferredFormation: 1
+  preferredFormation: 1
+  staffOfficers: []
+  staffBonusRatio: 0.2

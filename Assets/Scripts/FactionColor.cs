@@ -9,10 +9,24 @@ namespace Ginei
     public class FactionColor : MonoBehaviour
     {
         [Header("配色設定")]
+        [Tooltip("FactionData 未割当時のフォールバック色（帝国）")]
         public Color imperialColor = new Color(0.9f, 0.2f, 0.2f); // 帝国: 赤系
+        [Tooltip("FactionData 未割当時のフォールバック色（同盟）")]
         public Color allianceColor = new Color(0.2f, 0.5f, 0.9f); // 同盟: 青系
 
+        [Tooltip("旗艦の発光ハロー(FlagshipMarkerGlow)に乗せる陣営色の濃さ(アルファ)")]
+        public float flagshipGlowAlpha = 0.55f;
+
         private FleetStrength fleetStrength;
+
+        /// <summary>陣営色を決定する。FactionData があればその color、無ければ enum の既定色（後方互換）。</summary>
+        private Color ResolveFactionColor()
+        {
+            if (fleetStrength != null && fleetStrength.factionData != null)
+                return fleetStrength.factionData.color;
+            Faction f = (fleetStrength != null) ? fleetStrength.faction : Faction.帝国;
+            return (f == Faction.帝国) ? imperialColor : allianceColor;
+        }
 
         private void Awake()
         {
@@ -31,16 +45,24 @@ namespace Ginei
         public void ApplyColors()
         {
             if (fleetStrength == null) fleetStrength = GetComponent<FleetStrength>();
-            
-            Color targetColor = (fleetStrength.faction == Faction.帝国) ? imperialColor : allianceColor;
+
+            Color targetColor = ResolveFactionColor();
 
             // 1. スプライトの色分け (旗艦およびSquadron配下の全艦)
             SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
             foreach (var sr in renderers)
             {
-                // 選択リング(黄固定)と旗艦マーカー(金固定)は陣営色で塗らないので除外する
+                // 選択リング(黄固定)と旗艦マーカー本体(金固定)は陣営色で塗らないので除外する
                 if (sr.gameObject.name == "SelectionRing") continue;
                 if (sr.gameObject.name == "FlagshipMarker") continue;
+
+                // 旗艦の発光ハローだけは陣営色を薄く乗せる（帝国/同盟の識別＋マーカー強調）。
+                // 金ダイヤ＝旗艦の目印、ハロー色＝陣営、と役割を分ける。
+                if (sr.gameObject.name == "FlagshipMarkerGlow")
+                {
+                    sr.color = new Color(targetColor.r, targetColor.g, targetColor.b, flagshipGlowAlpha);
+                    continue;
+                }
 
                 sr.color = targetColor;
             }

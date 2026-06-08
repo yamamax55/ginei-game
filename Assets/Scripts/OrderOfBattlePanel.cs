@@ -27,7 +27,8 @@ namespace Ginei
         private Transform listContent;
         private TextMeshProUGUI hintText;
         private Faction faction;
-        private int selectedFleet; // 移動対象の艦隊番号（0=未選択）
+        private int selectedFleet;  // 移動対象の艦隊番号（0=未選択）
+        private int commandTarget;  // 司令選任中の梯団id（0=未選択）
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -70,6 +71,7 @@ namespace Ginei
         {
             faction = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
             selectedFleet = 0;
+            commandTarget = 0;
             savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
             isOpen = true;
@@ -92,12 +94,18 @@ namespace Ginei
 
             if (hintText != null)
             {
-                hintText.text = selectedFleet > 0
-                    ? $"移動中: 第{selectedFleet}艦隊　→　移動先の軍団の［ここへ］を押す（[取消]で中止）"
-                    : "O:閉じる　／　艦隊の［移動］→軍団の［ここへ］で組み替え（中身流動）";
+                hintText.text = commandTarget > 0
+                    ? "司令を選任中（×印は階級不足で選べない）"
+                    : selectedFleet > 0
+                        ? $"移動中: 第{selectedFleet}艦隊　→　移動先の軍団の［ここへ］を押す"
+                        : "O:閉じる　／　艦隊[移動]→軍団[ここへ]で組替　／　梯団[任命]で司令選任";
             }
+
+            // 司令選任モード：候補提督を階級ゲート付きで一覧（×は不可）。
+            if (commandTarget > 0) { RenderCommanderSelect(); return; }
+
             if (selectedFleet > 0)
-                AddRow("　［取消］", "取消", () => { selectedFleet = 0; Rebuild(); });
+                AddRow("　［移動を取消］", "取消", () => { selectedFleet = 0; Rebuild(); });
 
             var rendered = new HashSet<int>();
             // 最上位（親なし）の梯団から描画。軍集団→軍団→艦隊の順に。
@@ -119,11 +127,17 @@ namespace Ginei
         {
             string indent = new string('　', depth);
             string cmd = CommanderLabel(f.commander);
-            // 軍団で、かつ移動中なら「ここへ」ボタンを出す
-            bool canDrop = selectedFleet > 0 && f.echelon == EchelonType.軍団;
-            AddRow($"{indent}◆ {f.echelon} {f.DisplayName}　司令: {cmd}",
-                canDrop ? "ここへ" : null,
-                canDrop ? (UnityEngine.Events.UnityAction)(() => MoveFleetTo(f, selectedFleet)) : null);
+            // 移動中＝軍団に「ここへ」、通常＝梯団に「任命」（司令選任へ）。
+            string btn = null; UnityEngine.Events.UnityAction act = null;
+            if (selectedFleet > 0 && f.echelon == EchelonType.軍団)
+            {
+                btn = "ここへ"; act = () => MoveFleetTo(f, selectedFleet);
+            }
+            else if (selectedFleet == 0)
+            {
+                int fid = f.id; btn = "任命"; act = () => { commandTarget = fid; Rebuild(); };
+            }
+            AddRow($"{indent}◆ {f.echelon} {f.DisplayName}　司令: {cmd}", btn, act);
 
             // 直下の艦隊
             foreach (int num in f.fleetNumbers) AddFleetRow(num, depth + 1, rendered);
@@ -162,6 +176,43 @@ namespace Ginei
 
             selectedFleet = 0;
             Rebuild();
+        }
+
+        /// <summary>司令選任モードの描画：候補提督を階級ゲート付きで一覧（×は不可・選べない）。</summary>
+        private void RenderCommanderSelect()
+        {
+            MilitaryFormation f = OrderOfBattle.Get(commandTarget);
+            if (f == null) { commandTarget = 0; Rebuild(); return; }
+
+            int req = OrderOfBattle.RequiredTier(f.echelon);
+            string reqName = RankSystem.ResolveRankNameOrDefault(null, req);
+            AddRow($"◆ {f.echelon} {f.DisplayName}　現任司令: {CommanderLabel(f.commander)}");
+            AddRow($"必要階級: {reqName} 以上", "戻る", () => { commandTarget = 0; Rebuild(); });
+            if (f.HasCommander)
+                AddRow("　現司令を解任して空席に", "解任", () => { OrderOfBattle.UnassignCommander(f.id); commandTarget = 0; Rebuild(); });
+
+            AddRow("― 任命候補 ―");
+            foreach (AdmiralData adm in CandidateAdmirals())
+            {
+                bool ok = OrderOfBattle.CanCommand(adm, f.echelon);
+                string mark = ok ? "○" : "×";
+                string suffix = ok ? "" : "　（階級不足）";
+                AddRow($"　{mark} {AdmiralLabel(adm)}{suffix}",
+                    ok ? "選ぶ" : null,
+                    ok ? (UnityEngine.Events.UnityAction)(() => { OrderOfBattle.AssignCommander(f.id, adm); commandTarget = 0; Rebuild(); }) : null);
+            }
+        }
+
+        /// <summary>任命候補＝プレイヤー勢力の在席提督（艦隊の配属指揮官＋現任の梯団司令）を重複なく集める。</summary>
+        private List<AdmiralData> CandidateAdmirals()
+        {
+            var seen = new HashSet<AdmiralData>();
+            var list = new List<AdmiralData>();
+            foreach (var u in FleetRoster.AllFleets(faction))
+                if (u != null && u.assignedAdmiral != null && seen.Add(u.assignedAdmiral)) list.Add(u.assignedAdmiral);
+            foreach (var f in OrderOfBattle.AllFormations(faction))
+                if (f.commander != null && seen.Add(f.commander)) list.Add(f.commander);
+            return list;
         }
 
         private FleetStrength FindFlagship(int fleetNumber)
@@ -229,16 +280,37 @@ namespace Ginei
             hintText = CreateText(panel.transform, "", 17f, FontStyles.Normal, TextAlignmentOptions.Left);
             hintText.color = new Color(0.7f, 0.8f, 0.9f);
 
-            // ツリー本体（縦積み）
-            var listGo = new GameObject("List", typeof(RectTransform));
-            listGo.transform.SetParent(panel.transform, false);
-            var listVlg = listGo.AddComponent<VerticalLayoutGroup>();
-            listVlg.spacing = 4f; listVlg.childControlWidth = true; listVlg.childForceExpandWidth = true;
-            listVlg.childControlHeight = true; listVlg.childForceExpandHeight = false;
-            listVlg.childAlignment = TextAnchor.UpperLeft;
-            var listLE = listGo.AddComponent<LayoutElement>();
-            listLE.flexibleHeight = 1f;
-            listContent = listGo.transform;
+            // ツリー本体（スクロール可能。艦隊数が多くても溢れない）
+            var scrollGo = new GameObject("Scroll", typeof(RectTransform));
+            scrollGo.transform.SetParent(panel.transform, false);
+            var scrollLE = scrollGo.AddComponent<LayoutElement>();
+            scrollLE.flexibleHeight = 1f;
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false; scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f;
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform));
+            viewport.transform.SetParent(scrollGo.transform, false);
+            StretchFull(viewport.GetComponent<RectTransform>());
+            viewport.AddComponent<RectMask2D>();
+            var vpImg = viewport.AddComponent<Image>();
+            vpImg.color = new Color(0f, 0f, 0f, 0.12f); // スクロールのレイキャスト受け
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+
+            var content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(viewport.transform, false);
+            var cRT = content.GetComponent<RectTransform>();
+            cRT.anchorMin = new Vector2(0f, 1f); cRT.anchorMax = new Vector2(1f, 1f);
+            cRT.pivot = new Vector2(0.5f, 1f); cRT.anchoredPosition = Vector2.zero;
+            var cVlg = content.AddComponent<VerticalLayoutGroup>();
+            cVlg.spacing = 4f; cVlg.childControlWidth = true; cVlg.childForceExpandWidth = true;
+            cVlg.childControlHeight = true; cVlg.childForceExpandHeight = false;
+            cVlg.childAlignment = TextAnchor.UpperLeft;
+            var cFit = content.AddComponent<ContentSizeFitter>();
+            cFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.content = cRT;
+            listContent = content.transform;
 
             CreateButton(panel.transform, "閉じる (O / Esc)", Close);
 

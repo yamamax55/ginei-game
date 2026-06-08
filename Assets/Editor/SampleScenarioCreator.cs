@@ -21,16 +21,17 @@ namespace Ginei
             EnsureFolder(AdmiralDir);
             EnsureFolder(ScenarioDir);
 
-            // 提督（無ければ作成・あれば再利用）。能力は 0-100。得意陣形＝個性（攻撃型:紡錘陣／機動型:鶴翼陣／防御型:円陣・方陣）。
-            AdmiralData reinhard = GetOrCreateAdmiral("Reinhard", "ラインハルト", Faction.帝国, 98, 95, 88, 92, 70, 90, 10000, Formation.紡錘陣);
-            AdmiralData kircheis = GetOrCreateAdmiral("Kircheis", "キルヒアイス", Faction.帝国, 92, 90, 85, 88, 80, 88, 9000, Formation.紡錘陣);
-            AdmiralData mittermeyer = GetOrCreateAdmiral("Mittermeyer", "ミッターマイヤー", Faction.帝国, 90, 88, 82, 98, 78, 80, 9000, Formation.鶴翼陣);
-            AdmiralData reuental = GetOrCreateAdmiral("Reuental", "ロイエンタール", Faction.帝国, 91, 90, 84, 90, 80, 85, 9000, Formation.紡錘陣);
+            // 提督（無ければ作成・階級は再生成で更新）。能力は 0-100。得意陣形＝個性（攻撃型:紡錘陣／機動型:鶴翼陣／防御型:円陣・方陣）。
+            // 階級 tier（#14 既定ラダー：中将7/大将8/上級大将9/元帥10）。梯団の必要階級（軍団=大将8/軍集団=元帥10）と噛み合う配分。
+            AdmiralData reinhard = GetOrCreateAdmiral("Reinhard", "ラインハルト", Faction.帝国, 98, 95, 88, 92, 70, 90, 10000, Formation.紡錘陣, 10); // 元帥
+            AdmiralData kircheis = GetOrCreateAdmiral("Kircheis", "キルヒアイス", Faction.帝国, 92, 90, 85, 88, 80, 88, 9000, Formation.紡錘陣, 9); // 上級大将
+            AdmiralData mittermeyer = GetOrCreateAdmiral("Mittermeyer", "ミッターマイヤー", Faction.帝国, 90, 88, 82, 98, 78, 80, 9000, Formation.鶴翼陣, 8); // 大将
+            AdmiralData reuental = GetOrCreateAdmiral("Reuental", "ロイエンタール", Faction.帝国, 91, 90, 84, 90, 80, 85, 9000, Formation.紡錘陣, 8); // 大将
 
-            AdmiralData yang = GetOrCreateAdmiral("Yang", "ヤン", Faction.同盟, 96, 88, 90, 80, 85, 99, 10000, Formation.円陣);
-            AdmiralData bucock = GetOrCreateAdmiral("Bucock", "ビュコック", Faction.同盟, 90, 82, 88, 75, 88, 85, 9000, Formation.方陣);
-            AdmiralData attenborough = GetOrCreateAdmiral("Attenborough", "アッテンボロー", Faction.同盟, 85, 84, 80, 88, 75, 82, 8000, Formation.鶴翼陣);
-            AdmiralData uranff = GetOrCreateAdmiral("Uranff", "ウランフ", Faction.同盟, 86, 83, 82, 84, 80, 80, 8500, Formation.横陣);
+            AdmiralData yang = GetOrCreateAdmiral("Yang", "ヤン", Faction.同盟, 96, 88, 90, 80, 85, 99, 10000, Formation.円陣, 7); // 中将（軍団司令には階級不足＝ゲート体感用）
+            AdmiralData bucock = GetOrCreateAdmiral("Bucock", "ビュコック", Faction.同盟, 90, 82, 88, 75, 88, 85, 9000, Formation.方陣, 10); // 元帥
+            AdmiralData attenborough = GetOrCreateAdmiral("Attenborough", "アッテンボロー", Faction.同盟, 85, 84, 80, 88, 75, 82, 8000, Formation.鶴翼陣, 7); // 中将
+            AdmiralData uranff = GetOrCreateAdmiral("Uranff", "ウランフ", Faction.同盟, 86, 83, 82, 84, 80, 80, 8500, Formation.横陣, 8); // 大将
 
             // 1) 兵力差：帝国2(ラインハルト＋キルヒアイス) vs 同盟1(ヤン)
             CreateScenario("ヴァンフリート星域会戦", new List<ScenarioData.FleetEntry>
@@ -88,11 +89,17 @@ namespace Ginei
 
         private static AdmiralData GetOrCreateAdmiral(string fileName, string admiralName, Faction faction,
             int leadership, int attack, int defense, int mobility, int operation, int intelligence, int baseStrength,
-            Formation preferred)
+            Formation preferred, int rankTier)
         {
             string path = $"{AdmiralDir}/{fileName}.asset";
             AdmiralData existing = AssetDatabase.LoadAssetAtPath<AdmiralData>(path);
-            if (existing != null) return existing; // 既存は尊重（上書きしない）
+            if (existing != null)
+            {
+                // 既存の能力等は尊重しつつ、階級(#14)だけは再生成で更新する。
+                existing.rankTier = rankTier;
+                EditorUtility.SetDirty(existing);
+                return existing;
+            }
 
             AdmiralData a = ScriptableObject.CreateInstance<AdmiralData>();
             a.admiralName = admiralName;
@@ -106,6 +113,7 @@ namespace Ginei
             a.baseStrength = baseStrength;
             a.hasPreferredFormation = true;   // #104：得意陣形を割り当てる
             a.preferredFormation = preferred;
+            a.rankTier = rankTier;            // #14：階級
             AssetDatabase.CreateAsset(a, path);
             return a;
         }

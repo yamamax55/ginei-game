@@ -139,6 +139,8 @@
 | `StrategySession` | static 戦略世界状態（銀河グラフ＋艦隊レジストリ）をシーン遷移を跨いで保持（C-3）。`Map`/`Reg`/`HasState`/`Set`/`Clear`。Battle へ往復しても盤面を失わない（再生中は static が生存）。 |
 | `Planet` | 惑星攻城の対象（#131 惑星戦・PB-3〜7）。`[Serializable]` 純データ。`systemId`/`owner`/`orbitalDefense`(制空権＝ピラー・ドメイン/超兵器・>0で艦隊接近不可)/`maxOrbitalDefense`/`invasionProgress`(侵略値)/`invasionThreshold`＋`DomainDown`(制空権崩壊)/`Captured`(占領)/`FleetApproachBlocked`(接近限界 PB-5)。コロニー・要塞も同枠(PB-6)。攻略の解決は `PlanetSiegeRules` が唯一の窓口。 |
 | `PlanetSiegeRules` | static 惑星攻城ロジック（#131・#208 自動解決の数値モデル・純ロジック）。二段階：①S-AV(#757)が制空権を抑制→`DomainDown`／②ダウン後に侵略値を蓄積→閾値で占領（`owner` を攻撃側へフリップ）。`Tick(planet,attacker,attackerSAV,dt[,SiegeParams])`(1tick一段階・状態遷移 `SiegeTickResult{domainWentDown,captured}` を返す)＋`SiegeParams{suppressRate,invadeRate,defenseRegen}`(`Default`=1/1/0)。戦闘式・占領判定をここへ集約。 |
+| `Province` | 内政（#109 P-1/P-2 最小ループ）の純データ。`[Serializable]`。`systemId`/`nativeIdeology`(住民の思想＝占領しても即は変わらない)/`population`(Pop)/`stability`(安定度0..100)/`integration`(占領統合度0..1)。所有勢力は `StarSystem.owner` が出所＝ここには持たない。解決は `GovernanceRules` が唯一の窓口。タイクン回避＝建設マイクロ/通貨経済は持たない。 |
+| `GovernanceRules` | static 内政ロジック（#109 P-1/P-2・純ロジック test-first）。安定度は目標値へ収束：目標＝基準＋思想一致(±)−戦時−補給不足−(未統合ぶんの占領不満)。占領直後は `integration`=0 で不満最大→時間で統合→安定回復。`Tick(province,ownerData,supplyOk,atWar,dt)`／`EquilibriumStability(integration,ideologyMod,supplyOk,atWar)`(純関数)／`OnOccupied(province)`(統合リセット＝攻城 `ApplySiegeResult` から呼ぶ想定)／`OutputFactor(province)`(安定度比例＝支配≠即産出)／`IsUnrest`/`RebelPressure`/`IdeologyModifier`。調整値は const に集約。 |
 
 ## 壊すと不具合になる依存・命名
 - 旗艦の子オブジェクト名は固定。`FactionColor`/`FleetStrength.Flash`/`Squadron` がこれらの名前で除外・再利用判定する。**変えない・重複生成しない**：
@@ -177,7 +179,7 @@
 
 ## テスト基盤（EditMode）
 - アセンブリ定義で分離：`Ginei.Runtime`(`Assets/Scripts`)／`Ginei.Editor`(`Assets/Editor`)／`Ginei.Tests.EditMode`(`Assets/Tests/EditMode`、`Ginei.Runtime`＋`nunit.framework`参照、`defineConstraints: UNITY_INCLUDE_TESTS`)。
-- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode) で担保する：`RankSystem`/`FactionData`/`FactionRelations`/`AdmiralData`(命名)/`ProtagonistRules`/`DamagePopup`(スタイル)＋戦略レイヤー(`GalaxyMap`/`StrategicFleet`/`GalaxyPathfinder`/`StrategicFleetRegistry`/`StrategyRules`)＋惑星攻城(`PlanetSiegeRules`/`Planet`)。
+- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode) で担保する：`RankSystem`/`FactionData`/`FactionRelations`/`AdmiralData`(命名)/`ProtagonistRules`/`DamagePopup`(スタイル)＋戦略レイヤー(`GalaxyMap`/`StrategicFleet`/`GalaxyPathfinder`/`StrategicFleetRegistry`/`StrategyRules`)＋惑星攻城(`PlanetSiegeRules`/`Planet`)＋内政(`GovernanceRules`/`Province`)。
 - シーン/UI/MonoBehaviour 挙動はエディタ Play で目視検証（テスト対象外）。新規の純ロジックを足したら EditMode テストを併記する。
 
 ## 運用

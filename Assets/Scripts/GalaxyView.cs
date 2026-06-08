@@ -409,12 +409,12 @@ namespace Ginei
                 }
                 else if (!p.DomainDown)
                 {
-                    text = $"{s.systemName} を攻城中：制空権 {Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%（S-AVが制圧）";
+                    text = $"{s.systemName} を攻城中：制空権 {Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%（S-AVが制圧）／ダブルクリックで突入";
                     col = defenseColor;
                 }
                 else if (!p.Captured)
                 {
-                    text = $"{s.systemName} へ侵攻中：侵略 {Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%";
+                    text = $"{s.systemName} へ侵攻中：侵略 {Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%／ダブルクリックで突入";
                     col = invadeColor;
                 }
                 else continue;
@@ -448,7 +448,7 @@ namespace Ginei
                 float now = Time.realtimeSinceStartup;
                 bool dbl = (now - lastClickTime <= doubleClickWindow) && Vector2.Distance(w, lastClickWorld) <= 0.6f;
                 lastClickTime = now; lastClickWorld = w;
-                if (dbl && TryDescend(w)) return;
+                if (dbl && (TryDescend(w) || TryDescendPlanet(w))) return;
 
                 bool additive = ShiftHeld();
                 StrategicFleet nf = NearestFleet(w, 0.7f);
@@ -504,6 +504,41 @@ namespace Ginei
             BattleHandoff.Queue(a, b, "Strategy");
             SceneManager.LoadScene("Battle");
             return true;
+        }
+
+        /// <summary>
+        /// クリック位置の星系が敵の防衛惑星で、自軍が攻城中なら、惑星攻城の戦術マップ（Battleシーン）へ突入する（#131）。
+        /// 中心に惑星・攻城艦隊が包囲・首飾り射程の外までの状態で開始する。
+        /// </summary>
+        private bool TryDescendPlanet(Vector2 w)
+        {
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > systemClickRadius) return false;
+            StarSystem s = map.GetSystem(sysId);
+            if (s == null || s.planet == null) return false;
+
+            StrategicFleet besieger = FindBesieger(sysId, s.planet.owner);
+            if (besieger == null) return false;
+
+            float defRatio = s.planet.maxOrbitalDefense > 0f ? s.planet.orbitalDefense / s.planet.maxOrbitalDefense : 0f;
+            BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio,
+                besieger.faction, besieger.strength, "Strategy");
+            SceneManager.LoadScene("Battle");
+            return true;
+        }
+
+        /// <summary>指定星系に停泊し惑星所有者と敵対する艦隊（攻城側）を返す。選択中を優先、無ければ任意。</summary>
+        private StrategicFleet FindBesieger(int sysId, Faction planetOwner)
+        {
+            for (int i = 0; i < selectedFleets.Count; i++)
+            {
+                StrategicFleet f = selectedFleets[i];
+                if (f != null && !f.IsOnCorridor && f.currentSystemId == sysId &&
+                    FactionRelations.IsHostile(null, f.faction, null, planetOwner)) return f;
+            }
+            foreach (var f in reg.FleetsAt(sysId))
+                if (f != null && FactionRelations.IsHostile(null, f.faction, null, planetOwner)) return f;
+            return null;
         }
 
         /// <summary>交戦中（engaged）の艦隊が1隻でも居るか。</summary>

@@ -16,11 +16,13 @@ MonoBehaviour:
   faction: 1
   givenName: 
   middleName: 
-  familyName: 
+  familyName: "\u30A6\u30A7\u30F3\u30EA\u30FC"
   nobleParticle: 
   regnalNumber: 0
-  epithet: 
+  epithet: "\u30DF\u30E9\u30AF\u30EB"
   callName: 
+  isProtagonist: 1
+  rankTier: 7
   leadership: 96
   attack: 88
   defense: 90

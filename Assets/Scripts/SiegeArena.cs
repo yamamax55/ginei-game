@@ -267,20 +267,24 @@ namespace Ginei
 
         private void LateUpdate()
         {
-            // 接近限界：旗艦が制空圏（首飾り射程）内へ入っていたらリング上へ押し戻す（配下艦は旗艦に追従）。
+            // 接近限界：制空圏（首飾り射程）内へ入った艦（旗艦＋配下艦）をリング上へ押し戻す。
+            // 旗艦だけ止めると周囲に展開する配下艦が内側へはみ出すため、全個艦を対象にする。
+            // S-AVクラフトはレジストリ非登録なので影響を受けない（突入演出としてリング内を飛ぶ）。
             Vector2 center = transform.position;
-            var flags = FleetRegistry.AllFlagships;
-            for (int i = 0; i < flags.Count; i++)
+            var targets = FleetRegistry.AllTargets;
+            for (int i = 0; i < targets.Count; i++)
             {
-                FleetStrength fs = flags[i];
-                if (fs == null) continue;
-                Vector3 pos = fs.transform.position;
+                IShipTarget t = targets[i];
+                if (t == null) continue;
+                Transform tr = t.Transform;
+                if (tr == null) continue;
+                Vector3 pos = tr.position;
                 Vector2 d = (Vector2)pos - center;
                 float dist = d.magnitude;
                 if (dist < approachRadius && dist > 0.0001f)
                 {
                     Vector2 clamped = center + d / dist * approachRadius;
-                    fs.transform.position = new Vector3(clamped.x, clamped.y, pos.z);
+                    tr.position = new Vector3(clamped.x, clamped.y, pos.z);
                 }
             }
         }

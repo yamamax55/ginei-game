@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -22,12 +23,21 @@ namespace Ginei
 
         private float corridorLength;
         private float traveled;
+        private List<int> route;   // 多ホップ経路の残り（次の目的地より先の星系ID列）
 
         /// <summary>現在の回廊での進行度（0..1）。停泊中は1。</summary>
         public float Progress => corridorLength > 0f ? Mathf.Clamp01(traveled / corridorLength) : 1f;
 
         /// <summary>到着までの推定時間（秒）。停泊中・速度0は0。</summary>
         public float Eta => (IsMoving && warpSpeed > 0f) ? Mathf.Max(0f, (corridorLength - traveled) / warpSpeed) : 0f;
+
+        /// <summary>多ホップ経路がまだ残っているか（途中星系を経由中）。</summary>
+        public bool HasRoute => route != null && route.Count > 0;
+
+        /// <summary>最終目的地の星系ID（経路があればその終点／移動中なら現在の目的地／停泊中は現在地）。</summary>
+        public int FinalDestinationId =>
+            (route != null && route.Count > 0) ? route[route.Count - 1]
+            : (IsMoving ? destinationSystemId : currentSystemId);
 
         public StrategicFleet() { }
 
@@ -56,9 +66,33 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 銀河時間を deltaTime 進める。回廊上を warpSpeed で前進し、到着したら true を返す。
+        /// goalId まで最短経路（回廊 length 合計が最小）でワープを開始する。到達不能／移動中／
+        /// 同一星系なら false。経由星系は到着ごとに自動で次へ継続する（Tick(map,dt) を使うこと）。
         /// </summary>
-        public bool Tick(float deltaTime)
+        public bool WarpTo(GalaxyMap map, int goalId)
+        {
+            if (map == null || IsMoving || goalId == currentSystemId) return false;
+            List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId);
+            if (path == null || path.Count < 2) return false; // 到達不能
+
+            int firstHop = path[1];
+            route = (path.Count > 2) ? path.GetRange(2, path.Count - 2) : new List<int>();
+            return BeginWarp(map, firstHop);
+        }
+
+        /// <summary>
+        /// 銀河時間を deltaTime 進める（単一ホップ用・経路の自動継続なし・後方互換）。
+        /// 回廊上を warpSpeed で前進し、到着したら true。
+        /// </summary>
+        public bool Tick(float deltaTime) => TickInternal(null, deltaTime);
+
+        /// <summary>
+        /// 銀河時間を deltaTime 進める（経路追従用）。到着時に残り経路があれば map を使って
+        /// 次のホップへ自動継続する。各ホップ到着で true を返す。
+        /// </summary>
+        public bool Tick(GalaxyMap map, float deltaTime) => TickInternal(map, deltaTime);
+
+        private bool TickInternal(GalaxyMap map, float deltaTime)
         {
             if (!IsMoving) return false;
             traveled += warpSpeed * deltaTime;
@@ -68,7 +102,15 @@ namespace Ginei
                 IsMoving = false;
                 traveled = 0f;
                 corridorLength = 0f;
-                return true;
+
+                // 残り経路があれば次のホップへ自動継続（map が要る）
+                if (map != null && route != null && route.Count > 0)
+                {
+                    int next = route[0];
+                    route.RemoveAt(0);
+                    BeginWarp(map, next);
+                }
+                return true; // このホップに到着
             }
             return false;
         }

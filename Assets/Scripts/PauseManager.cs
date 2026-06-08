@@ -64,6 +64,9 @@ namespace Ginei
 
         private void HandleInput()
         {
+            // 艦隊詳細パネル表示中は、そのパネルがポーズ／Esc を握る（入力を譲る）。
+            if (FleetDetailPanel.IsOpen) return;
+
             if (Keyboard.current == null) return;
 
             // Space: 一時停止 / 再開

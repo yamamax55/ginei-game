@@ -13,3 +13,6 @@
 # ローカルのバックアップzip・セットアップ用スクリプト（追跡しない）
 /*.zip
 /gh_setup.sh
+
+# Plastic SCM (Unity VCS) のローカル作業メタ：git追跡しない
+.plastic/

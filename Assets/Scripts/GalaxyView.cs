@@ -165,7 +165,7 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 星系:ワープ / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:選択艦隊をワープ / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.75f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -270,33 +270,39 @@ namespace Ginei
         private void HandleMouse()
         {
             if (Mouse.current == null || cam == null) return;
-            if (!Mouse.current.leftButton.wasPressedThisFrame) return;
 
-            Vector3 sp = Mouse.current.position.ReadValue();
-            Vector3 wp = cam.ScreenToWorldPoint(new Vector3(sp.x, sp.y, -cam.transform.position.z));
-            Vector2 w = wp;
-            bool additive = Keyboard.current != null &&
-                            (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
-
-            StrategicFleet nf = NearestFleet(w, 0.7f);
-            if (nf != null)
+            // 左クリック：選択（Shiftで追加/トグル、空白で解除）
+            if (Mouse.current.leftButton.wasPressedThisFrame)
             {
-                if (additive)
+                Vector2 w = WorldMouse();
+                bool additive = ShiftHeld();
+                StrategicFleet nf = NearestFleet(w, 0.7f);
+                if (nf != null)
                 {
-                    if (!selectedFleets.Remove(nf)) selectedFleets.Add(nf); // トグル
+                    if (additive) { if (!selectedFleets.Remove(nf)) selectedFleets.Add(nf); }
+                    else { selectedFleets.Clear(); selectedFleets.Add(nf); }
                 }
-                else { selectedFleets.Clear(); selectedFleets.Add(nf); }
-                return;
+                else if (!additive) selectedFleets.Clear();
             }
-
-            int sysId = NearestSystem(w, systemScale + 0.3f);
-            if (sysId >= 0 && selectedFleets.Count > 0)
+            // 右クリック：選択中の全艦隊を、クリックした星系へワープ（移動中でも再指示できる）
+            else if (Mouse.current.rightButton.wasPressedThisFrame)
             {
-                foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
-                return;
+                int sysId = NearestSystem(WorldMouse(), systemScale + 0.5f);
+                if (sysId >= 0 && selectedFleets.Count > 0)
+                    foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
             }
+        }
 
-            if (!additive) selectedFleets.Clear(); // 空白クリックで解除
+        private Vector2 WorldMouse()
+        {
+            Vector3 sp = Mouse.current.position.ReadValue();
+            return cam.ScreenToWorldPoint(new Vector3(sp.x, sp.y, -cam.transform.position.z));
+        }
+
+        private static bool ShiftHeld()
+        {
+            var kb = Keyboard.current;
+            return kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
         }
 
         private StrategicFleet NearestFleet(Vector2 w, float radius)

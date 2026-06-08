@@ -94,6 +94,32 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void WarpTo_WhileMoving_RedirectsFromNextSystem()
+        {
+            // 0—(1)—1—(1)—2 の直線。0→1 移動中に 2 へ再指示すると、1 到着後に 1→2 へ継続する。
+            var m = new GalaxyMap();
+            m.AddSystem(new StarSystem(0, "A", Vector2.zero));
+            m.AddSystem(new StarSystem(1, "B", Vector2.right));
+            m.AddSystem(new StarSystem(2, "C", Vector2.up));
+            m.AddCorridor(new Corridor(0, 1, 1f));
+            m.AddCorridor(new Corridor(1, 2, 1f));
+
+            var f = new StrategicFleet(1, 0) { warpSpeed = 1f };
+            f.BeginWarp(m, 1);                  // 0→1 移動中
+            Assert.IsTrue(f.WarpTo(m, 2));      // 移動中でも受理
+            Assert.AreEqual(2, f.FinalDestinationId);
+
+            var reg = new StrategicFleetRegistry(m);
+            reg.Add(f);
+            reg.Tick(1f);                       // 1到着→自動で 1→2 へ
+            Assert.AreEqual(1, f.currentSystemId);
+            Assert.IsTrue(f.IsMoving);
+            reg.Tick(1f);                       // 2到着
+            Assert.AreEqual(2, f.currentSystemId);
+            Assert.IsFalse(f.IsMoving);
+        }
+
+        [Test]
         public void GetFleet_ById()
         {
             var reg = new StrategicFleetRegistry(MakeMap());

@@ -66,12 +66,25 @@ namespace Ginei
         }
 
         /// <summary>
-        /// goalId まで最短経路（回廊 length 合計が最小）でワープを開始する。到達不能／移動中／
-        /// 同一星系なら false。経由星系は到着ごとに自動で次へ継続する（Tick(map,dt) を使うこと）。
+        /// goalId まで最短経路（回廊 length 合計が最小）でワープを開始する。到達不能／同一星系なら false。
+        /// 移動中でも受理し、その場合は現在のホップ（到達予定の星系まで）は維持したまま、到達予定星系から
+        /// goalId への経路に引き直す＝「次の星系に着いてから新しい目的地へ向かう」。
+        /// 経由星系は到着ごとに自動で次へ継続する（Tick(map,dt) を使うこと）。
         /// </summary>
         public bool WarpTo(GalaxyMap map, int goalId)
         {
-            if (map == null || IsMoving || goalId == currentSystemId) return false;
+            if (map == null) return false;
+
+            // 移動中：現在のホップは維持し、到達予定星系から goalId への経路に引き直す。
+            if (IsMoving)
+            {
+                List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId);
+                if (p.Count == 0) return false; // 到達不能
+                route = (p.Count > 1) ? p.GetRange(1, p.Count - 1) : new List<int>();
+                return true;
+            }
+
+            if (goalId == currentSystemId) return false;
             List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId);
             if (path == null || path.Count < 2) return false; // 到達不能
 

@@ -20,14 +20,26 @@ namespace Ginei
         [Tooltip("恒星の色（既定=暖色の太陽）")]
         public Color starColor = new Color(1f, 0.85f, 0.4f);
 
-        [Header("軌道リング（惑星配置のプレースホルダ・後の宿題）")]
-        [Tooltip("描く軌道リングの半径（恒星から外側へ。将来ここに第一惑星・第二惑星…を置く）")]
+        [Header("軌道と惑星（恒星中心に第一惑星・第二惑星…を象徴配置・#767）")]
+        [Tooltip("惑星を置く軌道半径（恒星から外側へ。要素数=惑星数）。実スケールは採らず象徴的な間隔にする")]
         public float[] orbitRadii = new float[] { 3.5f, 5.5f, 7.5f };
+        [Tooltip("軌道リングの色")]
         public Color orbitColor = new Color(0.6f, 0.7f, 0.9f, 0.35f);
+        [Tooltip("惑星の見た目スケール（恒星より小さく）")]
+        public float planetScale = 0.7f;
+        [Tooltip("惑星の色パレット（軌道順に巡回）")]
+        public Color[] planetColors = new Color[]
+        {
+            new Color(0.55f, 0.75f, 1f),   // 青
+            new Color(0.85f, 0.6f, 0.45f), // 赤茶
+            new Color(0.6f, 0.85f, 0.65f), // 緑
+            new Color(0.85f, 0.8f, 0.55f), // 黄土
+        };
 
         public string systemName = "星系";
 
         private SpriteRenderer starRenderer;
+        private Sprite discSprite;   // 恒星・惑星で共有するディスク（OnDestroy で破棄）
         private Material orbitMat;
 
         /// <summary>恒星・星系名・軌道リングを生成する。</summary>
@@ -35,21 +47,27 @@ namespace Ginei
         {
             transform.position = Vector3.zero;
 
+            // 恒星・惑星で共有するディスクスプライト
+            discSprite = MakeDisc(128);
+
             // 中心の恒星（ラジアルグラデのディスク）
             var starGo = new GameObject("Star");
             starGo.transform.SetParent(transform, false);
             starRenderer = starGo.AddComponent<SpriteRenderer>();
-            starRenderer.sprite = MakeDisc(128);
+            starRenderer.sprite = discSprite;
             starRenderer.color = starColor;
             starRenderer.sortingOrder = -40;
             starGo.transform.localScale = Vector3.one * starScale;
 
-            // 軌道リング（惑星を置く位置のヒント＝後の宿題のプレースホルダ）
+            // 軌道リング＋惑星（恒星を中心に第一惑星・第二惑星…を象徴配置・#767）
             orbitMat = new Material(Shader.Find("Sprites/Default")) { color = Color.white };
             if (orbitRadii != null)
             {
                 for (int i = 0; i < orbitRadii.Length; i++)
+                {
                     BuildOrbitRing(orbitRadii[i], i);
+                    BuildPlanet(orbitRadii[i], i);
+                }
             }
 
             // 星系名ラベル
@@ -69,7 +87,7 @@ namespace Ginei
             hintGo.transform.SetParent(transform, false);
             hintGo.transform.localPosition = new Vector3(0f, -(starScale + 2.0f), 0f);
             var hint = hintGo.AddComponent<TextMesh>();
-            hint.text = "システムビュー（恒星系）　Backspaceで戦略マップへ戻る\n惑星配置（第一惑星・第二惑星…）は実装予定";
+            hint.text = "システムビュー（恒星系）　Backspaceで戦略マップへ戻る\n惑星単位の内政は実装予定";
             hint.font = FontProvider.JapaneseFont;
             hint.fontSize = 36; hint.characterSize = 0.08f;
             hint.anchor = TextAnchor.UpperCenter; hint.alignment = TextAlignment.Center;
@@ -98,11 +116,49 @@ namespace Ginei
             }
         }
 
+        // 第index惑星を軌道リング上に象徴配置する（実スケールではない・#767）。
+        // ★後の宿題（#767）：惑星をクリックして惑星単位の内政を開く操作をここに追加する。
+        private void BuildPlanet(float radius, int index)
+        {
+            // golden-angle 風に散らして惑星・ラベルの重なりを避ける（決定的）
+            float angle = (90f - index * 137.5f) * Mathf.Deg2Rad;
+            Vector3 pos = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+
+            var go = new GameObject($"Planet{index + 1}");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = pos;
+            go.transform.localScale = Vector3.one * planetScale;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = discSprite; // 恒星と共有（OnDestroy で一括破棄）
+            sr.color = (planetColors != null && planetColors.Length > 0)
+                ? planetColors[index % planetColors.Length] : Color.white;
+            sr.sortingOrder = -42;
+
+            // 「第N惑星」ラベル（惑星のスケールに引きずられないよう root の子にする）
+            var labelGo = new GameObject($"Planet{index + 1}Label");
+            labelGo.transform.SetParent(transform, false);
+            labelGo.transform.localPosition = pos + new Vector3(0f, planetScale * 0.9f + 0.3f, 0f);
+            var tm = labelGo.AddComponent<TextMesh>();
+            tm.text = $"第{Ordinal(index + 1)}惑星";
+            tm.font = FontProvider.JapaneseFont;
+            tm.fontSize = 36; tm.characterSize = 0.1f;
+            tm.anchor = TextAnchor.LowerCenter; tm.alignment = TextAlignment.Center;
+            tm.color = new Color(0.85f, 0.9f, 1f);
+            if (tm.font != null) labelGo.GetComponent<MeshRenderer>().material = tm.font.material;
+        }
+
+        /// <summary>1〜9 を漢数字へ（第一惑星・第二惑星…）。範囲外は算用数字。</summary>
+        private static string Ordinal(int n)
+        {
+            string[] k = { "", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
+            return (n >= 1 && n <= 9) ? k[n] : n.ToString();
+        }
+
         private void OnDestroy()
         {
             if (orbitMat != null) Destroy(orbitMat);
-            if (starRenderer != null && starRenderer.sprite != null && starRenderer.sprite.texture != null)
-                Destroy(starRenderer.sprite.texture);
+            // 恒星・惑星で共有しているディスクのテクスチャを破棄
+            if (discSprite != null && discSprite.texture != null) Destroy(discSprite.texture);
         }
 
         /// <summary>中心が明るく外周へ減衰するラジアルグラデのディスク（恒星表現）。</summary>

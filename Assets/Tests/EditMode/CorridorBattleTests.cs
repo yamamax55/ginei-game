@@ -126,6 +126,11 @@ namespace Ginei.Tests
             var ally = new StrategicFleet(2, 1, Faction.同盟) { strength = 200 }; ally.BeginWarp(m, 0); // 1→0（同一回廊）
             reg.Add(imp); reg.Add(ally);
 
+            // 入った直後はまだ回廊内で接触していない（複数艦が同じ回廊に同時に居られる）
+            Assert.AreEqual(0, StrategyRules.ResolveEncounters(reg));
+
+            // 中間まで進めると交差＝接触して戦闘（len4・speed1 → 双方 progress 0.5 で交差）
+            reg.Tick(2f);
             Assert.AreEqual(1, StrategyRules.ResolveEncounters(reg));
             Assert.IsNull(reg.GetFleet(2));      // 敗者(同盟200)除去
             Assert.AreEqual(100, imp.strength);  // 勝者 残存100

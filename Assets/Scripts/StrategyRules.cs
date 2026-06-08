@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Ginei
 {
@@ -137,6 +138,7 @@ namespace Ginei
                 StrategicFleet a = e.a, b = e.b;
                 if (a == null || b == null) continue;
                 if (reg.GetFleet(a.id) == null || reg.GetFleet(b.id) == null) continue; // 既に除去済み
+                if (!FleetsCollided(a, b)) continue; // 回廊内でまだ接触していない（複数艦が同じ回廊に居られる）
 
                 var r = ResolveCorridorBattle(a.strength, b.strength);
                 StrategicFleet winner = r.attackerWon ? a : b;
@@ -147,6 +149,30 @@ namespace Ginei
                 count++;
             }
             return count;
+        }
+
+        /// <summary>
+        /// 同一回廊上の2艦隊が「回廊内で接触したか」を位置で判定する（IsOnSameCorridor が前提）。
+        /// 回廊エッジ {min,max} 上の進行位置で、正面から来る2艦は交差した瞬間、同方向は近接で接触とみなす。
+        /// これにより複数艦が同じ回廊に同時に居られ、ぶつかった瞬間だけ戦闘になる。
+        /// </summary>
+        private static bool FleetsCollided(StrategicFleet a, StrategicFleet b)
+        {
+            const float eps = 0.04f;
+            int min = Mathf.Min(a.currentSystemId, a.destinationSystemId);
+
+            // 各艦の「エッジ min からの進行位置（0..1）」
+            bool aFromMin = a.currentSystemId == min;
+            bool bFromMin = b.currentSystemId == min;
+            float fa = aFromMin ? a.Progress : 1f - a.Progress;
+            float fb = bFromMin ? b.Progress : 1f - b.Progress;
+
+            if (aFromMin == bFromMin) return Mathf.Abs(fa - fb) <= eps; // 同方向＝近接で接触
+
+            // 正面衝突：min 側から来た艦が max 側から来た艦に追いついた（交差した）瞬間
+            float fromMin = aFromMin ? fa : fb;
+            float fromMax = aFromMin ? fb : fa;
+            return fromMin >= fromMax - eps;
         }
 
         /// <summary>

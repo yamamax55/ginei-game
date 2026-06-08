@@ -46,6 +46,12 @@ namespace Ginei
                  "既定 false＝従来どおり（後方互換）。判定は ProtagonistRules を参照すること")]
         public bool isProtagonist = false;
 
+        [Header("階級（#14・任意）")]
+        [Tooltip("階級の序列 tier（所属勢力の階級表 FactionData.ranks から名称を解決）。" +
+                 "0＝未設定＝HUDに階級を出さない（後方互換）。欠番tierは直近tierへ丸め（RankSystem.ResolveRankName）。" +
+                 "既定ラダー：5准将/6少将/7中将/8大将/9上級大将(帝国)/10元帥")]
+        public int rankTier = 0;
+
         [Header("能力値 (0-100)")]
         [Tooltip("兵力上限・士気に影響")]
         public int leadership = 80;    // 統率

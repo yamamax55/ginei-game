@@ -83,7 +83,10 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
                     AdmiralData ad = strength.admiralData;
                     string fullName = (ad != null) ? ad.FullName : strength.admiralName;
                     string mark = ProtagonistRules.IsProtagonist(ad) ? "★ " : ""; // 主人公（GON-6）
-                    string admiralLine = $"提督: {mark}{fullName}";
+                    // 階級（#14）：所属勢力の階級表から名称を解決（未設定/不明なら空＝出さない）
+                    string rankName = RankSystem.ResolveRankName(strength.factionData, (ad != null) ? ad.rankTier : 0);
+                    string rankPrefix = string.IsNullOrEmpty(rankName) ? "" : rankName + " ";
+                    string admiralLine = $"提督: {mark}{rankPrefix}{fullName}";
                     if (ad != null && !string.IsNullOrEmpty(ad.epithet)) admiralLine += $"\n異名: {ad.EpithetName}";
                     if (ad != null && ad.HasStaff) admiralLine += $"\n参謀: {ad.GetStaffNames()}";
                     admiralText.text = admiralLine;

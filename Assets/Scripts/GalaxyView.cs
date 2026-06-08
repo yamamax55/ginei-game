@@ -7,9 +7,11 @@ namespace Ginei
     /// <summary>
     /// 戦略マップ（C-1 #34）の最小ビジュアライズ。C-1 の純ロジック
     /// （GalaxyMap / StrategicFleet / GalaxyPathfinder / StrategicFleetRegistry / StrategyRules）を
-    /// 画面につなぐデモ：星系・回廊・艦隊マーカーを描画し、左クリックで艦隊選択→星系クリックでワープ指示。
-    /// 銀河時間を毎フレーム進め、到着で星系を占領（色が変わる）、同一回廊の敵対遭遇を会戦トリガーとして表示。
+    /// 画面につなぐデモ：星系・回廊・艦隊マーカーを描画し、クリックで艦隊選択→星系クリックでワープ指示。
+    /// 銀河時間を進め、到着で占領（色変化）、同一回廊の敵対遭遇を会戦トリガーとして表示。
     ///
+    /// 操作：左クリック=艦隊選択（Shiftで追加）／星系クリック=選択艦隊をワープ／
+    ///       Space=停止・再開／1・2・3=速度（0.5x/1x/2x）。
     /// 実機確認用。`Ginei/戦略マップ デモを開く` でデモシーンに配置 → 再生。
     /// </summary>
     public class GalaxyView : MonoBehaviour
@@ -23,28 +25,31 @@ namespace Ginei
         public Color chokeColor = new Color(0.9f, 0.8f, 0.3f, 0.95f);
         public Color selectColor = new Color(1f, 0.95f, 0.4f);
 
+        [Header("時間")]
+        public float galaxySpeed = 1f;
+
         private GalaxyMap map;
         private StrategicFleetRegistry reg;
         private Camera cam;
         private Sprite disc;
         private Material lineMat;
-        private StrategicFleet selected;
+        private bool paused;
         private float occupyTimer;
 
+        private readonly List<StrategicFleet> selectedFleets = new List<StrategicFleet>();
         private readonly Dictionary<int, SpriteRenderer> systemDots = new Dictionary<int, SpriteRenderer>();
         private readonly List<LineRenderer> corridorLines = new List<LineRenderer>();
         private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetMarks = new Dictionary<StrategicFleet, SpriteRenderer>();
-        private SpriteRenderer selectionRing;
+        private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetRings = new Dictionary<StrategicFleet, SpriteRenderer>();
+        private readonly Dictionary<StrategicFleet, TextMesh> fleetEta = new Dictionary<StrategicFleet, TextMesh>();
+        private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
         private TextMesh banner;
+        private TextMesh helpLine;
 
         private void Start()
         {
             cam = Camera.main;
-            if (cam == null)
-            {
-                var camObj = new GameObject("GalaxyCamera");
-                cam = camObj.AddComponent<Camera>();
-            }
+            if (cam == null) cam = new GameObject("GalaxyCamera").AddComponent<Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 8f;
             cam.transform.position = new Vector3(0f, 0f, -10f);
@@ -60,18 +65,15 @@ namespace Ginei
 
         private void Update()
         {
-            float dt = Time.deltaTime;
+            HandleKeys();
+
+            float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
             reg.Tick(dt);
 
-            // 一定間隔で占領を解決（無防備な敵星系を確保＝色が変わる）
             occupyTimer += dt;
-            if (occupyTimer >= 0.4f)
-            {
-                StrategyRules.ResolveAllOccupations(map, reg);
-                occupyTimer = 0f;
-            }
+            if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
 
-            HandleInput();
+            HandleMouse();
             Refresh();
         }
 
@@ -96,16 +98,15 @@ namespace Ginei
             map.AddCorridor(new Corridor(5, 3, 2f));
 
             reg = new StrategicFleetRegistry(map);
-            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f));  // ケレスの帝国艦隊
-            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f));  // ベガの同盟艦隊
-            reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f));  // エリスの同盟艦隊
+            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f));
+            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f));
+            reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f));
         }
 
         // ===== 描画 =====
 
         private void BuildVisuals()
         {
-            // 回廊（線）
             for (int i = 0; i < map.corridors.Count; i++)
             {
                 Corridor c = map.corridors[i];
@@ -113,25 +114,16 @@ namespace Ginei
                 StarSystem b = map.GetSystem(c.bId);
                 if (a == null || b == null) continue;
 
-                var go = new GameObject($"Corridor_{c.aId}_{c.bId}");
-                go.transform.SetParent(transform, false);
-                var lr = go.AddComponent<LineRenderer>();
-                lr.material = lineMat;
-                lr.useWorldSpace = true;
+                var lr = NewLine($"Corridor_{c.aId}_{c.bId}", 0);
                 lr.positionCount = 2;
                 lr.SetPosition(0, a.position);
                 lr.SetPosition(1, b.position);
                 bool choke = c.type == CorridorType.要衝;
-                float w = choke ? 0.16f : 0.08f;
-                lr.startWidth = lr.endWidth = w;
-                Color col = choke ? chokeColor : corridorColor;
-                lr.startColor = lr.endColor = col;
-                lr.numCapVertices = 2;
-                lr.sortingOrder = 0;
+                lr.startWidth = lr.endWidth = choke ? 0.16f : 0.08f;
+                lr.startColor = lr.endColor = choke ? chokeColor : corridorColor;
                 corridorLines.Add(lr);
             }
 
-            // 星系（円＋名前ラベル）
             foreach (var s in map.systems)
             {
                 if (s == null) continue;
@@ -140,15 +132,11 @@ namespace Ginei
                 go.transform.position = s.position;
                 go.transform.localScale = Vector3.one * systemScale;
                 var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = disc;
-                sr.color = OwnerColor(s.owner);
-                sr.sortingOrder = 2;
+                sr.sprite = disc; sr.color = OwnerColor(s.owner); sr.sortingOrder = 2;
                 systemDots[s.id] = sr;
-
                 MakeLabel(go.transform, s.systemName, new Vector3(0f, systemScale * 0.9f, 0f), 0.9f);
             }
 
-            // 艦隊マーカー
             foreach (var f in reg.fleets)
             {
                 if (f == null) continue;
@@ -156,71 +144,130 @@ namespace Ginei
                 go.transform.SetParent(transform, false);
                 go.transform.localScale = Vector3.one * fleetScale;
                 var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = disc;
-                sr.color = FactionColor(f.faction);
-                sr.sortingOrder = 4;
+                sr.sprite = disc; sr.color = FactionColor(f.faction); sr.sortingOrder = 4;
                 fleetMarks[f] = sr;
+
+                // 選択リング（子・既定オフ）
+                var ringGo = new GameObject("Ring");
+                ringGo.transform.SetParent(go.transform, false);
+                ringGo.transform.localScale = Vector3.one * 1.8f;
+                var ring = ringGo.AddComponent<SpriteRenderer>();
+                ring.sprite = disc;
+                ring.color = new Color(selectColor.r, selectColor.g, selectColor.b, 0.35f);
+                ring.sortingOrder = 3;
+                ring.enabled = false;
+                fleetRings[f] = ring;
+
+                // ETA ラベル（移動中のみ表示）
+                var eta = MakeLabel(go.transform, "", new Vector3(0f, 0.9f, 0f), 0.7f).GetComponent<TextMesh>();
+                eta.color = selectColor;
+                fleetEta[f] = eta;
             }
 
-            // 選択リング
-            var ringGo = new GameObject("SelectionRing");
-            ringGo.transform.SetParent(transform, false);
-            ringGo.transform.localScale = Vector3.one * (fleetScale * 1.8f);
-            selectionRing = ringGo.AddComponent<SpriteRenderer>();
-            selectionRing.sprite = disc;
-            selectionRing.color = new Color(selectColor.r, selectColor.g, selectColor.b, 0.35f);
-            selectionRing.sortingOrder = 3;
-            selectionRing.enabled = false;
-
-            // バナー（操作説明・状態）
-            banner = MakeLabel(transform, "左クリック:艦隊選択 → 星系クリック:ワープ指示", new Vector3(0f, 7.2f, 0f), 1.0f).GetComponent<TextMesh>();
-            banner.transform.position = new Vector3(0f, 7.2f, 0f);
+            banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
+            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 星系:ワープ / Space:停止 / 1・2・3:速度",
+                new Vector3(0f, -7.4f, 0f), 0.75f).GetComponent<TextMesh>();
+            helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
 
         private void Refresh()
         {
-            // 星系色（占領で変化）
             foreach (var kv in systemDots)
             {
                 StarSystem s = map.GetSystem(kv.Key);
                 if (s != null && kv.Value != null) kv.Value.color = OwnerColor(s.owner);
             }
 
-            // 艦隊位置
             foreach (var kv in fleetMarks)
             {
                 StrategicFleet f = kv.Key;
                 if (f == null || kv.Value == null) continue;
                 kv.Value.transform.position = FleetWorldPos(f);
                 kv.Value.color = FactionColor(f.faction);
+
+                if (fleetRings.TryGetValue(f, out var ring)) ring.enabled = selectedFleets.Contains(f);
+                if (fleetEta.TryGetValue(f, out var eta))
+                    eta.text = f.IsMoving ? $"ETA {f.Eta:F1}" : "";
             }
 
-            // 選択リング
-            if (selected != null && fleetMarks.ContainsKey(selected))
+            DrawSelectedRoutes();
+            UpdateBanner();
+        }
+
+        /// <summary>選択中の移動艦隊について、現在位置→残り経路の終点までをハイライト表示。</summary>
+        private void DrawSelectedRoutes()
+        {
+            int li = 0;
+            for (int s = 0; s < selectedFleets.Count; s++)
             {
-                selectionRing.enabled = true;
-                selectionRing.transform.position = FleetWorldPos(selected);
-            }
-            else selectionRing.enabled = false;
+                StrategicFleet f = selectedFleets[s];
+                if (f == null || !f.IsMoving) continue;
 
-            // 会戦トリガー（同一回廊の敵対遭遇）
+                var pts = new List<Vector3>();
+                pts.Add(FleetWorldPos(f));
+                var path = GalaxyPathfinder.FindPath(map, f.destinationSystemId, f.FinalDestinationId);
+                if (path.Count == 0)
+                {
+                    StarSystem dst = map.GetSystem(f.destinationSystemId);
+                    if (dst != null) pts.Add(dst.position);
+                }
+                else
+                {
+                    foreach (int sid in path)
+                    {
+                        StarSystem sys = map.GetSystem(sid);
+                        if (sys != null) pts.Add(sys.position);
+                    }
+                }
+                if (pts.Count < 2) continue;
+
+                LineRenderer lr = GetRouteLine(li++);
+                lr.positionCount = pts.Count;
+                lr.SetPositions(pts.ToArray());
+                lr.enabled = true;
+            }
+            for (; li < routeLines.Count; li++) routeLines[li].enabled = false;
+        }
+
+        private LineRenderer GetRouteLine(int i)
+        {
+            while (routeLines.Count <= i)
+            {
+                var lr = NewLine("Route", 1);
+                lr.startWidth = lr.endWidth = 0.06f;
+                lr.startColor = lr.endColor = new Color(selectColor.r, selectColor.g, selectColor.b, 0.85f);
+                routeLines.Add(lr);
+            }
+            return routeLines[i];
+        }
+
+        private void UpdateBanner()
+        {
             var enc = StrategyRules.FindEncounters(reg);
             if (enc.Count > 0)
             {
-                var e0 = enc[0];
                 banner.text = $"⚔ 会戦発生：回廊で敵対艦隊が遭遇（{enc.Count}件）";
                 banner.color = new Color(1f, 0.5f, 0.3f);
+                return;
             }
-            else
-            {
-                banner.text = "左クリック:艦隊選択 → 星系クリック:ワープ指示";
-                banner.color = Color.white;
-            }
+            string speed = paused ? "停止" : $"x{galaxySpeed:0.#}";
+            banner.text = $"速度 {speed}　選択 {selectedFleets.Count}隻";
+            banner.color = Color.white;
         }
 
         // ===== 入力 =====
 
-        private void HandleInput()
+        private void HandleKeys()
+        {
+            var kb = Keyboard.current;
+            if (kb == null) return;
+            if (kb.spaceKey.wasPressedThisFrame) paused = !paused;
+            if (kb.digit1Key.wasPressedThisFrame) { galaxySpeed = 0.5f; paused = false; }
+            if (kb.digit2Key.wasPressedThisFrame) { galaxySpeed = 1f; paused = false; }
+            if (kb.digit3Key.wasPressedThisFrame) { galaxySpeed = 2f; paused = false; }
+        }
+
+        private void HandleMouse()
         {
             if (Mouse.current == null || cam == null) return;
             if (!Mouse.current.leftButton.wasPressedThisFrame) return;
@@ -228,27 +275,33 @@ namespace Ginei
             Vector3 sp = Mouse.current.position.ReadValue();
             Vector3 wp = cam.ScreenToWorldPoint(new Vector3(sp.x, sp.y, -cam.transform.position.z));
             Vector2 w = wp;
+            bool additive = Keyboard.current != null &&
+                            (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
 
-            // まず艦隊を拾う
             StrategicFleet nf = NearestFleet(w, 0.7f);
             if (nf != null)
             {
-                selected = nf;
+                if (additive)
+                {
+                    if (!selectedFleets.Remove(nf)) selectedFleets.Add(nf); // トグル
+                }
+                else { selectedFleets.Clear(); selectedFleets.Add(nf); }
                 return;
             }
 
-            // 艦隊が選択済みなら、クリックした星系へワープ
             int sysId = NearestSystem(w, systemScale + 0.3f);
-            if (sysId >= 0 && selected != null)
+            if (sysId >= 0 && selectedFleets.Count > 0)
             {
-                selected.WarpTo(map, sysId);
+                foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
+                return;
             }
+
+            if (!additive) selectedFleets.Clear(); // 空白クリックで解除
         }
 
         private StrategicFleet NearestFleet(Vector2 w, float radius)
         {
-            StrategicFleet best = null;
-            float bestD = radius;
+            StrategicFleet best = null; float bestD = radius;
             foreach (var f in reg.fleets)
             {
                 if (f == null) continue;
@@ -260,8 +313,7 @@ namespace Ginei
 
         private int NearestSystem(Vector2 w, float radius)
         {
-            int best = -1;
-            float bestD = radius;
+            int best = -1; float bestD = radius;
             foreach (var s in map.systems)
             {
                 if (s == null) continue;
@@ -284,11 +336,18 @@ namespace Ginei
         }
 
         private Color OwnerColor(Faction f) => (f == Faction.帝国) ? empireColor : allianceColor;
+        private Color FactionColor(Faction f) => Color.Lerp((f == Faction.帝国) ? empireColor : allianceColor, Color.white, 0.35f);
 
-        private Color FactionColor(Faction f)
+        private LineRenderer NewLine(string name, int order)
         {
-            Color c = (f == Faction.帝国) ? empireColor : allianceColor;
-            return Color.Lerp(c, Color.white, 0.35f); // 星系より明るく
+            var go = new GameObject(name);
+            go.transform.SetParent(transform, false);
+            var lr = go.AddComponent<LineRenderer>();
+            lr.material = lineMat;
+            lr.useWorldSpace = true;
+            lr.numCapVertices = 2;
+            lr.sortingOrder = order;
+            return lr;
         }
 
         private GameObject MakeLabel(Transform parent, string text, Vector3 localOffset, float charSize)

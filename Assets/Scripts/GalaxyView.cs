@@ -36,6 +36,8 @@ namespace Ginei
         private Material lineMat;
         private bool paused;
         private float occupyTimer;
+        private string battleMsg = "";
+        private float battleMsgTimer;
 
         private readonly List<StrategicFleet> selectedFleets = new List<StrategicFleet>();
         private readonly Dictionary<int, SpriteRenderer> systemDots = new Dictionary<int, SpriteRenderer>();
@@ -74,6 +76,8 @@ namespace Ginei
             occupyTimer += dt;
             if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
 
+            if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
+
             HandleMouse();
             Refresh();
         }
@@ -99,9 +103,9 @@ namespace Ginei
             map.AddCorridor(new Corridor(5, 3, 2f));
 
             reg = new StrategicFleetRegistry(map);
-            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f));
-            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f));
-            reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f));
+            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250 });
+            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300 });
+            reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f) { strength = 150 });
         }
 
         // ===== 描画 =====
@@ -166,7 +170,7 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:選択艦隊をワープ / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:ワープ・赤い前線へ侵攻 / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.75f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -181,6 +185,17 @@ namespace Ginei
                     : (c.type == CorridorType.要衝 ? chokeColor : corridorColor);
                 corridorLines[i].startColor = corridorLines[i].endColor = col;
             }
+
+            // 除去された艦隊（戦闘で消滅）のマーカーを片付ける
+            List<StrategicFleet> gone = null;
+            foreach (var kv in fleetMarks)
+                if (!reg.fleets.Contains(kv.Key)) (gone ??= new List<StrategicFleet>()).Add(kv.Key);
+            if (gone != null)
+                foreach (var f in gone)
+                {
+                    if (fleetMarks[f] != null) Destroy(fleetMarks[f].gameObject);
+                    fleetMarks.Remove(f); fleetRings.Remove(f); fleetEta.Remove(f); selectedFleets.Remove(f);
+                }
 
             foreach (var kv in systemDots)
             {
@@ -197,7 +212,7 @@ namespace Ginei
 
                 if (fleetRings.TryGetValue(f, out var ring)) ring.enabled = selectedFleets.Contains(f);
                 if (fleetEta.TryGetValue(f, out var eta))
-                    eta.text = f.IsMoving ? $"ETA {f.Eta:F1}" : "";
+                    eta.text = f.IsMoving ? $"ETA {f.Eta:F1}" : $"{f.strength}"; // 停泊中は兵力
             }
 
             DrawSelectedRoutes();
@@ -253,6 +268,13 @@ namespace Ginei
 
         private void UpdateBanner()
         {
+            if (battleMsgTimer > 0f)
+            {
+                banner.text = battleMsg;
+                banner.color = new Color(1f, 0.6f, 0.3f);
+                return;
+            }
+
             var enc = StrategyRules.FindEncounters(reg);
             if (enc.Count > 0)
             {
@@ -294,12 +316,30 @@ namespace Ginei
                 }
                 else if (!additive) selectedFleets.Clear();
             }
-            // 右クリック：選択中の全艦隊を、クリックした星系へワープ（移動中でも再指示できる）
+            // 右クリック：前線越しの敵星系なら回廊戦闘を起動、そうでなければ通常ワープ
             else if (Mouse.current.rightButton.wasPressedThisFrame)
             {
                 int sysId = NearestSystem(WorldMouse(), systemScale + 0.5f);
-                if (sysId >= 0 && selectedFleets.Count > 0)
-                    foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
+                if (sysId < 0 || selectedFleets.Count == 0) return;
+
+                // 前線侵攻：選択中の停泊艦から、クリック星系へ前線回廊で隣接していれば侵攻
+                foreach (var f in selectedFleets)
+                {
+                    if (f == null || f.IsMoving) continue;
+                    Corridor cc = map.GetCorridor(f.currentSystemId, sysId);
+                    if (cc != null && StrategyRules.IsFtlBlocked(map, cc)
+                        && StrategyRules.EngageFrontline(map, reg, f.currentSystemId, sysId, out var res))
+                    {
+                        battleMsg = res.attackerWon
+                            ? $"回廊戦闘：攻撃側 勝利（残存 {res.survivorStrength}）"
+                            : $"回廊戦闘：防衛側 勝利（残存 {res.survivorStrength}）";
+                        battleMsgTimer = 3f;
+                        return; // 1回の侵攻で確定
+                    }
+                }
+
+                // 前線でなければ通常ワープ
+                foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
             }
         }
 

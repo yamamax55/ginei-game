@@ -21,11 +21,11 @@ namespace Ginei
             root = null;
             var doc = host.AddComponent<UIDocument>();
 
-            var ps = Resources.Load<PanelSettings>("GineiPanelSettings");
+            var ps = LoadPanelSettings();
             if (ps == null)
             {
-                Debug.LogWarning("GineiUITK: Resources/GineiPanelSettings (PanelSettings) が見つかりません。" +
-                    "Project で Create → UI Toolkit → Panel Settings Asset を作り Assets/Resources/GineiPanelSettings に置いてください。");
+                Debug.LogWarning("GineiUITK: Resources に PanelSettings が見つかりません。" +
+                    "Project で Create → UI Toolkit → Panel Settings Asset を作り Assets/Resources/ に置いてください。");
                 return doc;
             }
             doc.panelSettings = ps;
@@ -41,6 +41,22 @@ namespace Ginei
 
             ApplyJapaneseFont(root);
             return doc;
+        }
+
+        /// <summary>
+        /// Resources から PanelSettings を解決する。名前ゆれ（GineiPanelSettings/GineiPanelSetting）に許容、
+        /// それでも無ければ Resources 内の任意の PanelSettings を拾う（1つだけ置く運用を想定）。
+        /// </summary>
+        private static PanelSettings LoadPanelSettings()
+        {
+            var ps = Resources.Load<PanelSettings>("GineiPanelSettings");
+            if (ps == null) ps = Resources.Load<PanelSettings>("GineiPanelSetting");
+            if (ps == null)
+            {
+                var all = Resources.LoadAll<PanelSettings>("");
+                if (all != null && all.Length > 0) ps = all[0];
+            }
+            return ps;
         }
 
         /// <summary>ルート以下に日本語フォントを適用（継承で子へ波及）。</summary>

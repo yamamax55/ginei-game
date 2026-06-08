@@ -35,44 +35,47 @@ namespace Ginei
             // 1) 兵力差：帝国2(ラインハルト＋キルヒアイス) vs 同盟1(ヤン)
             CreateScenario("ヴァンフリート星域会戦", new List<ScenarioData.FleetEntry>
             {
-                Entry(reinhard, Faction.帝国, new Vector2(5f, 2f), Formation.紡錘陣),
-                Entry(kircheis, Faction.帝国, new Vector2(5f, -2f), Formation.横陣),
-                Entry(yang, Faction.同盟, new Vector2(-5f, 0f), Formation.鶴翼陣),
+                Entry(reinhard, Faction.帝国, new Vector2(5f, 2f), Formation.紡錘陣, 1),
+                Entry(kircheis, Faction.帝国, new Vector2(5f, -2f), Formation.横陣, 2),
+                Entry(yang, Faction.同盟, new Vector2(-5f, 0f), Formation.鶴翼陣, 13),
             });
 
             // 2) 多対多・配置違い：帝国3 vs 同盟3
             CreateScenario("アムリッツァ星域会戦", new List<ScenarioData.FleetEntry>
             {
-                Entry(reinhard, Faction.帝国, new Vector2(6f, 3f), Formation.紡錘陣),
-                Entry(mittermeyer, Faction.帝国, new Vector2(6f, 0f), Formation.横陣),
-                Entry(reuental, Faction.帝国, new Vector2(6f, -3f), Formation.横陣),
-                Entry(yang, Faction.同盟, new Vector2(-6f, 3f), Formation.鶴翼陣),
-                Entry(bucock, Faction.同盟, new Vector2(-6f, 0f), Formation.横陣),
-                Entry(attenborough, Faction.同盟, new Vector2(-6f, -3f), Formation.方陣),
+                Entry(reinhard, Faction.帝国, new Vector2(6f, 3f), Formation.紡錘陣, 1),
+                Entry(mittermeyer, Faction.帝国, new Vector2(6f, 0f), Formation.横陣, 3),
+                Entry(reuental, Faction.帝国, new Vector2(6f, -3f), Formation.横陣, 4),
+                Entry(yang, Faction.同盟, new Vector2(-6f, 3f), Formation.鶴翼陣, 13),
+                Entry(bucock, Faction.同盟, new Vector2(-6f, 0f), Formation.横陣, 5),
+                Entry(attenborough, Faction.同盟, new Vector2(-6f, -3f), Formation.方陣, 14),
             });
 
             // 3) 拮抗・2vs2（配置・陣形違い）
             CreateScenario("回廊の戦い", new List<ScenarioData.FleetEntry>
             {
-                Entry(mittermeyer, Faction.帝国, new Vector2(4f, 2f), Formation.紡錘陣),
-                Entry(reuental, Faction.帝国, new Vector2(4f, -2f), Formation.紡錘陣),
-                Entry(yang, Faction.同盟, new Vector2(-4f, 2f), Formation.鶴翼陣),
-                Entry(uranff, Faction.同盟, new Vector2(-4f, -2f), Formation.横陣),
+                Entry(mittermeyer, Faction.帝国, new Vector2(4f, 2f), Formation.紡錘陣, 3),
+                Entry(reuental, Faction.帝国, new Vector2(4f, -2f), Formation.紡錘陣, 4),
+                Entry(yang, Faction.同盟, new Vector2(-4f, 2f), Formation.鶴翼陣, 13),
+                Entry(uranff, Faction.同盟, new Vector2(-4f, -2f), Formation.横陣, 10),
             });
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("Ginei: サンプルシナリオ3本と提督アセットを生成しました（Resources 配下にシナリオ）。");
+            Debug.Log("Ginei: サンプルシナリオ3本と提督アセットを生成しました（Resources 配下にシナリオ／艦隊番号付き #146）。");
         }
 
-        private static ScenarioData.FleetEntry Entry(AdmiralData admiral, Faction faction, Vector2 pos, Formation formation)
+        private static ScenarioData.FleetEntry Entry(AdmiralData admiral, Faction faction, Vector2 pos, Formation formation,
+            int fleetNumber = 0, string fleetName = "")
         {
             return new ScenarioData.FleetEntry
             {
                 admiral = admiral,
                 faction = faction,
                 spawnPosition = pos,
-                formation = formation
+                formation = formation,
+                fleetNumber = fleetNumber,  // #146：0=未指定（従来どおり提督名のみ）
+                fleetName = fleetName
             };
         }
 

@@ -148,5 +148,34 @@ namespace Ginei.Tests
 
             Assert.AreEqual(0, StrategyRules.ResolveEncounters(reg)); // 同勢力は戦わない
         }
+
+        // ───────── 実会戦の結果書き戻し（BattleHandoff）─────────
+
+        [Test]
+        public void ApplyHandoffResult_AppliesRealBattleResult()
+        {
+            var m = LineMap();
+            var reg = new StrategicFleetRegistry(m);
+            var a = new StrategicFleet(1, 0, Faction.帝国) { strength = 300 };
+            var b = new StrategicFleet(2, 1, Faction.同盟) { strength = 200 };
+            reg.Add(a); reg.Add(b);
+
+            BattleHandoff.Clear();
+            BattleHandoff.Queue(a, b, "Strategy");
+            BattleHandoff.SetResult(aWon: true, survivors: 120); // 実会戦の結果（例）
+
+            Assert.IsTrue(StrategyRules.ApplyHandoffResult(reg));
+            Assert.IsNull(reg.GetFleet(2));        // 敗者除去
+            Assert.AreEqual(120, a.strength);      // 勝者は実会戦の残存兵力に
+            Assert.IsFalse(BattleHandoff.Pending); // 受け渡しはクリア
+        }
+
+        [Test]
+        public void ApplyHandoffResult_NoPending_ReturnsFalse()
+        {
+            BattleHandoff.Clear();
+            var reg = new StrategicFleetRegistry(new GalaxyMap());
+            Assert.IsFalse(StrategyRules.ApplyHandoffResult(reg));
+        }
     }
 }

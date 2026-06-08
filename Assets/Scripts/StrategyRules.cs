@@ -140,15 +140,41 @@ namespace Ginei
                 if (reg.GetFleet(a.id) == null || reg.GetFleet(b.id) == null) continue; // 既に除去済み
                 if (!FleetsCollided(a, b)) continue; // 回廊内でまだ接触していない（複数艦が同じ回廊に居られる）
 
-                var r = ResolveCorridorBattle(a.strength, b.strength);
-                StrategicFleet winner = r.attackerWon ? a : b;
-                StrategicFleet loser = r.attackerWon ? b : a;
-                reg.Remove(loser);
-                winner.strength = r.survivorStrength;
-                if (winner.strength <= 0) reg.Remove(winner); // 相打ち
+                ApplyBattleResult(reg, a, b, ResolveCorridorBattle(a.strength, b.strength));
                 count++;
             }
             return count;
+        }
+
+        /// <summary>
+        /// 戦闘結果（勝者・残存兵力）を2艦隊 a/b に適用する（抽象解決・実会戦どちらの結果でも共通）。
+        /// attackerWon=true なら a が勝者。敗者は除去、勝者は残存兵力へ、相打ち（残存0）は両除去。
+        /// </summary>
+        public static void ApplyBattleResult(StrategicFleetRegistry reg, StrategicFleet a, StrategicFleet b, CorridorBattleResult r)
+        {
+            if (reg == null || a == null || b == null) return;
+            StrategicFleet winner = r.attackerWon ? a : b;
+            StrategicFleet loser = r.attackerWon ? b : a;
+            reg.Remove(loser);
+            winner.strength = r.survivorStrength;
+            if (winner.strength <= 0) reg.Remove(winner); // 相打ち
+        }
+
+        /// <summary>
+        /// 実会戦（Battleシーン）から戻った結果（BattleHandoff）を戦略レジストリへ反映する（C-3）。
+        /// 予約があり結果が書き込まれていれば、A/B の艦隊IDを引いて ApplyBattleResult を適用し、Handoff を消す。
+        /// 反映したら true。
+        /// </summary>
+        public static bool ApplyHandoffResult(StrategicFleetRegistry reg)
+        {
+            if (reg == null || !BattleHandoff.Pending || !BattleHandoff.Resolved) return false;
+            StrategicFleet a = reg.GetFleet(BattleHandoff.fleetIdA);
+            StrategicFleet b = reg.GetFleet(BattleHandoff.fleetIdB);
+            var r = new CorridorBattleResult(BattleHandoff.sideAWon, BattleHandoff.survivorStrength);
+            BattleHandoff.Clear();
+            if (a == null || b == null) return false;
+            ApplyBattleResult(reg, a, b, r);
+            return true;
         }
 
         /// <summary>

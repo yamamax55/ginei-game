@@ -188,11 +188,12 @@ namespace Ginei
             FleetWeapon weapon = fleet.GetComponent<FleetWeapon>();
             if (weapon != null) weapon.enabled = true;
 
-            // AI 制御：プレイヤー勢力以外のみ FleetAI を有効化（プレイヤーは Selectable で操作）
+            // AI 制御：プレイヤー勢力以外のみ FleetAI を有効化（プレイヤーは Selectable で操作）。
+            // ただし主人公（GON-6・isProtagonist）は陣営に関わらず常にプレイヤー操作＝AI無効。
             FleetAI ai = fleet.GetComponent<FleetAI>();
             if (ai != null)
             {
-                ai.enabled = !IsPlayerControlled(entry, playerFaction);
+                ai.enabled = ProtagonistRules.ShouldEnableAI(entry.admiral, IsPlayerControlled(entry, playerFaction));
             }
 
             // 名前を分かりやすく

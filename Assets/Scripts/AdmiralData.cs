@@ -41,6 +41,11 @@ namespace Ginei
         [Tooltip("呼称・愛称（短縮表示の最優先）。空なら 姓→名→admiralName の順でフォールバック")]
         public string callName = "";
 
+        [Header("主人公（アンカー・GON-6・任意）")]
+        [Tooltip("この提督を主人公（動かない光源）とするか。true＝陣営に関わらず常にプレイヤー操作（FleetAI 非制御）。" +
+                 "既定 false＝従来どおり（後方互換）。判定は ProtagonistRules を参照すること")]
+        public bool isProtagonist = false;
+
         [Header("能力値 (0-100)")]
         [Tooltip("兵力上限・士気に影響")]
         public int leadership = 80;    // 統率

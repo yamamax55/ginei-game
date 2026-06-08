@@ -82,7 +82,8 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
                     // 提督名（正式名 FullName）＋異名行＋参謀名（参謀がいれば実効能力が補完される）
                     AdmiralData ad = strength.admiralData;
                     string fullName = (ad != null) ? ad.FullName : strength.admiralName;
-                    string admiralLine = $"提督: {fullName}";
+                    string mark = ProtagonistRules.IsProtagonist(ad) ? "★ " : ""; // 主人公（GON-6）
+                    string admiralLine = $"提督: {mark}{fullName}";
                     if (ad != null && !string.IsNullOrEmpty(ad.epithet)) admiralLine += $"\n異名: {ad.EpithetName}";
                     if (ad != null && ad.HasStaff) admiralLine += $"\n参謀: {ad.GetStaffNames()}";
                     admiralText.text = admiralLine;

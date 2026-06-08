@@ -143,6 +143,8 @@
 | `Province` | 内政（#109 P-1/P-2 最小ループ）の純データ。`[Serializable]`。`systemId`/`nativeIdeology`(住民の思想＝占領しても即は変わらない)/`population`(Pop)/`stability`(安定度0..100)/`integration`(占領統合度0..1)。所有勢力は `StarSystem.owner` が出所＝ここには持たない。解決は `GovernanceRules` が唯一の窓口。タイクン回避＝建設マイクロ/通貨経済は持たない。 |
 | `FleetUnitData` | 艦隊ユニット（#146・ScriptableObject）。「提督＝艦隊」を「艦隊ユニット(番号/勢力/編制)＋配属提督」へ分離する核。`fleetNumber`/`fleetName`/`faction`/`factionData`/`assignedAdmiral`(配属指揮官・null=空席)/`baseStrength`/`formation`/`meritScore`/`status`(`FleetStatus{現役,解隊,永久欠番}`)＋`IsActive`/`HasAdmiral`/`DisplayName`(固有名→「第N艦隊」)。管理は `FleetRoster` が唯一の窓口。**会戦中の艦在庫 `FleetRegistry`(ランタイム)とは別物**。 |
 | `FleetRoster` | static 艦隊編制台帳（#146・オーダー・オブ・バトル）。勢力ごとに番号→`FleetUnitData` を解決。`GetFleet`/`AllFleets`/`NextAvailableNumber`(解隊は再利用・永久欠番は飛ばす)/`CreateFleet`/`Register`/`AssignAdmiral`/`Unassign`/`ReassignAdmiral`/`CanAssign`(階級ゲート＝`AdmiralData.rankTier`≥requiredTier・#14)/`Disband`(番号再利用可)/`RetireNumber`(永久欠番)/`IsRetired`/`Clear`。番号体系は勢力ごとに独立。**`FleetRegistry` を流用・拡張しない**。`BattleSetup` が `Awake` で `Clear`、`ScenarioData.FleetEntry.fleetNumber>0` の艦隊を登録＋配属。 |
+| `MilitaryFormation` | 上位梯団ノード（#147・軍団/軍集団）。`[Serializable]`。`id`/`name`/`echelon`(`EchelonType{艦隊,軍団,軍集団}`)/`faction`/`commander`(配属司令)/`parentId`/`childFormationIds`(下位梯団)/`fleetNumbers`(直下の艦隊＝#146番号)＋`HasCommander`/`DisplayName`。艦隊そのものは #146 `FleetUnitData`/`FleetRoster` が持ち、ここは番号で参照（別レジストリを作らない）。木構造の管理は `OrderOfBattle` が唯一の窓口。 |
+| `OrderOfBattle` | static 編制ツリー台帳（#147・軍集団⊃軍団⊃艦隊#146）。**①司令部固定・中身流動**＝`AttachFleet`/`DetachFleet`(艦隊を梯団へ・単一所属で中身流動)/`AttachFormation`/`DetachFormation`(下位梯団・循環防止・単一親)。**梯団別の司令配属＝階級ゲート#14**＝`RequiredTier`(艦隊7中将/軍団8大将/軍集団10元帥)/`CanCommand`/`AssignCommander`/`UnassignCommander`。集計＝`AllFleetNumbersUnder`/`CountFleetsUnder`(ツリー再帰)。`Create`/`Get`/`AllFormations`/`Clear`。#146 を木構造へ拡張（`FleetRegistry` とも別物）。②直轄投資・③任務戦術は後段。 |
 | `GovernanceRules` | static 内政ロジック（#109 P-1/P-2・純ロジック test-first）。安定度は目標値へ収束：目標＝基準＋思想一致(±)−戦時−補給不足−(未統合ぶんの占領不満)。占領直後は `integration`=0 で不満最大→時間で統合→安定回復。`Tick(province,ownerData,supplyOk,atWar,dt)`／`EquilibriumStability(integration,ideologyMod,supplyOk,atWar)`(純関数)／`OnOccupied(province)`(統合リセット＝攻城 `ApplySiegeResult` から呼ぶ想定)／`OutputFactor(province)`(安定度比例＝支配≠即産出)／`IsUnrest`/`RebelPressure`/`IdeologyModifier`。調整値は const に集約。 |
 
 ## 壊すと不具合になる依存・命名
@@ -182,7 +184,7 @@
 
 ## テスト基盤（EditMode）
 - アセンブリ定義で分離：`Ginei.Runtime`(`Assets/Scripts`)／`Ginei.Editor`(`Assets/Editor`)／`Ginei.Tests.EditMode`(`Assets/Tests/EditMode`、`Ginei.Runtime`＋`nunit.framework`参照、`defineConstraints: UNITY_INCLUDE_TESTS`)。
-- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode) で担保する：`RankSystem`/`FactionData`/`FactionRelations`/`AdmiralData`(命名)/`ProtagonistRules`/`DamagePopup`(スタイル)＋戦略レイヤー(`GalaxyMap`/`StrategicFleet`/`GalaxyPathfinder`/`StrategicFleetRegistry`/`StrategyRules`)＋惑星攻城(`PlanetSiegeRules`/`Planet`)＋内政(`GovernanceRules`/`Province`)＋艦隊編制(`FleetRoster`/`FleetUnitData`)。
+- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode) で担保する：`RankSystem`/`FactionData`/`FactionRelations`/`AdmiralData`(命名)/`ProtagonistRules`/`DamagePopup`(スタイル)＋戦略レイヤー(`GalaxyMap`/`StrategicFleet`/`GalaxyPathfinder`/`StrategicFleetRegistry`/`StrategyRules`)＋惑星攻城(`PlanetSiegeRules`/`Planet`)＋内政(`GovernanceRules`/`Province`)＋艦隊編制(`FleetRoster`/`FleetUnitData`)＋編制ツリー(`OrderOfBattle`/`MilitaryFormation`)。
 - シーン/UI/MonoBehaviour 挙動はエディタ Play で目視検証（テスト対象外）。新規の純ロジックを足したら EditMode テストを併記する。
 
 ## 運用

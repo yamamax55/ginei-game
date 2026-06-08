@@ -1,7 +1,46 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
 {
+    /// <summary>
+    /// 星系の集約内政（ハイブリッド・#767）。星系は固有データを重複して持たず、配下の惑星 Province を
+    /// 人口加重でロールアップした「集約ビュー」として表す（集約バックボーン＝単一の真実は惑星側）。
+    /// 勢力層はこの星系集約をさらに積み上げ、薄い国策（GovernanceRules の modifier）で下位へ波及させる。
+    /// </summary>
+    public readonly struct SystemGovernance
+    {
+        /// <summary>集約対象の惑星数。</summary>
+        public readonly int planetCount;
+        /// <summary>総人口（Pop の合計）。</summary>
+        public readonly float totalPopulation;
+        /// <summary>人口加重平均の安定度(0..100)。</summary>
+        public readonly float weightedStability;
+        /// <summary>人口加重平均の統合度(0..1)。</summary>
+        public readonly float weightedIntegration;
+        /// <summary>人口が最も多い住民思想（支配思想。空=不明）。</summary>
+        public readonly string dominantIdeology;
+        /// <summary>有効産出力 Σ(OutputFactor×population)。</summary>
+        public readonly float totalOutput;
+        /// <summary>いずれかの惑星が反乱リスク域か。</summary>
+        public readonly bool anyUnrest;
+        /// <summary>最も荒れている惑星の反乱圧(0..1)。</summary>
+        public readonly float maxRebelPressure;
+
+        public SystemGovernance(int planetCount, float totalPopulation, float weightedStability,
+            float weightedIntegration, string dominantIdeology, float totalOutput, bool anyUnrest, float maxRebelPressure)
+        {
+            this.planetCount = planetCount;
+            this.totalPopulation = totalPopulation;
+            this.weightedStability = weightedStability;
+            this.weightedIntegration = weightedIntegration;
+            this.dominantIdeology = dominantIdeology ?? "";
+            this.totalOutput = totalOutput;
+            this.anyUnrest = anyUnrest;
+            this.maxRebelPressure = maxRebelPressure;
+        }
+    }
+
     /// <summary>
     /// 内政の数値解決（#109 P-1/P-2 最小ループ・純ロジック test-first）。攻城/戦略から呼ばれる唯一の窓口。
     /// 安定度は「目標値へ時間で収束」する：目標＝基準＋思想一致(±)−戦時−補給不足−(未統合ぶんの占領不満)。
@@ -92,6 +131,71 @@ namespace Ginei
             if (ownerData == null || string.IsNullOrEmpty(ownerData.ideology) || string.IsNullOrEmpty(nativeIdeology))
                 return 0f; // 不明＝中立
             return ownerData.ideology == nativeIdeology ? IdeologyMatchBonus : -IdeologyMismatchPenalty;
+        }
+
+        /// <summary>
+        /// 配下の惑星 Province 群を星系単位へ集約する（ハイブリッドの集約バックボーン・#767）。純関数。
+        /// 安定度・統合度は人口加重平均、支配思想は人口最多、産出は Σ(OutputFactor×population)。
+        /// 全惑星 pop=0 のときはゼロ割を避けて単純平均にフォールバック。null/空は既定(planetCount=0)を返す。
+        /// </summary>
+        public static SystemGovernance AggregateSystem(IReadOnlyList<Province> planets)
+        {
+            if (planets == null) return default;
+
+            int count = 0;
+            float totalPop = 0f, stabAcc = 0f, intAcc = 0f, output = 0f, maxRebel = 0f;
+            bool unrest = false;
+            var ideologyPop = new Dictionary<string, float>();
+
+            for (int i = 0; i < planets.Count; i++)
+            {
+                Province p = planets[i];
+                if (p == null) continue;
+                count++;
+                float pop = Mathf.Max(0f, p.population);
+                totalPop += pop;
+                stabAcc += p.stability * pop;
+                intAcc += Mathf.Clamp01(p.integration) * pop;
+                output += OutputFactor(p) * pop;
+                if (IsUnrest(p)) unrest = true;
+                float rb = RebelPressure(p);
+                if (rb > maxRebel) maxRebel = rb;
+                if (!string.IsNullOrEmpty(p.nativeIdeology))
+                {
+                    ideologyPop.TryGetValue(p.nativeIdeology, out float acc);
+                    ideologyPop[p.nativeIdeology] = acc + pop;
+                }
+            }
+
+            if (count == 0) return default;
+
+            float wStab, wInt;
+            if (totalPop > 0f)
+            {
+                wStab = stabAcc / totalPop;
+                wInt = intAcc / totalPop;
+            }
+            else
+            {
+                // 全惑星 pop=0：単純平均（ゼロ割回避）
+                float s = 0f, ig = 0f; int n = 0;
+                for (int i = 0; i < planets.Count; i++)
+                {
+                    Province p = planets[i];
+                    if (p == null) continue;
+                    s += p.stability; ig += Mathf.Clamp01(p.integration); n++;
+                }
+                wStab = n > 0 ? s / n : 0f;
+                wInt = n > 0 ? ig / n : 0f;
+            }
+
+            // 人口最多の思想（支配思想）
+            string dominant = "";
+            float best = -1f;
+            foreach (var kv in ideologyPop)
+                if (kv.Value > best) { best = kv.Value; dominant = kv.Key; }
+
+            return new SystemGovernance(count, totalPop, wStab, wInt, dominant, output, unrest, maxRebel);
         }
     }
 }

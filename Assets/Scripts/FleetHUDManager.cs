@@ -98,6 +98,21 @@ public Color empireColor = new Color(0.8f, 0.2f, 0.2f); // 赤系
                     factionText.color = ResolveFactionColor(strength);
                 }
 
+                // #745 暫定対応：提督ブロックが複数行（★主人公／階級／異名／参謀）に伸びても
+                // 「陣営」行が重ならないよう、提督テキストの実高さの直下へ追従させる（同一アンカー基準）。
+                if (admiralText != null && factionText != null)
+                {
+                    RectTransform aRT = admiralText.rectTransform;
+                    RectTransform fRT = factionText.rectTransform;
+                    fRT.anchorMin = aRT.anchorMin;
+                    fRT.anchorMax = aRT.anchorMax;
+                    fRT.pivot = aRT.pivot;
+                    const float gap = 6f;
+                    fRT.anchoredPosition = new Vector2(
+                        aRT.anchoredPosition.x,
+                        aRT.anchoredPosition.y - admiralText.preferredHeight - gap);
+                }
+
                 if (strengthBar != null)
                 {
                     strengthBar.maxValue = strength.maxStrength;

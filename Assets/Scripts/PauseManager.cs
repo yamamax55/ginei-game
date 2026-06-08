@@ -44,6 +44,16 @@ namespace Ginei
             // デフォルト速度を適用
             savedTimeScale = GameSettings.Instance.defaultTimeScale;
             ApplyTimeScale(savedTimeScale);
+
+            // #745：PAUSE/SPEED ラベルを画面上端中央へ寄せ、右上の艦隊HUDと重ならないようにする。
+            if (timeScaleText != null)
+            {
+                RectTransform rt = timeScaleText.rectTransform;
+                rt.anchorMin = new Vector2(0.5f, 1f);
+                rt.anchorMax = new Vector2(0.5f, 1f);
+                rt.pivot = new Vector2(0.5f, 1f);
+                rt.anchoredPosition = new Vector2(0f, -16f);
+            }
         }
 
         private void Update()

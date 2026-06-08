@@ -303,6 +303,7 @@ namespace Ginei
             var cRT = content.GetComponent<RectTransform>();
             cRT.anchorMin = new Vector2(0f, 1f); cRT.anchorMax = new Vector2(1f, 1f);
             cRT.pivot = new Vector2(0.5f, 1f); cRT.anchoredPosition = Vector2.zero;
+            cRT.sizeDelta = new Vector2(0f, 0f); // 幅＝ビューポート幅（横溢れ＝ボタン見切れ防止）。高さは ContentSizeFitter
             var cVlg = content.AddComponent<VerticalLayoutGroup>();
             cVlg.spacing = 4f; cVlg.childControlWidth = true; cVlg.childForceExpandWidth = true;
             cVlg.childControlHeight = true; cVlg.childForceExpandHeight = false;
@@ -322,6 +323,7 @@ namespace Ginei
             var row = new GameObject("Row", typeof(RectTransform));
             row.transform.SetParent(listContent, false);
             var hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(0, 6, 0, 0); // 右に少し余白（ボタンがマスク端に触れない）
             hlg.spacing = 8f; hlg.childControlWidth = true; hlg.childForceExpandWidth = false;
             hlg.childControlHeight = true; hlg.childForceExpandHeight = false;
             hlg.childAlignment = TextAnchor.MiddleLeft;

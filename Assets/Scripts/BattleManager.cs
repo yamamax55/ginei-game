@@ -48,6 +48,17 @@ namespace Ginei
                 return;
             }
 
+            // 戦略マップからの実会戦（C-2 二層遷移 #586 ②）：Backspace でいつでも戦略マップへ復帰。
+            // 現時点の優勢側を勝者として結果を書き戻し、撤収する（離脱＝以後は自動委任）。
+            if (BattleHandoff.Pending && !isBattleOver &&
+                Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame)
+            {
+                isBattleOver = true;
+                Time.timeScale = 0f;
+                WriteHandoffResultAndReturn(LeadingFaction());
+                return;
+            }
+
             // 全 Start 完了後（＝レジストリ登録後）の最初の Update で開始時隻数・勝利条件・敵対状況を記録
             if (!initialized)
             {
@@ -59,6 +70,12 @@ namespace Ginei
                 if (FleetRegistry.AllFlagships.Count == 0)
                 {
                     Debug.LogWarning("BattleManager: 開始時に艦隊が見つかりませんでした。");
+                }
+                // 戦略マップからの実会戦なら、いつでも復帰できることを通知（#586 ②）
+                if (BattleHandoff.Pending)
+                {
+                    var hud = FindFirstObjectByType<FleetHUDManager>();
+                    if (hud != null) hud.ShowMessage("Backspace：戦略マップへ復帰（以後は自動委任）", 5f);
                 }
                 return;
             }
@@ -123,6 +140,24 @@ namespace Ginei
 
             Time.timeScale = 1f; // 戦略へ戻すので通常速度へ
             SceneLoader.Instance.LoadScene(BattleHandoff.returnScene);
+        }
+
+        /// <summary>
+        /// 現時点で総兵力が多い側の legacy 陣営を返す（途中離脱＝Backspace 復帰時の暫定勝者）。
+        /// 同数なら受け渡しの A 側（factionA）。
+        /// </summary>
+        private Faction LeadingFaction()
+        {
+            int a = 0, b = 0;
+            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            for (int i = 0; i < alive.Count; i++)
+            {
+                FleetStrength fs = alive[i];
+                if (fs == null) continue;
+                if (LegacyOf(fs) == BattleHandoff.factionA) a += fs.strength;
+                else if (LegacyOf(fs) == BattleHandoff.factionB) b += fs.strength;
+            }
+            return (b > a) ? BattleHandoff.factionB : BattleHandoff.factionA;
         }
 
         /// <summary>

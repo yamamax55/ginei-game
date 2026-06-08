@@ -72,6 +72,57 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 接触済み（FleetsCollided）の敵対ペアをすべて返す（＝今まさに回廊で交戦している組）。
+        /// 二層遷移（C-2 #586）の「交戦中の回廊」検出に使う。
+        /// </summary>
+        public static List<FleetEncounter> CollidedEncounters(StrategicFleetRegistry reg)
+        {
+            var list = new List<FleetEncounter>();
+            if (reg == null) return list;
+            foreach (var e in FindEncounters(reg))
+                if (e.a != null && e.b != null && FleetsCollided(e.a, e.b))
+                    list.Add(e);
+            return list;
+        }
+
+        /// <summary>
+        /// 接触した敵対ペアを「交戦中（engaged）」にして回廊上で固着させる（C-2 #586）。
+        /// 固着した艦は Tick で前進しないため、回廊上に交戦中の回廊として留まる
+        /// ＝プレイヤーが潜行（ダブルクリック）するか自動解決するまで動かない。
+        /// 新たに固着させたペア数を返す。
+        /// </summary>
+        public static int BeginEngagements(StrategicFleetRegistry reg)
+        {
+            int n = 0;
+            foreach (var e in CollidedEncounters(reg))
+            {
+                if (!e.a.engaged || !e.b.engaged) n++;
+                e.a.engaged = true;
+                e.b.engaged = true;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// 指定回廊（星系 sysA–sysB のエッジ）上で交戦中の敵対ペアを1組返す（C-2 #586 潜行先の特定）。
+        /// 見つかれば true＋a/b。回廊の向きは無向（{min,max} 一致で判定）。
+        /// </summary>
+        public static bool TryGetEngagementOnCorridor(StrategicFleetRegistry reg, int sysA, int sysB,
+            out StrategicFleet a, out StrategicFleet b)
+        {
+            a = null; b = null;
+            if (reg == null) return false;
+            int min = Mathf.Min(sysA, sysB), max = Mathf.Max(sysA, sysB);
+            foreach (var e in CollidedEncounters(reg))
+            {
+                int eMin = Mathf.Min(e.a.currentSystemId, e.a.destinationSystemId);
+                int eMax = Mathf.Max(e.a.currentSystemId, e.a.destinationSystemId);
+                if (eMin == min && eMax == max) { a = e.a; b = e.b; return true; }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 回廊が前線（FTL不可）か。両端の星系を所有する勢力が敵対していれば true。
         /// 自勢力↔敵対勢力をつなぐ回廊はワープで通り抜けられず、回廊内で会戦になる（C-3 で起動予定）。
         /// 敵対判定は FactionRelations 経由（所有者の enum 比較＝後方互換）。
@@ -173,6 +224,7 @@ namespace Ginei
             StrategicFleet loser = r.attackerWon ? b : a;
             reg.Remove(loser);
             winner.strength = r.survivorStrength;
+            winner.engaged = false; // 決着＝交戦固着を解除し前進を再開（抽象・実会戦どちらの結果でも）
             if (winner.strength <= 0) reg.Remove(winner); // 相打ち
         }
 

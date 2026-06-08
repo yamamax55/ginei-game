@@ -30,6 +30,14 @@ namespace Ginei
         [Header("時間")]
         public float galaxySpeed = 1f;
 
+        [Header("二層遷移（戦略↔戦術・#586）")]
+        [Tooltip("交戦中の回廊（赤点滅）の色")]
+        public Color combatColor = new Color(1f, 0.35f, 0.15f, 1f);
+        [Tooltip("交戦を放置したとき自動解決するまでの猶予（銀河時間・秒）。この間にダブルクリックで潜行できる")]
+        public float autoResolveDelay = 2.5f;
+        [Tooltip("ダブルクリック判定の猶予（実時間・秒）")]
+        public float doubleClickWindow = 0.35f;
+
         private GalaxyMap map;
         private StrategicFleetRegistry reg;
         private Camera cam;
@@ -39,6 +47,9 @@ namespace Ginei
         private float occupyTimer;
         private string battleMsg = "";
         private float battleMsgTimer;
+        private float engagedElapsed;      // 交戦中が継続している時間（自動解決の猶予計測）
+        private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
+        private Vector2 lastClickWorld;
 
         private readonly List<StrategicFleet> selectedFleets = new List<StrategicFleet>();
         private readonly Dictionary<int, SpriteRenderer> systemDots = new Dictionary<int, SpriteRenderer>();
@@ -66,10 +77,12 @@ namespace Ginei
             BuildDemoGalaxy();
             BuildVisuals();
 
-            // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映
+            // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映。
+            // さらに、潜行中に銀河の時計は止まらない＝観ていなかった他戦線は自動侵攻で決着（#586 ④⑤）。
             if (BattleHandoff.Resolved && StrategyRules.ApplyHandoffResult(reg))
             {
-                battleMsg = "実会戦の結果を反映しました";
+                int others = StrategyRules.ResolveEncounters(reg);
+                battleMsg = others > 0 ? $"実会戦の結果を反映（観ていない{others}戦線は自動解決）" : "実会戦の結果を反映しました";
                 battleMsgTimer = 3f;
             }
         }
@@ -81,13 +94,15 @@ namespace Ginei
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
             reg.Tick(dt);
 
-            // 回廊で接触した敵対艦隊があれば、実会戦（Battleシーン）へ遷移して決着する
-            if (StrategyRules.TryFindCollision(reg, out var fa, out var fb))
+            // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
+            // プレイヤーはダブルクリックで潜行＝手動指揮へ。放置すれば猶予後に自動解決（#586 ①④）。
+            StrategyRules.BeginEngagements(reg);
+            if (AnyEngaged())
             {
-                BattleHandoff.Queue(fa, fb, "Strategy");
-                SceneManager.LoadScene("Battle");
-                return;
+                engagedElapsed += dt;
+                if (engagedElapsed >= autoResolveDelay) { StrategyRules.ResolveEncounters(reg); engagedElapsed = 0f; }
             }
+            else engagedElapsed = 0f;
 
             occupyTimer += dt;
             if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
@@ -192,18 +207,21 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:星系へ進軍 or 回廊上で停止保持(前線で待ち伏せ) / Space:停止 / 1・2・3:速度",
-                new Vector3(0f, -7.4f, 0f), 0.75f).GetComponent<TextMesh>();
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 右ク:星系へ進軍 or 回廊で停止保持 / Space:停止 / 1・2・3:速度",
+                new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
 
         private void Refresh()
         {
-            // 回廊色：前線（両端が敵対所有＝FTL不可）は赤、要衝は金、その他は通常
+            // 回廊色：交戦中は戦闘色で点滅、前線（両端が敵対所有＝FTL不可）は赤、要衝は金、その他は通常
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
             for (int i = 0; i < corridorLines.Count && i < map.corridors.Count; i++)
             {
                 Corridor c = map.corridors[i];
-                Color col = StrategyRules.IsFtlBlocked(map, c) ? frontlineColor
+                Color col;
+                if (IsEngagedCorridor(c)) col = Color.Lerp(combatColor, Color.white, pulse * 0.6f);
+                else col = StrategyRules.IsFtlBlocked(map, c) ? frontlineColor
                     : (c.type == CorridorType.要衝 ? chokeColor : corridorColor);
                 corridorLines[i].startColor = corridorLines[i].endColor = col;
             }
@@ -234,7 +252,7 @@ namespace Ginei
 
                 if (fleetRings.TryGetValue(f, out var ring)) ring.enabled = selectedFleets.Contains(f);
                 if (fleetEta.TryGetValue(f, out var eta))
-                    eta.text = f.IsMoving ? $"ETA {f.Eta:F1}" : (f.IsOnCorridor ? "保持" : $"{f.strength}");
+                    eta.text = f.engaged ? "⚔交戦" : (f.IsMoving ? $"ETA {f.Eta:F1}" : (f.IsOnCorridor ? "保持" : $"{f.strength}"));
             }
 
             DrawSelectedRoutes();
@@ -297,11 +315,11 @@ namespace Ginei
                 return;
             }
 
-            var enc = StrategyRules.FindEncounters(reg);
-            if (enc.Count > 0)
+            if (AnyEngaged())
             {
-                banner.text = $"⚔ 会戦発生：回廊で敵対艦隊が遭遇（{enc.Count}件）";
-                banner.color = new Color(1f, 0.5f, 0.3f);
+                float remain = Mathf.Max(0f, autoResolveDelay - engagedElapsed);
+                banner.text = $"⚔ 回廊で交戦中：ダブルクリックで潜行（手動指揮）／放置で自動解決（残り{remain:0.0}）";
+                banner.color = combatColor;
                 return;
             }
             string speed = paused ? "停止" : $"x{galaxySpeed:0.#}";
@@ -325,10 +343,17 @@ namespace Ginei
         {
             if (Mouse.current == null || cam == null) return;
 
-            // 左クリック：選択（Shiftで追加/トグル、空白で解除）
+            // 左クリック：ダブルクリックで交戦中の回廊へ潜行（実会戦）、単クリックは選択
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
                 Vector2 w = WorldMouse();
+
+                // ダブルクリック判定（実時間・近接）→ 交戦中の回廊なら潜行
+                float now = Time.realtimeSinceStartup;
+                bool dbl = (now - lastClickTime <= doubleClickWindow) && Vector2.Distance(w, lastClickWorld) <= 0.6f;
+                lastClickTime = now; lastClickWorld = w;
+                if (dbl && TryDescend(w)) return;
+
                 bool additive = ShiftHeld();
                 StrategicFleet nf = NearestFleet(w, 0.7f);
                 if (nf != null)
@@ -364,6 +389,40 @@ namespace Ginei
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// クリック位置に交戦中の回廊があれば、その会戦へ潜行（実会戦・Battleシーン）する（#586 ①）。
+        /// 潜行＝手動指揮。戻ると結果が反映され、観ていなかった他戦線は自動解決される。
+        /// </summary>
+        private bool TryDescend(Vector2 w)
+        {
+            if (!NearestCorridor(w, out Corridor c, out _, out float d) || d > 0.6f) return false;
+            if (!StrategyRules.TryGetEngagementOnCorridor(reg, c.aId, c.bId, out var a, out var b)) return false;
+            BattleHandoff.Queue(a, b, "Strategy");
+            SceneManager.LoadScene("Battle");
+            return true;
+        }
+
+        /// <summary>交戦中（engaged）の艦隊が1隻でも居るか。</summary>
+        private bool AnyEngaged()
+        {
+            foreach (var f in reg.fleets) if (f != null && f.engaged) return true;
+            return false;
+        }
+
+        /// <summary>回廊 c の上に交戦中の艦隊が居るか（描画の点滅判定用）。</summary>
+        private bool IsEngagedCorridor(Corridor c)
+        {
+            int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
+            foreach (var f in reg.fleets)
+            {
+                if (f == null || !f.engaged) continue;
+                int fMin = Mathf.Min(f.currentSystemId, f.destinationSystemId);
+                int fMax = Mathf.Max(f.currentSystemId, f.destinationSystemId);
+                if (fMin == min && fMax == max) return true;
+            }
+            return false;
         }
 
         private Vector2 WorldMouse()

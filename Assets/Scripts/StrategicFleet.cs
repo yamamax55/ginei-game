@@ -25,6 +25,13 @@ namespace Ginei
         public int currentSystemId;       // 停泊中の星系（移動中は出発元）
         public int destinationSystemId;   // 移動中の目的地
 
+        /// <summary>
+        /// 交戦中（回廊で敵対艦隊と接触し戦闘に固着）か。true の間は Tick で前進しない
+        /// ＝回廊上に「交戦中の回廊」として留まり、プレイヤーが潜行（ダブルクリック）するか
+        /// 自動解決されるまで動かない（C-2 二層遷移 #586）。決着で解除される。
+        /// </summary>
+        public bool engaged;
+
         private bool onCorridor;
         private float corridorLength;
         private float traveled;
@@ -157,6 +164,7 @@ namespace Ginei
 
         private bool TickInternal(GalaxyMap map, float deltaTime)
         {
+            if (engaged) return false;   // 交戦中は回廊上で固着（前進しない）
             if (!IsMoving) return false; // 前進中のみ進む（保持中・停泊中は動かない）
             traveled += CurrentSpeed * deltaTime;
             float hold = HoldDistance;

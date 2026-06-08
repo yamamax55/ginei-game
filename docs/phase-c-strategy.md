@@ -93,11 +93,19 @@
 - 配線：`BattleSetup` が `BattleHandoff.Pending` なら遭遇から両軍生成、`BattleManager` が決着で残存兵力を割り戻して `SetResult`→`returnScene`(Strategy) へ戻る。`GalaxyView` が戻り時に `ApplyHandoffResult` で結果を反映。
 - 確認済み：**戦略マップ→戦術マップ→リザルト→戦略マップ** の往復。
 
+### C-2 二層遷移ブラッシュアップ ✅（#35 ＋ EPIC #586「実現可能な方へ」）
+#35 の「同一シーンでズーム切替（シームレス）」と #586 の「回廊ダブルクリックで潜行＋いつでも復帰＋自動侵攻＋統一時間」のうち、**実現可能な #586 の明示的二層モデル**へ寄せて遷移を作り直した（シームレスズームは将来課題）。
+- **接触＝交戦中の回廊（固着）**：回廊で敵対艦隊が接触しても即・実会戦へ強制遷移しない。`StrategicFleet.engaged` で回廊上に固着（赤点滅・⚔交戦ラベル）＝「交戦中の回廊」として残る（#586 ①の前提・③LINE表現の素地）。
+- **① 潜行（ダブルクリック）**：交戦中の回廊をダブルクリック→その会戦の実会戦（Battle シーン）へ＝手動指揮。`GalaxyView.TryDescend`→`BattleHandoff.Queue`。
+- **② いつでも復帰**：Battle 中に **Backspace** で戦略マップへ復帰（暫定優勢側を勝者として書き戻し＝以後は自動委任）。`BattleManager.LeadingFaction`/`WriteHandoffResultAndReturn`。
+- **④ 自動侵攻（観ていない戦い）**：潜行せず放置した交戦は `autoResolveDelay`（銀河時間）後に抽象自動解決。潜行から戻った時も、観ていなかった他戦線は自動侵攻で決着。
+- **⑤ 統一時間（近似）**：銀河の時計は潜行中も止めない方針。実装は別シーンのため、戻り時に他戦線を自動解決して「進んでいた」状態に揃える近似。Space停止で自動解決の猶予が止まり intervene できる。
+- 純ロジック（`engaged`/`BeginEngagements`/`CollidedEncounters`/`TryGetEngagementOnCorridor`/`ApplyBattleResult` の固着解除）は `EngagementTests` で担保。
+
 ### 未着手・残課題
-- C-2 シームレスズーム（現状は別シーン＝Battle へ遷移。将来は同一シーンでズーム切替）。
+- C-2 真のシームレスズーム（同一シーン・引く=戦略/寄る=戦術。現状は明示的なシーン遷移＝#586 の二層モデル）。前線の LINE 表現（#586 ③）は回廊の太線で代替中。
 - C-3 の有界戦場・地形（壁/進入口/ハザード配置）は最小実装では未配置（殲滅フォールバック）。
-- C-4 リアルタイム並行＋複数戦線、C-5 援軍、C-6 補給、C-7 要塞、C-8 自動解決。
-- 戦線で会戦に入った艦隊以外の盤面進行は停止（C-4 で並行化）。
+- C-4 リアルタイム並行＋複数戦線（真の統一時間・並行進行）、C-5 援軍、C-6 補給、C-7 要塞、C-8 自動解決の高度化。
 
 ### テスト
 `Assets/Tests/EditMode` に純ロジックのテストを追加：`GalaxyMapTests`/`StrategicFleetTests`/`GalaxyPathfinderTests`/`StrategicFleetRegistryTests`/`StrategyRules`系/`CorridorBattleTests`/`FtlBlockTests` ほか。

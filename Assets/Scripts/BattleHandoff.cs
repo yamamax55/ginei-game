@@ -38,6 +38,12 @@ namespace Ginei
         public static Faction besiegerFaction;  // 攻城側（突入する艦隊）
         public static int besiegerStrength;      // 攻城側の戦略兵力
 
+        // ===== システムビュー（戦闘中でなくても星系をダブルクリックで戦術マップへ入る・恒星系の閲覧）=====
+        public static bool IsSystemView;        // この受け渡しが非戦闘のシステムビューか
+        public static int systemViewId;         // 入場する星系ID
+        public static string systemViewName;    // 表示名
+        public static Faction systemViewOwner;  // 星系の所有勢力
+
         // 攻城の戦術マップでの進捗を戦略へ書き戻す（戻ったとき GalaxyView が惑星へ反映）
         public static bool siegeResolved;        // 攻城結果が書き込まれた
         public static float siegeResultDefense;  // 残った制空権の割合(0..1)
@@ -61,6 +67,7 @@ namespace Ginei
             Planet.SiegeTargetKind kind = Planet.SiegeTargetKind.惑星)
         {
             IsPlanetSiege = true;
+            IsSystemView = false;
             planetSystemId = systemId;
             planetName = name;
             planetOwner = owner;
@@ -75,11 +82,29 @@ namespace Ginei
             Resolved = false;
         }
 
+        /// <summary>
+        /// 非戦闘のシステムビューを予約する（星系をダブルクリック→戦術マップで恒星系を閲覧）。
+        /// 戦闘判定は行わず、Backspace で戦略マップへ戻る。
+        /// </summary>
+        public static void QueueSystemView(int systemId, string name, Faction owner, string returnScene)
+        {
+            IsSystemView = true;
+            IsPlanetSiege = false;
+            systemViewId = systemId;
+            systemViewName = name;
+            systemViewOwner = owner;
+            BattleHandoff.returnScene = returnScene;
+            Pending = true;
+            Resolved = false;
+            siegeResolved = false;
+        }
+
         /// <summary>2つの戦略艦隊から実会戦を予約する。</summary>
         public static void Queue(StrategicFleet a, StrategicFleet b, string returnScene)
         {
             if (a == null || b == null) return;
             IsPlanetSiege = false;
+            IsSystemView = false;
             factionA = a.faction; strengthA = a.strength; fleetIdA = a.id; admiralA = null;
             factionB = b.faction; strengthB = b.strength; fleetIdB = b.id; admiralB = null;
             BattleHandoff.returnScene = returnScene;
@@ -100,6 +125,7 @@ namespace Ginei
             Pending = false;
             Resolved = false;
             IsPlanetSiege = false;
+            IsSystemView = false;
             siegeResolved = false;
             admiralA = admiralB = null;
         }

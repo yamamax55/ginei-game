@@ -69,3 +69,35 @@
   - 各子Issueは本文末尾で親EPIC #33 を参照。
 - 旧 Issue「[EPIC] 戦略レイヤー最小プロト」(#13) は本書の #33 に置き換えのためクローズ済み。
 - Project（Roadmap ボード）の並べ替えは GitHub 上で手動。推奨順：C-1→C-2→C-3→C-7→C-4→C-5/C-6/C-8（#34→35→36→40→37→38/39/41）。
+
+---
+
+## 実装状況（2026-06）
+
+最小プロト「戦略↔戦術の1周」が動作。ブランチ `claude/beam-display-issue-fNvtQ`。
+
+### C-1 銀河グラフと時間制ワープ移動 ✅（最小実装・test-first）
+純ロジックを EditMode テストで担保し、デモ可視化まで通した。
+- データ基盤：`StarSystem`（星系ノード）／`Corridor`（回廊エッジ＋`CorridorType{通商,要衝}`）／`GalaxyMap`（グラフ）。
+- 移動：`StrategicFleet`（時限ワープ・回廊上の進捗・任意位置での停止保持＝`HoldOnCorridor`・移動中の再経路＝`WarpTo`）。
+- 経路探索：`GalaxyPathfinder`（Dijkstra・前線回避オプション）。
+- 在庫：`StrategicFleetRegistry`（艦隊在庫＋`Tick`）。
+- 戦略ロジック：`StrategyRules`（接触検知 `TryFindCollision`／前線判定 `IsFtlBlocked`／星系所有変動 `ResolveOccupation`／回廊戦闘 `ResolveCorridorBattle`）。
+- 可視化：`GalaxyView`（デモ。左ク=選択／右ク=進軍 or 回廊停止保持／Space・1/2/3 で速度）＋エディタメニュー `Ginei/戦略マップ デモを開く`（`GalaxyDemoMenu`）。
+
+### C-3 回廊戦闘の起動・戦略への書き戻し ✅（実会戦差し替え・最小）
+抽象解決ではなく**実際の Battle シーン**で決着し、結果を戦略盤面へ反映する往復を実装。
+- 前線（敵対勢力に挟まれた回廊）は **FTL 不可だが亜光速で進入可**。回廊内で敵対艦隊が**接触した瞬間**に会戦が起動（`TryFindCollision`＝位置交差判定。複数艦の同回廊同時進入も可）。
+- シーン跨ぎ受け渡し：`BattleHandoff`（static・両軍の戦力/提督/勢力を運ぶ・`StrengthScale=40` で戦略兵力↔戦術 baseStrength を換算）。
+- 盤面永続：`StrategySession`（static・`GalaxyMap`＋`StrategicFleetRegistry` をシーン遷移を跨いで保持）。
+- 配線：`BattleSetup` が `BattleHandoff.Pending` なら遭遇から両軍生成、`BattleManager` が決着で残存兵力を割り戻して `SetResult`→`returnScene`(Strategy) へ戻る。`GalaxyView` が戻り時に `ApplyHandoffResult` で結果を反映。
+- 確認済み：**戦略マップ→戦術マップ→リザルト→戦略マップ** の往復。
+
+### 未着手・残課題
+- C-2 シームレスズーム（現状は別シーン＝Battle へ遷移。将来は同一シーンでズーム切替）。
+- C-3 の有界戦場・地形（壁/進入口/ハザード配置）は最小実装では未配置（殲滅フォールバック）。
+- C-4 リアルタイム並行＋複数戦線、C-5 援軍、C-6 補給、C-7 要塞、C-8 自動解決。
+- 戦線で会戦に入った艦隊以外の盤面進行は停止（C-4 で並行化）。
+
+### テスト
+`Assets/Tests/EditMode` に純ロジックのテストを追加：`GalaxyMapTests`/`StrategicFleetTests`/`GalaxyPathfinderTests`/`StrategicFleetRegistryTests`/`StrategyRules`系/`CorridorBattleTests`/`FtlBlockTests` ほか。

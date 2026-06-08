@@ -114,5 +114,19 @@ namespace Ginei
             }
             return false;
         }
+
+        /// <summary>
+        /// 別艦隊と同じ回廊上にいるか（両者とも移動中で、回廊エッジ{出発元,目的地}が一致）。
+        /// 回廊での会戦トリガー判定に使う（StrategyRules.FindEncounters）。
+        /// </summary>
+        public bool IsOnSameCorridor(StrategicFleet other)
+        {
+            if (other == null || !IsMoving || !other.IsMoving) return false;
+            int aMin = Mathf.Min(currentSystemId, destinationSystemId);
+            int aMax = Mathf.Max(currentSystemId, destinationSystemId);
+            int bMin = Mathf.Min(other.currentSystemId, other.destinationSystemId);
+            int bMax = Mathf.Max(other.currentSystemId, other.destinationSystemId);
+            return aMin == bMin && aMax == bMax;
+        }
     }
 }

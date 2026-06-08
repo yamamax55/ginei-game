@@ -76,6 +76,11 @@ namespace Ginei
         private TextMesh helpLine;
         private readonly Dictionary<int, TextMesh> siegeLabels = new Dictionary<int, TextMesh>();
 
+        // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
+        private readonly Dictionary<int, Province> provinces = new Dictionary<int, Province>();
+        private readonly Dictionary<int, Faction> prevOwners = new Dictionary<int, Faction>();
+        private readonly Dictionary<Faction, FactionData> demoFactions = new Dictionary<Faction, FactionData>();
+
         private void Start()
         {
             cam = Camera.main;
@@ -90,6 +95,7 @@ namespace Ginei
             lineMat = new Material(Shader.Find("Sprites/Default"));
 
             BuildDemoGalaxy();
+            SetupGovernance();
             BuildVisuals();
 
             // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映。
@@ -133,6 +139,9 @@ namespace Ginei
 
         private void Update()
         {
+            // 星系情報パネル表示中は戦略マップの入力・進行を止める（パネルがポーズ＆入力を処理）。
+            if (SystemDetailPanel.IsOpen) return;
+
             HandleKeys();
 
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
@@ -154,10 +163,106 @@ namespace Ginei
             occupyTimer += dt;
             if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
 
+            // 内政（#109）：所有変化で不安定化→時間で統合・安定。情報パネル(#759)が読む。
+            TickGovernance(dt);
+
             if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
             HandleMouse();
             Refresh();
+        }
+
+        // ===== 内政（#109）＋星系情報パネル（#759） =====
+
+        /// <summary>星系ごとの統治状態(Province)を用意する。デモ用に勢力へ思想を持たせ、住民の思想＝開始所有勢力とする。</summary>
+        private void SetupGovernance()
+        {
+            // デモ用の勢力データ（思想を持たせて内政の手応えを出す。実運用は Resources/Factions の FactionData）。
+            demoFactions[Faction.帝国] = MakeDemoFaction("帝国", "専制", Faction.帝国);
+            demoFactions[Faction.同盟] = MakeDemoFaction("同盟", "民主", Faction.同盟);
+
+            foreach (var s in map.systems)
+            {
+                if (s == null) continue;
+                // 住民の思想＝開始時の所有勢力（母国は思想一致で安定）。占領されても住民は変わらない＝燻りの源。
+                provinces[s.id] = new Province(s.id, IdeologyOf(s.owner), 100f);
+                prevOwners[s.id] = s.owner;
+            }
+        }
+
+        private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.factionName = name; f.ideology = ideology; f.legacyFaction = legacy;
+            return f;
+        }
+
+        private string IdeologyOf(Faction f) => demoFactions.TryGetValue(f, out var fd) && fd != null ? fd.ideology : "";
+
+        /// <summary>各星系の内政を1tick進める：所有変化で OnOccupied（不安定化）、以降は目標安定度へ収束。</summary>
+        private void TickGovernance(float dt)
+        {
+            if (dt <= 0f || map == null) return;
+            foreach (var s in map.systems)
+            {
+                if (s == null) continue;
+                if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+
+                // 所有が変わった＝占領 → 統合リセットで不安定化
+                if (prevOwners.TryGetValue(s.id, out var prev) && prev != s.owner)
+                {
+                    GovernanceRules.OnOccupied(prov);
+                    prevOwners[s.id] = s.owner;
+                }
+
+                FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
+                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s), deltaTime: dt);
+            }
+        }
+
+        /// <summary>その星系に所有勢力と敵対する戦略艦隊が停泊しているか（戦時ペナルティ判定）。</summary>
+        private bool HasHostileFleetAt(StarSystem s)
+        {
+            var here = reg.FleetsAt(s.id);
+            for (int i = 0; i < here.Count; i++)
+            {
+                StrategicFleet f = here[i];
+                if (f != null && FactionRelations.IsHostile(null, f.faction, s.ownerData, s.owner)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>マウス直下の星系の情報パネルを開く（I キー・#759）。表示中は戦略マップがポーズ。</summary>
+        private void OpenSystemInfoAtMouse()
+        {
+            if (cam == null) return;
+            Vector2 w = WorldMouse();
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > 1.2f) return;
+            StarSystem s = map.GetSystem(sysId);
+            if (s == null) return;
+            provinces.TryGetValue(sysId, out var prov);
+            SystemDetailPanel.Show(s, prov, map.Neighbors(sysId).Count, FleetSummaryAt(sysId));
+        }
+
+        /// <summary>星系に停泊中の戦略艦隊を勢力ごとに「N隊・兵力M」で要約する。</summary>
+        private string FleetSummaryAt(int sysId)
+        {
+            var here = reg.FleetsAt(sysId);
+            if (here == null || here.Count == 0) return "";
+            var strengthByF = new Dictionary<Faction, int>();
+            var countByF = new Dictionary<Faction, int>();
+            for (int i = 0; i < here.Count; i++)
+            {
+                StrategicFleet f = here[i];
+                if (f == null) continue;
+                strengthByF.TryGetValue(f.faction, out int st); strengthByF[f.faction] = st + f.strength;
+                countByF.TryGetValue(f.faction, out int c); countByF[f.faction] = c + 1;
+            }
+            var sb = new System.Text.StringBuilder();
+            foreach (var kv in strengthByF)
+                sb.AppendLine($"{kv.Key}：{countByF[kv.Key]}隊・兵力 {kv.Value}");
+            return sb.ToString().TrimEnd();
         }
 
         // ===== デモ銀河 =====
@@ -267,7 +372,7 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 右ク:星系へ進軍 or 回廊で停止保持 / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 右ク:星系へ進軍 or 回廊で停止保持 / I:星系情報 / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -462,6 +567,7 @@ namespace Ginei
             if (kb.digit1Key.wasPressedThisFrame) { galaxySpeed = 0.5f; paused = false; }
             if (kb.digit2Key.wasPressedThisFrame) { galaxySpeed = 1f; paused = false; }
             if (kb.digit3Key.wasPressedThisFrame) { galaxySpeed = 2f; paused = false; }
+            if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
         }
 
         private void HandleMouse()

@@ -395,7 +395,7 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 右ク:星系へ進軍 or 回廊で停止保持 / I:星系情報 / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 星系をダブルクリック:システムビュー / 右ク:星系へ進軍 or 回廊で停止保持 / I:星系情報 / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -606,7 +606,8 @@ namespace Ginei
                 float now = Time.realtimeSinceStartup;
                 bool dbl = (now - lastClickTime <= doubleClickWindow) && Vector2.Distance(w, lastClickWorld) <= 0.6f;
                 lastClickTime = now; lastClickWorld = w;
-                if (dbl && (TryDescend(w) || TryDescendPlanet(w))) return;
+                // 交戦回廊への潜行＞攻城突入＞（どちらも無ければ）平時の星系をシステムビューで閲覧
+                if (dbl && (TryDescend(w) || TryDescendPlanet(w) || TryEnterSystem(w))) return;
 
                 bool additive = ShiftHeld();
                 StrategicFleet nf = NearestFleet(w, 0.7f);
@@ -682,6 +683,21 @@ namespace Ginei
             float invRatio = s.planet.invasionThreshold > 0f ? s.planet.invasionProgress / s.planet.invasionThreshold : 0f;
             BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio, invRatio,
                 besieger.faction, besieger.strength, "Strategy", s.planet.kind);
+            SceneManager.LoadScene("Battle");
+            return true;
+        }
+
+        /// <summary>
+        /// クリック位置に星系があれば、戦闘中でなくてもその星系の戦術マップ（システムビュー＝恒星系の閲覧）へ入る。
+        /// 交戦回廊(TryDescend)・攻城突入(TryDescendPlanet)が優先で、どれにも該当しない平時の星系がここに来る。
+        /// </summary>
+        private bool TryEnterSystem(Vector2 w)
+        {
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > systemClickRadius) return false;
+            StarSystem s = map.GetSystem(sysId);
+            if (s == null) return false;
+            BattleHandoff.QueueSystemView(s.id, s.systemName, s.owner, "Strategy");
             SceneManager.LoadScene("Battle");
             return true;
         }

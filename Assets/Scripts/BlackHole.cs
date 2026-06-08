@@ -618,6 +618,7 @@ namespace Ginei
         {
             if (!AutoSpawnEnabled) return;
             if (scene.name != "Battle") return;
+            if (BattleHandoff.IsSystemView) return; // 非戦闘のシステムビューにはブラックホールを湧かせない
             if (Object.FindAnyObjectByType<BlackHole>() != null) return;
 
             GameObject go = new GameObject("BlackHole");

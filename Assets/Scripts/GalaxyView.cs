@@ -38,6 +38,18 @@ namespace Ginei
         [Tooltip("ダブルクリック判定の猶予（実時間・秒）")]
         public float doubleClickWindow = 0.35f;
 
+        [Header("惑星攻城（#131）")]
+        [Tooltip("S-AV戦力あたりの制空権抑制速度")]
+        public float siegeSuppressRate = 0.05f;
+        [Tooltip("ドメイン・ダウン後のS-AV戦力あたり侵略値蓄積速度")]
+        public float siegeInvadeRate = 0.05f;
+        [Tooltip("非交戦時の制空権再建速度")]
+        public float siegeDefenseRegen = 0f;
+        [Tooltip("デモ：帝国星系に置く惑星の制空権/侵略閾値")]
+        public float demoPlanetDefense = 100f;
+        public Color defenseColor = new Color(0.9f, 0.55f, 0.25f);
+        public Color invadeColor = new Color(0.95f, 0.3f, 0.3f);
+
         private GalaxyMap map;
         private StrategicFleetRegistry reg;
         private Camera cam;
@@ -60,6 +72,7 @@ namespace Ginei
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
         private TextMesh banner;
         private TextMesh helpLine;
+        private readonly Dictionary<int, TextMesh> siegeLabels = new Dictionary<int, TextMesh>();
 
         private void Start()
         {
@@ -104,6 +117,9 @@ namespace Ginei
             }
             else engagedElapsed = 0f;
 
+            // 防衛惑星の攻城（停泊した敵対艦隊が S-AV で制空権制圧→侵略→占領）。銀河時間で進む。
+            StrategyRules.TickSieges(map, reg, dt, new SiegeParams(siegeSuppressRate, siegeInvadeRate, siegeDefenseRegen));
+
             occupyTimer += dt;
             if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
 
@@ -135,6 +151,12 @@ namespace Ginei
             map.AddCorridor(new Corridor(4, 1, 2f));
             map.AddCorridor(new Corridor(0, 5, 3f));
             map.AddCorridor(new Corridor(5, 3, 2f));
+
+            // 帝国星系は惑星（制空権持ち）で防衛＝同盟は停泊だけでは占領できず攻城が要る（#131）。
+            // 同盟星系は無防備（planet 無し）＝従来どおり停泊で占領（両方の挙動をデモ）。
+            foreach (var s in map.systems)
+                if (s != null && s.owner == Faction.帝国)
+                    s.planet = new Planet(s.id, Faction.帝国, demoPlanetDefense, demoPlanetDefense);
 
             reg = new StrategicFleetRegistry(map);
             reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250 });
@@ -177,6 +199,13 @@ namespace Ginei
                 sr.sprite = disc; sr.color = OwnerColor(s.owner); sr.sortingOrder = 2;
                 systemDots[s.id] = sr;
                 MakeLabel(go.transform, s.systemName, new Vector3(0f, systemScale * 0.9f, 0f), 0.9f);
+
+                // 防衛惑星は攻城状態（制空権/侵略値）を星系の下にコンパクト表示
+                if (s.planet != null)
+                {
+                    var sl = MakeLabel(go.transform, "", new Vector3(0f, -systemScale * 0.95f, 0f), 0.7f).GetComponent<TextMesh>();
+                    siegeLabels[s.id] = sl;
+                }
             }
 
             foreach (var f in reg.fleets)
@@ -241,6 +270,25 @@ namespace Ginei
             {
                 StarSystem s = map.GetSystem(kv.Key);
                 if (s != null && kv.Value != null) kv.Value.color = OwnerColor(s.owner);
+            }
+
+            // 攻城状態：制空権健在は ⛨残量%（橙）、ドメイン・ダウン中は 侵略%（赤）
+            foreach (var kv in siegeLabels)
+            {
+                StarSystem s = map.GetSystem(kv.Key);
+                TextMesh sl = kv.Value;
+                if (s == null || s.planet == null || sl == null) continue;
+                Planet p = s.planet;
+                if (!p.DomainDown)
+                {
+                    sl.text = $"⛨{Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%";
+                    sl.color = defenseColor;
+                }
+                else
+                {
+                    sl.text = $"侵{Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%";
+                    sl.color = invadeColor;
+                }
             }
 
             foreach (var kv in fleetMarks)

@@ -95,7 +95,7 @@
 | `CameraController` | Main Camera | パン(WASD/矢印/中ドラッグ)・ズーム(ホイール,`zoomSpeed`/min/maxZoom)・開始時は `startZoom` で少し引いた画・F=選択艦隊フォーカス・min/maxBounds クランプ・撃沈時 `Shake()`（unscaled で減衰、LateUpdate でオフセット復元）。 |
 | `CommandMenu` | uGUI | 右クリックメニュー。選択状況で 移動/後退/攻撃/陣形変更/情報/選択 を動的生成。「後退」は `FleetCommander.StartWaitingForReverseTarget()`（向きを保って下がる）。「攻撃」は選択中つねに表示し、押すと `FleetCommander.StartWaitingForAttackTarget()` で目標指定モードへ移行（左ク=通常攻撃／右ク=攻撃種別メニュー）。`OpenAttackTypeMenu(screenPos)` で通常/ミサイルの選択メニューを開く。陣形サブメニューのボタンは `Formation` enum から動的生成（`BuildFormationButtons`、シーン手配線に非依存）。`OpenMenu`/`CloseMenu`/`IsOpen`/`ChangeFormation(int)`。画面端クランプ。 |
 | `FleetHUDManager` | uGUI | 選択艦隊の 提督/陣営/兵力バー/士気バー/陣形 を表示。任意で `shipCountText`(旗艦艦艇数＋配下艦残存数)を表示。`ChangeFormation(int)`。`ShowMessage(text, duration)` で画面上部に通知を実時間で一定時間表示（攻撃対象通知などに使用、TMPテキストを実行時生成）。 |
-| `OrderOfBattlePanel` | Battle シーン | **O キーで開閉する編制管理UI（#147・`OrderOfBattle`/`FleetRoster` ビューア＋組み替え）**。プレイヤー勢力の梯団ツリー（軍集団 ⊃ 軍団 ⊃ 第N艦隊＋司令の階級名）を表示し、**艦隊の［移動］→軍団の［ここへ］で別軍団へ移す（中身流動）**＝`OrderOfBattle.AttachFleet`＋該当 `FleetStrength.corpsName`/`armyGroupName` を更新してHUDへ即反映。未編入艦隊も一覧。**梯団の［任命］→司令選任モード**＝在席提督を**階級ゲート(#14)付き**で一覧（必要tier未満は×・選べない＝ゲートをUIで体感）／解任可（`OrderOfBattle.AssignCommander`/`CanCommand`/`UnassignCommander`）。一覧は `ScrollRect`(`RectMask2D`＋`ContentSizeFitter`)。数値ロジックは持たず static 窓口を読むだけ。**表示中 `Time.timeScale=0` でポーズ**（`PauseManager` は `OrderOfBattlePanel.IsOpen` の間ポーズ入力を譲る）。`HelpOverlay` と同じ `RuntimeInitializeOnLoadMethod` で Battle に自動生成。`IsOpen`/`Toggle`/`Close`。 |
+| `OrderOfBattlePanel` | Battle シーン | **O キーで開閉する編制管理UI（#147・`OrderOfBattle`/`FleetRoster` ビューア＋組み替え）**。プレイヤー勢力の梯団ツリー（軍集団 ⊃ 軍団 ⊃ 第N艦隊＋司令の階級名）を表示し、**艦隊の［移動］→軍団の［ここへ］で別軍団へ移す（中身流動）**＝`OrderOfBattle.AttachFleet`＋該当 `FleetStrength.corpsName`/`armyGroupName` を更新してHUDへ即反映。未編入艦隊も一覧。**梯団の［任命］→司令選任モード**＝在席提督を**階級ゲート(#14)付き**で一覧（必要tier未満は×・選べない＝ゲートをUIで体感）／解任可（`OrderOfBattle.AssignCommander`/`CanCommand`/`UnassignCommander`）。数値ロジックは持たず static 窓口を読むだけ。**表示中 `Time.timeScale=0` でポーズ**（`PauseManager` は `OrderOfBattlePanel.IsOpen` の間ポーズ入力を譲る）。`HelpOverlay` と同じ `RuntimeInitializeOnLoadMethod` で Battle に自動生成。`IsOpen`/`Toggle`/`Close`。**UI Toolkit で実装（UI段階移行のパイロット）**＝flexbox＋`ScrollView` でレイアウト自動＝見切れが原理的に起きない。基盤は `GineiUITK`。 |
 | `HelpOverlay` | Battle シーン | H キーで開閉する操作ヘルプオーバーレイ。TimeScale 非依存（ポーズ中も開閉可）。`[RuntimeInitializeOnLoadMethod]` で Battle シーンに自動生成（シーン手配線不要）。Canvas/ディマー/スクロールビュー/操作一覧（選択・移動・攻撃・陣形・カメラ・ポーズ・倍速）をコードで構築。`Toggle()`/`SetVisible(bool)`。 |
 
 ### 艦隊コンポーネント（旗艦 GameObject に付く）
@@ -171,6 +171,13 @@
 - 敵探索は `FleetRegistry`（単一在庫）＋`FactionRelations.IsHostile` に集約済み。新たに `FindObjectsByType` での索敵や「`faction` 違い＝敵」の直書きを増やさない（敵対判定は必ず `FactionRelations` 経由）。`BattleSetup.ClearExistingFleets` の開始時除去のみ `FindObjectsByType` 例外＝登録前の手置き艦を拾うため。配下艦の発砲・索敵は `fireInterval` 間隔＋初回位相をランダムにずらして全艦同時更新を避ける。
 - **ZOC（支配領域）判定は `ZoneOfControl`(static) が唯一の窓口(#81)**：`CanProject`(退却=IsAlive false・敗走=IsRouted でZOC消失)／`GetRadius`(外接円×`FleetMovement.zocRadiusScale`)／`HostileIntensityAt`(敵ZOC最深侵入度0..1)／`SteerAround`(AI回避の目標補正)。半径倍率等の調整値は各艦の `FleetMovement` に持たせ `ZoneOfControl` はそれを読むだけ（重複パラメータを増やさない）。列挙は `FleetRegistry.AllFlagships`＋`FactionRelations.IsHostile`。新たなZOC判定の直書きを増やさずここへ集約する。
 - 日本語フォント読み込みは `FontProvider.JapaneseFont`(static) に集約済み（`FleetStrength`/`FleetMorale`/`DamagePopup` が参照）。新規の legacy TextMesh も必ずここを使う。
+
+## UI Toolkit 段階移行（#UI統一・見切れ防止）
+- 新規/複雑なUIは **UI Toolkit（UITK）** へ段階移行する（既存の uGUI コード生成パネルは順次置換）。flexbox＋`ScrollView` でレイアウト自動＝**見切れが原理的に起きない**、テーマ USS で**統一**。
+- 基盤＝`GineiUITK`(static)：`Attach(host, sortingOrder, out root)` で `UIDocument`＋`PanelSettings` を配線し、共通テーマ `Resources/GineiTheme.uss` と日本語フォントを適用したルートを返す。UIは VisualElement/Label/Button/ScrollView を C# で組む（コード生成・自動生成の方針は uGUI 時代と同じ）。
+- **★ランタイムUITKには `PanelSettings` アセットが1つ必須**：Project で Create → UI Toolkit → Panel Settings Asset を作り、`Assets/Resources/GineiPanelSettings` に置く（名前固定・テーマは既定で可）。無いと `GineiUITK.Attach` が警告し描画されない。
+- 日本語フォントは `GineiUITK.ApplyJapaneseFont`＝`Resources/JapaneseFont_TMP`(FontAsset) を優先、無ければ `FontProvider.JapaneseFont`(legacy Font) にフォールバック。
+- パイロット＝`OrderOfBattlePanel`（編制管理UI）。以後この型に倣って他パネルを移行する。
 
 ## 日本語表示の注意
 - 頭上ラベル/ダメージ表示は legacy `TextMesh`：実行時フォントは **`FontProvider.JapaneseFont`** が解決する（唯一の窓口）。中身は `Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")`。**Unity6 で `"Arial.ttf"` は廃止され例外を投げる**（過去に一瞬で艦隊が消えるバグの原因）。エディタ内では `Assets/Fonts/msgothic.ttc` があれば優先。

@@ -1,0 +1,82 @@
+/* Ginei 共通UIテーマ（UI Toolkit・#段階移行）。flexbox＋ScrollView でレイアウト自動＝見切れ防止。 */
+
+.dim {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    align-items: center;
+    justify-content: center;
+}
+
+.panel {
+    width: 780px;
+    max-height: 88%;
+    background-color: rgba(15, 18, 30, 0.97);
+    border-radius: 8px;
+    padding-top: 18px; padding-bottom: 18px; padding-left: 24px; padding-right: 24px;
+    flex-direction: column;
+}
+
+.title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-center;
+    margin-bottom: 6px;
+}
+
+.hint {
+    font-size: 16px;
+    color: rgb(180, 205, 230);
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+/* ScrollView 本体（縦に伸びる・はみ出しは自動でスクロール） */
+.scroll {
+    flex-grow: 1;
+}
+
+.row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 28px;
+    margin-bottom: 2px;
+}
+
+.row-label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 18px;
+    color: rgb(255, 255, 255);
+    white-space: normal;
+}
+
+.muted { color: rgb(150, 160, 180); }
+
+.btn {
+    flex-shrink: 0;
+    min-width: 88px;
+    background-color: rgb(64, 90, 128);
+    color: rgb(255, 255, 255);
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    padding-top: 4px; padding-bottom: 4px; padding-left: 10px; padding-right: 10px;
+    border-radius: 4px;
+    border-width: 0;
+    margin-left: 8px;
+}
+.btn:hover { background-color: rgb(84, 114, 156); }
+
+.footer-btn {
+    background-color: rgb(51, 64, 102);
+    color: rgb(255, 255, 255);
+    font-size: 22px;
+    -unity-font-style: bold;
+    height: 46px;
+    margin-top: 10px;
+    border-radius: 6px;
+    border-width: 0;
+}
+.footer-btn:hover { background-color: rgb(66, 82, 128); }

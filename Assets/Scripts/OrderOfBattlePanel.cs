@@ -1,20 +1,20 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.UI;
-using TMPro;
+using UnityEngine.UIElements;
 
 namespace Ginei
 {
     /// <summary>
     /// 編制管理UI（#147・オーダー・オブ・バトルのビューア＋組み替え）。Battle シーンに O キーで開閉するモーダル。
+    /// UI Toolkit（段階移行のパイロット）で実装：flexbox＋ScrollView でレイアウト自動＝見切れが起きない。
     /// プレイヤー勢力の梯団ツリー（軍集団 ⊃ 軍団 ⊃ 第N艦隊）を表示し、艦隊を別の軍団へ移す（中身流動）。
+    /// 梯団の［任命］で在席提督を階級ゲート(#14)付きに選任（必要tier未満は選べない）。
     /// 数値ロジックは持たず <see cref="OrderOfBattle"/>/<see cref="FleetRoster"/> の static 窓口を読むだけ。
     /// 表示中は <see cref="Time.timeScale"/>=0 でポーズ（PauseManager は IsOpen の間ポーズ入力を譲る）。
-    /// HelpOverlay と同じく RuntimeInitializeOnLoadMethod で Battle シーンに自動生成（手配線不要）。
+    /// HelpOverlay と同じ RuntimeInitializeOnLoadMethod で Battle に自動生成。基盤は <see cref="GineiUITK"/>。
     /// </summary>
     public class OrderOfBattlePanel : MonoBehaviour
     {
@@ -22,10 +22,11 @@ namespace Ginei
         public static bool IsOpen => instance != null && instance.isOpen;
 
         private bool isOpen;
+        private bool built;
         private float savedTimeScale = 1f;
-        private GameObject root;
-        private Transform listContent;
-        private TextMeshProUGUI hintText;
+        private VisualElement root;     // UIDocument のルート（全画面）
+        private VisualElement list;     // ScrollView（行の追加先）
+        private Label hintLabel;
         private Faction faction;
         private int selectedFleet;  // 移動対象の艦隊番号（0=未選択）
         private int commandTarget;  // 司令選任中の梯団id（0=未選択）
@@ -43,7 +44,7 @@ namespace Ginei
         private static void TryCreate(Scene scene)
         {
             if (scene.name != "Battle") return;
-            if (Object.FindAnyObjectByType<OrderOfBattlePanel>() != null) return;
+            if (UnityEngine.Object.FindAnyObjectByType<OrderOfBattlePanel>() != null) return;
             new GameObject("OrderOfBattlePanel").AddComponent<OrderOfBattlePanel>();
         }
 
@@ -51,7 +52,6 @@ namespace Ginei
         {
             instance = this;
             Build();
-            if (root != null) root.SetActive(false);
         }
 
         private void Update()
@@ -69,50 +69,48 @@ namespace Ginei
 
         private void Open()
         {
+            if (!built || root == null) return;
             faction = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
             selectedFleet = 0;
             commandTarget = 0;
             savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
             isOpen = true;
-            if (root != null) root.SetActive(true);
+            root.style.display = DisplayStyle.Flex;
             Rebuild();
         }
 
         public void Close()
         {
             if (isOpen) { Time.timeScale = savedTimeScale; isOpen = false; }
-            if (root != null) root.SetActive(false);
+            if (root != null) root.style.display = DisplayStyle.None;
         }
 
         // ===== ツリー構築 =====
 
         private void Rebuild()
         {
-            if (listContent == null) return;
-            for (int i = listContent.childCount - 1; i >= 0; i--) Destroy(listContent.GetChild(i).gameObject);
+            if (list == null) return;
+            list.Clear();
 
-            if (hintText != null)
+            if (hintLabel != null)
             {
-                hintText.text = commandTarget > 0
+                hintLabel.text = commandTarget > 0
                     ? "司令を選任中（×印は階級不足で選べない）"
                     : selectedFleet > 0
                         ? $"移動中: 第{selectedFleet}艦隊　→　移動先の軍団の［ここへ］を押す"
                         : "O:閉じる　／　艦隊[移動]→軍団[ここへ]で組替　／　梯団[任命]で司令選任";
             }
 
-            // 司令選任モード：候補提督を階級ゲート付きで一覧（×は不可）。
             if (commandTarget > 0) { RenderCommanderSelect(); return; }
 
             if (selectedFleet > 0)
                 AddRow("　［移動を取消］", "取消", () => { selectedFleet = 0; Rebuild(); });
 
             var rendered = new HashSet<int>();
-            // 最上位（親なし）の梯団から描画。軍集団→軍団→艦隊の順に。
             foreach (var f in OrderOfBattle.AllFormations(faction))
                 if (f.parentId == 0) RenderFormation(f, 0, rendered);
 
-            // どの梯団にも属さない艦隊（未編入）
             var unassigned = new List<FleetUnitData>();
             foreach (var u in FleetRoster.AllFleets(faction))
                 if (u != null && u.IsActive && !rendered.Contains(u.fleetNumber)) unassigned.Add(u);
@@ -127,8 +125,7 @@ namespace Ginei
         {
             string indent = new string('　', depth);
             string cmd = CommanderLabel(f.commander);
-            // 移動中＝軍団に「ここへ」、通常＝梯団に「任命」（司令選任へ）。
-            string btn = null; UnityEngine.Events.UnityAction act = null;
+            string btn = null; Action act = null;
             if (selectedFleet > 0 && f.echelon == EchelonType.軍団)
             {
                 btn = "ここへ"; act = () => MoveFleetTo(f, selectedFleet);
@@ -139,9 +136,7 @@ namespace Ginei
             }
             AddRow($"{indent}◆ {f.echelon} {f.DisplayName}　司令: {cmd}", btn, act);
 
-            // 直下の艦隊
             foreach (int num in f.fleetNumbers) AddFleetRow(num, depth + 1, rendered);
-            // 下位梯団
             foreach (int childId in f.childFormationIds)
             {
                 var child = OrderOfBattle.Get(childId);
@@ -151,34 +146,16 @@ namespace Ginei
 
         private void AddFleetRow(int num, int depth, HashSet<int> rendered)
         {
-            if (!rendered.Add(num)) return; // 二重描画防止
+            if (!rendered.Add(num)) return;
             string indent = new string('　', depth);
             FleetUnitData u = FleetRoster.GetFleet(faction, num);
-            string admiral = (u != null && u.assignedAdmiral != null)
-                ? AdmiralLabel(u.assignedAdmiral) : "（空席）";
+            string admiral = (u != null && u.assignedAdmiral != null) ? AdmiralLabel(u.assignedAdmiral) : "（空席）";
             bool isSelected = selectedFleet == num;
             AddRow($"{indent}└ 第{num}艦隊　{admiral}{(isSelected ? "　★移動中" : "")}",
                 "移動", () => { selectedFleet = num; Rebuild(); });
         }
 
-        /// <summary>艦隊を指定軍団へ移す（中身流動）。表示中の FleetStrength の梯団名も更新する。</summary>
-        private void MoveFleetTo(MilitaryFormation corps, int fleetNumber)
-        {
-            OrderOfBattle.AttachFleet(corps.id, fleetNumber);
-
-            // 軍団の親が軍集団ならその名も反映
-            string groupName = "";
-            var parent = OrderOfBattle.Get(corps.parentId);
-            if (parent != null && parent.echelon == EchelonType.軍集団) groupName = parent.name;
-
-            FleetStrength fs = FindFlagship(fleetNumber);
-            if (fs != null) { fs.corpsName = corps.name; fs.armyGroupName = groupName; }
-
-            selectedFleet = 0;
-            Rebuild();
-        }
-
-        /// <summary>司令選任モードの描画：候補提督を階級ゲート付きで一覧（×は不可・選べない）。</summary>
+        /// <summary>司令選任モード：候補提督を階級ゲート付きで一覧（×は不可・選べない）。</summary>
         private void RenderCommanderSelect()
         {
             MilitaryFormation f = OrderOfBattle.Get(commandTarget);
@@ -199,20 +176,31 @@ namespace Ginei
                 string suffix = ok ? "" : "　（階級不足）";
                 AddRow($"　{mark} {AdmiralLabel(adm)}{suffix}",
                     ok ? "選ぶ" : null,
-                    ok ? (UnityEngine.Events.UnityAction)(() => { OrderOfBattle.AssignCommander(f.id, adm); commandTarget = 0; Rebuild(); }) : null);
+                    ok ? (Action)(() => { OrderOfBattle.AssignCommander(f.id, adm); commandTarget = 0; Rebuild(); }) : null);
             }
         }
 
-        /// <summary>任命候補＝プレイヤー勢力の在席提督（艦隊の配属指揮官＋現任の梯団司令）を重複なく集める。</summary>
         private List<AdmiralData> CandidateAdmirals()
         {
             var seen = new HashSet<AdmiralData>();
-            var list = new List<AdmiralData>();
+            var list2 = new List<AdmiralData>();
             foreach (var u in FleetRoster.AllFleets(faction))
-                if (u != null && u.assignedAdmiral != null && seen.Add(u.assignedAdmiral)) list.Add(u.assignedAdmiral);
+                if (u != null && u.assignedAdmiral != null && seen.Add(u.assignedAdmiral)) list2.Add(u.assignedAdmiral);
             foreach (var f in OrderOfBattle.AllFormations(faction))
-                if (f.commander != null && seen.Add(f.commander)) list.Add(f.commander);
-            return list;
+                if (f.commander != null && seen.Add(f.commander)) list2.Add(f.commander);
+            return list2;
+        }
+
+        private void MoveFleetTo(MilitaryFormation corps, int fleetNumber)
+        {
+            OrderOfBattle.AttachFleet(corps.id, fleetNumber);
+            string groupName = "";
+            var parent = OrderOfBattle.Get(corps.parentId);
+            if (parent != null && parent.echelon == EchelonType.軍集団) groupName = parent.name;
+            FleetStrength fs = FindFlagship(fleetNumber);
+            if (fs != null) { fs.corpsName = corps.name; fs.armyGroupName = groupName; }
+            selectedFleet = 0;
+            Rebuild();
         }
 
         private FleetStrength FindFlagship(int fleetNumber)
@@ -235,153 +223,61 @@ namespace Ginei
             return string.IsNullOrEmpty(rank) ? name : $"{rank} {name}";
         }
 
-        // ===== UI 生成 =====
+        // ===== UI 生成（UI Toolkit） =====
 
         private void Build()
         {
-            EnsureEventSystem();
+            GineiUITK.Attach(gameObject, 95, out root);
+            if (root == null) { built = false; return; }
 
-            var canvasObj = new GameObject("OrderOfBattleCanvas");
-            canvasObj.transform.SetParent(transform, false);
-            var canvas = canvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 95;
-            canvasObj.AddComponent<CanvasScaler>();
-            canvasObj.AddComponent<GraphicRaycaster>();
+            // 背景ディマー（クリックで閉じる＝ディマー自身がクリック対象のときだけ）
+            var dim = new VisualElement();
+            dim.AddToClassList("dim");
+            dim.RegisterCallback<ClickEvent>(evt => { if (evt.target == dim) Close(); });
+            root.Add(dim);
 
-            root = new GameObject("Root", typeof(RectTransform));
-            root.transform.SetParent(canvasObj.transform, false);
-            StretchFull(root.GetComponent<RectTransform>());
+            var panel = new VisualElement();
+            panel.AddToClassList("panel");
+            dim.Add(panel);
 
-            var dim = new GameObject("Dimmer", typeof(RectTransform));
-            dim.transform.SetParent(root.transform, false);
-            StretchFull(dim.GetComponent<RectTransform>());
-            var dimImg = dim.AddComponent<Image>();
-            dimImg.color = new Color(0f, 0f, 0f, 0.6f);
-            var dimBtn = dim.AddComponent<Button>();
-            dimBtn.transition = UnityEngine.UI.Selectable.Transition.None;
-            dimBtn.onClick.AddListener(Close);
+            var title = new Label("編制（オーダー・オブ・バトル）");
+            title.AddToClassList("title");
+            panel.Add(title);
 
-            var panel = new GameObject("Panel", typeof(RectTransform));
-            panel.transform.SetParent(root.transform, false);
-            var pRT = panel.GetComponent<RectTransform>();
-            pRT.anchorMin = pRT.anchorMax = pRT.pivot = new Vector2(0.5f, 0.5f);
-            pRT.sizeDelta = new Vector2(740f, 760f);
-            var pImg = panel.AddComponent<Image>();
-            pImg.color = new Color(0.06f, 0.07f, 0.12f, 0.97f);
-            var vlg = panel.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(24, 24, 20, 20);
-            vlg.spacing = 8f;
-            vlg.childControlWidth = true; vlg.childForceExpandWidth = true;
-            vlg.childControlHeight = true; vlg.childForceExpandHeight = false;
-            vlg.childAlignment = TextAnchor.UpperLeft;
+            hintLabel = new Label("");
+            hintLabel.AddToClassList("hint");
+            panel.Add(hintLabel);
 
-            CreateText(panel.transform, "編制（オーダー・オブ・バトル）", 26f, FontStyles.Bold, TextAlignmentOptions.Center);
-            hintText = CreateText(panel.transform, "", 17f, FontStyles.Normal, TextAlignmentOptions.Left);
-            hintText.color = new Color(0.7f, 0.8f, 0.9f);
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.AddToClassList("scroll");
+            panel.Add(scroll);
+            list = scroll; // scroll.Add は contentContainer に入る
 
-            // ツリー本体（スクロール可能。艦隊数が多くても溢れない）
-            var scrollGo = new GameObject("Scroll", typeof(RectTransform));
-            scrollGo.transform.SetParent(panel.transform, false);
-            var scrollLE = scrollGo.AddComponent<LayoutElement>();
-            scrollLE.flexibleHeight = 1f;
-            var scroll = scrollGo.AddComponent<ScrollRect>();
-            scroll.horizontal = false; scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 28f;
+            var close = new Button(Close) { text = "閉じる (O / Esc)" };
+            close.AddToClassList("footer-btn");
+            panel.Add(close);
 
-            var viewport = new GameObject("Viewport", typeof(RectTransform));
-            viewport.transform.SetParent(scrollGo.transform, false);
-            StretchFull(viewport.GetComponent<RectTransform>());
-            viewport.AddComponent<RectMask2D>();
-            var vpImg = viewport.AddComponent<Image>();
-            vpImg.color = new Color(0f, 0f, 0f, 0.12f); // スクロールのレイキャスト受け
-            scroll.viewport = viewport.GetComponent<RectTransform>();
-
-            var content = new GameObject("Content", typeof(RectTransform));
-            content.transform.SetParent(viewport.transform, false);
-            var cRT = content.GetComponent<RectTransform>();
-            cRT.anchorMin = new Vector2(0f, 1f); cRT.anchorMax = new Vector2(1f, 1f);
-            cRT.pivot = new Vector2(0.5f, 1f); cRT.anchoredPosition = Vector2.zero;
-            cRT.sizeDelta = new Vector2(0f, 0f); // 幅＝ビューポート幅（横溢れ＝ボタン見切れ防止）。高さは ContentSizeFitter
-            var cVlg = content.AddComponent<VerticalLayoutGroup>();
-            cVlg.spacing = 4f; cVlg.childControlWidth = true; cVlg.childForceExpandWidth = true;
-            cVlg.childControlHeight = true; cVlg.childForceExpandHeight = false;
-            cVlg.childAlignment = TextAnchor.UpperLeft;
-            var cFit = content.AddComponent<ContentSizeFitter>();
-            cFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            scroll.content = cRT;
-            listContent = content.transform;
-
-            CreateButton(panel.transform, "閉じる (O / Esc)", Close);
-
-            root.SetActive(false);
+            root.style.display = DisplayStyle.None; // 初期は非表示
+            built = true;
         }
 
-        private void AddRow(string text, string btnLabel = null, UnityEngine.Events.UnityAction onClick = null)
+        private void AddRow(string text, string btnLabel = null, Action onClick = null)
         {
-            var row = new GameObject("Row", typeof(RectTransform));
-            row.transform.SetParent(listContent, false);
-            var hlg = row.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(0, 6, 0, 0); // 右に少し余白（ボタンがマスク端に触れない）
-            hlg.spacing = 8f; hlg.childControlWidth = true; hlg.childForceExpandWidth = false;
-            hlg.childControlHeight = true; hlg.childForceExpandHeight = false;
-            hlg.childAlignment = TextAnchor.MiddleLeft;
-            var rle = row.AddComponent<LayoutElement>(); rle.minHeight = 28f;
+            if (list == null) return;
+            var row = new VisualElement();
+            row.AddToClassList("row");
 
-            var t = CreateText(row.transform, text, 18f, FontStyles.Normal, TextAlignmentOptions.Left);
-            var tle = t.gameObject.AddComponent<LayoutElement>(); tle.flexibleWidth = 1f;
+            var label = new Label(text);
+            label.AddToClassList("row-label");
+            row.Add(label);
 
             if (!string.IsNullOrEmpty(btnLabel) && onClick != null)
             {
-                var b = new GameObject("Btn", typeof(RectTransform));
-                b.transform.SetParent(row.transform, false);
-                var img = b.AddComponent<Image>(); img.color = new Color(0.25f, 0.35f, 0.5f, 1f);
-                var btn = b.AddComponent<Button>();
-                btn.transition = UnityEngine.UI.Selectable.Transition.None;
-                btn.onClick.AddListener(onClick);
-                var ble = b.AddComponent<LayoutElement>(); ble.preferredWidth = 96f; ble.preferredHeight = 28f;
-                var bt = CreateText(b.transform, btnLabel, 16f, FontStyles.Bold, TextAlignmentOptions.Center);
-                StretchFull(bt.rectTransform);
+                var btn = new Button(() => onClick()) { text = btnLabel };
+                btn.AddToClassList("btn");
+                row.Add(btn);
             }
-        }
-
-        private TextMeshProUGUI CreateText(Transform parent, string text, float size, FontStyles style, TextAlignmentOptions align)
-        {
-            var go = new GameObject("Text", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var t = go.AddComponent<TextMeshProUGUI>();
-            t.text = text; t.fontSize = size; t.fontStyle = style; t.alignment = align;
-            t.color = Color.white; t.raycastTarget = false;
-            var ja = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
-            if (ja != null) t.font = ja;
-            return t;
-        }
-
-        private void CreateButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject("Button", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var img = go.AddComponent<Image>(); img.color = new Color(0.2f, 0.25f, 0.4f, 1f);
-            var btn = go.AddComponent<Button>(); btn.transition = UnityEngine.UI.Selectable.Transition.None;
-            btn.onClick.AddListener(onClick);
-            var le = go.AddComponent<LayoutElement>(); le.preferredHeight = 46f;
-            var txt = CreateText(go.transform, label, 22f, FontStyles.Bold, TextAlignmentOptions.Center);
-            StretchFull(txt.rectTransform);
-        }
-
-        private static void StretchFull(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-        }
-
-        private void EnsureEventSystem()
-        {
-            if (EventSystem.current != null) return;
-            var es = new GameObject("EventSystem");
-            es.AddComponent<EventSystem>();
-            es.AddComponent<InputSystemUIInputModule>();
+            list.Add(row);
         }
 
         private void OnDestroy()

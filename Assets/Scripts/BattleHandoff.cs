@@ -32,6 +32,7 @@ namespace Ginei
         public static int planetSystemId;     // 攻める惑星の星系ID
         public static string planetName;      // 表示名
         public static Faction planetOwner;    // 惑星の所有勢力（守備側）
+        public static Planet.SiegeTargetKind planetKind; // 攻城対象の種別（惑星/要塞/コロニー・PB-6 表示用）
         public static float planetDefenseRatio; // 制空権の残り割合(0..1)＝接近限界リングの根拠
         public static float planetInvasionRatio; // 侵略値の割合(0..1)＝突入時に引き継ぐ
         public static Faction besiegerFaction;  // 攻城側（突入する艦隊）
@@ -56,12 +57,14 @@ namespace Ginei
         /// 惑星攻城を戦術マップへ予約する（惑星中心・攻城艦隊が包囲・首飾り射程の外まで接近）。
         /// </summary>
         public static void QueuePlanetSiege(int systemId, string name, Faction owner, float defenseRatio,
-            float invasionRatio, Faction besieger, int strength, string returnScene)
+            float invasionRatio, Faction besieger, int strength, string returnScene,
+            Planet.SiegeTargetKind kind = Planet.SiegeTargetKind.惑星)
         {
             IsPlanetSiege = true;
             planetSystemId = systemId;
             planetName = name;
             planetOwner = owner;
+            planetKind = kind;
             planetDefenseRatio = defenseRatio;
             planetInvasionRatio = invasionRatio;
             besiegerFaction = besieger;

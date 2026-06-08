@@ -93,11 +93,14 @@ namespace Ginei
             mr.sortingOrder = 40;
         }
 
+        private LineRenderer approachRing; // 接近限界リング（制空権健在中のみ表示・PB-5/PB-6）
+
         private void BuildRing()
         {
             var ringGo = new GameObject("ApproachLimitRing");
             ringGo.transform.SetParent(transform, false);
             var ring = ringGo.AddComponent<LineRenderer>();
+            approachRing = ring;
             ring.material = ringMat; ring.useWorldSpace = false; ring.loop = true;
             ring.widthMultiplier = 0.15f; ring.numCapVertices = 2;
             ring.startColor = ring.endColor = ringColor;
@@ -267,8 +270,14 @@ namespace Ginei
 
         private void LateUpdate()
         {
-            // 接近限界：制空圏（首飾り射程）内へ入った艦（旗艦＋配下艦）をリング上へ押し戻す。
-            // 旗艦だけ止めると周囲に展開する配下艦が内側へはみ出すため、全個艦を対象にする。
+            // 接近限界は「制空権（首飾り射程）が健在な間だけ」有効（PB-5：FleetApproachBlocked = !DomainDown）。
+            // コロニー(PB-6)は制空権を持たず最初からドメイン・ダウン＝接近限界なし＝そのまま近づける。
+            // ドメイン・ダウン後はリングを消し押し出しもやめる（艦隊が侵攻のため寄れる）。
+            bool blocked = planet != null && !planet.DomainDown;
+            if (approachRing != null && approachRing.enabled != blocked) approachRing.enabled = blocked;
+            if (!blocked) return;
+
+            // 制空圏内へ入った艦（旗艦＋配下艦）をリング上へ押し戻す。旗艦だけ止めると配下艦が内側へはみ出すため全個艦を対象。
             // S-AVクラフトはレジストリ非登録なので影響を受けない（突入演出としてリング内を飛ぶ）。
             Vector2 center = transform.position;
             var targets = FleetRegistry.AllTargets;

@@ -303,9 +303,19 @@ namespace Ginei
 
             // 帝国星系は惑星（制空権持ち）で防衛＝同盟は停泊だけでは占領できず攻城が要る（#131）。
             // 同盟星系は無防備（planet 無し）＝従来どおり停泊で占領（両方の挙動をデモ）。
+            // PB-6 デモ：帝国星系の最初の2つを要塞・コロニーにして「同枠攻略」を見せる。残りは従来の惑星。
+            int siegeVariety = 0;
             foreach (var s in map.systems)
                 if (s != null && s.owner == Faction.帝国)
-                    s.planet = new Planet(s.id, Faction.帝国, demoPlanetDefense, demoPlanetDefense);
+                {
+                    if (siegeVariety == 0)
+                        s.planet = PlanetSiegeRules.CreateTarget(s.id, Faction.帝国, Planet.SiegeTargetKind.要塞);
+                    else if (siegeVariety == 1)
+                        s.planet = PlanetSiegeRules.CreateTarget(s.id, Faction.帝国, Planet.SiegeTargetKind.コロニー);
+                    else
+                        s.planet = new Planet(s.id, Faction.帝国, demoPlanetDefense, demoPlanetDefense);
+                    siegeVariety++;
+                }
 
             reg = new StrategicFleetRegistry(map);
             reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250 });
@@ -671,7 +681,7 @@ namespace Ginei
             float defRatio = s.planet.maxOrbitalDefense > 0f ? s.planet.orbitalDefense / s.planet.maxOrbitalDefense : 0f;
             float invRatio = s.planet.invasionThreshold > 0f ? s.planet.invasionProgress / s.planet.invasionThreshold : 0f;
             BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio, invRatio,
-                besieger.faction, besieger.strength, "Strategy");
+                besieger.faction, besieger.strength, "Strategy", s.planet.kind);
             SceneManager.LoadScene("Battle");
             return true;
         }

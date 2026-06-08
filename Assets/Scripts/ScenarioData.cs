@@ -87,6 +87,12 @@ namespace Ginei
 
             [Tooltip("艦隊の固有名（任意。無ければ「第N艦隊」）")]
             public string fleetName = "";
+
+            [Tooltip("所属軍団名（#147。空＝梯団なし）")]
+            public string corps = "";
+
+            [Tooltip("所属軍集団名（#147。空＝軍団直属/なし。corps の上位）")]
+            public string armyGroup = "";
         }
     }
 }

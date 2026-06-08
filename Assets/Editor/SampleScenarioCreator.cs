@@ -66,8 +66,12 @@ namespace Ginei
         }
 
         private static ScenarioData.FleetEntry Entry(AdmiralData admiral, Faction faction, Vector2 pos, Formation formation,
-            int fleetNumber = 0, string fleetName = "")
+            int fleetNumber = 0, string fleetName = "", string corps = null, string armyGroup = null)
         {
+            // #147 デモ：未指定なら勢力ごとの既定梯団を割り当て（番号付き艦隊のみ。表示確認用）。
+            if (corps == null) corps = faction == Faction.帝国 ? "帝国主力軍団" : "同盟主力軍団";
+            if (armyGroup == null) armyGroup = faction == Faction.帝国 ? "ローエングラム軍集団" : "自由惑星同盟軍";
+            bool hasNum = fleetNumber > 0;
             return new ScenarioData.FleetEntry
             {
                 admiral = admiral,
@@ -75,7 +79,9 @@ namespace Ginei
                 spawnPosition = pos,
                 formation = formation,
                 fleetNumber = fleetNumber,  // #146：0=未指定（従来どおり提督名のみ）
-                fleetName = fleetName
+                fleetName = fleetName,
+                corps = hasNum ? corps : "",          // #147：番号なし艦隊には梯団を付けない
+                armyGroup = hasNum ? armyGroup : ""
             };
         }
 

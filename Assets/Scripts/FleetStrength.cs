@@ -33,10 +33,29 @@ namespace Ginei
         [Tooltip("艦隊の固有名（無ければ「第N艦隊」）")]
         public string fleetUnitName = "";
 
+        [Tooltip("所属軍団名（#147・表示用。空＝なし）")]
+        public string corpsName = "";
+        [Tooltip("所属軍集団名（#147・表示用。空＝なし）")]
+        public string armyGroupName = "";
+
         /// <summary>艦隊番号が割り当てられているか（#146）。</summary>
         public bool HasFleetNumber => fleetNumber > 0;
         /// <summary>艦隊表示名（固有名→「第N艦隊」。番号未指定なら空）。</summary>
         public string FleetLabel => !HasFleetNumber ? "" : (!string.IsNullOrEmpty(fleetUnitName) ? fleetUnitName : $"第{fleetNumber}艦隊");
+
+        /// <summary>梯団に所属しているか（#147）。</summary>
+        public bool HasEchelon => !string.IsNullOrEmpty(corpsName) || !string.IsNullOrEmpty(armyGroupName);
+        /// <summary>梯団パス「軍集団 ⊃ 軍団」（あるものだけ・#147）。無ければ空。</summary>
+        public string EchelonPath
+        {
+            get
+            {
+                bool g = !string.IsNullOrEmpty(armyGroupName), c = !string.IsNullOrEmpty(corpsName);
+                if (g && c) return $"{armyGroupName} ⊃ {corpsName}";
+                if (c) return corpsName;
+                return g ? armyGroupName : "";
+            }
+        }
 
         [Tooltip("所属勢力データ（多勢力対応の出所。割り当てると敵対判定・色がこれを優先。未割当なら enum faction で従来動作）")]
         public FactionData factionData;

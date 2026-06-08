@@ -47,6 +47,7 @@ namespace Ginei
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）
             FleetRegistry.Clear();
             FleetRoster.Clear(); // 艦隊編制台帳(#146)も会戦ごとに作り直す（永続化は #108 で別途）
+            OrderOfBattle.Clear(); // 編制ツリー(#147)も会戦ごとに作り直す
 
             // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
             if (BattleHandoff.Pending)
@@ -208,6 +209,20 @@ namespace Ginei
                     {
                         unit.factionData = strength.factionData;
                         FleetRoster.AssignAdmiral(unit, entry.admiral); // デモは階級ゲート無し
+                    }
+
+                    // 編制ツリー（#147）：軍団・軍集団に編入し、表示用の梯団名を持たせる。
+                    if (!string.IsNullOrEmpty(entry.corps))
+                    {
+                        var corps = OrderOfBattle.GetOrCreate(EchelonType.軍団, strength.faction, entry.corps);
+                        OrderOfBattle.AttachFleet(corps.id, entry.fleetNumber);
+                        if (!string.IsNullOrEmpty(entry.armyGroup))
+                        {
+                            var group = OrderOfBattle.GetOrCreate(EchelonType.軍集団, strength.faction, entry.armyGroup);
+                            OrderOfBattle.AttachFormation(group.id, corps.id);
+                        }
+                        strength.corpsName = entry.corps;
+                        strength.armyGroupName = entry.armyGroup;
                     }
                 }
             }

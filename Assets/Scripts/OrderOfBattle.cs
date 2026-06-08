@@ -38,6 +38,15 @@ namespace Ginei
             return f;
         }
 
+        /// <summary>同勢力・同echelon・同名の梯団があれば返し、無ければ作る（シナリオからの編制構築用）。</summary>
+        public static MilitaryFormation GetOrCreate(EchelonType echelon, Faction faction, string name)
+        {
+            if (!string.IsNullOrEmpty(name))
+                foreach (var f in formations.Values)
+                    if (f.faction == faction && f.echelon == echelon && f.name == name) return f;
+            return Create(echelon, faction, name);
+        }
+
         // ===== 司令部固定・中身流動（①：attach/detach） =====
 
         /// <summary>艦隊(#146 番号)を梯団へ編入する。単一所属＝既に別梯団に居れば移す（中身流動）。</summary>

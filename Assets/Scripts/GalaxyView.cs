@@ -174,20 +174,33 @@ namespace Ginei
 
         // ===== 内政（#109）＋星系情報パネル（#759） =====
 
-        /// <summary>星系ごとの統治状態(Province)を用意する。デモ用に勢力へ思想を持たせ、住民の思想＝開始所有勢力とする。</summary>
+        /// <summary>
+        /// 星系ごとの統治状態(Province)を用意する。Battle 往復時は StrategySession から復元し安定度/統合を引き継ぐ。
+        /// デモ用に勢力へ思想を持たせ、住民の思想＝（初回は）開始所有勢力とする。
+        /// </summary>
         private void SetupGovernance()
         {
             // デモ用の勢力データ（思想を持たせて内政の手応えを出す。実運用は Resources/Factions の FactionData）。
             demoFactions[Faction.帝国] = MakeDemoFaction("帝国", "専制", Faction.帝国);
             demoFactions[Faction.同盟] = MakeDemoFaction("同盟", "民主", Faction.同盟);
 
+            provinces.Clear();
+            // 永続化済みの内政状態があれば引き継ぐ（Battle 往復で安定度/統合を失わない）。
+            if (StrategySession.Provinces != null)
+                foreach (var kv in StrategySession.Provinces)
+                    if (kv.Value != null) provinces[kv.Key] = kv.Value;
+
             foreach (var s in map.systems)
             {
                 if (s == null) continue;
-                // 住民の思想＝開始時の所有勢力（母国は思想一致で安定）。占領されても住民は変わらない＝燻りの源。
-                provinces[s.id] = new Province(s.id, IdeologyOf(s.owner), 100f);
+                // 復元に無い星系（初回・新規）だけ作る。住民の思想＝開始所有勢力（占領されても変わらない＝燻りの源）。
+                if (!provinces.ContainsKey(s.id))
+                    provinces[s.id] = new Province(s.id, IdeologyOf(s.owner), 100f);
+                // 復帰時点の所有を基準に（往復直後に誤って OnOccupied しないため）。
                 prevOwners[s.id] = s.owner;
             }
+
+            StrategySession.Provinces = provinces; // 以後この参照を永続化（static が生き続ける間）
         }
 
         private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)

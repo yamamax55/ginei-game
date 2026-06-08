@@ -120,6 +120,30 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void HoldOnCorridor_StopsAtFraction_StaysOnCorridor()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(new StarSystem(0, "A", Vector2.zero));
+            m.AddSystem(new StarSystem(1, "B", Vector2.right));
+            m.AddCorridor(new Corridor(0, 1, 4f));
+            var f = new StrategicFleet(1, 0, Faction.帝国) { warpSpeed = 1f };
+
+            Assert.IsTrue(f.HoldOnCorridor(m, 1, 0.5f)); // 0→1 の中間で停止保持
+            Assert.IsTrue(f.IsOnCorridor);
+
+            var reg = new StrategicFleetRegistry(m);
+            reg.Add(f);
+            reg.Tick(10f);                            // いくら進めても保持位置(0.5)で止まる
+
+            Assert.IsTrue(f.IsHolding);
+            Assert.IsFalse(f.IsMoving);
+            Assert.IsTrue(f.IsOnCorridor);
+            Assert.AreEqual(0.5f, f.Progress, 1e-3f);
+            Assert.AreEqual(0, f.currentSystemId);       // まだ回廊上（出発元のまま）
+            Assert.AreEqual(0, reg.FleetsAt(0).Count);   // 回廊上の艦は星系在席に数えない
+        }
+
+        [Test]
         public void GetFleet_ById()
         {
             var reg = new StrategicFleetRegistry(MakeMap());

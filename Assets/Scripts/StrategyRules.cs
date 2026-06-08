@@ -39,11 +39,11 @@ namespace Ginei
             for (int i = 0; i < fleets.Count; i++)
             {
                 StrategicFleet a = fleets[i];
-                if (a == null || !a.IsMoving) continue;
+                if (a == null || !a.IsOnCorridor) continue;
                 for (int j = i + 1; j < fleets.Count; j++)
                 {
                     StrategicFleet b = fleets[j];
-                    if (b == null || !b.IsMoving) continue;
+                    if (b == null || !b.IsOnCorridor) continue;
                     if (!a.IsOnSameCorridor(b)) continue;
                     if (!FactionRelations.IsHostile(null, a.faction, null, b.faction)) continue;
                     result.Add(new FleetEncounter(a, b));

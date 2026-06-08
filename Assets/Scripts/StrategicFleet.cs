@@ -25,12 +25,23 @@ namespace Ginei
         public int currentSystemId;       // 停泊中の星系（移動中は出発元）
         public int destinationSystemId;   // 移動中の目的地
 
-        public bool IsMoving { get; private set; }
-
+        private bool onCorridor;
         private float corridorLength;
         private float traveled;
+        private float holdFraction = 1f;   // 0..1。1=目的地まで／<1=回廊上のその位置で停止保持
         private bool sublightHop;          // 現在のホップが前線回廊（亜光速）か
         private List<int> route;   // 多ホップ経路の残り（次の目的地より先の星系ID列）
+
+        /// <summary>回廊上にいるか（前進中＋停止保持中の両方）。停泊中は false。</summary>
+        public bool IsOnCorridor => onCorridor;
+
+        /// <summary>回廊上で前進中か（保持位置に未到達）。</summary>
+        public bool IsMoving => onCorridor && traveled < HoldDistance;
+
+        /// <summary>回廊上の指定位置で停止保持しているか。</summary>
+        public bool IsHolding => onCorridor && traveled >= HoldDistance;
+
+        private float HoldDistance => Mathf.Clamp01(holdFraction) * corridorLength;
 
         /// <summary>現在のホップの実効速度（前線は亜光速で遅い）。</summary>
         private float CurrentSpeed => warpSpeed * (sublightHop ? Mathf.Max(0f, sublightFactor) : 1f);
@@ -41,8 +52,8 @@ namespace Ginei
         /// <summary>現在の回廊での進行度（0..1）。停泊中は1。</summary>
         public float Progress => corridorLength > 0f ? Mathf.Clamp01(traveled / corridorLength) : 1f;
 
-        /// <summary>到着までの推定時間（秒）。停泊中・速度0は0。</summary>
-        public float Eta => (IsMoving && CurrentSpeed > 0f) ? Mathf.Max(0f, (corridorLength - traveled) / CurrentSpeed) : 0f;
+        /// <summary>保持位置までの推定時間（秒）。前進中のみ。</summary>
+        public float Eta => (IsMoving && CurrentSpeed > 0f) ? Mathf.Max(0f, (HoldDistance - traveled) / CurrentSpeed) : 0f;
 
         /// <summary>多ホップ経路がまだ残っているか（途中星系を経由中）。</summary>
         public bool HasRoute => route != null && route.Count > 0;
@@ -66,16 +77,17 @@ namespace Ginei
         /// <summary>
         /// 隣接星系 destId へワープを開始する。回廊が無い／移動中／同一星系なら失敗(false)。
         /// </summary>
-        public bool BeginWarp(GalaxyMap map, int destId)
+        public bool BeginWarp(GalaxyMap map, int destId, float holdFrac = 1f)
         {
-            if (map == null || IsMoving || destId == currentSystemId) return false;
+            if (map == null || IsOnCorridor || destId == currentSystemId) return false;
             Corridor c = map.GetCorridor(currentSystemId, destId);
             if (c == null) return false;                       // 回廊以外＝移動不可
             destinationSystemId = destId;
             corridorLength = Mathf.Max(0.0001f, c.length);
             traveled = 0f;
+            holdFraction = Mathf.Clamp01(holdFrac);
             sublightHop = StrategyRules.IsFtlBlocked(map, c);  // 前線回廊は亜光速（FTL不可でも遅い航行は可）
-            IsMoving = true;
+            onCorridor = true;
             return true;
         }
 
@@ -89,12 +101,14 @@ namespace Ginei
         {
             if (map == null) return false;
 
-            // 移動中：現在のホップは維持し、到達予定星系から goalId への経路に引き直す（前線も亜光速で越える）。
-            if (IsMoving)
+            // 回廊上（前進中or保持中）：現在のホップは維持し、到達予定星系から goalId へ経路を引き直す。
+            // 保持していた場合は解除して前進を再開する。
+            if (IsOnCorridor)
             {
                 List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId);
                 if (p.Count == 0) return false; // 到達不能
                 route = (p.Count > 1) ? p.GetRange(1, p.Count - 1) : new List<int>();
+                holdFraction = 1f; // 保持解除＝目的地まで前進再開
                 return true;
             }
 
@@ -105,6 +119,28 @@ namespace Ginei
             int firstHop = path[1];
             route = (path.Count > 2) ? path.GetRange(2, path.Count - 2) : new List<int>();
             return BeginWarp(map, firstHop);
+        }
+
+        /// <summary>
+        /// towardSystemId 方向の回廊に入り、その回廊上の fraction（0..1・towardSystem へ向かう向き）の位置で
+        /// 停止保持する（前線の途中で止まって守る・待ち伏せる用）。停泊中の艦は隣接回廊へ入って止まる。
+        /// 既に同じ回廊を進行中なら保持位置だけ更新する。保持中も回廊上に居るので敵と接触すれば戦闘になる。
+        /// </summary>
+        public bool HoldOnCorridor(GalaxyMap map, int towardSystemId, float fraction)
+        {
+            if (map == null) return false;
+            fraction = Mathf.Clamp01(fraction);
+
+            if (IsOnCorridor)
+            {
+                if (destinationSystemId == towardSystemId) { holdFraction = fraction; route = null; return true; }
+                return false; // 別回廊/逆方向は非対応（簡易）
+            }
+
+            if (towardSystemId == currentSystemId) return false;
+            if (!BeginWarp(map, towardSystemId, fraction)) return false;
+            route = null; // 保持は多ホップしない
+            return true;
         }
 
         /// <summary>
@@ -121,23 +157,33 @@ namespace Ginei
 
         private bool TickInternal(GalaxyMap map, float deltaTime)
         {
-            if (!IsMoving) return false;
+            if (!IsMoving) return false; // 前進中のみ進む（保持中・停泊中は動かない）
             traveled += CurrentSpeed * deltaTime;
-            if (traveled >= corridorLength)
+            float hold = HoldDistance;
+            if (traveled >= hold)
             {
-                currentSystemId = destinationSystemId;
-                IsMoving = false;
-                traveled = 0f;
-                corridorLength = 0f;
-
-                // 残り経路があれば次のホップへ自動継続（map が要る）
-                if (map != null && route != null && route.Count > 0)
+                if (holdFraction >= 1f)
                 {
-                    int next = route[0];
-                    route.RemoveAt(0);
-                    BeginWarp(map, next);
+                    // 目的地の星系に到達
+                    currentSystemId = destinationSystemId;
+                    onCorridor = false;
+                    traveled = 0f;
+                    corridorLength = 0f;
+
+                    // 残り経路があれば次のホップへ自動継続（map が要る）
+                    if (map != null && route != null && route.Count > 0)
+                    {
+                        int next = route[0];
+                        route.RemoveAt(0);
+                        BeginWarp(map, next);
+                    }
                 }
-                return true; // このホップに到着
+                else
+                {
+                    // 回廊上の保持位置に到達＝停止保持（onCorridor のまま・以後 IsMoving は false）
+                    traveled = hold;
+                }
+                return true; // 到達（目的地 or 保持位置）
             }
             return false;
         }
@@ -148,7 +194,7 @@ namespace Ginei
         /// </summary>
         public bool IsOnSameCorridor(StrategicFleet other)
         {
-            if (other == null || !IsMoving || !other.IsMoving) return false;
+            if (other == null || !IsOnCorridor || !other.IsOnCorridor) return false;
             int aMin = Mathf.Min(currentSystemId, destinationSystemId);
             int aMax = Mathf.Max(currentSystemId, destinationSystemId);
             int bMin = Mathf.Min(other.currentSystemId, other.destinationSystemId);

@@ -175,7 +175,7 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:進軍(友軍FTL・赤い前線は亜光速→敵と出会うと戦闘) / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左クリック:選択(Shift追加) / 右クリック:星系へ進軍 or 回廊上で停止保持(前線で待ち伏せ) / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.75f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -217,7 +217,7 @@ namespace Ginei
 
                 if (fleetRings.TryGetValue(f, out var ring)) ring.enabled = selectedFleets.Contains(f);
                 if (fleetEta.TryGetValue(f, out var eta))
-                    eta.text = f.IsMoving ? $"ETA {f.Eta:F1}" : $"{f.strength}"; // 停泊中は兵力
+                    eta.text = f.IsMoving ? $"ETA {f.Eta:F1}" : (f.IsOnCorridor ? "保持" : $"{f.strength}");
             }
 
             DrawSelectedRoutes();
@@ -321,13 +321,28 @@ namespace Ginei
                 }
                 else if (!additive) selectedFleets.Clear();
             }
-            // 右クリック：選択艦隊を目的星系へ進軍（友軍はFTL、赤い前線は亜光速で越える。
-            // 同じ前線回廊で敵対艦隊と出会えば自動で戦闘になる）
+            // 右クリック：星系なら進軍、回廊（棒）なら端点に居る選択艦をその位置で停止保持。
             else if (Mouse.current.rightButton.wasPressedThisFrame)
             {
-                int sysId = NearestSystem(WorldMouse(), systemScale + 0.5f);
-                if (sysId >= 0 && selectedFleets.Count > 0)
+                if (selectedFleets.Count == 0) return;
+                Vector2 w = WorldMouse();
+
+                int sysId = NearestSystem(w, systemScale + 0.4f);
+                if (sysId >= 0)
+                {
                     foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
+                    return;
+                }
+
+                if (NearestCorridor(w, 0.5f, out Corridor c, out float fracFromA))
+                {
+                    foreach (var f in selectedFleets)
+                    {
+                        if (f == null) continue;
+                        if (f.currentSystemId == c.aId) f.HoldOnCorridor(map, c.bId, fracFromA);
+                        else if (f.currentSystemId == c.bId) f.HoldOnCorridor(map, c.aId, 1f - fracFromA);
+                    }
+                }
             }
         }
 
@@ -367,13 +382,31 @@ namespace Ginei
             return best;
         }
 
+        /// <summary>クリック点に最も近い回廊（線分）と、その上の位置 fracFromA（aId→bId で0..1）を返す。</summary>
+        private bool NearestCorridor(Vector2 w, float maxDist, out Corridor best, out float fracFromA)
+        {
+            best = null; fracFromA = 0f;
+            float bestD = maxDist;
+            foreach (var c in map.corridors)
+            {
+                StarSystem a = map.GetSystem(c.aId), b = map.GetSystem(c.bId);
+                if (a == null || b == null) continue;
+                Vector2 pa = a.position, ab = b.position - a.position;
+                float len2 = ab.sqrMagnitude;
+                float t = (len2 > 0f) ? Mathf.Clamp01(Vector2.Dot(w - pa, ab) / len2) : 0f;
+                float d = Vector2.Distance(w, pa + ab * t);
+                if (d <= bestD) { bestD = d; best = c; fracFromA = t; }
+            }
+            return best != null;
+        }
+
         // ===== ヘルパ =====
 
         private Vector2 FleetWorldPos(StrategicFleet f)
         {
             StarSystem cur = map.GetSystem(f.currentSystemId);
             if (cur == null) return Vector2.zero;
-            if (!f.IsMoving) return cur.position;
+            if (!f.IsOnCorridor) return cur.position; // 停泊中は星系。回廊上（前進・保持）は補間
             StarSystem dst = map.GetSystem(f.destinationSystemId);
             if (dst == null) return cur.position;
             return Vector2.Lerp(cur.position, dst.position, f.Progress);

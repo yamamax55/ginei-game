@@ -49,7 +49,7 @@ namespace Ginei
             for (int i = 0; i < fleets.Count; i++)
             {
                 StrategicFleet f = fleets[i];
-                if (f != null && !f.IsMoving && f.currentSystemId == systemId) result.Add(f);
+                if (f != null && !f.IsOnCorridor && f.currentSystemId == systemId) result.Add(f);
             }
             return result;
         }

@@ -154,5 +154,46 @@ namespace Ginei.Tests
             f.ranks = new List<FactionData.RankEntry>();
             Assert.AreEqual("", RankSystem.ResolveRankName(f, 8));
         }
+
+        // ───────── DefaultRankName / ResolveRankNameOrDefault（#14・フォールバック） ─────────
+
+        [Test]
+        public void DefaultRankName_KnownTiers()
+        {
+            Assert.AreEqual("中将", RankSystem.DefaultRankName(7));
+            Assert.AreEqual("上級大将", RankSystem.DefaultRankName(9));
+            Assert.AreEqual("元帥", RankSystem.DefaultRankName(10));
+        }
+
+        [Test]
+        public void DefaultRankName_OutOfRange_IsEmpty()
+        {
+            Assert.AreEqual("", RankSystem.DefaultRankName(0));
+            Assert.AreEqual("", RankSystem.DefaultRankName(11));
+        }
+
+        [Test]
+        public void ResolveRankNameOrDefault_NullFaction_UsesDefaultLadder()
+        {
+            // FactionData 未割当でも既定ラダーで階級が出る（HUD用）。
+            Assert.AreEqual("中将", RankSystem.ResolveRankNameOrDefault(null, 7));
+        }
+
+        [Test]
+        public void ResolveRankNameOrDefault_FactionTablePreferred()
+        {
+            var f = MakeAllianceLikeFaction();
+            // 勢力の階級表に該当があればそれを使う。
+            Assert.AreEqual("中将", RankSystem.ResolveRankNameOrDefault(f, 7));
+            // 同盟型に無い 9 は表側で直近下位 8（大将）へ丸め → 既定の「上級大将」ではなく「大将」。
+            Assert.AreEqual("大将", RankSystem.ResolveRankNameOrDefault(f, 9));
+        }
+
+        [Test]
+        public void ResolveRankNameOrDefault_UnsetTier_IsEmpty()
+        {
+            Assert.AreEqual("", RankSystem.ResolveRankNameOrDefault(null, 0));
+            Assert.AreEqual("", RankSystem.ResolveRankNameOrDefault(MakeAllianceLikeFaction(), 0));
+        }
     }
 }

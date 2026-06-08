@@ -57,7 +57,8 @@ namespace Ginei
         {
             if (map == null || IsMoving || destId == currentSystemId) return false;
             Corridor c = map.GetCorridor(currentSystemId, destId);
-            if (c == null) return false;       // 回廊以外＝移動不可
+            if (c == null) return false;                       // 回廊以外＝移動不可
+            if (StrategyRules.IsFtlBlocked(map, c)) return false; // 前線回廊はFTL不可（回廊内戦闘＝C-3）
             destinationSystemId = destId;
             corridorLength = Mathf.Max(0.0001f, c.length);
             traveled = 0f;
@@ -75,18 +76,18 @@ namespace Ginei
         {
             if (map == null) return false;
 
-            // 移動中：現在のホップは維持し、到達予定星系から goalId への経路に引き直す。
+            // 移動中：現在のホップは維持し、到達予定星系から goalId への経路に引き直す（前線回避）。
             if (IsMoving)
             {
-                List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId);
-                if (p.Count == 0) return false; // 到達不能
+                List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId, avoidFtlBlocked: true);
+                if (p.Count == 0) return false; // 到達不能（前線越しのみ等）
                 route = (p.Count > 1) ? p.GetRange(1, p.Count - 1) : new List<int>();
                 return true;
             }
 
             if (goalId == currentSystemId) return false;
-            List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId);
-            if (path == null || path.Count < 2) return false; // 到達不能
+            List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId, avoidFtlBlocked: true);
+            if (path == null || path.Count < 2) return false; // 到達不能（前線越しのみ等）
 
             int firstHop = path[1];
             route = (path.Count > 2) ? path.GetRange(2, path.Count - 2) : new List<int>();

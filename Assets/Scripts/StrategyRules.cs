@@ -46,6 +46,20 @@ namespace Ginei
         public static bool AnyEncounter(StrategicFleetRegistry reg) => FindEncounters(reg).Count > 0;
 
         /// <summary>
+        /// 回廊が前線（FTL不可）か。両端の星系を所有する勢力が敵対していれば true。
+        /// 自勢力↔敵対勢力をつなぐ回廊はワープで通り抜けられず、回廊内で会戦になる（C-3 で起動予定）。
+        /// 敵対判定は FactionRelations 経由（所有者の enum 比較＝後方互換）。
+        /// </summary>
+        public static bool IsFtlBlocked(GalaxyMap map, Corridor c)
+        {
+            if (map == null || c == null) return false;
+            StarSystem a = map.GetSystem(c.aId);
+            StarSystem b = map.GetSystem(c.bId);
+            if (a == null || b == null) return false;
+            return FactionRelations.IsHostile(null, a.owner, null, b.owner);
+        }
+
+        /// <summary>
         /// 指定星系の占領を解決する。停泊中の艦隊が1勢力のみで、その勢力が現所有者と敵対していれば
         /// 所有権をその勢力へ移す。複数勢力が居る（＝戦闘案件）／無人／同一勢力なら何もしない。
         /// フリップしたら true。

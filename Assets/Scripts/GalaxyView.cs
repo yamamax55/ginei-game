@@ -23,6 +23,7 @@ namespace Ginei
         public Color allianceColor = new Color(0.3f, 0.5f, 0.9f);
         public Color corridorColor = new Color(0.5f, 0.55f, 0.7f, 0.9f);
         public Color chokeColor = new Color(0.9f, 0.8f, 0.3f, 0.95f);
+        public Color frontlineColor = new Color(0.9f, 0.25f, 0.2f, 0.95f); // 前線（FTL不可）
         public Color selectColor = new Color(1f, 0.95f, 0.4f);
 
         [Header("時間")]
@@ -172,6 +173,15 @@ namespace Ginei
 
         private void Refresh()
         {
+            // 回廊色：前線（両端が敵対所有＝FTL不可）は赤、要衝は金、その他は通常
+            for (int i = 0; i < corridorLines.Count && i < map.corridors.Count; i++)
+            {
+                Corridor c = map.corridors[i];
+                Color col = StrategyRules.IsFtlBlocked(map, c) ? frontlineColor
+                    : (c.type == CorridorType.要衝 ? chokeColor : corridorColor);
+                corridorLines[i].startColor = corridorLines[i].endColor = col;
+            }
+
             foreach (var kv in systemDots)
             {
                 StarSystem s = map.GetSystem(kv.Key);
@@ -205,7 +215,7 @@ namespace Ginei
 
                 var pts = new List<Vector3>();
                 pts.Add(FleetWorldPos(f));
-                var path = GalaxyPathfinder.FindPath(map, f.destinationSystemId, f.FinalDestinationId);
+                var path = GalaxyPathfinder.FindPath(map, f.destinationSystemId, f.FinalDestinationId, avoidFtlBlocked: true);
                 if (path.Count == 0)
                 {
                     StarSystem dst = map.GetSystem(f.destinationSystemId);

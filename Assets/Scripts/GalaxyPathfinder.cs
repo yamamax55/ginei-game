@@ -12,8 +12,9 @@ namespace Ginei
         /// <summary>
         /// startId から goalId への最短経路（回廊 length 合計が最小）を星系ID列で返す。
         /// 先頭=start・末尾=goal を含む。start==goal は [start]。到達不能/未知ノードは空リスト。
+        /// avoidFtlBlocked=true なら前線回廊（StrategyRules.IsFtlBlocked）を通らない経路を返す。
         /// </summary>
-        public static List<int> FindPath(GalaxyMap map, int startId, int goalId)
+        public static List<int> FindPath(GalaxyMap map, int startId, int goalId, bool avoidFtlBlocked = false)
         {
             var result = new List<int>();
             if (map == null) return result;
@@ -46,6 +47,7 @@ namespace Ginei
                     if (visited.Contains(v)) continue;
                     Corridor c = map.GetCorridor(u, v);
                     if (c == null) continue;
+                    if (avoidFtlBlocked && StrategyRules.IsFtlBlocked(map, c)) continue; // 前線はFTL不可
                     float nd = dist[u] + Mathf.Max(0f, c.length);
                     if (!dist.ContainsKey(v) || nd < dist[v]) { dist[v] = nd; prev[v] = u; }
                 }

@@ -78,6 +78,8 @@ namespace Ginei
         public float dragSelectPixelThreshold = 8f;
         [Tooltip("クリック選択の許容半径（ピクセル）。コライダー直撃が無くても、この範囲内の最寄り自艦隊を選ぶ（小さな艦でも選びやすく）")]
         public float clickSelectPixelTolerance = 36f;
+        [Tooltip("艦隊を選択したら自動でコマンドメニューを開く（選択直後に指示できる）")]
+        public bool autoOpenMenuOnSelect = true;
         [Tooltip("選択矩形の枠の色")]
         public Color selectionBoxBorderColor = new Color(0.3f, 1f, 0.5f, 0.95f);
         [Tooltip("選択矩形の塗りの色")]
@@ -884,6 +886,9 @@ namespace Ginei
                 {
                     HandleSelection(additive);
                 }
+
+                // 選択が成立したら（1隻以上）コマンドメニューを自動で開く＝選択直後に指示できる。
+                if (autoOpenMenuOnSelect && selectedFleets.Count > 0) OpenCommandMenu();
             }
         }
 

@@ -13,8 +13,17 @@ namespace Ginei
     [System.Serializable]
     public class Planet
     {
+        /// <summary>
+        /// 攻城対象の種別（PB-6）。規模で既定値が異なる：惑星＞要塞＞コロニー。
+        /// 既定=惑星＝後方互換（既存の生成は従来どおり）。既定スケールは <see cref="PlanetSiegeRules.DefaultProfile"/>。
+        /// </summary>
+        public enum SiegeTargetKind { 惑星, 要塞, コロニー }
+
         /// <summary>紐づく星系ID（StarSystem.id）。</summary>
         public int systemId;
+
+        /// <summary>攻城対象の種別（既定=惑星）。表示・既定スケールの分岐に使う（数値ロジックは値駆動なので種別非依存）。</summary>
+        public SiegeTargetKind kind = SiegeTargetKind.惑星;
 
         /// <summary>所有勢力（占領で書き換わる。StarSystem.owner と整合させるのは戦略側の責務）。</summary>
         public Faction owner;
@@ -40,12 +49,19 @@ namespace Ginei
         /// <summary>艦隊の接近が制空権で阻まれているか（ドメイン健在中＝接近限界 PB-5）。</summary>
         public bool FleetApproachBlocked => !DomainDown;
 
+        /// <summary>種別の表示名（"惑星"/"要塞"/"コロニー"）。</summary>
+        public string KindName => kind.ToString();
+
         public Planet() { }
 
         public Planet(int systemId, Faction owner, float maxOrbitalDefense, float invasionThreshold)
+            : this(systemId, owner, maxOrbitalDefense, invasionThreshold, SiegeTargetKind.惑星) { }
+
+        public Planet(int systemId, Faction owner, float maxOrbitalDefense, float invasionThreshold, SiegeTargetKind kind)
         {
             this.systemId = systemId;
             this.owner = owner;
+            this.kind = kind;
             this.maxOrbitalDefense = Mathf.Max(0f, maxOrbitalDefense);
             this.orbitalDefense = this.maxOrbitalDefense;
             this.invasionThreshold = Mathf.Max(0.0001f, invasionThreshold);

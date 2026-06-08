@@ -47,6 +47,51 @@ namespace Ginei
     /// </summary>
     public static class PlanetSiegeRules
     {
+        // ===== 種別ごとの既定スケール（PB-6・コロニー/要塞の同枠適用。作者調整可）=====
+        // 規模差：要塞＞惑星＞コロニー。コロニーは軌道超兵器(制空権)を持たない＝接近限界なしで即侵攻。
+        /// <summary>惑星の制空権最大／占領閾値。</summary>
+        public const float PlanetDefense = 100f, PlanetInvasion = 40f;
+        /// <summary>要塞：制空権最強・侵略も重い（最も堅い）。</summary>
+        public const float FortressDefense = 180f, FortressInvasion = 60f;
+        /// <summary>コロニー：軌道超兵器なし(制空権0＝即ドメイン・ダウン)・侵略は軽い。</summary>
+        public const float ColonyDefense = 0f, ColonyInvasion = 18f;
+
+        /// <summary>攻城対象の規模プロファイル（制空権の最大＝防衛、占領閾値＝侵略）。</summary>
+        public readonly struct SiegeProfile
+        {
+            /// <summary>制空権(超兵器/ドメイン)の最大値。0＝超兵器なし＝接近限界なしで即侵攻（コロニー）。</summary>
+            public readonly float maxOrbitalDefense;
+            /// <summary>占領に必要な侵略値の閾値。</summary>
+            public readonly float invasionThreshold;
+
+            public SiegeProfile(float maxOrbitalDefense, float invasionThreshold)
+            {
+                this.maxOrbitalDefense = maxOrbitalDefense;
+                this.invasionThreshold = invasionThreshold;
+            }
+        }
+
+        /// <summary>種別ごとの既定スケールを返す（PB-6・規模差の唯一の出所）。</summary>
+        public static SiegeProfile DefaultProfile(Planet.SiegeTargetKind kind)
+        {
+            switch (kind)
+            {
+                case Planet.SiegeTargetKind.要塞:   return new SiegeProfile(FortressDefense, FortressInvasion);
+                case Planet.SiegeTargetKind.コロニー: return new SiegeProfile(ColonyDefense, ColonyInvasion);
+                default:                            return new SiegeProfile(PlanetDefense, PlanetInvasion);
+            }
+        }
+
+        /// <summary>
+        /// 種別の既定スケールで攻城対象(<see cref="Planet"/>)を生成する（PB-6・惑星/要塞/コロニーの統一生成窓口）。
+        /// 規模差は <see cref="DefaultProfile"/> に集約。生成後の Tick/接近限界/占領は惑星と完全に同枠で扱える。
+        /// </summary>
+        public static Planet CreateTarget(int systemId, Faction owner, Planet.SiegeTargetKind kind)
+        {
+            SiegeProfile prof = DefaultProfile(kind);
+            return new Planet(systemId, owner, prof.maxOrbitalDefense, prof.invasionThreshold, kind);
+        }
+
         /// <summary>
         /// 攻城を deltaTime 進める。attackerSAV＝送り込んだ S-AV の戦力（0以下＝非交戦）。
         /// ドメイン健在中は制空権を抑制（侵略値は進まない）、ダウン後は侵略値を蓄積。1tickにつき一段階のみ。

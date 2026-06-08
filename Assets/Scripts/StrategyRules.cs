@@ -56,6 +56,22 @@ namespace Ginei
         public static bool AnyEncounter(StrategicFleetRegistry reg) => FindEncounters(reg).Count > 0;
 
         /// <summary>
+        /// 回廊内で実際に接触した最初の敵対艦隊ペアを返す（実会戦の起動条件・C-3）。
+        /// 抽象解決ではなく実会戦へ渡したい時に使う。
+        /// </summary>
+        public static bool TryFindCollision(StrategicFleetRegistry reg, out StrategicFleet a, out StrategicFleet b)
+        {
+            a = null; b = null;
+            if (reg == null) return false;
+            foreach (var e in FindEncounters(reg))
+            {
+                if (e.a == null || e.b == null) continue;
+                if (FleetsCollided(e.a, e.b)) { a = e.a; b = e.b; return true; }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 回廊が前線（FTL不可）か。両端の星系を所有する勢力が敵対していれば true。
         /// 自勢力↔敵対勢力をつなぐ回廊はワープで通り抜けられず、回廊内で会戦になる（C-3 で起動予定）。
         /// 敵対判定は FactionRelations 経由（所有者の enum 比較＝後方互換）。

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace Ginei
 {
@@ -64,6 +65,13 @@ namespace Ginei
 
             BuildDemoGalaxy();
             BuildVisuals();
+
+            // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映
+            if (BattleHandoff.Resolved && StrategyRules.ApplyHandoffResult(reg))
+            {
+                battleMsg = "実会戦の結果を反映しました";
+                battleMsgTimer = 3f;
+            }
         }
 
         private void Update()
@@ -73,9 +81,13 @@ namespace Ginei
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
             reg.Tick(dt);
 
-            // 回廊で出会った敵対艦隊は戦闘（味方と敵がぶつかる＝戦闘開始）
-            int battles = StrategyRules.ResolveEncounters(reg);
-            if (battles > 0) { battleMsg = $"回廊戦闘 発生！（{battles}件）"; battleMsgTimer = 2.5f; }
+            // 回廊で接触した敵対艦隊があれば、実会戦（Battleシーン）へ遷移して決着する
+            if (StrategyRules.TryFindCollision(reg, out var fa, out var fb))
+            {
+                BattleHandoff.Queue(fa, fb, "Strategy");
+                SceneManager.LoadScene("Battle");
+                return;
+            }
 
             occupyTimer += dt;
             if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
@@ -90,6 +102,9 @@ namespace Ginei
 
         private void BuildDemoGalaxy()
         {
+            // 戦略↔実会戦の往復で世界状態を保持（あれば再利用）
+            if (StrategySession.HasState) { map = StrategySession.Map; reg = StrategySession.Reg; return; }
+
             map = new GalaxyMap();
             map.AddSystem(new StarSystem(0, "アスタ", new Vector2(0f, 3f), Faction.帝国));
             map.AddSystem(new StarSystem(1, "ベガ", new Vector2(-5f, -3f), Faction.同盟));
@@ -111,6 +126,8 @@ namespace Ginei
             reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300 });
             reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f) { strength = 150 });
             reg.Add(new StrategicFleet(4, 3, Faction.帝国, 1.3f) { strength = 200 }); // ドラコ防衛・前線で衝突用
+
+            StrategySession.Set(map, reg);
         }
 
         // ===== 描画 =====

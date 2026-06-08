@@ -37,6 +37,20 @@ namespace Ginei
         public float autoResolveDelay = 2.5f;
         [Tooltip("ダブルクリック判定の猶予（実時間・秒）")]
         public float doubleClickWindow = 0.35f;
+        [Tooltip("星系の点をクリックしたと見なす半径（ハブ星系で回廊より星系を優先＝惑星へ入れる）")]
+        public float systemClickRadius = 0.65f;
+
+        [Header("惑星攻城（#131）")]
+        [Tooltip("S-AV戦力あたりの制空権抑制速度")]
+        public float siegeSuppressRate = 0.05f;
+        [Tooltip("ドメイン・ダウン後のS-AV戦力あたり侵略値蓄積速度")]
+        public float siegeInvadeRate = 0.05f;
+        [Tooltip("非交戦時の制空権再建速度")]
+        public float siegeDefenseRegen = 0f;
+        [Tooltip("デモ：帝国星系に置く惑星の制空権/侵略閾値")]
+        public float demoPlanetDefense = 100f;
+        public Color defenseColor = new Color(0.9f, 0.55f, 0.25f);
+        public Color invadeColor = new Color(0.95f, 0.3f, 0.3f);
 
         private GalaxyMap map;
         private StrategicFleetRegistry reg;
@@ -60,6 +74,12 @@ namespace Ginei
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
         private TextMesh banner;
         private TextMesh helpLine;
+        private readonly Dictionary<int, TextMesh> siegeLabels = new Dictionary<int, TextMesh>();
+
+        // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
+        private readonly Dictionary<int, Province> provinces = new Dictionary<int, Province>();
+        private readonly Dictionary<int, Faction> prevOwners = new Dictionary<int, Faction>();
+        private readonly Dictionary<Faction, FactionData> demoFactions = new Dictionary<Faction, FactionData>();
 
         private void Start()
         {
@@ -75,6 +95,7 @@ namespace Ginei
             lineMat = new Material(Shader.Find("Sprites/Default"));
 
             BuildDemoGalaxy();
+            SetupGovernance();
             BuildVisuals();
 
             // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映。
@@ -85,10 +106,42 @@ namespace Ginei
                 battleMsg = others > 0 ? $"実会戦の結果を反映（観ていない{others}戦線は自動解決）" : "実会戦の結果を反映しました";
                 battleMsgTimer = 3f;
             }
+
+            // 惑星攻城の戦術マップでの進捗を惑星へ書き戻す（#131）
+            if (BattleHandoff.siegeResolved) ApplySiegeResult();
+        }
+
+        /// <summary>戦術マップでの攻城進捗（割合）を戦略の惑星へ反映する（#131）。占領なら所有フリップ＋再建。</summary>
+        private void ApplySiegeResult()
+        {
+            StarSystem s = map.GetSystem(BattleHandoff.planetSystemId);
+            if (s != null && s.planet != null)
+            {
+                Planet p = s.planet;
+                if (BattleHandoff.siegeResultCaptured)
+                {
+                    p.owner = BattleHandoff.besiegerFaction;
+                    s.owner = BattleHandoff.besiegerFaction;
+                    p.orbitalDefense = p.maxOrbitalDefense; // 新所有者が制空権を再建
+                    p.invasionProgress = 0f;
+                    battleMsg = $"{s.systemName} を占領しました";
+                }
+                else
+                {
+                    p.orbitalDefense = Mathf.Clamp01(BattleHandoff.siegeResultDefense) * p.maxOrbitalDefense;
+                    p.invasionProgress = Mathf.Clamp01(BattleHandoff.siegeResultInvasion) * p.invasionThreshold;
+                    battleMsg = $"{s.systemName} の攻城を進めました";
+                }
+                battleMsgTimer = 3f;
+            }
+            BattleHandoff.Clear();
         }
 
         private void Update()
         {
+            // 星系情報パネル表示中は戦略マップの入力・進行を止める（パネルがポーズ＆入力を処理）。
+            if (SystemDetailPanel.IsOpen) return;
+
             HandleKeys();
 
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
@@ -104,13 +157,125 @@ namespace Ginei
             }
             else engagedElapsed = 0f;
 
+            // 防衛惑星の攻城（停泊した敵対艦隊が S-AV で制空権制圧→侵略→占領）。銀河時間で進む。
+            StrategyRules.TickSieges(map, reg, dt, new SiegeParams(siegeSuppressRate, siegeInvadeRate, siegeDefenseRegen));
+
             occupyTimer += dt;
             if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
+
+            // 内政（#109）：所有変化で不安定化→時間で統合・安定。情報パネル(#759)が読む。
+            TickGovernance(dt);
 
             if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
             HandleMouse();
             Refresh();
+        }
+
+        // ===== 内政（#109）＋星系情報パネル（#759） =====
+
+        /// <summary>
+        /// 星系ごとの統治状態(Province)を用意する。Battle 往復時は StrategySession から復元し安定度/統合を引き継ぐ。
+        /// デモ用に勢力へ思想を持たせ、住民の思想＝（初回は）開始所有勢力とする。
+        /// </summary>
+        private void SetupGovernance()
+        {
+            // デモ用の勢力データ（思想を持たせて内政の手応えを出す。実運用は Resources/Factions の FactionData）。
+            demoFactions[Faction.帝国] = MakeDemoFaction("帝国", "専制", Faction.帝国);
+            demoFactions[Faction.同盟] = MakeDemoFaction("同盟", "民主", Faction.同盟);
+
+            provinces.Clear();
+            // 永続化済みの内政状態があれば引き継ぐ（Battle 往復で安定度/統合を失わない）。
+            if (StrategySession.Provinces != null)
+                foreach (var kv in StrategySession.Provinces)
+                    if (kv.Value != null) provinces[kv.Key] = kv.Value;
+
+            foreach (var s in map.systems)
+            {
+                if (s == null) continue;
+                // 復元に無い星系（初回・新規）だけ作る。住民の思想＝開始所有勢力（占領されても変わらない＝燻りの源）。
+                if (!provinces.ContainsKey(s.id))
+                    provinces[s.id] = new Province(s.id, IdeologyOf(s.owner), 100f);
+                // 復帰時点の所有を基準に（往復直後に誤って OnOccupied しないため）。
+                prevOwners[s.id] = s.owner;
+            }
+
+            StrategySession.Provinces = provinces; // 以後この参照を永続化（static が生き続ける間）
+        }
+
+        private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.factionName = name; f.ideology = ideology; f.legacyFaction = legacy;
+            return f;
+        }
+
+        private string IdeologyOf(Faction f) => demoFactions.TryGetValue(f, out var fd) && fd != null ? fd.ideology : "";
+
+        /// <summary>各星系の内政を1tick進める：所有変化で OnOccupied（不安定化）、以降は目標安定度へ収束。</summary>
+        private void TickGovernance(float dt)
+        {
+            if (dt <= 0f || map == null) return;
+            foreach (var s in map.systems)
+            {
+                if (s == null) continue;
+                if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+
+                // 所有が変わった＝占領 → 統合リセットで不安定化
+                if (prevOwners.TryGetValue(s.id, out var prev) && prev != s.owner)
+                {
+                    GovernanceRules.OnOccupied(prov);
+                    prevOwners[s.id] = s.owner;
+                }
+
+                FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
+                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s), deltaTime: dt);
+            }
+        }
+
+        /// <summary>その星系に所有勢力と敵対する戦略艦隊が停泊しているか（戦時ペナルティ判定）。</summary>
+        private bool HasHostileFleetAt(StarSystem s)
+        {
+            var here = reg.FleetsAt(s.id);
+            for (int i = 0; i < here.Count; i++)
+            {
+                StrategicFleet f = here[i];
+                if (f != null && FactionRelations.IsHostile(null, f.faction, s.ownerData, s.owner)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>マウス直下の星系の情報パネルを開く（I キー・#759）。表示中は戦略マップがポーズ。</summary>
+        private void OpenSystemInfoAtMouse()
+        {
+            if (cam == null) return;
+            Vector2 w = WorldMouse();
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > 1.2f) return;
+            StarSystem s = map.GetSystem(sysId);
+            if (s == null) return;
+            provinces.TryGetValue(sysId, out var prov);
+            SystemDetailPanel.Show(s, prov, map.Neighbors(sysId).Count, FleetSummaryAt(sysId));
+        }
+
+        /// <summary>星系に停泊中の戦略艦隊を勢力ごとに「N隊・兵力M」で要約する。</summary>
+        private string FleetSummaryAt(int sysId)
+        {
+            var here = reg.FleetsAt(sysId);
+            if (here == null || here.Count == 0) return "";
+            var strengthByF = new Dictionary<Faction, int>();
+            var countByF = new Dictionary<Faction, int>();
+            for (int i = 0; i < here.Count; i++)
+            {
+                StrategicFleet f = here[i];
+                if (f == null) continue;
+                strengthByF.TryGetValue(f.faction, out int st); strengthByF[f.faction] = st + f.strength;
+                countByF.TryGetValue(f.faction, out int c); countByF[f.faction] = c + 1;
+            }
+            var sb = new System.Text.StringBuilder();
+            foreach (var kv in strengthByF)
+                sb.AppendLine($"{kv.Key}：{countByF[kv.Key]}隊・兵力 {kv.Value}");
+            return sb.ToString().TrimEnd();
         }
 
         // ===== デモ銀河 =====
@@ -135,6 +300,12 @@ namespace Ginei
             map.AddCorridor(new Corridor(4, 1, 2f));
             map.AddCorridor(new Corridor(0, 5, 3f));
             map.AddCorridor(new Corridor(5, 3, 2f));
+
+            // 帝国星系は惑星（制空権持ち）で防衛＝同盟は停泊だけでは占領できず攻城が要る（#131）。
+            // 同盟星系は無防備（planet 無し）＝従来どおり停泊で占領（両方の挙動をデモ）。
+            foreach (var s in map.systems)
+                if (s != null && s.owner == Faction.帝国)
+                    s.planet = new Planet(s.id, Faction.帝国, demoPlanetDefense, demoPlanetDefense);
 
             reg = new StrategicFleetRegistry(map);
             reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250 });
@@ -177,6 +348,13 @@ namespace Ginei
                 sr.sprite = disc; sr.color = OwnerColor(s.owner); sr.sortingOrder = 2;
                 systemDots[s.id] = sr;
                 MakeLabel(go.transform, s.systemName, new Vector3(0f, systemScale * 0.9f, 0f), 0.9f);
+
+                // 防衛惑星は攻城状態（制空権/侵略値）を星系の下にコンパクト表示
+                if (s.planet != null)
+                {
+                    var sl = MakeLabel(go.transform, "", new Vector3(0f, -systemScale * 0.95f, 0f), 0.7f).GetComponent<TextMesh>();
+                    siegeLabels[s.id] = sl;
+                }
             }
 
             foreach (var f in reg.fleets)
@@ -207,7 +385,7 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 右ク:星系へ進軍 or 回廊で停止保持 / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 右ク:星系へ進軍 or 回廊で停止保持 / I:星系情報 / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -241,6 +419,25 @@ namespace Ginei
             {
                 StarSystem s = map.GetSystem(kv.Key);
                 if (s != null && kv.Value != null) kv.Value.color = OwnerColor(s.owner);
+            }
+
+            // 攻城状態：制空権健在は ⛨残量%（橙）、ドメイン・ダウン中は 侵略%（赤）
+            foreach (var kv in siegeLabels)
+            {
+                StarSystem s = map.GetSystem(kv.Key);
+                TextMesh sl = kv.Value;
+                if (s == null || s.planet == null || sl == null) continue;
+                Planet p = s.planet;
+                if (!p.DomainDown)
+                {
+                    sl.text = $"制空{Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%";
+                    sl.color = defenseColor;
+                }
+                else
+                {
+                    sl.text = $"侵攻{Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%";
+                    sl.color = invadeColor;
+                }
             }
 
             foreach (var kv in fleetMarks)
@@ -322,9 +519,55 @@ namespace Ginei
                 banner.color = combatColor;
                 return;
             }
+            if (TryBesiegeStatus(out string bt, out Color bc)) { banner.text = bt; banner.color = bc; return; }
             string speed = paused ? "停止" : $"x{galaxySpeed:0.#}";
             banner.text = $"速度 {speed}　選択 {selectedFleets.Count}隻";
             banner.color = Color.white;
+        }
+
+        /// <summary>
+        /// 選択中の艦隊が敵の防衛惑星に停泊していれば、攻城の状況（制空権制圧/侵攻/係争中）を返す。
+        /// 「敵惑星に入ったのに何も起きない」を防ぐ説明用フィードバック（#131）。
+        /// </summary>
+        private bool TryBesiegeStatus(out string text, out Color col)
+        {
+            text = ""; col = Color.white;
+            for (int i = 0; i < selectedFleets.Count; i++)
+            {
+                StrategicFleet f = selectedFleets[i];
+                if (f == null || f.IsOnCorridor) continue;
+                StarSystem s = map.GetSystem(f.currentSystemId);
+                if (s == null || s.planet == null) continue;
+                Planet p = s.planet;
+                if (!FactionRelations.IsHostile(null, f.faction, null, p.owner)) continue; // 自国/友軍の惑星
+
+                bool contested = false;
+                var present = reg.FleetsAt(s.id);
+                for (int k = 0; k < present.Count; k++)
+                {
+                    StrategicFleet g = present[k];
+                    if (g != null && !FactionRelations.IsHostile(null, g.faction, null, p.owner)) { contested = true; break; }
+                }
+
+                if (contested)
+                {
+                    text = $"{s.systemName}：係争中（敵守備隊あり）＝攻城停止。守備隊を排除せよ";
+                    col = combatColor;
+                }
+                else if (!p.DomainDown)
+                {
+                    text = $"{s.systemName} を攻城中：制空権 {Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%（S-AVが制圧）／ダブルクリックで突入";
+                    col = defenseColor;
+                }
+                else if (!p.Captured)
+                {
+                    text = $"{s.systemName} へ侵攻中：侵略 {Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold))}%／ダブルクリックで突入";
+                    col = invadeColor;
+                }
+                else continue;
+                return true;
+            }
+            return false;
         }
 
         // ===== 入力 =====
@@ -337,6 +580,7 @@ namespace Ginei
             if (kb.digit1Key.wasPressedThisFrame) { galaxySpeed = 0.5f; paused = false; }
             if (kb.digit2Key.wasPressedThisFrame) { galaxySpeed = 1f; paused = false; }
             if (kb.digit3Key.wasPressedThisFrame) { galaxySpeed = 2f; paused = false; }
+            if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
         }
 
         private void HandleMouse()
@@ -352,7 +596,7 @@ namespace Ginei
                 float now = Time.realtimeSinceStartup;
                 bool dbl = (now - lastClickTime <= doubleClickWindow) && Vector2.Distance(w, lastClickWorld) <= 0.6f;
                 lastClickTime = now; lastClickWorld = w;
-                if (dbl && TryDescend(w)) return;
+                if (dbl && (TryDescend(w) || TryDescendPlanet(w))) return;
 
                 bool additive = ShiftHeld();
                 StrategicFleet nf = NearestFleet(w, 0.7f);
@@ -373,20 +617,26 @@ namespace Ginei
                 int sysId = NearestSystemDist(w, out float sysD);
                 bool hasCorr = NearestCorridor(w, out Corridor c, out float fracFromA, out float corrD);
 
-                if (sysId >= 0 && (!hasCorr || sysD <= corrD) && sysD <= 1.6f)
+                if (sysId >= 0 && sysD <= systemClickRadius)
                 {
-                    // 星系へ進軍
+                    // 星系の点の上＝最優先で進軍。ハブ星系は放射状の回廊が中心を通るため
+                    // 近さ比較だと回廊が勝って惑星へ入れない → 星系の判定半径を優先する。
                     foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
                 }
                 else if (hasCorr && corrD <= 0.6f)
                 {
-                    // 回廊上のクリック位置で停止保持
+                    // 回廊の線上（星系から離れた位置）＝その位置で停止保持
                     foreach (var f in selectedFleets)
                     {
                         if (f == null) continue;
                         if (f.currentSystemId == c.aId) f.HoldOnCorridor(map, c.bId, fracFromA);
                         else if (f.currentSystemId == c.bId) f.HoldOnCorridor(map, c.aId, 1f - fracFromA);
                     }
+                }
+                else if (sysId >= 0 && sysD <= 1.6f)
+                {
+                    // 星系の近く（フォールバック）＝進軍
+                    foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
                 }
             }
         }
@@ -402,6 +652,42 @@ namespace Ginei
             BattleHandoff.Queue(a, b, "Strategy");
             SceneManager.LoadScene("Battle");
             return true;
+        }
+
+        /// <summary>
+        /// クリック位置の星系が敵の防衛惑星で、自軍が攻城中なら、惑星攻城の戦術マップ（Battleシーン）へ突入する（#131）。
+        /// 中心に惑星・攻城艦隊が包囲・首飾り射程の外までの状態で開始する。
+        /// </summary>
+        private bool TryDescendPlanet(Vector2 w)
+        {
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > systemClickRadius) return false;
+            StarSystem s = map.GetSystem(sysId);
+            if (s == null || s.planet == null) return false;
+
+            StrategicFleet besieger = FindBesieger(sysId, s.planet.owner);
+            if (besieger == null) return false;
+
+            float defRatio = s.planet.maxOrbitalDefense > 0f ? s.planet.orbitalDefense / s.planet.maxOrbitalDefense : 0f;
+            float invRatio = s.planet.invasionThreshold > 0f ? s.planet.invasionProgress / s.planet.invasionThreshold : 0f;
+            BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio, invRatio,
+                besieger.faction, besieger.strength, "Strategy");
+            SceneManager.LoadScene("Battle");
+            return true;
+        }
+
+        /// <summary>指定星系に停泊し惑星所有者と敵対する艦隊（攻城側）を返す。選択中を優先、無ければ任意。</summary>
+        private StrategicFleet FindBesieger(int sysId, Faction planetOwner)
+        {
+            for (int i = 0; i < selectedFleets.Count; i++)
+            {
+                StrategicFleet f = selectedFleets[i];
+                if (f != null && !f.IsOnCorridor && f.currentSystemId == sysId &&
+                    FactionRelations.IsHostile(null, f.faction, null, planetOwner)) return f;
+            }
+            foreach (var f in reg.FleetsAt(sysId))
+                if (f != null && FactionRelations.IsHostile(null, f.faction, null, planetOwner)) return f;
+            return null;
         }
 
         /// <summary>交戦中（engaged）の艦隊が1隻でも居るか。</summary>

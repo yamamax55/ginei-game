@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Ginei
 {
     /// <summary>
@@ -25,10 +27,56 @@ namespace Ginei
         public static bool sideAWon;
         public static int survivorStrength;
 
+        // ===== 惑星攻城モード（戦略マップで惑星に到着→戦術マップへ突入・#131 PB-1/PB-5）=====
+        public static bool IsPlanetSiege;     // この受け渡しが惑星攻城か（false＝通常の回廊会戦）
+        public static int planetSystemId;     // 攻める惑星の星系ID
+        public static string planetName;      // 表示名
+        public static Faction planetOwner;    // 惑星の所有勢力（守備側）
+        public static float planetDefenseRatio; // 制空権の残り割合(0..1)＝接近限界リングの根拠
+        public static float planetInvasionRatio; // 侵略値の割合(0..1)＝突入時に引き継ぐ
+        public static Faction besiegerFaction;  // 攻城側（突入する艦隊）
+        public static int besiegerStrength;      // 攻城側の戦略兵力
+
+        // 攻城の戦術マップでの進捗を戦略へ書き戻す（戻ったとき GalaxyView が惑星へ反映）
+        public static bool siegeResolved;        // 攻城結果が書き込まれた
+        public static float siegeResultDefense;  // 残った制空権の割合(0..1)
+        public static float siegeResultInvasion; // 侵略値の割合(0..1)
+        public static bool siegeResultCaptured;  // 戦術マップで占領まで至ったか
+
+        /// <summary>戦術マップでの攻城進捗を結果として書き込む（割合・占領フラグ）。</summary>
+        public static void SetSiegeResult(float defenseRatio, float invasionRatio, bool captured)
+        {
+            siegeResultDefense = Mathf.Clamp01(defenseRatio);
+            siegeResultInvasion = Mathf.Clamp01(invasionRatio);
+            siegeResultCaptured = captured;
+            siegeResolved = true;
+        }
+
+        /// <summary>
+        /// 惑星攻城を戦術マップへ予約する（惑星中心・攻城艦隊が包囲・首飾り射程の外まで接近）。
+        /// </summary>
+        public static void QueuePlanetSiege(int systemId, string name, Faction owner, float defenseRatio,
+            float invasionRatio, Faction besieger, int strength, string returnScene)
+        {
+            IsPlanetSiege = true;
+            planetSystemId = systemId;
+            planetName = name;
+            planetOwner = owner;
+            planetDefenseRatio = defenseRatio;
+            planetInvasionRatio = invasionRatio;
+            besiegerFaction = besieger;
+            besiegerStrength = strength;
+            BattleHandoff.returnScene = returnScene;
+            siegeResolved = false;
+            Pending = true;
+            Resolved = false;
+        }
+
         /// <summary>2つの戦略艦隊から実会戦を予約する。</summary>
         public static void Queue(StrategicFleet a, StrategicFleet b, string returnScene)
         {
             if (a == null || b == null) return;
+            IsPlanetSiege = false;
             factionA = a.faction; strengthA = a.strength; fleetIdA = a.id; admiralA = null;
             factionB = b.faction; strengthB = b.strength; fleetIdB = b.id; admiralB = null;
             BattleHandoff.returnScene = returnScene;
@@ -48,6 +96,8 @@ namespace Ginei
         {
             Pending = false;
             Resolved = false;
+            IsPlanetSiege = false;
+            siegeResolved = false;
             admiralA = admiralB = null;
         }
     }

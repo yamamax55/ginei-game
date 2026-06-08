@@ -23,18 +23,34 @@ MonoBehaviour:
     factionData: {fileID: 0}
     spawnPosition: {x: 4, y: 2}
     formation: 0
+    fleetNumber: 3
+    fleetName: 
+    corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
+    armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
   - admiral: {fileID: 11400000, guid: fafac2af8e3a6e74399d9ae0e78398b1, type: 2}
     faction: 0
     factionData: {fileID: 0}
     spawnPosition: {x: 4, y: -2}
     formation: 0
+    fleetNumber: 4
+    fleetName: 
+    corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
+    armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
   - admiral: {fileID: 11400000, guid: 35cea87aa862d0b4abbd3594c09d5a84, type: 2}
     faction: 1
     factionData: {fileID: 0}
     spawnPosition: {x: -4, y: 2}
     formation: 1
+    fleetNumber: 13
+    fleetName: 
+    corps: "\u540C\u76DF\u4E3B\u529B\u8ECD\u56E3"
+    armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"
   - admiral: {fileID: 11400000, guid: 40838d660a31f044d8679734d4aa8e42, type: 2}
     faction: 1
     factionData: {fileID: 0}
     spawnPosition: {x: -4, y: -2}
     formation: 3
+    fleetNumber: 10
+    fleetName: 
+    corps: "\u540C\u76DF\u4E3B\u529B\u8ECD\u56E3"
+    armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"

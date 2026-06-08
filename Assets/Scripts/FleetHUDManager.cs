@@ -191,7 +191,14 @@ namespace Ginei
                 string mark = ProtagonistRules.IsProtagonist(ad) ? "★ " : "";
                 string rankName = RankSystem.ResolveRankNameOrDefault(strength.factionData, (ad != null) ? ad.rankTier : 0);
                 string rankPrefix = string.IsNullOrEmpty(rankName) ? "" : rankName + " ";
-                string line = $"提督: {mark}{rankPrefix}{fullName}";
+                // 艦隊番号（#146）があれば提督行の上に「[軍集団 ⊃ 軍団 ⊃] 第N艦隊」を出す（梯団⊃艦隊⊃提督の分離を表示・#147）。
+                string line = "";
+                if (strength.HasFleetNumber)
+                {
+                    string fleetLine = strength.HasEchelon ? $"{strength.EchelonPath} ⊃ {strength.FleetLabel}" : strength.FleetLabel;
+                    line = fleetLine + "\n";
+                }
+                line += $"提督: {mark}{rankPrefix}{fullName}";
                 if (ad != null && !string.IsNullOrEmpty(ad.epithet)) line += $"\n異名: {ad.EpithetName}";
                 if (ad != null && ad.HasStaff) line += $"\n参謀: {ad.GetStaffNames()}";
                 hudAdmiral.text = line;

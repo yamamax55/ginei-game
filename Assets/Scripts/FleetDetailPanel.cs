@@ -147,6 +147,11 @@ namespace Ginei
             string fname = (str != null && str.factionData != null) ? str.factionData.factionName
                 : (str != null ? str.faction.ToString() : "—");
             sb.AppendLine($"陣営: {fname}");
+            if (str != null && str.HasFleetNumber)
+            {
+                sb.AppendLine($"艦隊: {str.FleetLabel}");
+                if (str.HasEchelon) sb.AppendLine($"編制: {str.EchelonPath}");
+            }
             if (ProtagonistRules.IsProtagonist(ad)) sb.AppendLine("主人公: ★アンカー（プレイヤー操作固定）");
 
             sb.AppendLine();

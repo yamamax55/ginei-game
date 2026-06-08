@@ -16,6 +16,12 @@ namespace Ginei
         public Faction owner;          // 所有勢力（enum・後方互換）
         public FactionData ownerData;  // 任意（多勢力対応・あれば優先）
 
+        /// <summary>
+        /// 惑星攻城の状態（#131 惑星戦）。null＝無防備な星系＝停泊だけで占領（従来動作・後方互換）。
+        /// 非null＝制空権(ピラー・ドメイン/超兵器)で守られた惑星＝攻城(PlanetSiegeRules/TickSieges)で占領する。
+        /// </summary>
+        public Planet planet;
+
         public StarSystem() { }
 
         public StarSystem(int id, string systemName, Vector2 position, Faction owner = Faction.帝国)

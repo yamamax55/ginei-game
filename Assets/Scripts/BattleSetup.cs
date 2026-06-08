@@ -23,6 +23,18 @@ namespace Ginei
         [Tooltip("シナリオの生成位置を原点中心に拡大する倍率（大きいほど両軍が離れて開始＝いきなり交戦距離にしない）")]
         public float spawnSeparation = 2.5f;
 
+        [Header("惑星攻城（戦略マップから突入・#131）")]
+        [Tooltip("アルテミスの首飾り射程＝接近限界リングの半径（艦隊はここまでしか近づけない）")]
+        public float siegeApproachRadius = 5f;
+        [Tooltip("攻城艦隊が惑星を取り囲む半径（首飾り射程の外）")]
+        public float siegeBesiegerRingRadius = 8.5f;
+        [Tooltip("惑星を取り囲む攻城艦隊の数")]
+        public int siegeBesiegerCount = 6;
+        [Tooltip("攻城艦隊1隊あたりの基準兵力")]
+        public int siegeBesiegerFleetStrength = 200;
+        [Tooltip("中心の惑星の見た目スケール")]
+        public float siegePlanetScale = 3f;
+
         private void Awake()
         {
             // Battle シーン以外では一切動作しない（Title 等に誤って置かれても戦闘を始めない）
@@ -34,11 +46,14 @@ namespace Ginei
 
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）
             FleetRegistry.Clear();
+            FleetRoster.Clear(); // 艦隊編制台帳(#146)も会戦ごとに作り直す（永続化は #108 で別途）
+            OrderOfBattle.Clear(); // 編制ツリー(#147)も会戦ごとに作り直す
 
             // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
             if (BattleHandoff.Pending)
             {
-                SetupFromHandoff();
+                if (BattleHandoff.IsPlanetSiege) SetupPlanetSiege();
+                else SetupFromHandoff();
                 return;
             }
 
@@ -182,6 +197,34 @@ namespace Ginei
                 // 反映した勢力で色を再適用
                 FactionColor color = fleet.GetComponent<FactionColor>();
                 if (color != null) color.ApplyColors();
+
+                // 艦隊編制（#146）：番号指定があれば台帳へ登録し提督を配属、表示用に番号を持たせる。
+                // 未指定（0）なら従来どおり提督名のみ（後方互換）。
+                if (entry.fleetNumber > 0)
+                {
+                    strength.fleetNumber = entry.fleetNumber;
+                    strength.fleetUnitName = entry.fleetName;
+                    FleetUnitData unit = FleetRoster.CreateFleet(strength.faction, entry.fleetNumber, entry.fleetName);
+                    if (unit != null)
+                    {
+                        unit.factionData = strength.factionData;
+                        FleetRoster.AssignAdmiral(unit, entry.admiral); // デモは階級ゲート無し
+                    }
+
+                    // 編制ツリー（#147）：軍団・軍集団に編入し、表示用の梯団名を持たせる。
+                    if (!string.IsNullOrEmpty(entry.corps))
+                    {
+                        var corps = OrderOfBattle.GetOrCreate(EchelonType.軍団, strength.faction, entry.corps);
+                        OrderOfBattle.AttachFleet(corps.id, entry.fleetNumber);
+                        if (!string.IsNullOrEmpty(entry.armyGroup))
+                        {
+                            var group = OrderOfBattle.GetOrCreate(EchelonType.軍集団, strength.faction, entry.armyGroup);
+                            OrderOfBattle.AttachFormation(group.id, corps.id);
+                        }
+                        strength.corpsName = entry.corps;
+                        strength.armyGroupName = entry.armyGroup;
+                    }
+                }
             }
 
             // 陣形を設定
@@ -268,6 +311,79 @@ namespace Ginei
                 factionData = null,
                 spawnPosition = pos,
                 formation = Formation.紡錘陣
+            };
+        }
+
+        // ===== 惑星攻城＝戦術マップ突入（#131 PB-1/PB-5）=====
+
+        /// <summary>
+        /// 惑星攻城の戦術マップを生成する。中心に惑星(＋アルテミスの首飾り射程＝接近限界リング)、
+        /// 攻城艦隊を惑星の周囲に円環状（首飾り射程の外）に配置して惑星へ正対させる。
+        /// 艦隊は SiegeArena が射程内へ入れないよう押し出す＝首飾り射程の外までしか近づけない。
+        /// </summary>
+        private void SetupPlanetSiege()
+        {
+            if (fleetPrefab == null) { Debug.LogError("BattleSetup: fleetPrefab が未設定です。"); return; }
+            ClearExistingFleets();
+            ScenarioData.ActiveScenario = null; // 勝利条件なし（攻城の決着は戦略側の TickSieges）
+
+            // 中心の惑星＋首飾り射程リング＋接近限界の押し出し＋攻城進行（S-AV/ゲージ）
+            var arena = new GameObject("SiegeArena").AddComponent<SiegeArena>();
+            arena.transform.position = Vector3.zero;
+            arena.approachRadius = siegeApproachRadius;
+            arena.planetScale = siegePlanetScale;
+            arena.planetColor = (BattleHandoff.planetOwner == Faction.帝国)
+                ? new Color(0.85f, 0.3f, 0.25f) : new Color(0.3f, 0.5f, 0.9f);
+            arena.planetLabel = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
+            arena.besiegerFaction = BattleHandoff.besiegerFaction;
+            arena.planetOwner = BattleHandoff.planetOwner;
+            arena.initialDefenseRatio = BattleHandoff.planetDefenseRatio;
+            arena.initialInvasionRatio = BattleHandoff.planetInvasionRatio;
+            arena.Build();
+
+            // 攻城艦隊を惑星の周囲に円環状に配置（首飾り射程の外・惑星へ正対）。突入した艦隊はプレイヤー操作。
+            Faction playerFaction = GameSettings.Instance.playerFaction;
+            int n = Mathf.Max(1, siegeBesiegerCount);
+            float ringR = Mathf.Max(siegeApproachRadius + 1.5f, siegeBesiegerRingRadius);
+            for (int i = 0; i < n; i++)
+            {
+                float ang = (Mathf.PI * 2f / n) * i;
+                Vector2 pos = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * ringR;
+                var entry = MakeBesiegerEntry(BattleHandoff.besiegerFaction, siegeBesiegerFleetStrength, pos);
+                GameObject g = SpawnFleet(entry, playerFaction);
+                if (g == null) continue;
+
+                // SpawnFleet の spawnSeparation 倍を無視して、リング上の実位置へ配置
+                g.transform.position = new Vector3(pos.x, pos.y, 0f);
+
+                // 惑星（中心）へ正対（前方=Transform.up を中心へ）
+                Vector2 dir = -pos;
+                float a = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
+                g.transform.rotation = Quaternion.Euler(0f, 0f, a);
+
+                // 突入した攻城艦隊はプレイヤーが手動指揮（AIに乗っ取らせない）
+                FleetAI ai = g.GetComponent<FleetAI>();
+                if (ai != null) ai.enabled = false;
+            }
+
+            Debug.Log($"BattleSetup: 惑星攻城マップを生成（{BattleHandoff.planetName} / {BattleHandoff.besiegerFaction} {n}隊が包囲）。");
+        }
+
+        /// <summary>攻城艦隊1隊ぶんのエントリ（StrengthScale を掛けない素の基準兵力）。</summary>
+        private ScenarioData.FleetEntry MakeBesiegerEntry(Faction f, int baseStrength, Vector2 pos)
+        {
+            var ad = ScriptableObject.CreateInstance<AdmiralData>();
+            ad.admiralName = f + "攻城艦隊";
+            ad.faction = f;
+            ad.leadership = 50;
+            ad.baseStrength = Mathf.Max(1, baseStrength);
+            return new ScenarioData.FleetEntry
+            {
+                admiral = ad,
+                faction = f,
+                factionData = null,
+                spawnPosition = pos,
+                formation = Formation.鶴翼陣
             };
         }
     }

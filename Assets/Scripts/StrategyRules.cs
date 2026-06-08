@@ -147,6 +147,9 @@ namespace Ginei
             StarSystem sys = map.GetSystem(systemId);
             if (sys == null) return false;
 
+            // 防衛惑星（制空権持ち）は停泊だけでは落ちない＝攻城(TickSieges)で占領する（#131）。
+            if (sys.planet != null) return false;
+
             List<StrategicFleet> present = reg.FleetsAt(systemId);
             if (present.Count == 0) return false;
 
@@ -176,6 +179,60 @@ namespace Ginei
             }
             return flips;
         }
+
+        // ===== 惑星攻城（#131 PB-3〜7 の戦略配線）=====
+
+        /// <summary>
+        /// 防衛惑星(StarSystem.planet)の攻城を deltaTime 進める（#131）。各星系について停泊中の艦隊を
+        /// 攻撃側(planet.owner と敵対)／防衛側(非敵対)に分け、<b>防衛側が居らず攻撃側が単一勢力</b>のとき
+        /// だけ、その合計兵力を S-AV戦力として <see cref="PlanetSiegeRules.Tick"/> で
+        /// 制空権制圧→侵略→占領を進める（係争中＝両勢力停泊は宇宙の会戦が先＝攻城は進めない）。
+        /// 占領したら StarSystem.owner も攻撃側へ同期する。占領した星系数を返す。回廊上の艦は停泊に数えない。
+        /// </summary>
+        public static int TickSieges(GalaxyMap map, StrategicFleetRegistry reg, float deltaTime, SiegeParams prm)
+        {
+            if (map == null || reg == null || deltaTime <= 0f) return 0;
+            int captures = 0;
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem sys = map.systems[i];
+                if (sys == null || sys.planet == null) continue;
+                Planet planet = sys.planet;
+
+                List<StrategicFleet> present = reg.FleetsAt(sys.id);
+                Faction attackerFaction = planet.owner;
+                bool hasAttacker = false, mixedAttackers = false, defendersPresent = false;
+                int attackerStrength = 0;
+                for (int k = 0; k < present.Count; k++)
+                {
+                    StrategicFleet f = present[k];
+                    if (f == null) continue;
+                    if (FactionRelations.IsHostile(null, f.faction, null, planet.owner))
+                    {
+                        if (!hasAttacker) { attackerFaction = f.faction; hasAttacker = true; }
+                        else if (attackerFaction != f.faction) mixedAttackers = true;
+                        attackerStrength += f.strength;
+                    }
+                    else defendersPresent = true;
+                }
+
+                float sav = (hasAttacker && !mixedAttackers && !defendersPresent) ? attackerStrength : 0f;
+                SiegeTickResult r = PlanetSiegeRules.Tick(planet, attackerFaction, sav, deltaTime, prm);
+                if (r.captured)
+                {
+                    // 占領：星系所有を同期し、新所有者が制空権を再建（侵略値リセット＝再び攻城が要る）。
+                    sys.owner = planet.owner;
+                    planet.orbitalDefense = planet.maxOrbitalDefense;
+                    planet.invasionProgress = 0f;
+                    captures++;
+                }
+            }
+            return captures;
+        }
+
+        /// <summary>既定係数で攻城を進める簡易版。</summary>
+        public static int TickSieges(GalaxyMap map, StrategicFleetRegistry reg, float deltaTime)
+            => TickSieges(map, reg, deltaTime, SiegeParams.Default);
 
         // ===== 回廊戦闘（C-3 #36）=====
 

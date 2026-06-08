@@ -55,7 +55,8 @@ namespace Ginei
             {
                 isBattleOver = true;
                 Time.timeScale = 0f;
-                WriteHandoffResultAndReturn(LeadingFaction());
+                if (BattleHandoff.IsPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
+                else WriteHandoffResultAndReturn(LeadingFaction());
                 return;
             }
 
@@ -140,6 +141,25 @@ namespace Ginei
 
             Time.timeScale = 1f; // 戦略へ戻すので通常速度へ
             SceneLoader.Instance.LoadScene(BattleHandoff.returnScene);
+        }
+
+        /// <summary>
+        /// 惑星攻城の戦術マップから戦略マップへ戻る（#131）。攻城の決着は戦略側の TickSieges が継続するため
+        /// 結果は書き戻さず、受け渡しをクリアして戻るだけ（観ていない間も攻城は抽象的に進む＝二層モデル）。
+        /// </summary>
+        private void ReturnFromPlanetSiege()
+        {
+            // 戦術マップでの攻城進捗（制空権/侵略値/占領）を割合で書き戻す（GalaxyView が惑星へ反映）。
+            // arena が無くても必ず resolve して受け渡しを完結させる（Pending の残留防止）。
+            SiegeArena arena = FindFirstObjectByType<SiegeArena>();
+            if (arena != null)
+                BattleHandoff.SetSiegeResult(arena.DefenseRatio, arena.InvasionRatio, arena.Captured);
+            else
+                BattleHandoff.SetSiegeResult(BattleHandoff.planetDefenseRatio, BattleHandoff.planetInvasionRatio, false);
+
+            string ret = BattleHandoff.returnScene;
+            Time.timeScale = 1f;
+            SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(ret) ? "Strategy" : ret);
         }
 
         /// <summary>

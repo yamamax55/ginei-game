@@ -74,6 +74,7 @@ namespace Ginei
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
         private TextMesh banner;
         private TextMesh helpLine;
+        private TextMesh policyLabel; // プレイヤー勢力の統治政策(#112/#767)
         private readonly Dictionary<int, TextMesh> siegeLabels = new Dictionary<int, TextMesh>();
 
         // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
@@ -229,8 +230,29 @@ namespace Ginei
                 }
 
                 FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
-                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s), deltaTime: dt);
+                // 勢力の統治政策（#112・薄い国策レイヤー#767）を下位の惑星/星系内政へ波及させる
+                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s),
+                    deltaTime: dt, policy: PolicyOf(s.owner));
             }
+        }
+
+        /// <summary>勢力の統治政策を返す（#112・StrategySession に永続。未設定＝民生）。</summary>
+        private GovernancePolicy PolicyOf(Faction f)
+        {
+            if (StrategySession.Policies == null) StrategySession.Policies = new Dictionary<Faction, GovernancePolicy>();
+            return StrategySession.Policies.TryGetValue(f, out var p) ? p : GovernancePolicy.民生;
+        }
+
+        /// <summary>プレイヤー勢力の統治政策を次へ巡回（民生→動員→弾圧→解放→…）。Gキー。</summary>
+        private void CyclePlayerPolicy()
+        {
+            Faction me = GameSettings.Instance.playerFaction;
+            if (StrategySession.Policies == null) StrategySession.Policies = new Dictionary<Faction, GovernancePolicy>();
+            var cur = PolicyOf(me);
+            var values = (GovernancePolicy[])System.Enum.GetValues(typeof(GovernancePolicy));
+            int next = ((int)cur + 1) % values.Length;
+            StrategySession.Policies[me] = (GovernancePolicy)next;
+            UpdatePolicyLabel();
         }
 
         /// <summary>その星系に所有勢力と敵対する戦略艦隊が停泊しているか（戦時ペナルティ判定）。</summary>
@@ -395,9 +417,22 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 星系をダブルクリック:システムビュー / 右ク:星系へ進軍 or 回廊で停止保持 / I:星系情報 / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 星系をダブルクリック:システムビュー / 右ク:星系へ進軍 or 回廊で停止保持 / I:星系情報 / G:国策 / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
+
+            // プレイヤー勢力の統治政策（#112・国策レイヤー#767）。G で切替。
+            policyLabel = MakeLabel(transform, "", new Vector3(0f, -7.9f, 0f), 0.75f).GetComponent<TextMesh>();
+            policyLabel.color = new Color(0.95f, 0.9f, 0.6f);
+            UpdatePolicyLabel();
+        }
+
+        /// <summary>プレイヤー勢力の現在の統治政策をラベルへ反映。</summary>
+        private void UpdatePolicyLabel()
+        {
+            if (policyLabel == null) return;
+            GovernancePolicy p = PolicyOf(GameSettings.Instance.playerFaction);
+            policyLabel.text = $"国策（統治政策）: {p}　［Gで変更：民生/動員/弾圧/解放］";
         }
 
         private void Refresh()
@@ -591,6 +626,7 @@ namespace Ginei
             if (kb.digit2Key.wasPressedThisFrame) { galaxySpeed = 1f; paused = false; }
             if (kb.digit3Key.wasPressedThisFrame) { galaxySpeed = 2f; paused = false; }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
+            if (kb.gKey.wasPressedThisFrame) CyclePlayerPolicy();     // 国策（統治政策）切替(#112/#767)
         }
 
         private void HandleMouse()

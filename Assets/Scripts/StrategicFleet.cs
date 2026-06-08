@@ -13,6 +13,9 @@ namespace Ginei
         public int id;
         public Faction faction;
 
+        /// <summary>戦闘力（回廊戦闘の勝敗・消耗に使う抽象兵力）。</summary>
+        public int strength = 100;
+
         /// <summary>ワープ速度（コスト/秒）。回廊 length をこの速度で消化する。</summary>
         public float warpSpeed = 1f;
 

@@ -46,6 +46,7 @@ namespace Ginei
 
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）
             FleetRegistry.Clear();
+            FleetRoster.Clear(); // 艦隊編制台帳(#146)も会戦ごとに作り直す（永続化は #108 で別途）
 
             // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
             if (BattleHandoff.Pending)
@@ -195,6 +196,20 @@ namespace Ginei
                 // 反映した勢力で色を再適用
                 FactionColor color = fleet.GetComponent<FactionColor>();
                 if (color != null) color.ApplyColors();
+
+                // 艦隊編制（#146）：番号指定があれば台帳へ登録し提督を配属、表示用に番号を持たせる。
+                // 未指定（0）なら従来どおり提督名のみ（後方互換）。
+                if (entry.fleetNumber > 0)
+                {
+                    strength.fleetNumber = entry.fleetNumber;
+                    strength.fleetUnitName = entry.fleetName;
+                    FleetUnitData unit = FleetRoster.CreateFleet(strength.faction, entry.fleetNumber, entry.fleetName);
+                    if (unit != null)
+                    {
+                        unit.factionData = strength.factionData;
+                        FleetRoster.AssignAdmiral(unit, entry.admiral); // デモは階級ゲート無し
+                    }
+                }
             }
 
             // 陣形を設定

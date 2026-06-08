@@ -27,6 +27,17 @@ namespace Ginei
         [Header("陣営設定")]
         public Faction faction;
 
+        [Header("艦隊編制（#146・任意）")]
+        [Tooltip("艦隊番号（0＝未指定＝従来どおり提督名のみ表示）")]
+        public int fleetNumber = 0;
+        [Tooltip("艦隊の固有名（無ければ「第N艦隊」）")]
+        public string fleetUnitName = "";
+
+        /// <summary>艦隊番号が割り当てられているか（#146）。</summary>
+        public bool HasFleetNumber => fleetNumber > 0;
+        /// <summary>艦隊表示名（固有名→「第N艦隊」。番号未指定なら空）。</summary>
+        public string FleetLabel => !HasFleetNumber ? "" : (!string.IsNullOrEmpty(fleetUnitName) ? fleetUnitName : $"第{fleetNumber}艦隊");
+
         [Tooltip("所属勢力データ（多勢力対応の出所。割り当てると敵対判定・色がこれを優先。未割当なら enum faction で従来動作）")]
         public FactionData factionData;
 
@@ -276,9 +287,10 @@ namespace Ginei
         {
             if (strengthDisplay != null)
             {
+                string head = HasFleetNumber ? $"{FleetLabel} {admiralName}" : admiralName;
                 strengthDisplay.text = IsRetreating
-                    ? $"{admiralName}\n退却"
-                    : $"{admiralName}\n兵力: {Mathf.Max(0, strength)}";
+                    ? $"{head}\n退却"
+                    : $"{head}\n兵力: {Mathf.Max(0, strength)}";
             }
         }
 

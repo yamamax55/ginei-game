@@ -321,21 +321,24 @@ namespace Ginei
                 }
                 else if (!additive) selectedFleets.Clear();
             }
-            // 右クリック：星系なら進軍、回廊（棒）なら端点に居る選択艦をその位置で停止保持。
+            // 右クリック：クリックに近い方を採用。星系の点が近ければ進軍、回廊の線が近ければ
+            // その位置で停止保持（端点に居る選択艦のみ）。
             else if (Mouse.current.rightButton.wasPressedThisFrame)
             {
                 if (selectedFleets.Count == 0) return;
                 Vector2 w = WorldMouse();
 
-                int sysId = NearestSystem(w, systemScale + 0.4f);
-                if (sysId >= 0)
-                {
-                    foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
-                    return;
-                }
+                int sysId = NearestSystemDist(w, out float sysD);
+                bool hasCorr = NearestCorridor(w, out Corridor c, out float fracFromA, out float corrD);
 
-                if (NearestCorridor(w, 0.5f, out Corridor c, out float fracFromA))
+                if (sysId >= 0 && (!hasCorr || sysD <= corrD) && sysD <= 1.6f)
                 {
+                    // 星系へ進軍
+                    foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
+                }
+                else if (hasCorr && corrD <= 0.6f)
+                {
+                    // 回廊上のクリック位置で停止保持
                     foreach (var f in selectedFleets)
                     {
                         if (f == null) continue;
@@ -370,23 +373,23 @@ namespace Ginei
             return best;
         }
 
-        private int NearestSystem(Vector2 w, float radius)
+        /// <summary>最も近い星系IDとその距離を返す（無ければ -1）。</summary>
+        private int NearestSystemDist(Vector2 w, out float dist)
         {
-            int best = -1; float bestD = radius;
+            int best = -1; dist = float.MaxValue;
             foreach (var s in map.systems)
             {
                 if (s == null) continue;
                 float d = Vector2.Distance(s.position, w);
-                if (d <= bestD) { bestD = d; best = s.id; }
+                if (d < dist) { dist = d; best = s.id; }
             }
             return best;
         }
 
-        /// <summary>クリック点に最も近い回廊（線分）と、その上の位置 fracFromA（aId→bId で0..1）を返す。</summary>
-        private bool NearestCorridor(Vector2 w, float maxDist, out Corridor best, out float fracFromA)
+        /// <summary>クリック点に最も近い回廊（線分）と、その上の位置 fracFromA（aId→bId で0..1）と距離を返す。</summary>
+        private bool NearestCorridor(Vector2 w, out Corridor best, out float fracFromA, out float dist)
         {
-            best = null; fracFromA = 0f;
-            float bestD = maxDist;
+            best = null; fracFromA = 0f; dist = float.MaxValue;
             foreach (var c in map.corridors)
             {
                 StarSystem a = map.GetSystem(c.aId), b = map.GetSystem(c.bId);
@@ -395,7 +398,7 @@ namespace Ginei
                 float len2 = ab.sqrMagnitude;
                 float t = (len2 > 0f) ? Mathf.Clamp01(Vector2.Dot(w - pa, ab) / len2) : 0f;
                 float d = Vector2.Distance(w, pa + ab * t);
-                if (d <= bestD) { bestD = d; best = c; fracFromA = t; }
+                if (d < dist) { dist = d; best = c; fracFromA = t; }
             }
             return best != null;
         }

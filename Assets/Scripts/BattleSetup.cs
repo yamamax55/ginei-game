@@ -334,7 +334,11 @@ namespace Ginei
             arena.planetScale = siegePlanetScale;
             arena.planetColor = (BattleHandoff.planetOwner == Faction.帝国)
                 ? new Color(0.85f, 0.3f, 0.25f) : new Color(0.3f, 0.5f, 0.9f);
-            arena.planetLabel = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
+            // 中心ラベルは「種別 名称」。要塞/コロニーは種別を前置（惑星は従来どおり名称のみ＝後方互換）。
+            string siegeName = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
+            arena.planetLabel = BattleHandoff.planetKind == Planet.SiegeTargetKind.惑星
+                ? siegeName
+                : $"{BattleHandoff.planetKind}　{siegeName}";
             arena.besiegerFaction = BattleHandoff.besiegerFaction;
             arena.planetOwner = BattleHandoff.planetOwner;
             arena.initialDefenseRatio = BattleHandoff.planetDefenseRatio;

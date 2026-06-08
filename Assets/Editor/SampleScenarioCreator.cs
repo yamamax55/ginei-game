@@ -43,12 +43,13 @@ namespace Ginei
             // 2) 多対多・配置違い：帝国3 vs 同盟3
             CreateScenario("アムリッツァ星域会戦", new List<ScenarioData.FleetEntry>
             {
-                Entry(reinhard, Faction.帝国, new Vector2(6f, 3f), Formation.紡錘陣, 1),
-                Entry(mittermeyer, Faction.帝国, new Vector2(6f, 0f), Formation.横陣, 3),
-                Entry(reuental, Faction.帝国, new Vector2(6f, -3f), Formation.横陣, 4),
-                Entry(yang, Faction.同盟, new Vector2(-6f, 3f), Formation.鶴翼陣, 13),
-                Entry(bucock, Faction.同盟, new Vector2(-6f, 0f), Formation.横陣, 5),
-                Entry(attenborough, Faction.同盟, new Vector2(-6f, -3f), Formation.方陣, 14),
+                // 各勢力2軍団（軍集団直下）にして編制管理UIの組み替えを試せるようにする（#147）
+                Entry(reinhard, Faction.帝国, new Vector2(6f, 3f), Formation.紡錘陣, 1, corps: "親衛軍団"),
+                Entry(mittermeyer, Faction.帝国, new Vector2(6f, 0f), Formation.横陣, 3, corps: "帝国主力軍団"),
+                Entry(reuental, Faction.帝国, new Vector2(6f, -3f), Formation.横陣, 4, corps: "帝国主力軍団"),
+                Entry(yang, Faction.同盟, new Vector2(-6f, 3f), Formation.鶴翼陣, 13, corps: "イゼルローン方面軍"),
+                Entry(bucock, Faction.同盟, new Vector2(-6f, 0f), Formation.横陣, 5, corps: "同盟本隊"),
+                Entry(attenborough, Faction.同盟, new Vector2(-6f, -3f), Formation.方陣, 14, corps: "同盟本隊"),
             });
 
             // 3) 拮抗・2vs2（配置・陣形違い）

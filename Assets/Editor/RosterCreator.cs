@@ -36,13 +36,19 @@ namespace Ginei
 
             // ── 提督ロスター（能力 0-100：統率/攻撃/防御/機動/運営/情報、基準兵力）──
             // 王党派（帝国系）：攻撃・統率に優れる（得意陣形＝攻撃型は紡錘陣／機動型は鶴翼陣／防御型は方陣）
-            AdmiralData walder   = Admiral("Walder", "ヴァルダー", Faction.帝国, 95, 96, 85, 90, 72, 82, 11000, Formation.紡錘陣);
+            // 貴族＋異名「疾風」（FullName=ヴァルダー・フォン・アイゼンベルク／頭上=疾風ヴァルダー）
+            AdmiralData walder   = Admiral("Walder", "ヴァルダー", Faction.帝国, 95, 96, 85, 90, 72, 82, 11000, Formation.紡錘陣,
+                new NameParts { given = "ヴァルダー", particle = "フォン", family = "アイゼンベルク", epithet = "疾風", callName = "ヴァルダー" });
             AdmiralData greven   = Admiral("Greven", "グレーヴェン", Faction.帝国, 88, 90, 80, 92, 75, 80, 9000, Formation.鶴翼陣);
             AdmiralData rothstein= Admiral("Rothstein", "ロートシュタイン", Faction.帝国, 86, 85, 88, 80, 78, 82, 9000, Formation.方陣);
-            AdmiralData brandt   = Admiral("Brandt", "ブラント", Faction.帝国, 84, 88, 82, 86, 74, 78, 8500, Formation.紡錘陣);
+            // 世数付き君主（FullName=ブラント三世／頭上=ブラント）
+            AdmiralData brandt   = Admiral("Brandt", "ブラント", Faction.帝国, 84, 88, 82, 86, 74, 78, 8500, Formation.紡錘陣,
+                new NameParts { given = "ブラント", regnal = 3 });
 
             // 民主派（同盟系）：防御・情報に優れ粘る（防御型は円陣／機動型は鶴翼陣）
-            AdmiralData carter   = Admiral("Carter", "カーター", Faction.同盟, 94, 84, 90, 80, 85, 95, 10500, Formation.円陣);
+            // 平民＋異名が短縮名に付く「ミラクル」（FullName=カーター・グリーン／頭上=ミラクルグリーン・前置詞無し＝平民）
+            AdmiralData carter   = Admiral("Carter", "カーター", Faction.同盟, 94, 84, 90, 80, 85, 95, 10500, Formation.円陣,
+                new NameParts { given = "カーター", family = "グリーン", epithet = "ミラクル", callName = "グリーン" });
             AdmiralData vega     = Admiral("Vega", "ヴェガ", Faction.同盟, 88, 82, 88, 82, 82, 86, 9000, Formation.円陣);
             AdmiralData lowell   = Admiral("Lowell", "ロウェル", Faction.同盟, 85, 80, 86, 84, 80, 84, 8500, Formation.方陣);
             AdmiralData marsh    = Admiral("Marsh", "マーシュ", Faction.同盟, 83, 82, 84, 86, 78, 80, 8500, Formation.鶴翼陣);
@@ -121,7 +127,9 @@ namespace Ginei
             string note = factionsMissing
                 ? " ※一部の FactionData が未生成です。三つ巴/軍閥シナリオを正しく分けるには先に『Ginei/Create Faction Data』を実行してください。"
                 : "";
-            Debug.Log("Ginei: 提督12名とシナリオ6本（殲滅/時間防衛/旗艦撃破/護衛/三つ巴/軍閥介入）を生成しました。" + note);
+            Debug.Log("Ginei: 提督12名とシナリオ6本（殲滅/時間防衛/旗艦撃破/護衛/三つ巴/軍閥介入）を生成しました。" +
+                "#523 命名の実例＝Walder(貴族＋異名 疾風)/Carter(平民＋異名 ミラクル)/Brandt(世数 三世)。" +
+                "※既存の Admirals/*.asset は上書きしないため、新フィールドを反映するには該当アセットを削除して再生成してください。" + note);
         }
 
         private static FactionData LoadFaction(string fileName)
@@ -129,7 +137,7 @@ namespace Ginei
 
         private static AdmiralData Admiral(string fileName, string admiralName, Faction faction,
             int leadership, int attack, int defense, int mobility, int operation, int intelligence, int baseStrength,
-            Formation preferred)
+            Formation preferred, NameParts names = default)
         {
             string path = $"{AdmiralDir}/{fileName}.asset";
             AdmiralData existing = AssetDatabase.LoadAssetAtPath<AdmiralData>(path);
@@ -147,8 +155,31 @@ namespace Ginei
             a.baseStrength = baseStrength;
             a.hasPreferredFormation = true;   // #104：得意陣形を割り当てる
             a.preferredFormation = preferred;
+            // #523：構造化姓名（任意）。未指定の要素は空＝admiralName へフォールバック（後方互換）。
+            a.givenName     = names.given    ?? "";
+            a.middleName    = names.middle   ?? "";
+            a.familyName    = names.family   ?? "";
+            a.nobleParticle = names.particle ?? "";
+            a.epithet       = names.epithet  ?? "";
+            a.callName      = names.callName ?? "";
+            a.regnalNumber  = names.regnal;
             AssetDatabase.CreateAsset(a, path);
             return a;
+        }
+
+        /// <summary>
+        /// 提督の構造化姓名（任意・#523）。未指定の要素は admiralName にフォールバックする。
+        /// 固有 IP のキャラ名は使わず、汎用的なオリジナル名のみを用いる。
+        /// </summary>
+        public struct NameParts
+        {
+            public string given;    // 名（カタカナ）
+            public string middle;   // ミドルネーム
+            public string family;   // 姓
+            public string particle; // 貴族の前置詞（フォン等。平民は空）
+            public string epithet;  // 異名（頭上ラベルで短縮名の前に付く）
+            public string callName; // 呼称・愛称（短縮表示の最優先）
+            public int regnal;      // 世数（0＝無し）
         }
 
         private static ScenarioData.FleetEntry Entry(AdmiralData admiral, Faction faction, FactionData factionData,

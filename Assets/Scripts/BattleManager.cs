@@ -90,10 +90,39 @@ namespace Ginei
             // 決着時に時間を停止
             Time.timeScale = 0f;
 
+            // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る
+            if (BattleHandoff.Pending)
+            {
+                WriteHandoffResultAndReturn(winner);
+                return;
+            }
+
             RecordResults(winner, reason, winnerRep);
 
             // 結果画面へ遷移（非同期ロード中も時間は停止しているが、SceneLoaderがunscaledTimeを使う）
             SceneLoader.Instance.LoadScene("Result");
+        }
+
+        /// <summary>
+        /// 実会戦の勝敗・勝者残存兵力を BattleHandoff に書き戻し、戦略シーンへ戻る（C-3）。
+        /// 残存は戦術スケールの兵力を BattleHandoff.StrengthScale で戦略スケールへ逆算する。
+        /// </summary>
+        private void WriteHandoffResultAndReturn(Faction winner)
+        {
+            int winnerTactical = 0;
+            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            for (int i = 0; i < alive.Count; i++)
+            {
+                FleetStrength fs = alive[i];
+                if (fs != null && LegacyOf(fs) == winner) winnerTactical += fs.strength;
+            }
+
+            bool aWon = winner == BattleHandoff.factionA;
+            int survivorStrategic = Mathf.Max(1, Mathf.RoundToInt(winnerTactical / (float)BattleHandoff.StrengthScale));
+            BattleHandoff.SetResult(aWon, survivorStrategic);
+
+            Time.timeScale = 1f; // 戦略へ戻すので通常速度へ
+            SceneLoader.Instance.LoadScene(BattleHandoff.returnScene);
         }
 
         /// <summary>
@@ -123,8 +152,8 @@ namespace Ginei
                     // VIP喪失 → 反対陣営の勝利
                     winner = Opposite(vipFaction);
                     reason = (cond == VictoryCondition.護衛)
-                        ? $"護衛対象「{vip.admiralName}」を喪失"
-                        : $"敵旗艦「{vip.admiralName}」を撃破";
+                        ? $"護衛対象「{vip.FullName}」を喪失"
+                        : $"敵旗艦「{vip.FullName}」を撃破";
                     winnerRep = FindLivingFlagshipByLegacy(winner);
                     return true;
                 }
@@ -135,7 +164,7 @@ namespace Ginei
                     winner = vipFaction;
                     reason = (cond == VictoryCondition.護衛)
                         ? "護衛成功（制限時間まで守り切った）"
-                        : $"旗艦「{vip.admiralName}」を制限時間まで守り切った";
+                        : $"旗艦「{vip.FullName}」を制限時間まで守り切った";
                     winnerRep = FindLivingFlagshipByLegacy(winner);
                     return true;
                 }
@@ -287,7 +316,8 @@ namespace Ginei
                 if (fs == null || winnerRep == null || !SameFaction(winnerRep, fs)) continue;
                 if (best == null || fs.DamageDealt > best.DamageDealt) best = fs;
             }
-            return best != null ? best.admiralName : "";
+            if (best == null) return "";
+            return best.admiralData != null ? best.admiralData.FullName : best.admiralName;
         }
 
         /// <summary>指定の旧 enum 陣営に属する生存旗艦数。</summary>

@@ -76,6 +76,10 @@ namespace Ginei
         [Header("ドラッグ矩形選択 (#82)")]
         [Tooltip("クリックとドラッグを区別する最小移動量（ピクセル）")]
         public float dragSelectPixelThreshold = 8f;
+        [Tooltip("クリック選択の許容半径（ピクセル）。コライダー直撃が無くても、この範囲内の最寄り自艦隊を選ぶ（小さな艦でも選びやすく）")]
+        public float clickSelectPixelTolerance = 36f;
+        [Tooltip("艦隊を選択したら自動でコマンドメニューを開く（選択直後に指示できる）")]
+        public bool autoOpenMenuOnSelect = true;
         [Tooltip("選択矩形の枠の色")]
         public Color selectionBoxBorderColor = new Color(0.3f, 1f, 0.5f, 0.95f);
         [Tooltip("選択矩形の塗りの色")]
@@ -728,16 +732,54 @@ namespace Ginei
             // 追加選択(Shift)でなければ一旦すべて解除
             if (!additive) DeselectAll();
 
-            if (collider != null)
+            // まずコライダー直撃を判定（配下艦を撃っても親までさかのぼり旗艦の Selectable を取得）。
+            Selectable selectable = (collider != null) ? collider.GetComponentInParent<Selectable>() : null;
+
+            // 直撃が無ければ、クリック近傍（許容ピクセル内）で最寄りの自艦隊を選ぶ。
+            // 小さな三角の艦でもピクセル単位の精密クリックを要求しない＝選びやすくする。
+            if (selectable == null)
             {
-                // 配下艦(EscortShip)にもコライダーがあるため、親までさかのぼって旗艦の Selectable を取得する。
-                // （配下艦は個別選択しない＝クリックすると所属旗艦が選択される）
-                Selectable selectable = collider.GetComponentInParent<Selectable>();
-                if (selectable != null)
+                selectable = FindNearestSelectableFlagship(clickSelectPixelTolerance);
+            }
+
+            if (selectable != null)
+            {
+                SelectFleet(selectable);
+            }
+        }
+
+        /// <summary>
+        /// クリック位置（スクリーン）から許容ピクセル内で最寄りの「プレイヤーが操作できる旗艦」を返す。
+        /// コライダー直撃が無い時のフォールバック。AI/敵艦は直撃クリックでのみ選ぶ（誤選択を防ぐ）。
+        /// </summary>
+        private Selectable FindNearestSelectableFlagship(float pixelTolerance)
+        {
+            if (mainCamera == null || Mouse.current == null) return null;
+            Vector2 clickScreen = Mouse.current.position.ReadValue();
+
+            Selectable best = null;
+            float bestDist = pixelTolerance;
+            foreach (FleetStrength fs in FleetRegistry.AllFlagships)
+            {
+                if (fs == null) continue;
+
+                FleetAI ai = fs.GetComponent<FleetAI>();
+                if (ai != null && ai.enabled) continue;   // プレイヤー操作艦のみ（AI/敵は対象外）
+
+                Selectable sel = fs.GetComponent<Selectable>();
+                if (sel == null) continue;
+
+                Vector3 sp = mainCamera.WorldToScreenPoint(fs.transform.position);
+                if (sp.z < 0f) continue;                   // カメラ後方は除外
+
+                float d = Vector2.Distance(new Vector2(sp.x, sp.y), clickScreen);
+                if (d <= bestDist)
                 {
-                    SelectFleet(selectable);
+                    bestDist = d;
+                    best = sel;
                 }
             }
+            return best;
         }
 
         /// <summary>
@@ -844,6 +886,9 @@ namespace Ginei
                 {
                     HandleSelection(additive);
                 }
+
+                // 選択が成立したら（1隻以上）コマンドメニューを自動で開く＝選択直後に指示できる。
+                if (autoOpenMenuOnSelect && selectedFleets.Count > 0) OpenCommandMenu();
             }
         }
 

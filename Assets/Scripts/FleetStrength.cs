@@ -145,7 +145,7 @@ namespace Ginei
         {
             if (admiralData == null) return;
 
-            admiralName = admiralData.admiralName;
+            admiralName = admiralData.EpithetName;
             faction = admiralData.faction;
 
             // 統率によって兵力上限を決定 (baseStrength を基準に補正)

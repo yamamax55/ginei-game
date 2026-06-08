@@ -183,12 +183,10 @@ namespace Ginei
                 CreateButton("陣形変更", ToggleFormationSubMenu);
                 buttonCount++;
                 
-                // 4. 情報 (選択中も情報は出せると便利なので残す)
-                if (lastClickedFleet != null)
-                {
-                    CreateButton("情報", () => { ShowFleetInfo(lastClickedFleet); CloseMenu(); });
-                    buttonCount++;
-                }
+                // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
+                Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];
+                CreateButton("情報", () => { ShowFleetInfo(infoTarget); CloseMenu(); });
+                buttonCount++;
 
                 // 「選択」「選択解除」は要件により非表示
             }
@@ -380,16 +378,8 @@ namespace Ginei
 
         private void ShowFleetInfo(Selectable fleet)
         {
-            FleetStrength str = fleet.GetComponent<FleetStrength>();
-            Squadron sq = fleet.GetComponent<Squadron>();
-            if (str != null)
-            {
-                Debug.Log($"艦隊情報: {str.admiralName} ({str.faction}) - 兵力: {str.strength}/{str.maxStrength}");
-            }
-            if (sq != null)
-            {
-                Debug.Log($"現在陣形: {sq.currentFormation}");
-            }
+            // 詳細はモーダルの FleetDetailPanel に表示（表示中はポーズ）。HUDとは別。
+            if (fleet != null) FleetDetailPanel.Show(fleet);
         }
 
         private void ClampToScreen()

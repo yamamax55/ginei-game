@@ -11,18 +11,25 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2857995d4c0f46d4e8823a9b6a257207, type: 3}
   m_Name: "\u30F4\u30A1\u30F3\u30D5\u30EA\u30FC\u30C8\u661F\u57DF\u4F1A\u6226"
-  m_EditorClassIdentifier: Assembly-CSharp::Ginei.ScenarioData
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.ScenarioData
   scenarioName: "\u30F4\u30A1\u30F3\u30D5\u30EA\u30FC\u30C8\u661F\u57DF\u4F1A\u6226"
+  victoryCondition: 0
+  objectiveFaction: 1
+  timeLimit: 180
+  targetAdmiral: {fileID: 0}
   fleets:
   - admiral: {fileID: 11400000, guid: 71e064fff3767d34c9e931f68b3acb56, type: 2}
     faction: 0
-    spawnPosition: {x: 6, y: 3}
+    factionData: {fileID: 0}
+    spawnPosition: {x: 5, y: 2}
     formation: 0
   - admiral: {fileID: 11400000, guid: 4fa8bdef9389e9140b2f5b14dbe1db8e, type: 2}
     faction: 0
-    spawnPosition: {x: 6, y: -3}
+    factionData: {fileID: 0}
+    spawnPosition: {x: 5, y: -2}
     formation: 3
   - admiral: {fileID: 11400000, guid: 35cea87aa862d0b4abbd3594c09d5a84, type: 2}
     faction: 1
-    spawnPosition: {x: -6, y: 0}
+    factionData: {fileID: 0}
+    spawnPosition: {x: -5, y: 0}
     formation: 1

@@ -35,6 +35,13 @@ namespace Ginei
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）
             FleetRegistry.Clear();
 
+            // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
+            if (BattleHandoff.Pending)
+            {
+                SetupFromHandoff();
+                return;
+            }
+
             // 1. シナリオを決定
             ScenarioData scenario = ResolveScenario();
             if (scenario == null)
@@ -188,11 +195,12 @@ namespace Ginei
             FleetWeapon weapon = fleet.GetComponent<FleetWeapon>();
             if (weapon != null) weapon.enabled = true;
 
-            // AI 制御：プレイヤー勢力以外のみ FleetAI を有効化（プレイヤーは Selectable で操作）
+            // AI 制御：プレイヤー勢力以外のみ FleetAI を有効化（プレイヤーは Selectable で操作）。
+            // ただし主人公（GON-6・isProtagonist）は陣営に関わらず常にプレイヤー操作＝AI無効。
             FleetAI ai = fleet.GetComponent<FleetAI>();
             if (ai != null)
             {
-                ai.enabled = !IsPlayerControlled(entry, playerFaction);
+                ai.enabled = ProtagonistRules.ShouldEnableAI(entry.admiral, IsPlayerControlled(entry, playerFaction));
             }
 
             // 名前を分かりやすく
@@ -212,6 +220,55 @@ namespace Ginei
             if (playerData != null && entry.factionData != null)
                 return entry.factionData == playerData;
             return entry.faction == playerFaction;
+        }
+
+        // ===== 戦略マップからの遭遇＝実会戦の生成（C-3）=====
+
+        /// <summary>BattleHandoff の2勢力から会戦を生成する（殲滅勝利・両軍を左右に配置）。</summary>
+        private void SetupFromHandoff()
+        {
+            if (fleetPrefab == null)
+            {
+                Debug.LogError("BattleSetup: fleetPrefab が未設定です。");
+                return;
+            }
+            ClearExistingFleets();
+            ScenarioData.ActiveScenario = null; // 勝利条件は殲滅にフォールバック
+
+            Faction playerFaction = GameSettings.Instance.playerFaction;
+            var fleets = new System.Collections.Generic.List<GameObject>();
+
+            var eA = MakeHandoffEntry(BattleHandoff.factionA, BattleHandoff.admiralA, BattleHandoff.strengthA, new Vector2(-6f, 0f));
+            var eB = MakeHandoffEntry(BattleHandoff.factionB, BattleHandoff.admiralB, BattleHandoff.strengthB, new Vector2(6f, 0f));
+            GameObject ga = SpawnFleet(eA, playerFaction);
+            GameObject gb = SpawnFleet(eB, playerFaction);
+            if (ga != null) fleets.Add(ga);
+            if (gb != null) fleets.Add(gb);
+
+            OrientFleetsToEnemy(fleets);
+            Debug.Log($"BattleSetup: 戦略の遭遇から実会戦を生成（{BattleHandoff.factionA} {BattleHandoff.strengthA} vs {BattleHandoff.factionB} {BattleHandoff.strengthB}）。");
+        }
+
+        /// <summary>遭遇の1勢力ぶんのエントリを作る。提督が無ければ戦略兵力から臨時提督を生成。</summary>
+        private ScenarioData.FleetEntry MakeHandoffEntry(Faction f, AdmiralData provided, int strategicStrength, Vector2 pos)
+        {
+            AdmiralData ad = provided;
+            if (ad == null)
+            {
+                ad = ScriptableObject.CreateInstance<AdmiralData>();
+                ad.admiralName = f + "艦隊";
+                ad.faction = f;
+                ad.leadership = 50; // maxStrength ≒ baseStrength（戦略兵力をそのまま反映）
+                ad.baseStrength = Mathf.Max(1, strategicStrength) * BattleHandoff.StrengthScale;
+            }
+            return new ScenarioData.FleetEntry
+            {
+                admiral = ad,
+                faction = f,
+                factionData = null,
+                spawnPosition = pos,
+                formation = Formation.紡錘陣
+            };
         }
     }
 }

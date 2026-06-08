@@ -35,6 +35,43 @@ namespace Ginei
         // 文字サイズのズーム追従に使う基準ズーム（CameraController.startZoom と揃える）。
         private const float ReferenceOrthoSize = 16f;
 
+        // ===== 表示スタイル（#744：側背面は「側背面！」等の文字を出さず色＋大きさだけで示す＝引き算）=====
+
+        /// <summary>側背面ヒットの表示色（濃い赤橙）。</summary>
+        public static readonly Color FlankColor = new Color(1f, 0.35f, 0.08f, 1f);
+
+        /// <summary>通常ヒットの表示色。</summary>
+        public static readonly Color NormalColor = Color.white;
+
+        /// <summary>ダメージポップアップの見た目（文字・色・サイズ）。</summary>
+        public readonly struct PopupStyle
+        {
+            public readonly string text;
+            public readonly Color color;
+            public readonly int fontSize;
+            public readonly float characterSize;
+
+            public PopupStyle(string text, Color color, int fontSize, float characterSize)
+            {
+                this.text = text;
+                this.color = color;
+                this.fontSize = fontSize;
+                this.characterSize = characterSize;
+            }
+        }
+
+        /// <summary>
+        /// ダメージ表示のスタイルを返す（#744）。側背面でも「側背面！」のような文字は付けず、
+        /// 数値だけを出し、色（濃赤橙）と大きさで区別する＝連呼を排した引き算表現。
+        /// </summary>
+        public static PopupStyle GetStyle(int damage, bool isFlank)
+        {
+            string text = damage.ToString();
+            return isFlank
+                ? new PopupStyle(text, FlankColor, 80, 0.22f)
+                : new PopupStyle(text, NormalColor, 60, 0.18f);
+        }
+
         /// <summary>
         /// ダメージポップアップを生成します。
         /// </summary>
@@ -67,20 +104,12 @@ namespace Ginei
             textMesh.anchor = TextAnchor.MiddleCenter;
             textMesh.alignment = TextAlignment.Center;
 
-            if (isFlank)
-            {
-                textMesh.text = $"{damage}\n側背面!";
-                textMesh.fontSize = 80;
-                textMesh.characterSize = 0.22f;
-                textMesh.color = new Color(1f, 0.4f, 0.1f, 1f); // 赤橙
-            }
-            else
-            {
-                textMesh.text = damage.ToString();
-                textMesh.fontSize = 60;
-                textMesh.characterSize = 0.18f;
-                textMesh.color = Color.white;
-            }
+            // #744：側背面は文字（「側背面!」）を出さず、色＋大きさだけで示す（引き算）。
+            PopupStyle style = GetStyle(damage, isFlank);
+            textMesh.text = style.text;
+            textMesh.fontSize = style.fontSize;
+            textMesh.characterSize = style.characterSize;
+            textMesh.color = style.color;
 
             meshRenderer = GetComponent<MeshRenderer>();
             if (jaFont != null)

@@ -78,5 +78,46 @@ namespace Ginei
             if (hasHigher) return higher;
             return tier;
         }
+
+        /// <summary>
+        /// 指定 tier の表示用階級名を、所属勢力の階級表から解決する（#14・HUD表示用）。
+        /// tier が 0 以下（未設定）または faction が null なら空文字＝階級を出さない（後方互換）。
+        /// 欠番 tier は <see cref="ResolveTier"/> で直近 tier へ丸めてから名称を引く。
+        /// </summary>
+        public static string ResolveRankName(FactionData faction, int tier)
+        {
+            if (faction == null || tier <= 0) return string.Empty;
+            return faction.GetRankName(ResolveTier(faction, tier));
+        }
+
+        /// <summary>
+        /// 既定ラダーの階級名（FactionData が無い／階級表を持たない艦のフォールバック）。
+        /// 准将5/少将6/中将7/大将8/上級大将9/元帥10。範囲外は空文字。
+        /// </summary>
+        public static string DefaultRankName(int tier)
+        {
+            switch (tier)
+            {
+                case 5: return "准将";
+                case 6: return "少将";
+                case 7: return "中将";
+                case 8: return "大将";
+                case 9: return "上級大将";
+                case 10: return "元帥";
+                default: return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// 階級名を解決し、勢力の階級表で引けない場合は既定ラダー(<see cref="DefaultRankName"/>)へフォールバックする。
+        /// HUD など「FactionData 未割当でも階級を出したい」表示用。tier&lt;=0 は空文字。
+        /// 勢力の階級表に該当があればそれを優先（欠番は直近tierへ丸め）。
+        /// </summary>
+        public static string ResolveRankNameOrDefault(FactionData faction, int tier)
+        {
+            if (tier <= 0) return string.Empty;
+            string n = ResolveRankName(faction, tier);
+            return string.IsNullOrEmpty(n) ? DefaultRankName(tier) : n;
+        }
     }
 }

@@ -44,29 +44,20 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 復元後、平データの factionName を頼りに星系の <see cref="StarSystem.ownerData"/> を `Resources/Factions` から解決する
-        /// （直列化は名前のみ＝多勢力対応。見つからなければ enum owner のまま＝後方互換）。
+        /// 復元後、平データの factionName を頼りに星系の <see cref="StarSystem.ownerData"/> を解決する（FND-1 #496＝索引は
+        /// <see cref="ContentDatabase"/> に集約）。直列化は名前のみ＝多勢力対応。見つからなければ enum owner のまま＝後方互換。
         /// </summary>
         private static void ResolveFactionData(CampaignState campaign, CampaignSaveData save)
         {
             if (campaign == null || campaign.map == null || save == null) return;
-            FactionData[] all = Resources.LoadAll<FactionData>("Factions");
-            if (all == null || all.Length == 0) return;
-
             for (int i = 0; i < save.systems.Count; i++)
             {
                 StarSystemSave ss = save.systems[i];
                 if (ss == null || string.IsNullOrEmpty(ss.ownerFactionName)) continue;
                 StarSystem sys = campaign.map.GetSystem(ss.id);
                 if (sys == null) continue;
-                for (int j = 0; j < all.Length; j++)
-                {
-                    if (all[j] != null && all[j].factionName == ss.ownerFactionName)
-                    {
-                        sys.ownerData = all[j];
-                        break;
-                    }
-                }
+                FactionData fd = ContentDatabase.FactionByName(ss.ownerFactionName);
+                if (fd != null) sys.ownerData = fd;
             }
         }
     }

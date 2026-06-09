@@ -48,17 +48,14 @@ namespace Ginei
         public static ScenarioData ActiveScenario { get; set; }
 
         /// <summary>
-        /// scenarioName 一致で Resources から ScenarioData を解決する（BattleSetup と同じ規則）。
-        /// ActiveScenario が未設定のときのフォールバック用。
+        /// scenarioName 一致で ScenarioData を解決する（BattleSetup と同じ規則）。ActiveScenario 未設定時のフォールバック。
+        /// 索引は <see cref="ContentDatabase"/> に集約（FND-1 #496）＝散在する Resources 走査を一本化。見つからなければ Resources 直読みで保険。
         /// </summary>
         public static ScenarioData Resolve(string name)
         {
-            ScenarioData[] all = Resources.LoadAll<ScenarioData>("");
-            foreach (var s in all)
-            {
-                if (s != null && s.scenarioName == name) return s;
-            }
-            return Resources.Load<ScenarioData>(name);
+            ScenarioData s = ContentDatabase.ScenarioByName(name);
+            if (s != null) return s;
+            return Resources.Load<ScenarioData>(name); // 名前=アセット名の保険（DB 未索引の直置き対応）
         }
 
         /// <summary>

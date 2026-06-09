@@ -104,6 +104,9 @@ namespace Ginei
             // 攻撃に必要な旗艦情報が無ければ撃たない
             if (flagshipWeapon == null || flagshipArc == null) return;
 
+            // 非戦闘艦（#128）の配下艦も攻撃しない（旗艦の役割に従う）
+            if (flagship != null && !flagship.IsCombatant) return;
+
             // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止
             if (flagship != null && flagship.IsRetreating)
             {

@@ -203,9 +203,10 @@ namespace Ginei
                 if (ad != null && ad.HasStaff) line += $"\n参謀: {ad.GetStaffNames()}";
                 hudAdmiral.text = line;
 
-                // 陣営
+                // 陣営（非戦闘艦#128は役割を併記）
                 string fname = (strength.factionData != null) ? strength.factionData.factionName : strength.faction.ToString();
-                hudFaction.text = $"陣営: {fname}";
+                string roleSuffix = strength.IsCombatant ? "" : $"　[{strength.shipRole}]";
+                hudFaction.text = $"陣営: {fname}{roleSuffix}";
                 hudFaction.color = ResolveFactionColor(strength);
 
                 // 兵力バー

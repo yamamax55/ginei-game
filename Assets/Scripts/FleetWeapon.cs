@@ -88,6 +88,13 @@ namespace Ginei
 
         private void Update()
         {
+            // 非戦闘艦（偵察/入植/輸送 #128）は攻撃しない（交戦状態も持たない）。
+            if (myStrength != null && !myStrength.IsCombatant)
+            {
+                IsInCombat = false;
+                return;
+            }
+
             // 旗艦喪失で退却中は発砲停止（交戦状態も解除して機動低下を起こさない）
             if (myStrength != null && myStrength.IsRetreating)
             {

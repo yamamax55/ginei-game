@@ -300,7 +300,7 @@ namespace Ginei
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
-                if (fs != null && fs.IsAlive && LegacyOf(fs) == f) return fs;
+                if (CountsForVictory(fs) && LegacyOf(fs) == f) return fs;
             }
             return null;
         }
@@ -308,17 +308,20 @@ namespace Ginei
         /// <summary>陣営の反対側を返す。</summary>
         private static Faction Opposite(Faction f) => (f == Faction.帝国) ? Faction.同盟 : Faction.帝国;
 
-        /// <summary>生存旗艦の中に敵対するペアが1組でもあるか。</summary>
+        /// <summary>勝敗カウントの対象か（生存中の戦闘艦のみ。非戦闘艦#128は残存判定から除外）。</summary>
+        private static bool CountsForVictory(FleetStrength fs) => fs != null && fs.IsAlive && fs.IsCombatant;
+
+        /// <summary>生存戦闘旗艦の中に敵対するペアが1組でもあるか（非戦闘艦は戦線を作らない＝除外）。</summary>
         private static bool HasHostilePair(IReadOnlyList<FleetStrength> flagships)
         {
             for (int i = 0; i < flagships.Count; i++)
             {
                 FleetStrength a = flagships[i];
-                if (a == null || !a.IsAlive) continue;
+                if (!CountsForVictory(a)) continue;
                 for (int j = i + 1; j < flagships.Count; j++)
                 {
                     FleetStrength b = flagships[j];
-                    if (b == null || !b.IsAlive) continue;
+                    if (!CountsForVictory(b)) continue;
                     if (FactionRelations.IsHostile(a, b)) return true;
                 }
             }
@@ -337,7 +340,7 @@ namespace Ginei
             return false;
         }
 
-        /// <summary>勝者勢力の代表旗艦（残存旗艦数が最多、同数なら残存兵力が最大の勢力）。全滅なら null。</summary>
+        /// <summary>勝者勢力の代表旗艦（残存戦闘旗艦数が最多、同数なら残存兵力が最大の勢力）。全滅なら null。非戦闘艦#128は除外。</summary>
         private static FleetStrength DetermineWinner(IReadOnlyList<FleetStrength> alive)
         {
             FleetStrength best = null;
@@ -345,12 +348,12 @@ namespace Ginei
             for (int i = 0; i < alive.Count; i++)
             {
                 FleetStrength rep = alive[i];
-                if (rep == null) continue;
+                if (!CountsForVictory(rep)) continue; // 非戦闘艦は勝者代表にしない
                 int count = 0, strength = 0;
                 for (int j = 0; j < alive.Count; j++)
                 {
                     FleetStrength other = alive[j];
-                    if (other == null || !SameFaction(rep, other)) continue;
+                    if (!CountsForVictory(other) || !SameFaction(rep, other)) continue;
                     count++; strength += other.strength;
                 }
                 if (count > bestCount || (count == bestCount && strength > bestStrength))

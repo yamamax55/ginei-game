@@ -37,6 +37,7 @@ namespace Ginei
         private TextMeshProUGUI zoomValueLabel;
         private readonly System.Collections.Generic.List<OptionButton> speedOptions = new System.Collections.Generic.List<OptionButton>();
         private OptionButton gizmoOption;
+        private OptionButton edgeScrollOption; // 画面端スクロール（#87）
         // ゲーム速度の選択肢
         private static readonly float[] SpeedChoices = { 1f, 2f, 3f };
         // 開始ズームのスライダー範囲（CameraController の min/max 内に収まる実用域）
@@ -861,6 +862,9 @@ namespace Ginei
             // 射界（ギズモ）常時表示
             gizmoOption = CreateButton(panel.transform, "射界表示", ToggleGizmos);
 
+            // 画面端スクロール（#87）
+            edgeScrollOption = CreateButton(panel.transform, "画面端スクロール", ToggleEdgeScroll);
+
             // 戻る
             CreateButton(panel.transform, "戻る", CloseSettings);
         }
@@ -1011,6 +1015,13 @@ namespace Ginei
             RefreshSettingsUI();
         }
 
+        /// <summary>画面端スクロール（#87）の有効/無効をトグルする。</summary>
+        private void ToggleEdgeScroll()
+        {
+            GameSettings.Instance.edgeScrollEnabled = !GameSettings.Instance.edgeScrollEnabled;
+            RefreshSettingsUI();
+        }
+
         /// <summary>設定画面の各表示（数値・ボタンのハイライト）を現在値に同期する。</summary>
         private void RefreshSettingsUI()
         {
@@ -1034,6 +1045,18 @@ namespace Ginei
                     gizmoOption.text.color = on ? Color.black : Color.white;
                     gizmoOption.text.fontStyle = on ? FontStyles.Bold : FontStyles.Normal;
                     gizmoOption.text.text = on ? "射界表示： ON" : "射界表示： OFF";
+                }
+            }
+
+            if (edgeScrollOption != null)
+            {
+                bool on = gs.edgeScrollEnabled;
+                if (edgeScrollOption.bg != null) edgeScrollOption.bg.color = on ? SelectedBg : NormalBg;
+                if (edgeScrollOption.text != null)
+                {
+                    edgeScrollOption.text.color = on ? Color.black : Color.white;
+                    edgeScrollOption.text.fontStyle = on ? FontStyles.Bold : FontStyles.Normal;
+                    edgeScrollOption.text.text = on ? "画面端スクロール： ON" : "画面端スクロール： OFF";
                 }
             }
         }

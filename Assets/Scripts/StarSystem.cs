@@ -22,6 +22,12 @@ namespace Ginei
         /// </summary>
         public Planet planet;
 
+        /// <summary>居住可能か（#129 入植可能条件。false＝不毛で入植不可）。既定 true＝従来の星系は居住可能（後方互換）。</summary>
+        public bool habitable = true;
+
+        /// <summary>入植済み/領有済みか（#129）。false＝未入植＝入植艦で植民できる対象。既定 true＝既存の星系は領有済み（後方互換）。</summary>
+        public bool isColonized = true;
+
         public StarSystem() { }
 
         public StarSystem(int id, string systemName, Vector2 position, Faction owner = Faction.帝国)

@@ -218,7 +218,9 @@ namespace Ginei
                 if (squadron != null)
                 {
                     squadron.GetEscortStatus(out int alive, out int total);
+                    squadron.GetEscortClassBreakdown(out int bb, out int cr, out int dd); // #80 艦種内訳
                     string ships = $"配下艦: {alive}隻 (計{total})";
+                    if (bb + cr + dd > 0) ships += $"　戦{bb}/巡{cr}/駆{dd}";
                     FleetWeapon weapon = firstSelected.GetComponent<FleetWeapon>();
                     if (weapon != null) ships += $"　ミサイル: {weapon.MissileAmmo}発";
                     hudShips.text = ships;

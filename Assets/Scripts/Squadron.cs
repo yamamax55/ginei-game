@@ -16,6 +16,39 @@ namespace Ginei
     }
 
     /// <summary>
+    /// 艦種ごとの能力倍率（#80・実効値パターン＝基準値を上書きせず生成時に乗算）。Inspector で調整可。
+    /// </summary>
+    [System.Serializable]
+    public class ShipClassStats
+    {
+        [Tooltip("耐久倍率（艦艇数=Squadron.escortShipCount に乗算）")]
+        public float durabilityMultiplier = 1f;
+
+        [Tooltip("火力倍率（EscortShip が基準ダメージに乗算）")]
+        public float firepowerMultiplier = 1f;
+
+        [Tooltip("速度倍率（スロット追従の上限速度に乗算）")]
+        public float speedMultiplier = 1f;
+
+        [Tooltip("表示スケール倍率（memberScale に乗算。大型/小型の識別）")]
+        public float scaleMultiplier = 1f;
+
+        [Tooltip("陣営色に乗せる微差の色味（識別用）")]
+        public Color tint = Color.white;
+
+        public ShipClassStats() { }
+
+        public ShipClassStats(float durability, float firepower, float speed, float scale, Color tint)
+        {
+            durabilityMultiplier = durability;
+            firepowerMultiplier = firepower;
+            speedMultiplier = speed;
+            scaleMultiplier = scale;
+            this.tint = tint;
+        }
+    }
+
+    /// <summary>
     /// 旗艦（自身）を中心に配下艦を陣形通りに配置・追従させるクラス。
     /// Start で旗艦のスプライトを流用して escortCount 隻の配下艦を生成する（手置きの子があればそれも含める）。
     /// </summary>
@@ -46,6 +79,25 @@ namespace Ginei
         [Tooltip("配下艦リスト（手置きがあれば使用、無ければ自動生成）")]
         public List<Transform> memberShips = new List<Transform>();
 
+        [Header("艦種編成（#80・配下艦を戦艦/巡航艦/駆逐艦に差別化）")]
+        [Tooltip("戦艦の編成比率（3比率は内部で正規化される）")]
+        [Range(0f, 1f)] public float battleshipRatio = 0.2f;
+
+        [Tooltip("巡航艦の編成比率")]
+        [Range(0f, 1f)] public float cruiserRatio = 0.5f;
+
+        [Tooltip("駆逐艦の編成比率")]
+        [Range(0f, 1f)] public float destroyerRatio = 0.3f;
+
+        [Tooltip("戦艦：高耐久・高火力・低速・大型表示")]
+        public ShipClassStats battleshipStats = new ShipClassStats(2.0f, 1.6f, 0.7f, 1.35f, new Color(1f, 0.95f, 0.8f));
+
+        [Tooltip("巡航艦：中庸（基準）")]
+        public ShipClassStats cruiserStats = new ShipClassStats(1.0f, 1.0f, 1.0f, 1.0f, Color.white);
+
+        [Tooltip("駆逐艦：低耐久・高速・小型表示")]
+        public ShipClassStats destroyerStats = new ShipClassStats(0.6f, 0.8f, 1.4f, 0.75f, new Color(0.8f, 0.9f, 1f));
+
         [Header("配下艦の挙動（#69 リアル化）")]
         [Tooltip("スロットへ追従する最大速度の倍率（旗艦 maxSpeed×この値が上限。遅れは取り戻せるがワープしない）")]
         public float catchUpRatio = 1.3f;
@@ -72,6 +124,12 @@ namespace Ginei
 
         // SmoothDamp用の速度バッファ（memberShips と添字同期）
         private List<Vector2> velocities = new List<Vector2>();
+
+        // 各配下艦の EscortShip キャッシュ（memberShips と添字同期。移動で speedMultiplier を毎フレーム読むため）
+        private List<EscortShip> memberEscorts = new List<EscortShip>();
+
+        // 編成時に割り当てた艦種（memberShips と添字同期。初期化中のみ使用）
+        private List<ShipClass> memberClasses = new List<ShipClass>();
 
         // 交戦中判定に使う旗艦の武装（Start でキャッシュ）
         private FleetWeapon flagshipWeapon;
@@ -102,9 +160,10 @@ namespace Ginei
             CollectExistingMembers();  // 手置きの子を memberShips に取り込む
             ApplyMemberScale();        // 手置き分を縮小（生成分は生成時に縮小済み）
             GenerateEscorts();         // escortCount まで旗艦スプライトを流用して補う
-            SetupEscorts();            // 各配下艦に EscortShip・艦艇数・陣営を設定
+            AssignShipClasses();       // #80 各配下艦に艦種を割り当て、スケールに反映
+            SetupEscorts();            // 各配下艦に EscortShip・艦艇数（耐久倍率）・火力/速度倍率・陣営を設定
             InitVelocities();
-            RecolorFleet();            // 生成した配下艦にも陣営色を反映
+            RecolorFleet();            // 生成した配下艦にも陣営色を反映（艦種の色味#80は FactionColor が陣営色×classTint で適用）
             flagshipWeapon = GetComponent<FleetWeapon>();
             flagshipMovement = GetComponent<FleetMovement>();
             if (flagshipMovement != null) flagshipMaxSpeed = flagshipMovement.maxSpeed;
@@ -200,18 +259,78 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 各配下艦に EscortShip を付与・初期化し、艦艇数を設定する。
+        /// 各配下艦に EscortShip を付与・初期化し、艦種ごとの耐久（艦艇数）・火力・速度倍率を設定する（#80）。
+        /// 倍率は基準値を上書きせず実効値として乗算（旗艦の基準は非破壊）。
         /// </summary>
         private void SetupEscorts()
         {
             FleetStrength flagship = GetComponent<FleetStrength>();
-            foreach (var ship in memberShips)
+            memberEscorts.Clear();
+            for (int i = 0; i < memberShips.Count; i++)
             {
-                if (ship == null) continue;
+                Transform ship = memberShips[i];
+                if (ship == null) { memberEscorts.Add(null); continue; }
+
                 EscortShip escort = ship.GetComponent<EscortShip>();
                 if (escort == null) escort = ship.gameObject.AddComponent<EscortShip>();
-                escort.shipCount = escortShipCount;
+
+                ShipClass cls = (i < memberClasses.Count) ? memberClasses[i] : ShipClass.巡航艦;
+                ShipClassStats stats = StatsFor(cls);
+                escort.shipClass = cls;
+                escort.shipCount = Mathf.Max(1, Mathf.RoundToInt(escortShipCount * stats.durabilityMultiplier));
+                escort.firepowerMultiplier = stats.firepowerMultiplier;
+                escort.speedMultiplier = stats.speedMultiplier;
+                escort.classTint = stats.tint; // FactionColor が陣営色×この色で塗る
                 escort.Setup(this, flagship);
+
+                memberEscorts.Add(escort);
+            }
+        }
+
+        /// <summary>艦種ごとの倍率セットを返す。</summary>
+        private ShipClassStats StatsFor(ShipClass cls)
+        {
+            switch (cls)
+            {
+                case ShipClass.戦艦:   return battleshipStats;
+                case ShipClass.駆逐艦: return destroyerStats;
+                case ShipClass.巡航艦:
+                default:               return cruiserStats;
+            }
+        }
+
+        /// <summary>
+        /// 編成比率（戦艦/巡航艦/駆逐艦）に応じて各配下艦へ艦種を割り当て、表示スケールに反映する（#80）。
+        /// スロット配置は艦種非依存（最小実装＝混成のみ。前衛/遊撃の配置最適化は将来）。
+        /// </summary>
+        private void AssignShipClasses()
+        {
+            int n = memberShips.Count;
+            memberClasses = new List<ShipClass>(n);
+
+            // 比率を正規化（全0なら全て巡航艦）。
+            float bb = Mathf.Max(0f, battleshipRatio);
+            float cr = Mathf.Max(0f, cruiserRatio);
+            float dd = Mathf.Max(0f, destroyerRatio);
+            float sum = bb + cr + dd;
+
+            // 戦艦・駆逐艦の隻数を比率から決め、残りを巡航艦に（混在しやすいよう一定間隔で割当）。
+            int battleships = (sum > 0f) ? Mathf.RoundToInt(n * bb / sum) : 0;
+            int destroyers = (sum > 0f) ? Mathf.RoundToInt(n * dd / sum) : 0;
+            if (battleships + destroyers > n) destroyers = Mathf.Max(0, n - battleships);
+
+            for (int i = 0; i < n; i++) memberClasses.Add(ShipClass.巡航艦);
+
+            // 戦艦は前方寄り（添字前半）、駆逐艦は後方寄り（添字後半）に置いて団子を避ける。
+            for (int i = 0; i < battleships && i < n; i++) memberClasses[i] = ShipClass.戦艦;
+            for (int i = 0; i < destroyers && (n - 1 - i) >= battleships; i++) memberClasses[n - 1 - i] = ShipClass.駆逐艦;
+
+            // 表示スケールを艦種倍率で調整（現在のスケール＝memberScale 済みに乗算）。
+            for (int i = 0; i < n; i++)
+            {
+                if (memberShips[i] == null) continue;
+                float s = StatsFor(memberClasses[i]).scaleMultiplier;
+                if (!Mathf.Approximately(s, 1f)) memberShips[i].localScale *= s;
             }
         }
 
@@ -270,6 +389,26 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 生存配下艦を艦種別に集計します（HUDの内訳表示用・#80）。
+        /// </summary>
+        public void GetEscortClassBreakdown(out int battleships, out int cruisers, out int destroyers)
+        {
+            battleships = 0; cruisers = 0; destroyers = 0;
+            foreach (var m in memberShips)
+            {
+                if (m == null) continue;
+                EscortShip e = m.GetComponent<EscortShip>();
+                if (e == null || !e.IsAlive) continue;
+                switch (e.shipClass)
+                {
+                    case ShipClass.戦艦:   battleships++; break;
+                    case ShipClass.駆逐艦: destroyers++; break;
+                    default:               cruisers++; break;
+                }
+            }
+        }
+
+        /// <summary>
         /// 艦隊全体を囲う外接円（旗艦を中心、生存配下艦の最遠＋余白を半径）を求めます。
         /// 攻撃目標選択時のハイライト表示用。
         /// </summary>
@@ -302,6 +441,7 @@ namespace Ginei
             if (idx < 0) return;
             memberShips.RemoveAt(idx);
             if (idx < velocities.Count) velocities.RemoveAt(idx);
+            if (idx < memberEscorts.Count) memberEscorts.RemoveAt(idx); // 艦種キャッシュも添字同期
         }
 
         private void Update()
@@ -322,15 +462,20 @@ namespace Ginei
             float st = inCombat ? combatSmoothTime : smoothTime;
 
             float dt = Time.deltaTime;
-            // 速度上限＝旗艦の最高速 × catchUpRatio（遅れは取り戻せるがワープしない）。
-            float maxSpeed = (flagshipMovement != null ? flagshipMovement.maxSpeed : flagshipMaxSpeed)
-                             * Mathf.Max(0.1f, catchUpRatio);
-            float maxStep = maxSpeed * dt;
+            // 速度上限の基準＝旗艦の最高速 × catchUpRatio（遅れは取り戻せるがワープしない）。
+            float baseMaxSpeed = (flagshipMovement != null ? flagshipMovement.maxSpeed : flagshipMaxSpeed)
+                                 * Mathf.Max(0.1f, catchUpRatio);
 
             for (int i = 0; i < memberShips.Count; i++)
             {
                 if (memberShips[i] == null) continue;
                 if (i >= cachedSlots.Count) continue;
+
+                // #80 艦種の速度倍率を上限に乗算（戦艦は遅く・駆逐艦は速く＝速い遊撃）。FleetMovement は不変。
+                float speedMul = (i < memberEscorts.Count && memberEscorts[i] != null)
+                                 ? memberEscorts[i].SpeedMultiplier : 1f;
+                float maxSpeed = baseMaxSpeed * Mathf.Max(0.1f, speedMul);
+                float maxStep = maxSpeed * dt;
 
                 // ローカル座標→ワールド座標（旗艦の回転に追従。root スケールは1前提）
                 Vector3 targetWorldPos = transform.TransformPoint(cachedSlots[i]);

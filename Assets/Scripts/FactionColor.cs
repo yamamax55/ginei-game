@@ -64,7 +64,9 @@ namespace Ginei
                     continue;
                 }
 
-                sr.color = targetColor;
+                // 配下艦は陣営色に艦種の色味(#80)を微差で乗せて識別（再着色しても維持される）。
+                EscortShip escort = sr.GetComponent<EscortShip>();
+                sr.color = (escort != null) ? targetColor * escort.classTint : targetColor;
             }
 
             // 2. テキストラベルの色分け (頭上の提督名・兵力)

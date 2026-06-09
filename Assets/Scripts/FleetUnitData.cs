@@ -22,6 +22,8 @@ namespace Ginei
         public Faction faction = Faction.帝国;
         [Tooltip("所属勢力データ（多勢力対応・任意）")]
         public FactionData factionData;
+        [Tooltip("運用区分（#128/#883・戦闘/非戦闘）。既定=戦闘艦。梯団は戦闘艦隊と非戦闘艦隊を混成できない（ShipRoleRules）")]
+        public ShipRole shipRole = ShipRole.戦闘艦;
         [Tooltip("配属中の指揮官（null＝空席）。提督が代わってもユニットは残る")]
         public AdmiralData assignedAdmiral;
         [Tooltip("ユニット既定兵力（0＝提督側 baseStrength を使う＝後方互換）")]

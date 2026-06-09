@@ -49,16 +49,45 @@ namespace Ginei
 
         // ===== 司令部固定・中身流動（①：attach/detach） =====
 
-        /// <summary>艦隊(#146 番号)を梯団へ編入する。単一所属＝既に別梯団に居れば移す（中身流動）。</summary>
+        /// <summary>
+        /// 艦隊(#146 番号)を梯団へ編入する。単一所属＝既に別梯団に居れば移す（中身流動）。
+        /// **戦闘艦隊と非戦闘艦隊は混成しない(#883)**＝編入先の既存艦隊と運用区分が違えば拒否（移動もしない）。
+        /// </summary>
         public static bool AttachFleet(int formationId, int fleetNumber)
         {
             var f = Get(formationId);
             if (f == null || fleetNumber <= 0) return false;
+            if (!CanAttachFleet(formationId, fleetNumber)) return false; // 混成編成は不可
             // 同勢力の他梯団から外して単一所属を保つ
             foreach (var other in formations.Values)
                 if (other.faction == f.faction) other.fleetNumbers.Remove(fleetNumber);
             if (!f.fleetNumbers.Contains(fleetNumber)) f.fleetNumbers.Add(fleetNumber);
             return true;
+        }
+
+        /// <summary>
+        /// その艦隊を梯団へ編入できるか（#883 混成禁止の事前判定）。梯団が既に持つ艦隊と運用区分（戦闘/非戦闘）が
+        /// 揃っていれば true。役割は <see cref="FleetRoster"/> から解決（未登録は戦闘艦扱い＝後方互換）。
+        /// </summary>
+        public static bool CanAttachFleet(int formationId, int fleetNumber)
+        {
+            var f = Get(formationId);
+            if (f == null || fleetNumber <= 0) return false;
+            ShipRole candidate = ResolveRole(f.faction, fleetNumber);
+            for (int i = 0; i < f.fleetNumbers.Count; i++)
+            {
+                int num = f.fleetNumbers[i];
+                if (num == fleetNumber) continue; // 既に居る自分自身は無視
+                if (!ShipRoleRules.AreCompatible(candidate, ResolveRole(f.faction, num))) return false;
+            }
+            return true;
+        }
+
+        /// <summary>艦隊の運用区分を台帳から解決する（未登録は戦闘艦＝後方互換）。</summary>
+        private static ShipRole ResolveRole(Faction faction, int fleetNumber)
+        {
+            FleetUnitData unit = FleetRoster.GetFleet(faction, fleetNumber);
+            return unit != null ? unit.shipRole : ShipRole.戦闘艦;
         }
 
         public static bool DetachFleet(int formationId, int fleetNumber)

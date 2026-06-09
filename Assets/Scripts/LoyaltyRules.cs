@@ -20,6 +20,25 @@ namespace Ginei
         public static LoyaltyParams Default => new LoyaltyParams(0.5f, 0.5f);
     }
 
+    /// <summary>関ヶ原型会戦の決着（#817 SEKI-5）。損害は「実際に戦った兵」に集中する。</summary>
+    public readonly struct EngagementResult
+    {
+        public readonly Faction winner;
+        public readonly int winnerEffective; // 勝者の実効兵力（戦う＋寝返り）
+        public readonly int loserEffective;  // 敗者の実効兵力
+        public readonly int winnerSurvivors; // 勝者の戦闘兵の残存（消耗後＝winnerEff-loserEff）
+        public readonly int loserCasualties; // 敗者の戦闘兵の損失（実際に戦った分のみ）
+
+        public EngagementResult(Faction winner, int winnerEffective, int loserEffective, int winnerSurvivors, int loserCasualties)
+        {
+            this.winner = winner;
+            this.winnerEffective = winnerEffective;
+            this.loserEffective = loserEffective;
+            this.winnerSurvivors = winnerSurvivors;
+            this.loserCasualties = loserCasualties;
+        }
+    }
+
     /// <summary>
     /// 関ヶ原型「戦う前に決まる戦い」の純ロジック（#817・SEKI-1〜3 / #822）。
     /// 各諸侯の旗幟（戦う/静観/寝返り）を、忠誠・調略・趨勢から解決し、寝返りカスケード
@@ -100,6 +119,24 @@ namespace Ginei
 
         public static Faction ResolveWinner(IList<Allegiance> list, Faction sideA, Faction sideB, out int effA, out int effB)
             => ResolveWinner(list, sideA, sideB, LoyaltyParams.Default, out effA, out effB);
+
+        /// <summary>
+        /// カスケード解決後、実効兵力差で会戦を決着させる（#817 SEKI-5）。勝者の戦闘兵は消耗
+        /// （winnerEff-loserEff が残存）、敗者の戦闘兵は全滅。静観（フリーライダー #820）・寝返りは
+        /// 戦っていないので無傷で残る＝<b>敗者側の損害は実際に戦った少数に集中する</b>
+        /// （関ヶ原で西軍の損害が三成・大谷に集中したのと同型＝大半は降伏/寝返りで生き残る）。
+        /// </summary>
+        public static EngagementResult ResolveEngagement(IList<Allegiance> list, Faction sideA, Faction sideB, LoyaltyParams p)
+        {
+            Faction winner = ResolveWinner(list, sideA, sideB, p, out int effA, out int effB);
+            int winEff = (winner == sideA) ? effA : effB;
+            int loseEff = (winner == sideA) ? effB : effA;
+            int winSurv = Mathf.Max(0, winEff - loseEff);
+            return new EngagementResult(winner, winEff, loseEff, winSurv, loseEff);
+        }
+
+        public static EngagementResult ResolveEngagement(IList<Allegiance> list, Faction sideA, Faction sideB)
+            => ResolveEngagement(list, sideA, sideB, LoyaltyParams.Default);
 
         /// <summary>調略：敵方の浸透を amount だけ強める（#819 家康の手紙＝戦前プログラミング）。</summary>
         public static void ApplyIntrigue(Allegiance a, float amount)

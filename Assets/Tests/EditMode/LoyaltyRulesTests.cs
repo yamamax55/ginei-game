@@ -118,6 +118,26 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void ResolveEngagement_CasualtiesConcentrateOnLosingFighters()
+        {
+            // 関ヶ原：損害は実際に戦った少数（三成・大谷の1万）に集中。寝返り4万・日和見2万は無傷で残る。
+            var list = new List<Allegiance>
+            {
+                new Allegiance(1, Faction.帝国, 30000, loyalty: 1.0f, intrigue: 0.0f),
+                new Allegiance(2, Faction.同盟, 10000, loyalty: 1.0f, intrigue: 0.0f),
+                new Allegiance(3, Faction.同盟, 40000, loyalty: 0.2f, intrigue: 0.9f),
+                new Allegiance(4, Faction.同盟, 20000, loyalty: 0.3f, intrigue: 0.2f),
+            };
+            var r = LoyaltyRules.ResolveEngagement(list, Faction.帝国, Faction.同盟, P);
+
+            Assert.AreEqual(Faction.帝国, r.winner);
+            Assert.AreEqual(70000, r.winnerEffective);   // 3万＋寝返り4万
+            Assert.AreEqual(10000, r.loserEffective);    // 命がけの1万のみ
+            Assert.AreEqual(60000, r.winnerSurvivors);   // 勝者の消耗（70000-10000）
+            Assert.AreEqual(10000, r.loserCasualties);   // 損害は戦った1万に集中（残り6万は無傷）
+        }
+
+        [Test]
         public void Cascade_ReachesStableEquilibrium()
         {
             var list = new List<Allegiance>

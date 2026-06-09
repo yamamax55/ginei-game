@@ -15,13 +15,16 @@ namespace Ginei
     /// 列伝/殿堂 #785/#784・主人公 #735・階級 #14 と接続。解決は <see cref="PersonRules"/>（static）。
     /// 純データ（非 MonoBehaviour・test-first）。
     /// </summary>
-    public class Person
+    public class Person : ICharacter
     {
         public int id;
         public string name;
         public Faction faction;
         public PersonRole role = PersonRole.軍人;
         public int rankTier; // 階級（#14・序列）
+
+        /// <summary>政治家か（政党・選挙で出世＝政治任用役職の資格・GOV-6 #159）。文民の一職種。</summary>
+        public bool isPolitician;
 
         // 適性（0..100・AdmiralData と同枠）
         public int leadership;   // 統率（軍）
@@ -46,5 +49,13 @@ namespace Ginei
 
         /// <summary>文才＝運営・情報（行政/外交）の平均（0..100）。</summary>
         public float CivilAptitude => (operation + intelligence) / 2f;
+
+        // --- ICharacter（役職保持の共通窓口・GOV-1 #142） ---
+        public int Id => id;
+        public string CharacterName => name;
+        public Faction Faction => faction;
+        public int RankTier => rankTier;
+        public bool IsMilitary => role == PersonRole.軍人;
+        public bool IsPolitician => isPolitician;
     }
 }

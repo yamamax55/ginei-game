@@ -91,8 +91,8 @@ namespace Ginei
 
         private void Update()
         {
-            // Hキーで開閉トグル（unscaledDeltaTime を使い timeScale に依存しない）
-            if (Keyboard.current != null && Keyboard.current.hKey.wasPressedThisFrame)
+            // ヘルプ開閉（入力は GameInput に集約・#107／共通アクションでどのシーンでも有効）
+            if (GameInput.WasPressed(GameAction.ヘルプ切替))
             {
                 Toggle();
             }

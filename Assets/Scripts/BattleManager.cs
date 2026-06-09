@@ -35,14 +35,15 @@ namespace Ginei
         {
             // 開始時にタイムスケールをリセット
             Time.timeScale = 1f;
+            GameInput.SetContext(InputContext.会戦); // 入力コンテキストを会戦に（#107）
             AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmBattle);
             // 開始時の隻数記録は、全艦の登録(Start)が済んだ最初の Update で行う（実行順非依存）
         }
 
         private void Update()
         {
-            // デバッグ用：Rキーでリスタート
-            if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
+            // デバッグ用：リスタート（入力は GameInput に集約・#107）
+            if (GameInput.WasPressed(GameAction.リスタート))
             {
                 RestartBattle();
                 return;
@@ -50,8 +51,7 @@ namespace Ginei
 
             // 戦略マップからの実会戦（C-2 二層遷移 #586 ②）：Backspace でいつでも戦略マップへ復帰。
             // 現時点の優勢側を勝者として結果を書き戻し、撤収する（離脱＝以後は自動委任）。
-            if (BattleHandoff.Pending && !isBattleOver &&
-                Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame)
+            if (BattleHandoff.Pending && !isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
             {
                 isBattleOver = true;
                 Time.timeScale = 0f;

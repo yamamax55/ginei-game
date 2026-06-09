@@ -8,6 +8,9 @@ namespace Ginei
     /// <summary>役職の種類。軍務＝艦隊指揮・会戦／政務＝内政・外交・統治。</summary>
     public enum PostType { 軍務, 政務 }
 
+    /// <summary>人物の拘留状態（LIFE-4 #154・死亡 #152 と対の可逆ルート）。自由→捕虜→（解放で自由／処断で処断済＝死亡へ合流）。</summary>
+    public enum CaptiveStatus { 自由, 捕虜, 処断済 }
+
     /// <summary>
     /// 人物（キャラクター）の純データ（人物システム）。役割(<see cref="role"/>＝軍人/文民)を持ち、
     /// 軍才（統率/攻撃/防御/機動）と文才（運営/情報＝行政/外交）の適性を持つ。役割と役職の一致で
@@ -25,6 +28,24 @@ namespace Ginei
 
         /// <summary>政治家か（政党・選挙で出世＝政治任用役職の資格・GOV-6 #159）。文民の一職種。</summary>
         public bool isPolitician;
+
+        // --- 人物ライフサイクル（LIFE-1/2/4 #151/#152/#154） ---
+        public int birthYear;                                   // 生年（0=未設定＝加齢しない）
+        public int deathYear;                                   // 没年（0=存命）
+        public CaptiveStatus captiveStatus = CaptiveStatus.自由; // 拘留状態（LIFE-4）
+        public Faction heldBy;                                   // 捕獲勢力（捕虜時）
+
+        // --- 経歴（出自パイプライン LIFE-5/6/7 #155/#156/#157） ---
+        public int hammockNumber; // 士官学校の卒業席次（1=首席。小さいほど上位。LIFE-5）
+        public int graduationYear; // 卒業年/合格年（学閥=同期の判定）
+        public int schoolId;       // 卒業/合格制度のID（学閥=同窓の判定）
+        public int examRank;       // 登用試験の合格順位（文官版ハンモック。LIFE-6）
+
+        // 専門能力（テクノクラート LIFE-7・既存の戦闘/政治能力とは別軸）
+        public int research;     // 研究
+        public int engineering;  // 技術
+        public int planning;     // 計画
+        public int production;   // 生産
 
         // 適性（0..100・AdmiralData と同枠）
         public int leadership;   // 統率（軍）
@@ -57,5 +78,11 @@ namespace Ginei
         public int RankTier => rankTier;
         public bool IsMilitary => role == PersonRole.軍人;
         public bool IsPolitician => isPolitician;
+        public int BirthYear => birthYear;
+        public bool IsDeceased => deathYear > 0;
+        public bool IsAvailable => deathYear <= 0 && captiveStatus == CaptiveStatus.自由;
+
+        /// <summary>専門才＝研究・技術・計画・生産の平均（0..100・テクノクラート LIFE-7）。</summary>
+        public float TechnicalAptitude => (research + engineering + planning + production) / 4f;
     }
 }

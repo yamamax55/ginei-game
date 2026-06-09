@@ -24,5 +24,16 @@ namespace Ginei
 
         /// <summary>政治家か（政党・選挙で出世＝政治任用役職の資格・GOV-6 #159）。</summary>
         bool IsPolitician { get; }
+
+        // --- 人物ライフサイクル（LIFE-1/2 #151/#152） ---
+
+        /// <summary>生年（一次データ。年齢は <c>currentYear - BirthYear</c> で導出＝暦とズレない）。0＝未設定。</summary>
+        int BirthYear { get; }
+
+        /// <summary>死亡したか（LIFE-2 #152。死亡で各レジストリから保持解除される）。</summary>
+        bool IsDeceased { get; }
+
+        /// <summary>任に就ける状態か（生存かつ自由＝捕虜/死亡でない。LIFE-2/4。空席判定・後任補充の窓口）。</summary>
+        bool IsAvailable { get; }
     }
 }

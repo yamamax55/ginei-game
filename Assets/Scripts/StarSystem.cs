@@ -28,6 +28,9 @@ namespace Ginei
         /// <summary>入植済み/領有済みか（#129）。false＝未入植＝入植艦で植民できる対象。既定 true＝既存の星系は領有済み（後方互換）。</summary>
         public bool isColonized = true;
 
+        /// <summary>星系の類型（L-1 #93）。支配下で類型に応じた資源を時間で産出する。既定＝居住（少量産出・後方互換）。</summary>
+        public SystemType systemType = SystemType.居住;
+
         public StarSystem() { }
 
         public StarSystem(int id, string systemName, Vector2 position, Faction owner = Faction.帝国)

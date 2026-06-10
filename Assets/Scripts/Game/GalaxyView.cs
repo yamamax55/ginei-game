@@ -89,6 +89,10 @@ namespace Ginei
         // TIME-6（#952）：暦の日境界でイベント判定を駆動するディスパッチャ（毎フレームでなく per-day＝倍速で暦比一定・ポーズで停止）。
         private CalendarDispatcher policyCalendar;
 
+        // TIME-6（#952・LIFE-2 #152）：人物の加齢/老衰を暦の年境界で回すデモロスター。提督が老いて死に、HUDで告知する。
+        private List<Person> commanders;
+        private int campaignYear;
+
         // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
         private readonly Dictionary<int, Province> provinces = new Dictionary<int, Province>();
         private readonly Dictionary<int, Faction> prevOwners = new Dictionary<int, Faction>();
@@ -198,9 +202,10 @@ namespace Ginei
 
             // 国家状態（#817 旗幟の出所）：各勢力の腐敗→合意→希望を銀河時間で進める。
             CampaignRules.Tick(StrategySession.Campaign, dt);
-            // 財政（S5）＋支持低下イベント（S6）は暦の日境界で1回ずつ進める（TIME-6 #952＝per-day。倍速で暦比一定・ポーズで停止）。
+            // 財政（S5）＋支持低下イベント（S6）は日境界、人物の加齢/老衰（LIFE-2）は年境界で進める（TIME-6 #952）。
+            // いずれも暦駆動＝倍速で暦比一定・ポーズで停止。日次→年次の順に独立発火（CalendarDispatcher）。
             if (clock != null && policyCalendar != null)
-                policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyCampaignTick);
+                policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyCampaignTick, onYear: RunAnnualLifecycleTick);
 
             if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
@@ -495,6 +500,25 @@ namespace Ginei
             // TIME-6（#952）：暦の日境界でイベント判定を回す。現在のクロック経過へ同期（初フレームで日跨ぎを一気に発火させない）。
             double startElapsed = StrategySession.Clock != null ? StrategySession.Clock.ElapsedSeconds : 0d;
             policyCalendar = new CalendarDispatcher(GameDate.DateParams.Default, startElapsed);
+
+            SetupPersonnel();
+        }
+
+        /// <summary>
+        /// 加齢/老衰デモ用の提督ロスターを用意する（TIME-6 #952・LIFE-2 #152）。各勢力に若年・老齢を混ぜ、
+        /// 暦の年境界で <see cref="AnnualLifecycleRules.ProcessMortality"/> により老衰死しうる。配下の継承は後段。
+        /// </summary>
+        private void SetupPersonnel()
+        {
+            campaignYear = TimeDisplay.StartYear; // 開始暦（宇宙暦SE796）と揃える
+            commanders = new List<Person>();
+            int y = campaignYear;
+            int id = 1;
+            // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
+            commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
+            commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
+            commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
+            commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
         }
 
         /// <summary>
@@ -506,6 +530,25 @@ namespace Ginei
             float secondsPerDay = (float)policyCalendar.Params.secondsPerDay;
             CampaignRules.TickEconomyDay(StrategySession.Campaign, secondsPerDay);
             RunDailyPolicyTick();
+        }
+
+        /// <summary>
+        /// 暦の年境界ごとに人物を1年ぶん老衰判定する（TIME-6 #952・LIFE-2 #152）。死亡した提督はHUDで告知する。
+        /// 純ロジックは <see cref="AnnualLifecycleRules"/> に委譲（乱数は決定論のため roll を渡す）。継承は後段。
+        /// </summary>
+        private void RunAnnualLifecycleTick()
+        {
+            campaignYear++;
+            if (commanders == null) return;
+            var deceased = AnnualLifecycleRules.ProcessMortality(
+                commanders, campaignYear, 1, _ => UnityEngine.Random.value);
+            for (int i = 0; i < deceased.Count; i++)
+            {
+                Person d = deceased[i];
+                int age = LifecycleRules.Age(d, campaignYear);
+                battleMsg = $"{d.faction} {d.name} 提督 死去（享年 {age}）";
+                battleMsgTimer = 4f;
+            }
         }
 
         /// <summary>

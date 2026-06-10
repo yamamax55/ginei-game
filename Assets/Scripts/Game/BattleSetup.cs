@@ -146,12 +146,26 @@ namespace Ginei
 
         /// <summary>
         /// 使用する ScenarioData を解決します。
-        /// Inspector 指定 > GameSettings.scenarioName 一致 の順。索引は ContentDatabase（FND-1 #496）に集約。
+        /// Inspector 指定 > GameSettings.scenarioName 一致 > 利用可能な先頭シナリオ の順。索引は ContentDatabase（FND-1 #496）に集約。
+        /// 既定/不正なシナリオ名（例：Title を経由せず Battle を直接再生した場合の既定値）でも空会戦にせず、
+        /// 利用可能な先頭シナリオへフォールバックする（通常の Title→Battle フローは一致解決のため無影響）。
         /// </summary>
         private ScenarioData ResolveScenario()
         {
             if (scenarioOverride != null) return scenarioOverride;
-            return ScenarioData.Resolve(GameSettings.Instance.scenarioName);
+
+            ScenarioData resolved = ScenarioData.Resolve(GameSettings.Instance.scenarioName);
+            if (resolved != null) return resolved;
+
+            // フォールバック：名前が一致しなくても、利用可能な先頭シナリオで会戦を成立させる
+            var all = ContentDatabase.AllScenarios();
+            if (all != null && all.Count > 0)
+            {
+                Debug.LogWarning($"BattleSetup: シナリオ「{GameSettings.Instance.scenarioName}」が見つからないため、" +
+                                 $"先頭シナリオ「{all[0].scenarioName}」で開始します。");
+                return all[0];
+            }
+            return null;
         }
 
         /// <summary>

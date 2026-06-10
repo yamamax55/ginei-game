@@ -1,0 +1,61 @@
+name: worldview-epic-backlog
+
+# 世界観・参考作品EPIC化の自動実行（PC非依存・docs/reference-epic-pipeline.md 参照）
+# 周期は実測ベース：1サイクル15〜20分＋CI構築3〜5分 → 30分周期・混雑時刻(:00/:30)回避で :11/:41 発火
+on:
+  schedule:
+    - cron: '11,41 * * * *'
+  workflow_dispatch: {}
+
+# 直列化：前の実行が30分を超えたら次はキューで待つ（並走起票させない）
+concurrency:
+  group: worldview-epic
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  epicize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+
+      - name: Run worldview-epic pipeline (1 item)
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"'
+          prompt: |
+            あなたは銀英伝風戦略ゲームのリポジトリ（ブランチ auto/worldview-epics チェックアウト済み）で、
+            世界観・参考作品EPIC化パイプラインを「1件だけ」実行する。
+
+            1. 正本手順書 docs/reference-epic-pipeline.md と型の実例 docs/spice-and-wolf-reference-design.md を読む。
+            2. 対象選定（冪等ガード）: docs/reference-epic-backlog.md の表を上から走査し、状態「未」の行のうち
+               `gh issue list --state all --limit 5 --search "in:title <作品名の主要部>"` で既存EPICが見つからない最初の行を対象にする。
+               既存EPICがあるのに「未」のままの行は、子issueの不足を確認・補完してからその行を「済 #n」に直す
+               （この修正だけでも commit/push して終了してよい）。対象が無ければ何もせず正常終了。
+            3. 手順書の7ステップを実行する: 調査（WebSearch可）→ CLAUDE.md「テスト基盤」節の既存純ロジック一覧と
+               突き合わせた欠落軸分析（既存カバー＝不採用）→ 設計書 docs/<slug>-reference-design.md
+               （§0なぜ役立つか/§1役に立つ視点/§2メカニクス★優先度＋接続先＋不採用表/§3子Issue表＋着手順）
+               → gh で EPIC 起票（title: "[EPIC][<分野>] <作品> 参考 — <要約>"・label: type:epic, type:design, area:worldbuilding, area:strategy）
+               → 子issue を直列で起票（title: "[XXX-n] …"・label: type:feature, priority:med, area:strategy・
+                 本文＝親EPIC #n／設計書§2参照＋狙い/接続先/完了条件・純ロジック新設の子は完了条件に「EditModeテスト」必須）
+               → EPIC 本文へ子issue番号を gh issue edit で反映 → 設計書§3へ番号反映
+               → docs/roadmap.md の「### 5-2.」節へ新規の1行を挿入（既存行を絶対に置換・結合しない）
+               → バックログ該当行を「済 #n」へ。
+            4. git config で user.name "worldview-epic-bot" / user.email "actions@users.noreply.github.com" を設定し、
+               設計書・docs/roadmap.md・docs/reference-epic-backlog.md のみ add して commit し、
+               auto/worldview-epics へ push する。
+               コミットメッセージ: docs: <作品>参考EPIC #<n>（XXX-1〜N）— <要約>
+
+            大原則（厳守）: 著作権＝固有名・文章・キャラクター不使用（構造パターンのみ参考・注意書きを設計書とEPIC両方に）／
+            重複新設しない（additive・既存を後退させない・バックログ着眼点の既存接続先を優先）／タイクン化回避／
+            プレフィックス3〜4字は docs/roadmap.md と docs/*-reference-design.md を grep して一意確認／1回の実行で1件のみ。

@@ -22,6 +22,7 @@
 - [x] Wave17 (2026-06-10)：VeteranPoliticsRules / StrikeRules / ReserveCurrencyRules / RationingRules / WarIndustryRules / ExplorationRules(G-2 #119) / SpaceWeatherRules（並列7＝約5分）
 - [x] Wave18 (2026-06-10)：RelicRules / DefenseLineRules / PrivateerRules / MedicalRules / BureaucracyBloatRules / SecretSocietyRules / FreePressRules（並列7＝5体がsession上限・親が残3テストを補完して完成）
 - [x] Wave19 (2026-06-10)：LobbyRules / PreferenceFalsificationRules / PriceControlRules / LandReformRules / FrontierRules / AsabiyyaRules / HegemonyRules（並列7＝約4分・Issue補充後の初Wave）
+- [x] Wave20 (2026-06-10)：OverextensionRules / BurdenSharingRules / CollectiveSecurityRules / PartitionRules / PraetorianRules / CoupledProductionRules(#1110) / SpreadRules(#1111)（並列7・初のIssue由来テーマCPL含む・親がPartitionテスト混入を修正）
 
 ## キュー（上から順に消化）
 
@@ -56,16 +57,9 @@
 ### 経済・社会（第3次追加）
 
 ### 覇権・体制（第3次追加）
-- [ ] OverextensionRules：過剰拡張（ポール・ケネディ型）。版図と公約が国力を超えると守るものが増えるほど弱くなる＝戦略的収縮の決断。`LogisticsRules`（一体化度）とは別＝負担と国力の比
-- [ ] BurdenSharingRules：同盟の負担分担。集団防衛のただ乗り問題＝盟主が背負うほど他が払わない、強制すれば同盟が軋む。`TreatyRules`（条約）・`LoyaltyRules`（会戦の静観）とは別＝平時の費用分担
-- [ ] CollectiveSecurityRules：集団安全保障（国際連盟型）。侵略者への全員制裁の建前＝個々の損得で参加が崩れる失敗モデル。`DiplomacyRules`（二国間）とは別＝多国間の約束の脆さ
-- [ ] PartitionRules：戦後分割。敗戦国の領土を勝者間で分配＝取り分の不満が次の対立軸になり、分割線が将来の火種。`TreatyRules`（条約一般）とは別＝分配の力学
-- [ ] PraetorianRules：親衛隊の両刃。君主直属の精鋭は守護者にして簒奪者＝厚遇するほど政治力を持ち、冷遇すれば守りが薄い。`CivilianControlRules`（軍全体の統制）とは別＝近衛の特殊問題
 
 ### Issue連動（第1次補充・2026-06-10／オープンIssueから純ロジック子Issueを選定）
 # 連鎖経済 CPL EPIC（#1110-1116）
-- [ ] CoupledProductionRules：連産品＝固定比の同時産出（JointRecipe・#1110）。1工程が複数財を不可分に産む。`MarketRules`（単一財需給）とは別＝生産の結合
-- [ ] SpreadRules：スプレッド＝マージン(出力−入力)・原料高で採算消失（#1111）。`FiscalRules`（国家財政）とは別＝個別工程の採算の力学
 - [ ] ByproductGlutRules：副産物グルット＝連産の従産物が供給過剰で価格暴落（#1113）。`MarketRules`へ接続・連産×市場
 - [ ] ChainFragilityRules：連鎖の脆さ＝単一ノード遮断の上流グルット/下流欠品カスケード（#1112）。`SupplyRules`（補給線）とは別＝生産網の伝播
 - [ ] ContinuousOperationRules：連続運転の硬直＝稼働率・turndownコスト＝止められない戦時硬直（#1115）。`MobilizationRules`とは別＝プラントの慣性

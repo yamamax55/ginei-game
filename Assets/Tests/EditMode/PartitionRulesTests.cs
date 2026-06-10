@@ -102,10 +102,11 @@ namespace Ginei.Tests
         {
             // 住民を無視した分割（机上度1・民族非整合・抑圧された民族意識）は将来紛争を生み、
             // 住民に沿った公正な分割は火種を残さない＝「分割は次の戦争の地図を引く」
-            float arbitrary = PartitionRules.PartitionLineArbitrariness(0.1f, 1f, P);
-            float coherent = PartitionRules.PartitionLineArbitrariness(0.9f, 0f, P);
+            float arbitrary = PartitionRules.PartitionLineArbitrariness(0.1f, 1f, P); // ≈0.96
+            float coherent = PartitionRules.PartitionLineArbitrariness(1f, 0f, P);   // =0 完全に住民に沿う
             Assert.Greater(PartitionRules.FutureConflictRisk(arbitrary, 0.8f, P),
                            PartitionRules.FutureConflictRisk(coherent, 0.8f, P));
+            // 完全に住民に沿った分割は民族意識が高くても火種ゼロ
             Assert.AreEqual(0f, PartitionRules.FutureConflictRisk(coherent, 0.8f, P), 1e-5f);
         }
     }

@@ -23,6 +23,11 @@
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。
 
+## 参考EPIC（世界観のイシュー化・連続パイプライン）
+- [`reference-epic-pipeline.md`](./reference-epic-pipeline.md) — **標準手順**（調査→欠落軸分析→設計書→EPIC＋子issue起票→roadmap追記→コミットの7ステップ）。スキル `/worldview-epic` で実行。
+- [`reference-epic-backlog.md`](./reference-epic-backlog.md) — 候補キュー（思いついたら1行追記、`/worldview-epic 次` が上から処理）。
+- 出荷実例：[`almagest-reference-design.md`](./almagest-reference-design.md)（EPIC #1054・ALM-1〜16）／[`spice-and-wolf-reference-design.md`](./spice-and-wolf-reference-design.md)（EPIC #1071・SAW-1〜9）。
+
 ## 開発ログ（dev-log/）
 - [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。
 - [`2026-06-10-time-fleet-notification.md`](./dev-log/2026-06-10-time-fleet-notification.md) — **統一時間 TIME-1〜7（#946/#959）／艦隊編成プール（#148/#884）／通知システム（#964）** を配線。詳細は `CLAUDE.md` の「時間・暦・通知システム」「艦隊編成プール」節。

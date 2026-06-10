@@ -9,17 +9,11 @@
 - [x] Wave4 (2026-06-10)：ConscriptionRules / VeterancyRules / RepairRules / BoardingRules / MobilizationRules / RefugeeRules / DisciplineRules
 - [x] Wave5 (2026-06-10)：PursuitRules / AssassinationRules / SanctionsRules / WarPoliticsRules / DisasterRules / EducationRules / ShipAgingRules
 - [x] Wave6 (2026-06-10)：PiracyRules / TradeRules / MartialLawRules / CeremonyRules / GovernmentInExileRules / HonorsRules / PrisonerExchangeRules
+- [x] Wave7 (2026-06-10)：AmbushRules / EncirclementRules / FeintRules / MinefieldRules / CarrierRules / CommunicationsRules / ElectronicWarfareRules
 
 ## キュー（上から順に消化）
 
 ### 軍事・戦術
-- [ ] AmbushRules：伏兵・奇襲。探知に失敗した側が初撃ペナルティ（隊形不備・士気動揺）を受ける。`ReconRules`（探知そのもの）の結果を入力に取る別系統＝奇襲成立後の解決
-- [ ] EncirclementRules：包囲。退路の遮断度で士気崩壊・降伏率・突囲損害が決まる（包囲殲滅戦）。`CaptivityRules.CaptureChance` は個人の捕虜化＝こちらは部隊規模の包囲解決
-- [ ] FeintRules：陽動・欺瞞。偽目標へ敵戦力を引き付ける（吸引量）、見破られると逆に手薄を突かれる。`PropagandaRules`（世論向け）とは別＝軍事的欺瞞
-- [ ] MinefieldRules：機雷原・宙雷。地帯拒否（通過損害・減速）、敷設密度と掃海の綱引き。`BlockadeRules`（艦隊封鎖）とは別＝無人の地帯拒否
-- [ ] CarrierRules：艦載機（ワルキューレ）。航空打撃と防空網の綱引き、母艦撃破で艦載機が宿無し。`ShipClass`（戦艦/巡航/駆逐）に追加せず独立系統で
-- [ ] CommunicationsRules：通信妨害・指揮遅延。距離・妨害で命令到達が遅れ、分断時は現場の自律性が頼り。`AutonomyRules`（ドクトリン）を read-only で参照可＝通信状態の解決のみ
-- [ ] ElectronicWarfareRules：電子戦・ECM。能動妨害で敵の命中/探知を削る、対抗手段（ECCM）との競り。`TerrainRules`（受動的な環境）・`ReconRules`（自前センサー）とは別＝能動妨害
 - [ ] DesertionRules：脱走。長期戦・低士気・補給切れで兵が静かに消える（戦闘によらない損耗）。`MercenaryRules`（金銭離反）・`DisciplineRules`（抗命）とは別＝無言の退出
 - [ ] SalvageRules：戦場回収。会戦後の残骸・漂流艦から戦力/資源を回収（勝者が戦場を制する利得）。`BoardingRules.PrizeValue`（拿捕）とは別＝戦闘後の回収
 - [ ] OperationPlanRules：作戦立案。参謀の `operation` 能力（現状未使用）から作戦計画の質→会戦初期条件（配置・補給・予備隊）の優劣を出す。`CommandStaffRules`（配置・能力補完）へ委譲し重複しない

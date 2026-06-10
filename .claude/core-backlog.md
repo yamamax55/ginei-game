@@ -83,3 +83,28 @@
 # 人事 HCM（#995,#996）
 - [ ] PerformanceReviewRules：人事評価9-box＝実績×潜在のマトリクス（#995）。昇進/配置の入力＝`SeniorityRules`(席次)とは別＝業績評価
 - [ ] CompensationRules：報酬・授爵・賞罰＝Compensation→士気/忠誠（#996・#817接続）。`HonorsRules`(勲章インフレ)・`MeritRankRules`(軍功爵位)を束ねる報酬体系→`LoyaltyRules`へ
+
+### Issue連動（第3次補充・2026-06-10／孫子SUN残・三国志SGZ・狼と香辛料SAW・Almagest ALM）
+# 孫子 SUN残り＋連鎖経済CPL-4
+- [ ] SpyRoleRules：用間5種体系＝郷間/内間/反間/死間/生間の役割別効果・リスク（#1127孫子用間篇）。`EspionageRules`(諜報一般)の役割分類＝間者の種類で効果と発覚リスクが変わる
+- [ ] BullwhipRules：ブルウィップ効果＝多段サプライチェーンで需要変動が上流へ増幅（#1114）。`ChainFragilityRules`(遮断の伝播)とは別＝変動の増幅。連鎖経済CPL EPIC完結
+# 三国志演義 SGZ（#1103-1107）
+- [ ] BalanceOfPowerRules：多極均衡・勢力均衡圧力＝最強勢力の台頭が弱小の連衡を生む自動圧力（#1103）。`DiplomacyRules`(二国間)とは別＝多極のシステム圧力（合従連衡）
+- [ ] CounselRules：献策システム＝参謀が策を提案→君主が採択→帰結修正子（#1104）。`CommandStaffRules`(能力補完)とは別＝策の提案と採否の力学
+- [ ] PledgeRules：個人結盟と盟誓＝義兄弟型誓約・拘束力・離反ペナルティ（#1105桃園結義）。`LoyaltyRules`(会戦の旗幟)・`FriendshipRules`(紐帯)とは別＝制度的誓約
+- [ ] AlienationStratagemRules：離間の計＝標的勢力ペアのopinion工作で同盟を崩す（#1106）。`EspionageRules`拡張・`DiplomacyRules`のopinionへ波及＝敵同士を仲違いさせる
+- [ ] MilitaryColonyRules：屯田制・軍事農業植民地＝占領地自給で補給線依存を断つ（#1107）。`ForageRules`(一時的徴発)とは別＝恒久的な自給体制
+# 狼と香辛料 SAW（#1073-1077）
+- [ ] CoinageSpeculationRules：改鋳投機＝品位改定の噂→投機（#1073・戦わぬ経済戦）。`CoinageRules`(改鋳の実体)の投機版＝噂で相場が動く
+- [ ] InformationAsymmetryRules：情報の非対称と風説の相場＝情報優位で裁定・噂で相場が動く（#1074）。`MarketRules`(均衡)とは別＝情報格差が生む利得
+- [ ] SpatialArbitrageRules：空間裁定＝星系間の価格差をトレードで埋め価格収束（#1075）。`TradeRules`(交易利得)とは別＝裁定による価格収束の動学
+- [ ] CorneringRules：買い占め・投機・バブル＝商品コーナリング動学（#1076）。`MonopolyRules`(構造的独占)とは別＝投機的な買い占めとバブル崩壊
+- [ ] MerchantCreditRules：ネームド商人の信用・為替手形・レバレッジ・破産（#1077）。`BankRules`(銀行)とは別＝商人個人の信用とレバレッジ破産
+# Almagest ALM（純ロジック子Issue）
+- [ ] PlanetaryDefenseRules：惑星防衛3層＝防衛艦隊/防衛衛星/軌道部隊＋迎撃/防衛区別（#1070）。`PlanetSiegeRules`(攻城)の防御側＝層別の迎撃
+- [ ] FleetCapRules：FCS.Cap＝配備可能艦数＝指揮容量Cap÷必要Cap・階級と二重（#1067）。`OrderOfBattle`(編制)とは別＝指揮容量の制約
+- [ ] MeritPromotionRules：功績値→昇進→最大編成数（#1064）。`MeritRankRules`(軍功爵位)とは別＝功績が指揮できる部隊数を増やす
+- [ ] OperationalAptitudeRules：作戦適性S〜E＝地形別（遭遇戦/拠点侵攻/拠点防衛）の提督適性（#1063）。`AdmiralData`能力の地形別補正＝得意な戦闘類型
+- [ ] RefitPurchaseRules：改装/復元＋建造vs購入＝既存艦の改装と新造/購入の損得（#1068）。`ShipyardRules`(新造)・`ArmamentDesignRules`(設計)とは別＝改装の経済
+- [ ] TechTreeRules：技術ツリー配線＝基礎技術→前提充足で新技術出現（#1065）。`ResearchRules`(研究進捗)とは別＝技術の前提依存グラフ
+- [ ] EndingBranchRules：エンディング分岐＝評判/同盟国数/イベント経験の条件評価で結末を分岐（#1061）。`DisclosureRules`(開示連鎖)とは別＝最終分岐の条件スコアリング

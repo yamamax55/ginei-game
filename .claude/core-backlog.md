@@ -16,6 +16,7 @@
 - [x] Wave11 (2026-06-10)：ReparationsRules / MonopolyRules / MegaProjectRules(#1090) / InnovationDiffusionRules / BufferStateRules / ChokepointValueRules / SenescenceRules（並列7＝約5分）
 - [x] Wave12 (2026-06-10)：TerraformingRules / RivalryRules / FriendshipRules / MentorshipRules / HistoriographyRules / ReadinessRules / ForcedMarchRules（並列7＝約4分）
 - [x] Wave13 (2026-06-10)：MothballRules / RaidRules / ScorchedEarthRules / MutinyRules / EscalationRules / DeterrenceRules / ArmsRaceRules（並列7＝約5分）
+- [x] Wave14 (2026-06-10)：ArmsControlRules / AppeasementRules / InfluenceRules / DebtDiplomacyRules / ForeignAidRules / TribunalRules / CensusRules（並列7＝約6分）
 
 ## キュー（上から順に消化）
 
@@ -32,15 +33,8 @@
 ### 軍事・即応態勢
 
 ### 抑止・外交
-- [ ] ArmsControlRules：軍縮条約（ワシントン体制型）。建艦上限・査察・秘密再軍備の発覚リスク＝信頼の制度化と裏切りの誘惑。`TreatyRules`（条約一般）とは別＝軍備の検証問題
-- [ ] AppeasementRules：宥和政策。譲歩が平和を買うか侵略の食欲を育てるか＝相手の性格（現状維持/拡張主義）を見誤ると破滅（ミュンヘンの教訓）。`DiplomacyRules` の opinion とは別＝譲歩の学習効果
-- [ ] InfluenceRules：勢力圏。直接領有せず経済・軍事顧問・政治介入で他国を影響下に置くグラデーション。`DiplomacyState`（属国＝形式）とは別＝非公式な浸透度
-- [ ] DebtDiplomacyRules：債務外交。貸し込んだ債権が政治的レバレッジになる＝返せない借り手は港を差し出す。`BankRules`（信用創造）・`FiscalRules`（自国財政）とは別＝対外債権の武器化
-- [ ] ForeignAidRules：対外援助。敵対勢力の災害救援・friendly な開発援助が opinion と勢力圏を買う＝善意と買収の二重底。`DisasterRules`（国内救援）とは別＝越境する援助
-- [ ] TribunalRules：戦犯裁判。戦後の勝者の裁き＝正義の执行と報復の間、過酷なら遺恨・寛大なら不処罰の不満。`AtrocityRules`（罪そのもの）の後段＝裁きの政治
 
 ### 統治・制度
-- [ ] CensusRules：国勢調査・統計精度。国家が自国を「見えて」いるか＝統計が粗いと徴税・徴募・政策が外れる（見えない国は治められない）。`DemographicsRules`（実際の人口）とは別＝認識とのズレ
 - [ ] CoalitionRules：連立政権。単独過半数なき議会の連立形成＝政策は最小公倍数に薄まり、小党が拒否権を持つ。`PartyRules`（党勢・首班）を read-only で参照可＝連立の安定度
 - [ ] ImpeachmentRules：弾劾・不信任。合法的な政権打倒経路＝要件（証拠・議席）と成否、失敗した弾劾は政権を強化する。`CoupRules`（非合法打倒）の制度版
 - [ ] TermLimitRules：任期制限。権力の時間制約と「非常時だから」の延長誘惑＝一度破ると慣習が死ぬ（共和制の死）。`ConstitutionRules`（制約一般）とは別＝時間軸の制約

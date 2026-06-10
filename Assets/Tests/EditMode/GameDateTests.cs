@@ -124,5 +124,40 @@ namespace Ginei.Tests
             Assert.AreEqual(1, d.month);
             Assert.AreEqual(1, d.day);
         }
+
+        // ───────── TimeOfDay（HH:MM・日内時刻）─────────
+
+        [Test]
+        public void TimeOfDay_MapsDayFractionTo24h()
+        {
+            double spd = 60d; // 1日=60秒
+            GameDate.TimeOfDay(0d, spd, out int h0, out int m0);
+            Assert.AreEqual(0, h0); Assert.AreEqual(0, m0);   // 0秒=00:00
+            GameDate.TimeOfDay(30d, spd, out int h1, out int m1);
+            Assert.AreEqual(12, h1); Assert.AreEqual(0, m1);  // 半日=12:00
+            GameDate.TimeOfDay(45d, spd, out int h2, out int m2);
+            Assert.AreEqual(18, h2); Assert.AreEqual(0, m2);  // 3/4日=18:00
+        }
+
+        [Test]
+        public void TimeOfDay_WrapsEachDay_AndClampsNegative()
+        {
+            double spd = 60d;
+            GameDate.TimeOfDay(90d, spd, out int h, out int m); // 1.5日=12:00
+            Assert.AreEqual(12, h); Assert.AreEqual(0, m);
+            GameDate.TimeOfDay(-5d, spd, out int hn, out int mn); // 負は00:00
+            Assert.AreEqual(0, hn); Assert.AreEqual(0, mn);
+            GameDate.TimeOfDay(59.999d, spd, out int he, out int me); // 範囲
+            Assert.GreaterOrEqual(he, 0); Assert.LessOrEqual(he, 23);
+            Assert.GreaterOrEqual(me, 0); Assert.LessOrEqual(me, 59);
+        }
+
+        [Test]
+        public void TimeString_ZeroPaddedHHMM()
+        {
+            Assert.AreEqual("00:00", GameDate.TimeString(0d, 60d));
+            Assert.AreEqual("12:00", GameDate.TimeString(30d, 60d));
+            Assert.IsNotNull(GameDate.TimeString(1d, 0d)); // spd=0 ガード
+        }
     }
 }

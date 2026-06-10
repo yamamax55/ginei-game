@@ -75,6 +75,29 @@ namespace Ginei
             return seYear - p.imperialOffset;
         }
 
+        /// <summary>
+        /// 時刻（時:分）を返す。1日(<paramref name="secondsPerDay"/>)を24時間に割り当て、経過秒の日内位置から
+        /// hour(0..23)/minute(0..59) を出す（HH:MM 表示用）。負の経過秒は0クランプ。
+        /// </summary>
+        public static void TimeOfDay(double elapsedSeconds, double secondsPerDay, out int hour, out int minute)
+        {
+            if (elapsedSeconds < 0d) elapsedSeconds = 0d;
+            double spd = secondsPerDay > 0d ? secondsPerDay : 1d;
+            double secondsIntoDay = elapsedSeconds % spd;   // 日内の経過秒 0..spd
+            double hours = (secondsIntoDay / spd) * 24d;     // 0..24
+            hour = (int)hours;
+            minute = (int)((hours - hour) * 60d);
+            if (hour > 23) hour = 23;
+            if (minute > 59) minute = 59;
+        }
+
+        /// <summary>時刻を "HH:MM"（ゼロ埋め2桁）で返す。</summary>
+        public static string TimeString(double elapsedSeconds, double secondsPerDay)
+        {
+            TimeOfDay(elapsedSeconds, secondsPerDay, out int h, out int m);
+            return $"{h:00}:{m:00}";
+        }
+
         /// <summary>宇宙暦の文字列（このインスタンスの ToString と同等）。</summary>
         public string ToSpaceEraString()
         {

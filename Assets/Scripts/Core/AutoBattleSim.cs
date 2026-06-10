@@ -45,7 +45,9 @@ namespace Ginei
         /// <summary>既定値：損耗0.01/秒・上限600秒・刻み1秒。</summary>
         public static AutoBattleParams Default => new AutoBattleParams(DefaultAttritionRate, DefaultMaxDuration, DefaultDtStep);
 
-        public const float DefaultAttritionRate = 0.01f;
+        // 校正（TIME-4 #950）：観戦会戦の体感（おおむね数十秒の決着）に近づくよう損耗レートを調整。
+        // 0.018＝150 vs 100 で約45秒（旧0.01は約81秒）。最終校正は実会戦のベンチに合わせて調整可。
+        public const float DefaultAttritionRate = 0.018f;
         public const float DefaultMaxDuration = 600f;
         public const float DefaultDtStep = 1f;
     }

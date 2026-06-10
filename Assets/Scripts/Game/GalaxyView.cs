@@ -162,15 +162,12 @@ namespace Ginei
 
             HandleKeys();
 
+            // TIME-1（#947）：統一クロックが速度/ポーズの権威。+/-（TimeDisplay）・1/2/3/Space（HandleKeys）が
+            // クロックを駆動し、galaxySpeed/paused はそれをミラーする（日付HUD・時間連続性・自動解決の出所）。
+            GameClock clock = StrategySession.Clock;
+            if (clock != null) { galaxySpeed = (float)clock.speed; paused = clock.paused; }
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
-            // TIME-1（#947）：統一クロックを駆動。galaxySpeed/paused を権威クロックへ同期し累積秒を進める
-            // （日付HUD・時間連続性・自動解決の所要時間の出所）。
-            if (StrategySession.Clock != null)
-            {
-                StrategySession.Clock.speed = galaxySpeed;
-                StrategySession.Clock.paused = paused;
-                StrategySession.Clock.Advance(Time.deltaTime);
-            }
+            if (clock != null) clock.Advance(Time.deltaTime);
             reg.Tick(dt);
 
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
@@ -442,7 +439,7 @@ namespace Ginei
             // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示（バナー直下）
             policyLine = MakeLabel(transform, "", new Vector3(0f, 6.6f, 0f), 0.7f).GetComponent<TextMesh>();
             policyLine.color = new Color(0.85f, 0.9f, 0.7f);
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 回廊ダブルクリック:潜行 / 星系ダブルクリック:システムビュー / 右ク:進軍 / I:星系情報 / =・-:税率 / Space:停止 / 1・2・3:速度",
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 回廊ダブルクリック:潜行 / 星系ダブルクリック:システムビュー / 右ク:進軍 / I:星系情報 / [ ]:税率 / +/-・1・2・3:速度 / Space:停止",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -723,17 +720,22 @@ namespace Ginei
         {
             var kb = Keyboard.current;
             if (kb == null) return;
-            if (kb.spaceKey.wasPressedThisFrame) paused = !paused;
-            // S5：税率レバー（= で増税 / - で減税）。プレイヤー勢力の国家状態を直接操作。
+            GameClock clock = StrategySession.Clock;
+            // ポーズ/速度プリセットは統一クロックを駆動（TIME-1）。速度の +/- は TimeDisplay が全シーン共通で処理。
+            if (kb.spaceKey.wasPressedThisFrame && clock != null) clock.TogglePause();
+            // S5：税率レバー（] で増税 / [ で減税。+/- は時間速度に割当のためブラケットへ）。
             FactionState ps = PlayerState();
             if (ps != null)
             {
-                if (kb.equalsKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate + taxStep);
-                if (kb.minusKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate - taxStep);
+                if (kb.rightBracketKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate + taxStep);
+                if (kb.leftBracketKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate - taxStep);
             }
-            if (kb.digit1Key.wasPressedThisFrame) { galaxySpeed = 0.5f; paused = false; }
-            if (kb.digit2Key.wasPressedThisFrame) { galaxySpeed = 1f; paused = false; }
-            if (kb.digit3Key.wasPressedThisFrame) { galaxySpeed = 2f; paused = false; }
+            if (clock != null)
+            {
+                if (kb.digit1Key.wasPressedThisFrame) { clock.SetSpeed(0.5f); clock.Resume(); }
+                if (kb.digit2Key.wasPressedThisFrame) { clock.SetSpeed(1f); clock.Resume(); }
+                if (kb.digit3Key.wasPressedThisFrame) { clock.SetSpeed(2f); clock.Resume(); }
+            }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
         }
 

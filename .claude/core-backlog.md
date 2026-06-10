@@ -29,6 +29,7 @@
 - [x] Wave24 (2026-06-10)：AutoTreasuryRules(#1014) / CashFlowForecastRules(#1015) / FinancialAnomalyRules(#1016) / SupplierRatingRules(#1004) / SourcingAuctionRules(#1005) / SupplyContractRules(#1006) / BomRules(#983)（並列7・全Issue由来・財務AI完結＋調達＋生産網・親がParamsネスト修正1件）
 - [x] Wave25 (2026-06-10)：MrpRules(#984) / ProductionOrderRules(#985) / CapacitySchedulingRules(#987) / ValueChainRules(#1023) / FirmRules(#1024) / CapitalInvestmentRules(#1025) / PublicPrivateSeparationRules(#1035)（並列7・全Issue由来・生産網SCM完結＋企業FRM）
 - [x] Wave26 (2026-06-10)：PropertyRightsRules(#1036) / InheritanceRules(#1038) / PerformanceReviewRules(#995) / CompensationRules(#996) / SpyRoleRules(#1127) / BullwhipRules(#1114) / BalanceOfPowerRules(#1103)（並列7・全Issue由来・所有OWN/人事HCM/連鎖CPL完結＋孫子用間/三国志着手）
+- [x] Wave27 (2026-06-10)：CounselRules(#1104) / PledgeRules(#1105) / AlienationStratagemRules(#1106) / MilitaryColonyRules(#1107) / CoinageSpeculationRules(#1073) / InformationAsymmetryRules(#1074) / SpatialArbitrageRules(#1075)（並列7・全Issue由来・三国志SGZ＋狼と香辛料SAW）
 
 ## キュー（上から順に消化）
 
@@ -84,14 +85,7 @@
 ### Issue連動（第3次補充・2026-06-10／孫子SUN残・三国志SGZ・狼と香辛料SAW・Almagest ALM）
 # 孫子 SUN残り＋連鎖経済CPL-4
 # 三国志演義 SGZ（#1103-1107）
-- [ ] CounselRules：献策システム＝参謀が策を提案→君主が採択→帰結修正子（#1104）。`CommandStaffRules`(能力補完)とは別＝策の提案と採否の力学
-- [ ] PledgeRules：個人結盟と盟誓＝義兄弟型誓約・拘束力・離反ペナルティ（#1105桃園結義）。`LoyaltyRules`(会戦の旗幟)・`FriendshipRules`(紐帯)とは別＝制度的誓約
-- [ ] AlienationStratagemRules：離間の計＝標的勢力ペアのopinion工作で同盟を崩す（#1106）。`EspionageRules`拡張・`DiplomacyRules`のopinionへ波及＝敵同士を仲違いさせる
-- [ ] MilitaryColonyRules：屯田制・軍事農業植民地＝占領地自給で補給線依存を断つ（#1107）。`ForageRules`(一時的徴発)とは別＝恒久的な自給体制
 # 狼と香辛料 SAW（#1073-1077）
-- [ ] CoinageSpeculationRules：改鋳投機＝品位改定の噂→投機（#1073・戦わぬ経済戦）。`CoinageRules`(改鋳の実体)の投機版＝噂で相場が動く
-- [ ] InformationAsymmetryRules：情報の非対称と風説の相場＝情報優位で裁定・噂で相場が動く（#1074）。`MarketRules`(均衡)とは別＝情報格差が生む利得
-- [ ] SpatialArbitrageRules：空間裁定＝星系間の価格差をトレードで埋め価格収束（#1075）。`TradeRules`(交易利得)とは別＝裁定による価格収束の動学
 - [ ] CorneringRules：買い占め・投機・バブル＝商品コーナリング動学（#1076）。`MonopolyRules`(構造的独占)とは別＝投機的な買い占めとバブル崩壊
 - [ ] MerchantCreditRules：ネームド商人の信用・為替手形・レバレッジ・破産（#1077）。`BankRules`(銀行)とは別＝商人個人の信用とレバレッジ破産
 # Almagest ALM（純ロジック子Issue）

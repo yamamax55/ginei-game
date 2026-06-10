@@ -55,6 +55,7 @@ gh issue create --title "[XXX-n] <タイトル>" `
 ```
 本文の型：先頭に `親EPIC #<n> ／ 設計：docs/<slug>-reference-design.md §2` ＋ `## 狙い` `## 接続先` `## 完了条件`。
 純ロジック新設の子は完了条件に **「EditModeテスト」** を必ず含める（test-first・TestHarness 検証）。
+**state 型を新設し盤面（`CampaignState`/`StrategySession` 等）へ接続する子**は、完了条件に **「観測層への追従」** も含める＝`CLAUDE.md`「観測層」節の規約どおり、`CoreStateInspector` の用語集に新フィールドを1行・独立した新ルートなら `Register` を1行（既存ルート配下なら再帰表示で不要）。純ロジックのまま盤面未接続なら不要。
 
 ### Step 6 — 番号の書き戻し
 1. `gh issue edit <epic番号> --body-file` で子issue番号を EPIC 本文へ反映。

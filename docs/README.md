@@ -18,6 +18,7 @@
 | [`emergent-campaign-design.md`](./emergent-campaign-design.md) | **創発キャンペーン**（モード併存・地理/歴史/地政学から政体創発・1惑星/フォグ・チョーク保証） | EPIC #117・#118〜#121／内政 #109 | PR #122 |
 | [`planetary-battle-design.md`](./planetary-battle-design.md) | **惑星の戦い**（回廊突破→惑星領域→侵略値で占領・軌道防衛=アルテミスの首飾り・航行不能領域） | EPIC #131・#132〜#135 | PR #136 |
 | [`fleet-organization-design.md`](./fleet-organization-design.md) | **艦隊編制基盤**（艦隊番号=第13艦隊・提督配属・永久欠番／軍団→軍集団梯団・直轄部隊集中投資・任務戦術） | EPIC #148・#146/#147／政府 #141 | PR 新規 |
+| [`corporate-workflow-strategy-ui-design.md`](./corporate-workflow-strategy-ui-design.md) | **社内ワークフロー風 戦略UI**（稟議＝起案→合議→決裁→執行→通知。UITK第一・埋め込みブラウザは最後の手段。政体で稟議が変わる） | EPIC #14・#142/#144/#145/#158/#116 | 設計メモ |
 | [`roadmap.md`](./roadmap.md) | **ロードマップ**（現Issueベースの実装計画・依存・推奨スプリント） | — | PR #105 |
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。

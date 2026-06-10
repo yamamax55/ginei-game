@@ -79,7 +79,7 @@ namespace Ginei.Tests
         {
             Assert.AreEqual("H", GameInput.KeyLabel(GameAction.ヘルプ切替));
             Assert.AreEqual("1", GameInput.KeyLabel(GameAction.倍速等速));
-            Assert.AreEqual("Ctrl+1", GameInput.KeyLabel(GameAction.グループ選択1));
+            Assert.AreEqual("Alt+1", GameInput.KeyLabel(GameAction.グループ選択1)); // #83：Unityエディタの Ctrl＋数字と衝突回避で Alt
             Assert.AreEqual("Esc", GameInput.KeyLabel(GameAction.キャンセル));
         }
 

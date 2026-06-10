@@ -19,6 +19,10 @@ namespace Ginei
 
         public List<Selectable> SelectedFleets => selectedFleets;
 
+        // 部隊グループ（#83・Alt＋数字）。グループ番号→割り当て艦隊。選択中ならそのグループへ割当、
+        // 空なら呼び出して選択する（割当/呼出は同じキーで状況により切替＝GameInput の説明どおり）。
+        private readonly Dictionary<int, List<Selectable>> controlGroups = new Dictionary<int, List<Selectable>>();
+
         [Tooltip("向き指定（エイム）と判定する最小ドラッグ距離（ワールド単位）")]
         public float aimDragThreshold = 0.5f;
 
@@ -124,6 +128,9 @@ namespace Ginei
                 HandleAttackTargeting();
                 return;
             }
+
+            // 部隊グループ（#83・Ctrl＋数字）はキーボードのみ＝マウス null でも処理する。
+            HandleControlGroups();
 
             if (Mouse.current == null) return;
 
@@ -825,11 +832,73 @@ namespace Ginei
             selectedFleets.Clear();
         }
 
+        // ===== 部隊グループ（#83・Ctrl＋数字）=====
+
+        /// <summary>
+        /// 部隊グループの入力処理（Alt＋1/2/3）。選択中の艦隊があればそのグループへ割り当て、
+        /// 無ければ既存グループを呼び出して選択する（割り当て/呼び出しは同じキーで状況により切替）。
+        /// バインドは <see cref="GameInput"/>（会戦コンテキスト・Alt修飾で倍速・Unityエディタの Ctrl＋数字と分離）。
+        /// </summary>
+        private void HandleControlGroups()
+        {
+            if (GameInput.WasPressed(GameAction.グループ選択1)) ToggleControlGroup(1);
+            else if (GameInput.WasPressed(GameAction.グループ選択2)) ToggleControlGroup(2);
+            else if (GameInput.WasPressed(GameAction.グループ選択3)) ToggleControlGroup(3);
+        }
+
+        /// <summary>選択中なら割り当て、空なら呼び出し。</summary>
+        private void ToggleControlGroup(int group)
+        {
+            if (selectedFleets.Count > 0) AssignControlGroup(group);
+            else RecallControlGroup(group);
+        }
+
+        /// <summary>現在の選択をグループ番号へ割り当てる（上書き）。</summary>
+        private void AssignControlGroup(int group)
+        {
+            var members = new List<Selectable>();
+            foreach (var sel in selectedFleets)
+                if (sel != null && !members.Contains(sel)) members.Add(sel);
+            controlGroups[group] = members;
+            ShowGroupMessage($"グループ {group} に {members.Count} 艦隊を割り当て");
+        }
+
+        /// <summary>グループ番号の艦隊を呼び出して選択する（破棄・退却した艦は除外）。</summary>
+        private void RecallControlGroup(int group)
+        {
+            if (!controlGroups.TryGetValue(group, out var members) || members == null) return;
+
+            DeselectAll();
+            int n = 0;
+            foreach (var sel in members)
+            {
+                if (sel == null) continue;                  // 破棄済み（Unity の擬似null）は除外
+                FleetStrength fs = sel.GetComponent<FleetStrength>();
+                if (fs != null && !fs.IsAlive) continue;    // 退却・撃沈した艦隊は呼び出さない
+                SelectFleet(sel);
+                n++;
+            }
+            if (n > 0)
+            {
+                ShowGroupMessage($"グループ {group} を呼び出し（{n} 艦隊）");
+                if (autoOpenMenuOnSelect) OpenCommandMenu();
+            }
+        }
+
+        /// <summary>HUD へグループ操作の通知を出す（無ければログのみ）。</summary>
+        private void ShowGroupMessage(string msg)
+        {
+            FleetHUDManager hud = Object.FindAnyObjectByType<FleetHUDManager>();
+            if (hud != null) hud.ShowMessage(msg, 1.5f);
+            Debug.Log(msg);
+        }
+
         /// <summary>
         /// コマンドメニューを開きます。
         /// </summary>
         private void OpenCommandMenu()
         {
+            if (Mouse.current == null) return;
             CommandMenu menu = Object.FindAnyObjectByType<CommandMenu>();
             if (menu != null)
             {

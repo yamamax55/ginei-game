@@ -84,11 +84,10 @@ namespace Ginei
         public float taxStep = 0.05f;
         [Tooltip("民心(希望)がこの値を下回ると不満イベントを提示")]
         public float hopeEventThreshold = 0.35f;
-        [Tooltip("イベント条件のスキャン間隔（銀河時間秒）")]
-        public float policyEventInterval = 1.0f;
         private EventEngine policyEngine;
         private EventContext policyCtx;
-        private float policyEventTimer;
+        // TIME-6（#952）：暦の日境界でイベント判定を駆動するディスパッチャ（毎フレームでなく per-day＝倍速で暦比一定・ポーズで停止）。
+        private CalendarDispatcher policyCalendar;
 
         // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
         private readonly Dictionary<int, Province> provinces = new Dictionary<int, Province>();
@@ -199,9 +198,11 @@ namespace Ginei
 
             // 国家状態（#817 旗幟の出所）：各勢力の腐敗→合意→希望を銀河時間で進める。
             CampaignRules.Tick(StrategySession.Campaign, dt);
-            // 財政（S5）：税収を国庫へ・高税の負担で民心を蝕む。支持低下イベント（S6）の条件を間引きで判定。
+            // 財政（S5）：税収を国庫へ・高税の負担で民心を蝕む。
             CampaignRules.TickEconomy(StrategySession.Campaign, dt);
-            TickPolicyEvents(dt);
+            // 支持低下イベント（S6）は暦の日境界で判定（TIME-6 #952＝毎フレームでなく per-day。倍速で暦比一定・ポーズで停止）。
+            if (clock != null && policyCalendar != null)
+                policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyPolicyTick);
 
             if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
@@ -468,7 +469,7 @@ namespace Ginei
                 title = "民衆の不満",
                 body = "重税に民が苦しんでいる。民心が離れ始めた——どう応える？",
                 repeatable = true,
-                cooldown = 8f,
+                cooldown = 180f, // TIME-6：game-seconds 基準（=3 game-day・1日60s）。暦時間でのクールダウン。
             };
             // 条件：プレイヤー勢力の民心(希望)がしきい値を下回る
             unrest.condition = ctx =>
@@ -492,17 +493,21 @@ namespace Ginei
                 s.community.hope = Mathf.Clamp01(s.community.hope + 0.05f); // 力で一時的に持ち直す
             });
             policyEngine.Register(unrest);
+
+            // TIME-6（#952）：暦の日境界でイベント判定を回す。現在のクロック経過へ同期（初フレームで日跨ぎを一気に発火させない）。
+            double startElapsed = StrategySession.Clock != null ? StrategySession.Clock.ElapsedSeconds : 0d;
+            policyCalendar = new CalendarDispatcher(GameDate.DateParams.Default, startElapsed);
         }
 
-        /// <summary>間引き間隔ごとに支持低下イベントの条件を判定し、発火したらモーダル提示する（S6）。</summary>
-        private void TickPolicyEvents(float dt)
+        /// <summary>
+        /// 暦の日境界ごとに支持低下イベントの条件を判定し、発火したらモーダル提示する（S6・TIME-6 #952）。
+        /// EventEngine の cooldown 判定は <b>game-time（クロック経過秒）</b>を渡す＝倍速で暦比一定・ポーズで停止。
+        /// </summary>
+        private void RunDailyPolicyTick()
         {
             if (policyEngine == null || StrategyEventPanel.IsOpen) return;
-            policyEventTimer += dt;
-            if (policyEventTimer < policyEventInterval) return;
-            policyEventTimer = 0f;
-
-            GameEventDef fired = policyEngine.Tick(policyCtx, Time.time, 0.5f);
+            float nowGameSeconds = StrategySession.Clock != null ? (float)StrategySession.Clock.ElapsedSeconds : 0f;
+            GameEventDef fired = policyEngine.Tick(policyCtx, nowGameSeconds, 0.5f);
             if (fired != null) ShowPolicyEvent(fired);
         }
 

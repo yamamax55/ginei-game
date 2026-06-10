@@ -57,3 +57,6 @@ Unity不要環境（スマホ・クラウド）で `TestHarness`（`dotnet test`
 ## 中間コミットの注意（CI事故防止）
 - 並列エージェント実行中の「続報」中間コミットは、**`git add -A` の後に** `cd TestHarness && dotnet test` を流して pass を確認してからコミットする（add 前の test では、直後に書き込み途中のファイルが `git add -A` に混入し CI で落ちる＝Wave20 で発生）。fail したら該当ファイルを `git restore --staged` して次の完了通知を待つ。
 - もしくは全7エージェントの完了通知が揃ってから1回で確定コミットする（最も安全）。
+
+## meta生成の注意（Wave28の教訓）
+- `.meta` 生成ループは**必ずリポジトリ直下のcwdで**走らせる（`cd TestHarness && dotnet test` の直後はcwdがTestHarness配下のため、続けてmetaループを回すと `Assets/...` が見つからず生成漏れ＝コミットにmeta欠落。`cd /home/user/ginei-game` で戻してから生成）。

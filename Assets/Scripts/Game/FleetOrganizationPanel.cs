@@ -21,7 +21,7 @@ namespace Ginei
         private static FleetOrganizationPanel instance;
         public static bool IsOpen => instance != null && instance.isOpen;
 
-        [Tooltip("勢力の総艦艇プール（将来は #884 造船で増減。現状はデモ既定値）")]
+        [Tooltip("勢力プールの初期シード値（FleetPool 未設定時のみ適用）。実プールは FleetPool＝#884 造船で増減")]
         public int factionPoolTotal = 12000;
         [Tooltip("艦艇数の増減ステップ")]
         public int allocationStep = 500;
@@ -89,6 +89,8 @@ namespace Ginei
             detailFleet = 0;
             selectingSlot = StaffSlot.None;
             SeedDemoIfEmpty();
+            // 実プール（#884 造船供給先）が未設定ならシード値で初期化。GalaxyView の造船で増えていく。
+            if (FleetPool.Get(faction) <= 0) FleetPool.Set(faction, Mathf.Max(0, factionPoolTotal));
             savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
             isOpen = true;
@@ -151,10 +153,10 @@ namespace Ginei
 
         private void RenderMain()
         {
-            int total = Mathf.Max(0, factionPoolTotal);
+            int total = FleetPool.Get(faction);
             int alloc = FleetPoolRules.Allocated(faction);
-            int avail = FleetPoolRules.Available(faction, total);
-            if (hintLabel != null) hintLabel.text = "B/Esc:閉じる　／　各艦隊[編集]で艦艇数・指揮班を設定";
+            int avail = FleetPoolRules.Available(faction);
+            if (hintLabel != null) hintLabel.text = "B/Esc:閉じる　／　各艦隊[編集]で艦艇数・指揮班を設定（プールは造船#884で増える）";
 
             AddRow($"勢力: {faction}　艦艇プール  総 {total} ／ 割当 {alloc} ／ 残 {avail}");
             AddRow("― 艦隊一覧 ―", "新艦隊", () => { FleetRoster.CreateFleet(faction); Rebuild(); });
@@ -173,13 +175,13 @@ namespace Ginei
         {
             FleetUnitData u = FleetRoster.GetFleet(faction, detailFleet);
             if (u == null) { detailFleet = 0; Rebuild(); return; }
-            int avail = FleetPoolRules.Available(faction, factionPoolTotal);
+            int avail = FleetPoolRules.Available(faction);
             if (hintLabel != null) hintLabel.text = "艦艇数±／司令・副提督・参謀を配属（×は階級不足/不適格）";
 
             AddRow($"◆ 第{detailFleet}艦隊（{u.DisplayName}）　プール残 {avail}");
             AddButtonsRow($"艦艇数: {u.baseStrength}",
-                ($"−{allocationStep}", () => { FleetPoolRules.Adjust(u, -allocationStep, factionPoolTotal); Rebuild(); }),
-                ($"＋{allocationStep}", () => { FleetPoolRules.Adjust(u, +allocationStep, factionPoolTotal); Rebuild(); }));
+                ($"−{allocationStep}", () => { FleetPoolRules.Adjust(u, -allocationStep); Rebuild(); }),
+                ($"＋{allocationStep}", () => { FleetPoolRules.Adjust(u, +allocationStep); Rebuild(); }));
             AddRow($"司令　: {Slot(u.assignedAdmiral)}", "変更", () => { selectingSlot = StaffSlot.司令; Rebuild(); });
             AddRow($"副提督: {Slot(u.viceCommander)}", "変更", () => { selectingSlot = StaffSlot.副提督; Rebuild(); });
             AddRow($"参謀　: {Slot(u.chiefOfStaff)}", "変更", () => { selectingSlot = StaffSlot.参謀; Rebuild(); });

@@ -45,6 +45,23 @@ namespace Ginei
             return SetAllocation(unit, target, totalPool);
         }
 
+        // ===== FleetPool ストアを総プールとして使う版（#884 造船供給と接続） =====
+
+        /// <summary>勢力プール残（<see cref="FleetPool"/> の総数 − 割当済み）。</summary>
+        public static int Available(Faction f) => Available(f, FleetPool.Get(f));
+
+        /// <summary>この艦隊を newStrength にしても <see cref="FleetPool"/> の総プールを超えないか。</summary>
+        public static bool CanAllocate(FleetUnitData unit, int newStrength)
+            => unit != null && CanAllocate(unit, newStrength, FleetPool.Get(unit.faction));
+
+        /// <summary>割り当てを設定する（<see cref="FleetPool"/> 総プール基準）。</summary>
+        public static bool SetAllocation(FleetUnitData unit, int newStrength)
+            => unit != null && SetAllocation(unit, newStrength, FleetPool.Get(unit.faction));
+
+        /// <summary>艦艇数を増減する（<see cref="FleetPool"/> 総プール基準・負は0クランプ）。</summary>
+        public static bool Adjust(FleetUnitData unit, int delta)
+            => unit != null && Adjust(unit, delta, FleetPool.Get(unit.faction));
+
         /// <summary>指定艦隊を除く、同勢力の現役艦隊の割当合計。</summary>
         private static int OthersAllocated(FleetUnitData unit)
         {

@@ -93,6 +93,13 @@ namespace Ginei
         private List<Person> commanders;
         private int campaignYear;
 
+        // #884 造船 → #148 艦隊プール供給：プレイヤー勢力のデモ造船所。暦の日次で建艦し、完成を FleetPool へ就役（総艦艇が増える）。
+        private Shipyard playerShipyard;
+        [Tooltip("プレイヤー勢力の初期艦隊プール（FleetPool 未設定時にシード）")]
+        public int initialFleetPool = 12000;
+        [Tooltip("デモ造船所の建艦速度（ポイント/戦略秒。巡航艦コスト60＝buildPower1で約1日1隻）")]
+        public float shipyardBuildPower = 1f;
+
         // TIME-7（#959）：暦の自動スロー（Paradox 風）。平時は暦を圧縮して速く流し、会戦の生起など「観るべき瞬間」は実時間へ減速。
         [Tooltip("平時に暦を実時間の何倍で流すか（自動スロー時は1倍＝実時間へ減速）。TIME-7 #959")]
         public float idleCalendarCompression = 30f;
@@ -515,6 +522,41 @@ namespace Ginei
             policyCalendar = new CalendarDispatcher(GameDate.DateParams.Default, startElapsed);
 
             SetupPersonnel();
+            SetupShipyard();
+        }
+
+        /// <summary>
+        /// デモ造船所を用意する（#884→#148）。プレイヤー勢力の初期艦隊プールをシードし、連続建艦の先頭オーダーを積む。
+        /// 完成は暦の日次（<see cref="RunDailyCampaignTick"/>）で <see cref="FleetPool"/> へ就役＝編成画面の総艦艇が増える。
+        /// </summary>
+        private void SetupShipyard()
+        {
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            if (FleetPool.Get(pf) <= 0) FleetPool.Set(pf, Mathf.Max(0, initialFleetPool));
+            playerShipyard = new Shipyard(0, pf, 1, Mathf.Max(0f, shipyardBuildPower));
+            EnqueueNextBuild();
+        }
+
+        /// <summary>造船キューが空なら次の建艦（巡航艦）を積む（連続生産）。</summary>
+        private void EnqueueNextBuild()
+        {
+            if (playerShipyard != null && playerShipyard.queue.Count == 0)
+                ShipyardRules.Enqueue(playerShipyard, ShipClass.巡航艦, ShipRole.戦闘艦);
+        }
+
+        /// <summary>暦の1日ぶん建艦を進め、完成艦を勢力プールへ就役させる（#884→#148・HUD告知）。</summary>
+        private void TickShipyard(float secondsPerDay)
+        {
+            if (playerShipyard == null) return;
+            var done = ShipyardRules.Tick(playerShipyard, secondsPerDay, 1f); // 生産力係数は将来 BUILD-2/内政連動
+            int built = 0;
+            for (int i = 0; i < done.Count; i++) built += ShipyardRules.CommissionToPool(done[i]);
+            if (built > 0)
+            {
+                battleMsg = $"造船完成：艦艇 +{built}（{playerShipyard.faction} プールへ／編成画面 B で配分）";
+                battleMsgTimer = 4f;
+            }
+            EnqueueNextBuild();
         }
 
         /// <summary>
@@ -542,6 +584,7 @@ namespace Ginei
         {
             float secondsPerDay = (float)policyCalendar.Params.secondsPerDay;
             CampaignRules.TickEconomyDay(StrategySession.Campaign, secondsPerDay);
+            TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
         }
 

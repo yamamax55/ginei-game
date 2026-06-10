@@ -144,5 +144,17 @@ namespace Ginei
             created.baseStrength = order.strengthYield;
             return created;
         }
+
+        /// <summary>
+        /// 完成オーダーを<b>勢力の艦隊プール</b>（<see cref="FleetPool"/>・#148）へ就役させる（BUILD-4 派生＝特定艦隊でなく予備戦力へ）。
+        /// プールへ strengthYield を加算し、加算量を返す（未完成は0）。プレイヤーは編成画面でプールから各艦隊へ配分する＝
+        /// 「造船で総艦艇が増える」の窓口。<see cref="Commission"/>（特定艦隊への就役）とは別経路（重複計上しない）。
+        /// </summary>
+        public static int CommissionToPool(BuildOrder order)
+        {
+            if (order == null || !order.IsComplete) return 0;
+            FleetPool.Add(order.faction, order.strengthYield);
+            return order.strengthYield;
+        }
     }
 }

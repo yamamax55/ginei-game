@@ -219,14 +219,17 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void ResolveCorridorBattle_NegativeDefender_AttackerSurvivorExceedsOwn()
+        public void ResolveCorridorBattle_NegativeInputs_ClampedToZero()
         {
-            // 異常入力：防御が負(-5)。攻撃10>-5＝攻撃勝利だが、残存＝10-(-5)=15 で
-            // 攻撃側の元兵力(10)を上回る（負の兵力が「敵を強化する」非物理な振る舞い）。
-            // 仕様としては兵力は非負であるべき＝この入力は本来クランプされるべき。
+            // 異常入力：兵力は非負へクランプされる。防御-5は0扱い→攻撃10勝利・残存=10-0=10
+            // （負の兵力が「敵を強化する」非物理な結果を防ぐ）。
             var r = StrategyRules.ResolveCorridorBattle(10, -5);
             Assert.IsTrue(r.attackerWon);
-            Assert.AreEqual(15, r.survivorStrength);
+            Assert.AreEqual(10, r.survivorStrength);
+            // 両方負→0対0→引き分けは攻撃側敗北・残存0
+            var r2 = StrategyRules.ResolveCorridorBattle(-3, -8);
+            Assert.IsFalse(r2.attackerWon);
+            Assert.AreEqual(0, r2.survivorStrength);
         }
 
         // ───────── ApplyBattleResult（敗者除去・engaged解除・相打ち）─────────

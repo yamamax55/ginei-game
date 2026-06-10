@@ -243,8 +243,11 @@ namespace Ginei
         /// </summary>
         public static CorridorBattleResult ResolveCorridorBattle(int attackerStrength, int defenderStrength)
         {
-            bool aWon = attackerStrength > defenderStrength;
-            int survivor = aWon ? attackerStrength - defenderStrength : defenderStrength - attackerStrength;
+            // 兵力は非負へクランプ（負の兵力が「敵を強化する」非物理な結果を防ぐ）
+            int a = attackerStrength > 0 ? attackerStrength : 0;
+            int d = defenderStrength > 0 ? defenderStrength : 0;
+            bool aWon = a > d;
+            int survivor = aWon ? a - d : d - a;
             return new CorridorBattleResult(aWon, survivor);
         }
 

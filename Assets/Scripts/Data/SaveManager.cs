@@ -46,16 +46,5 @@ namespace Ginei
         {
             return File.Exists(SavePath);
         }
-
-        /// <summary>
-        /// セーブファイルを削除します。
-        /// </summary>
-        public static void DeleteSave()
-        {
-            if (HasSave())
-            {
-                File.Delete(SavePath);
-            }
-        }
     }
 }

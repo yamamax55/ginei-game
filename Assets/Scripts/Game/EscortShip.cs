@@ -3,11 +3,7 @@ using System.Collections;
 
 namespace Ginei
 {
-    /// <summary>
-    /// 配下艦の艦種（#80）。戦艦＝高耐久・高火力・低速・大型／巡航艦＝中庸／駆逐艦＝低耐久・高速・小型。
-    /// 倍率・編成比率は <see cref="Squadron"/> 側で public 調整（実効値パターン）。
-    /// </summary>
-    public enum ShipClass { 戦艦, 巡航艦, 駆逐艦 }
+    // ShipClass enum は Core の ShipClass.cs へ切り出し（#496・ShipyardRules 等の Core 参照のため）
 
     /// <summary>
     /// 配下艦（旗艦の周囲に従う個艦）の戦闘単位。

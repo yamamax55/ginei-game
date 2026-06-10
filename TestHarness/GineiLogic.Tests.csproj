@@ -16,51 +16,11 @@
     <!-- スタブ／シム -->
     <Compile Include="Stubs/**/*.cs" />
 
-    <!-- 純ロジック源（MonoBehaviour・UnityEditor・UI/IO 層を除外） -->
-    <Compile Include="../Assets/Scripts/*.cs"
-             Exclude="../Assets/Scripts/AudioManager.cs;
-                      ../Assets/Scripts/BattleAllegianceManager.cs;
-                      ../Assets/Scripts/BattleManager.cs;
-                      ../Assets/Scripts/BattleSetup.cs;
-                      ../Assets/Scripts/BlackHole.cs;
-                      ../Assets/Scripts/CameraController.cs;
-                      ../Assets/Scripts/CommandMenu.cs;
-                      ../Assets/Scripts/DamagePopup.cs;
-                      ../Assets/Scripts/EscortShip.cs;
-                      ../Assets/Scripts/FactionColor.cs;
-                      ../Assets/Scripts/FlagshipMarker.cs;
-                      ../Assets/Scripts/FleetAI.cs;
-                      ../Assets/Scripts/FleetCommander.cs;
-                      ../Assets/Scripts/FleetDetailPanel.cs;
-                      ../Assets/Scripts/FleetHUDManager.cs;
-                      ../Assets/Scripts/FleetMorale.cs;
-                      ../Assets/Scripts/FleetMovement.cs;
-                      ../Assets/Scripts/FleetStandardOrder.cs;
-                      ../Assets/Scripts/FleetStrength.cs;
-                      ../Assets/Scripts/FleetWeapon.cs;
-                      ../Assets/Scripts/FormationPreview.cs;
-                      ../Assets/Scripts/GalaxyView.cs;
-                      ../Assets/Scripts/GameSettings.cs;
-                      ../Assets/Scripts/HelpOverlay.cs;
-                      ../Assets/Scripts/LabelZoomScaler.cs;
-                      ../Assets/Scripts/OrderOfBattlePanel.cs;
-                      ../Assets/Scripts/PauseManager.cs;
-                      ../Assets/Scripts/ResultManager.cs;
-                      ../Assets/Scripts/SceneLoader.cs;
-                      ../Assets/Scripts/Selectable.cs;
-                      ../Assets/Scripts/ShipCombat.cs;
-                      ../Assets/Scripts/SiegeArena.cs;
-                      ../Assets/Scripts/SpaceBackground.cs;
-                      ../Assets/Scripts/Squadron.cs;
-                      ../Assets/Scripts/SystemDetailPanel.cs;
-                      ../Assets/Scripts/TitleManager.cs;
-                      ../Assets/Scripts/WeaponArc.cs;
-                      ../Assets/Scripts/ZoneOfControl.cs;
-                      ../Assets/Scripts/FontProvider.cs;
-                      ../Assets/Scripts/GineiUITK.cs;
-                      ../Assets/Scripts/CampaignSaveManager.cs;
-                      ../Assets/Scripts/SaveManager.cs;
-                      ../Assets/Scripts/FleetRegistry.cs" />
+    <!-- 純ロジック源（#496 asmdef 4分割後＝Core は丸ごと・Data は IO 層のみ除外。Game/ は対象外） -->
+    <Compile Include="../Assets/Scripts/Core/**/*.cs" />
+    <Compile Include="../Assets/Scripts/Data/*.cs"
+             Exclude="../Assets/Scripts/Data/CampaignSaveManager.cs;
+                      ../Assets/Scripts/Data/SaveManager.cs" />
 
     <!-- EditMode テスト（DamagePopupStyle は MonoBehaviour 依存＝エディタで検証） -->
     <Compile Include="../Assets/Tests/EditMode/*.cs"

@@ -16,7 +16,7 @@ namespace Ginei
         public GameObject settingsPanel;
 
         // 選択UI（実行時生成）
-        private ScenarioData[] scenarios;
+        private System.Collections.Generic.IReadOnlyList<ScenarioData> scenarios;
         private TextMeshProUGUI selectionLabel;
         private TMP_FontAsset jaFont;
         private GameObject selectionRoot;   // 自前生成した Canvas（遷移時に破棄）
@@ -79,7 +79,7 @@ namespace Ginei
         private void BuildSelectionUI()
         {
             EnsureJaFont();
-            scenarios = Resources.LoadAll<ScenarioData>("");
+            scenarios = ContentDatabase.AllScenarios(); // SO索引は ContentDatabase に集約（FND-1 #496）
             scenarioOptions.Clear();
             factionOptions.Clear();
 
@@ -144,7 +144,7 @@ namespace Ginei
 
             // シナリオ一覧
             CreateLabel(panel.transform, "■ シナリオ選択", 22f);
-            if (scenarios == null || scenarios.Length == 0)
+            if (scenarios == null || scenarios.Count == 0)
             {
                 CreateLabel(panel.transform, "(Resources にシナリオがありません)", 15f);
             }
@@ -159,11 +159,11 @@ namespace Ginei
                 }
             }
 
-            // プレイ陣営：Resources/Factions の FactionData を列挙してボタン生成。
+            // プレイ陣営：FactionData を列挙してボタン生成（索引は ContentDatabase・FND-1 #496）。
             // アセットが無ければ従来の2勢力 enum ボタンにフォールバック。
             CreateLabel(panel.transform, "■ プレイ陣営", 22f);
-            FactionData[] factions = Resources.LoadAll<FactionData>("Factions");
-            if (factions != null && factions.Length > 0)
+            System.Collections.Generic.IReadOnlyList<FactionData> factions = ContentDatabase.AllFactions();
+            if (factions != null && factions.Count > 0)
             {
                 foreach (var fd in factions)
                 {
@@ -199,7 +199,7 @@ namespace Ginei
                 {
                     if (s != null && s.scenarioName == current) { found = true; break; }
                 }
-                if (!found && scenarios.Length > 0 && scenarios[0] != null)
+                if (!found && scenarios.Count > 0 && scenarios[0] != null)
                     current = scenarios[0].scenarioName;
             }
             if (!string.IsNullOrEmpty(current)) GameSettings.Instance.scenarioName = current;
@@ -264,7 +264,7 @@ namespace Ginei
         /// FactionData 駆動時の既定プレイ陣営を決める。未設定なら現在の enum playerFaction に
         /// 対応する FactionData、無ければ先頭を選ぶ。
         /// </summary>
-        private void EnsureDefaultPlayerFaction(FactionData[] factions)
+        private void EnsureDefaultPlayerFaction(System.Collections.Generic.IReadOnlyList<FactionData> factions)
         {
             if (GameSettings.Instance.playerFactionData != null) return;
             FactionData def = null;
@@ -272,7 +272,7 @@ namespace Ginei
             {
                 if (fd != null && fd.legacyFaction == GameSettings.Instance.playerFaction) { def = fd; break; }
             }
-            if (def == null && factions.Length > 0) def = factions[0];
+            if (def == null && factions.Count > 0) def = factions[0];
             if (def != null)
             {
                 GameSettings.Instance.playerFactionData = def;
@@ -280,17 +280,10 @@ namespace Ginei
             }
         }
 
-        /// <summary>勢力名から Resources/Factions の FactionData を解決する（見つからなければ null）。</summary>
+        /// <summary>勢力名から FactionData を解決する（見つからなければ null）。索引は ContentDatabase（FND-1 #496）。</summary>
         private FactionData ResolvePlayerFactionData(string name)
         {
-            if (string.IsNullOrEmpty(name)) return null;
-            FactionData[] factions = Resources.LoadAll<FactionData>("Factions");
-            if (factions == null) return null;
-            foreach (var fd in factions)
-            {
-                if (fd != null && fd.factionName == name) return fd;
-            }
-            return null;
+            return ContentDatabase.FactionByName(name);
         }
 
         /// <summary>選択中のボタンを金色＋黒太字＋「●」でハイライトする。</summary>

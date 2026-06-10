@@ -2,7 +2,9 @@
     "name": "Ginei.Tests.EditMode",
     "rootNamespace": "Ginei.Tests",
     "references": [
-        "Ginei.Runtime",
+        "Ginei.Core",
+        "Ginei.Data",
+        "Ginei.Game",
         "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

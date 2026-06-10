@@ -27,19 +27,19 @@ namespace Ginei
         public float dimAlpha = 0.55f;
 
         [Tooltip("パネルの幅（ピクセル）")]
-        public float panelWidth = 760f;
+        public float panelWidth = 960f;
 
         [Tooltip("パネルの最大高さ（ピクセル）")]
-        public float panelMaxHeight = 720f;
+        public float panelMaxHeight = 880f;
 
         [Tooltip("パネル背景色")]
         public Color panelColor = new Color(0.03f, 0.05f, 0.09f, 0.96f);
 
         [Tooltip("本文のフォントサイズ")]
-        public float bodyFontSize = 15f;
+        public float bodyFontSize = 20f;
 
         [Tooltip("バー（0..1可視化）の桁数")]
-        public int barWidth = 10;
+        public int barWidth = 14;
 
         // ===== 内部状態 =====
 

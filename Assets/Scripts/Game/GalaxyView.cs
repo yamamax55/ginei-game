@@ -93,6 +93,13 @@ namespace Ginei
         private List<Person> commanders;
         private int campaignYear;
 
+        // TIME-7（#959）：暦の自動スロー（Paradox 風）。平時は暦を圧縮して速く流し、会戦の生起など「観るべき瞬間」は実時間へ減速。
+        [Tooltip("平時に暦を実時間の何倍で流すか（自動スロー時は1倍＝実時間へ減速）。TIME-7 #959")]
+        public float idleCalendarCompression = 30f;
+        [Tooltip("暦流速の減速/再加速のなめらかさ（1秒あたりの倍率変化）")]
+        public float calendarEaseRate = 8f;
+        private float calendarCompression = 1f; // 現在の暦流速倍率（1=実時間。起動時は実時間から立ち上げる）
+
         // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
         private readonly Dictionary<int, Province> provinces = new Dictionary<int, Province>();
         private readonly Dictionary<int, Faction> prevOwners = new Dictionary<int, Faction>();
@@ -170,7 +177,13 @@ namespace Ginei
             GameClock clock = StrategySession.Clock;
             if (clock != null) { galaxySpeed = (float)clock.speed; paused = clock.paused; }
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
-            if (clock != null) clock.Advance(Time.deltaTime);
+
+            // TIME-7（#959）：暦は自動スロー。平時は暦を圧縮して速く流し（年が分単位）、会戦の生起など「観るべき瞬間」は
+            // 実時間へ減速する。実時間アクション（艦隊移動・自動解決・攻城）は dt のまま＝暦だけ伸縮する（観られる速さは不変）。
+            var flow = new TimeFlowRules.TimeFlowParams(idleCalendarCompression, 1f, calendarEaseRate);
+            calendarCompression = TimeFlowRules.Ease(
+                calendarCompression, TimeFlowRules.TargetCompression(IsActionSalient(), flow), flow, Time.deltaTime);
+            if (clock != null) clock.Advance(Time.deltaTime * calendarCompression);
             reg.Tick(dt);
 
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
@@ -530,6 +543,24 @@ namespace Ginei
             float secondsPerDay = (float)policyCalendar.Params.secondsPerDay;
             CampaignRules.TickEconomyDay(StrategySession.Campaign, secondsPerDay);
             RunDailyPolicyTick();
+        }
+
+        /// <summary>
+        /// 「観るべき瞬間」か（TIME-7 #959 自動スロー）：会戦の生起・前線への亜光速侵入など。true の間は暦を実時間へ減速し、
+        /// 早送りで会戦や接触を見逃さない・暦が一気に飛ばないようにする。実時間アクションの速さ自体は変えない。
+        /// </summary>
+        private bool IsActionSalient()
+        {
+            if (AnyEngaged()) return true; // 会戦が起きている＝観て介入できるよう減速
+            if (reg != null && reg.fleets != null)
+            {
+                for (int i = 0; i < reg.fleets.Count; i++)
+                {
+                    StrategicFleet f = reg.fleets[i];
+                    if (f != null && f.IsSublight) return true; // 前線へ亜光速侵入中＝接触直前の緊張
+                }
+            }
+            return false;
         }
 
         /// <summary>

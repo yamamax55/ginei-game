@@ -198,11 +198,9 @@ namespace Ginei
 
             // 国家状態（#817 旗幟の出所）：各勢力の腐敗→合意→希望を銀河時間で進める。
             CampaignRules.Tick(StrategySession.Campaign, dt);
-            // 財政（S5）：税収を国庫へ・高税の負担で民心を蝕む。
-            CampaignRules.TickEconomy(StrategySession.Campaign, dt);
-            // 支持低下イベント（S6）は暦の日境界で判定（TIME-6 #952＝毎フレームでなく per-day。倍速で暦比一定・ポーズで停止）。
+            // 財政（S5）＋支持低下イベント（S6）は暦の日境界で1回ずつ進める（TIME-6 #952＝per-day。倍速で暦比一定・ポーズで停止）。
             if (clock != null && policyCalendar != null)
-                policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyPolicyTick);
+                policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyCampaignTick);
 
             if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
@@ -497,6 +495,17 @@ namespace Ginei
             // TIME-6（#952）：暦の日境界でイベント判定を回す。現在のクロック経過へ同期（初フレームで日跨ぎを一気に発火させない）。
             double startElapsed = StrategySession.Clock != null ? StrategySession.Clock.ElapsedSeconds : 0d;
             policyCalendar = new CalendarDispatcher(GameDate.DateParams.Default, startElapsed);
+        }
+
+        /// <summary>
+        /// 暦の日境界ごとに走る盤面の日次処理（TIME-6 #952）：財政を1日ぶん進め（S5）、続いて支持低下イベント判定（S6）。
+        /// 連続ドリフト系（艦隊移動・内政・社会連鎖 CampaignRules.Tick）は従来どおり dt で回る（後方互換・段階移行）。
+        /// </summary>
+        private void RunDailyCampaignTick()
+        {
+            float secondsPerDay = (float)policyCalendar.Params.secondsPerDay;
+            CampaignRules.TickEconomyDay(StrategySession.Campaign, secondsPerDay);
+            RunDailyPolicyTick();
         }
 
         /// <summary>

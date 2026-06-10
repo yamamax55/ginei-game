@@ -27,6 +27,7 @@
 - [x] Wave22 (2026-06-10)：DeceptionRules(#1126) / CoinageRules(#1072) / LedgerRules(#974) / WangDaoRules(#1059) / QualityScheduleRules(#1091) / TechBearerRules(#1092) / CharterRightsRules(#1093)（並列7・全Issue由来・2回目補充後）
 - [x] Wave23 (2026-06-10)：CityGrowthRules(#1094) / SuccessionWarRules(#1095) / ClericalCareerRules(#1096) / ArmamentDesignRules(#1066) / BalanceSheetRules(#975) / IncomeStatementRules(#976) / FiscalPolicyRules(#1013)（並列7・全Issue由来・Pillars完結＋会計B/S・P/LがLedger土台に）
 - [x] Wave24 (2026-06-10)：AutoTreasuryRules(#1014) / CashFlowForecastRules(#1015) / FinancialAnomalyRules(#1016) / SupplierRatingRules(#1004) / SourcingAuctionRules(#1005) / SupplyContractRules(#1006) / BomRules(#983)（並列7・全Issue由来・財務AI完結＋調達＋生産網・親がParamsネスト修正1件）
+- [x] Wave25 (2026-06-10)：MrpRules(#984) / ProductionOrderRules(#985) / CapacitySchedulingRules(#987) / ValueChainRules(#1023) / FirmRules(#1024) / CapitalInvestmentRules(#1025) / PublicPrivateSeparationRules(#1035)（並列7・全Issue由来・生産網SCM完結＋企業FRM）
 
 ## キュー（上から順に消化）
 
@@ -75,15 +76,8 @@
 # 財務AI AFN（#1013-1016）
 # 調達 PRC（#1004,#1005,#1006）
 # 生産網 SCM（#983,#984,#985,#987）
-- [ ] MrpRules：MRP所要量計算＝在庫×生産予定→正味所要→計画オーダー・リードタイム（#984）。`BomRules`の展開を入力に正味所要を出す＝資材所要計画
-- [ ] ProductionOrderRules：発注・生産オーダー＝PO/PrOを鉱業/工業/船渠へ割付（#985）。`MrpRules`の計画オーダーを能力へ配分＝`ShipyardRules`(就役)とは別＝手前の発注
-- [ ] CapacitySchedulingRules：有限能力スケジューリング＝WIP・ボトルネック・スループット（#987）。`ProductionOrderRules`を有限設備へ詰める＝制約理論TOC
 # 企業 FRM（#1023,#1024,#1025）
-- [ ] ValueChainRules：バリューチェーングラフ＝森→木→製材→家の加工段連鎖（#1023・#182具現化）。星系の資源賦存から最終財までの付加価値の流れ＝`CoupledProductionRules`(単一工程)を繋ぐ網
-- [ ] FirmRules：企業＝生産主体＝各加工段を営む企業の資本/生産能力/自社P&L（#1024・#184/#185具現化）。`StockMarketRules`(株価)・`MarketRules`(市場)を結ぶミクロ主体
-- [ ] CapitalInvestmentRules：資本投下・投資判断＝利潤率で能力投資・銀行融資/増資（#1025）。`FirmRules`の拡大再生産＝`CapitalRules`(ピケティ格差)とは別＝企業の設備投資
 # 所有 OWN（#1035,#1036,#1038）
-- [ ] PublicPrivateSeparationRules：公私の分離＝国庫 vs 元首私財・制度化で分離（#1035）。私物化の度合い＝`RegimeRules`(腐敗)へ接続。`FiscalRules`(国庫)とは別＝所有の帰属
 - [ ] PropertyRightsRules：私有財産の保護＝民法・保護強度→投資意欲（#1036・#170/#624接続）。財産権の強さが経済を動かす＝`ConfiscationRules`(没収)・`MagnaCartaRules`の財産版
 - [ ] InheritanceRules：相続・継承＝資産の世代継承（#1038・継承法#646接続）。`SuccessionLawRules`(爵位/君主位)とは別＝資産・封土の相続（分割/長子で散逸か集中か）
 # 人事 HCM（#995,#996）

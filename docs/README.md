@@ -22,6 +22,10 @@
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。
 
+## 開発ログ（dev-log/）
+- [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。
+- [`2026-06-10-time-fleet-notification.md`](./dev-log/2026-06-10-time-fleet-notification.md) — **統一時間 TIME-1〜7（#946/#959）／艦隊編成プール（#148/#884）／通知システム（#964）** を配線。詳細は `CLAUDE.md` の「時間・暦・通知システム」「艦隊編成プール」節。
+
 ## 推奨の読む順
 1. **世界観**：`worldbuilding-bible.md`（勢力・命名・年表の前提）
 2. **戦略レイヤー（上位→コア→後半）**：`phase-c-strategy.md` → `phase-c-core-design.md` → `phase-c-late-design.md`

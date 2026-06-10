@@ -23,3 +23,13 @@ GeneratedAssets/
 
 # Plastic SCM (Unity VCS) のローカル作業メタ：git追跡しない
 .plastic/
+
+# TestHarness の dotnet test 出力（ビルド生成物・追跡しない）
+[Tt]est[Rr]esults/
+
+# 未使用のインポート資産（約483MB・コード/シーン未参照。必要になったら手動で取り込む）
+/Assets/SpaceSkies Free/
+/Assets/SpaceSkies Free.meta
+
+# Assets 内に紛れたバックアップ zip（Unity が資産として取り込むため追跡しない・手動削除推奨）
+/Assets/**/*.zip

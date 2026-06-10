@@ -22,8 +22,11 @@
 - **内政の三層 #109/#767/#759**：惑星 `Province`（単一の真実）⊃ 星系（集約）⊃ 勢力（国策）。`GovernanceRules`（占領→不安定→統合→安定）。情報パネル（星系/惑星）。
 - **システムビュー**：平時星系の閲覧（恒星＋惑星象徴配置＋惑星単位内政）。
 - **国家状態→旗幟**：`CampaignState`/`CampaignRules` が勢力ごとの社会状態を Tick し、潜行時に忠誠/調略へ変換＝**社会シミュが会戦に漏れる回路が開通**。
+- **統一時間 TIME-1〜7（EPIC #946 / #959）**：`GameClock`(権威クロック)＋`GameDate`(宇宙暦/帝国暦＋HH:MM)＋`TimeDisplay`(右上)。**会戦↔戦略が同一クロック**で連続（潜行で止まらない）。`AutoBattleSim`(自動解決の所要時間)。暦粒度Tick(`CalendarDispatcher`＝日次で財政/イベント/造船・年次で加齢)。**自動スロー**(`TimeFlowRules`＝平時は暦を速く流し会戦で実時間へ減速)。
+- **艦隊編成プール（#148 / #884）**：`FleetPool`(勢力総艦艇)＋`FleetPoolRules`＋`FleetOrganizationPanel`(Bキー・戦略マップから艦艇配分＋提督/副提督/参謀配属)。造船(`ShipyardRules.CommissionToPool`)で総艦艇増・生産力(`ProductionFactor`)連動・会戦損耗でプール減。提督の加齢/死亡(`AnnualLifecycleRules`)。
+- **通知システム（EPIC #964 NOTIF-1〜3）**：`NotificationCenter`(単一窓口)＋`NotificationFeed`(画面**左下**トースト・自動フェード)。会戦結果/占領/造船/死亡を集約。
 
-### 純ロジック層（test-first・EditMode 440件＋TestHarness で Unity 無し回帰可）
+### 純ロジック層（test-first・EditMode 1020件＋TestHarness で Unity 無し回帰可）
 - **兵站 L-1〜3 #93/#94/#95**：資源生産・補給線（ZOC遮断）・通商破壊。
 - **財政・経済 #161/#162**：PB/国債/金利/為替・税/社会保障・再分配（階級別負担）。
 - **政府 GOV-1/3/4/5/6/7 #142/#144/#145/#158/#159/#165**：役職/任命/提案権限・文民統制/クーデター・省庁・政党/最小選挙・総裁選。

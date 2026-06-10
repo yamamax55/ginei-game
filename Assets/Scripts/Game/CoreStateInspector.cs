@@ -89,7 +89,7 @@ namespace Ginei
         private static void TryCreate(Scene scene)
         {
             if (scene.name != "Strategy" && scene.name != "Battle") return;
-            if (Object.FindAnyObjectByType<CoreStateInspector>() != null) return;
+            if (UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>() != null) return;
             GameObject go = new GameObject("CoreStateInspector");
             go.AddComponent<CoreStateInspector>();
         }
@@ -403,7 +403,7 @@ namespace Ginei
 
         private static void EnsureEventSystem()
         {
-            if (Object.FindAnyObjectByType<EventSystem>() != null) return;
+            if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return;
             GameObject esObj = new GameObject("EventSystem");
             esObj.AddComponent<EventSystem>();
             esObj.AddComponent<InputSystemUIInputModule>();

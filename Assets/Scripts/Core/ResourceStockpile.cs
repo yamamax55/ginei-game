@@ -59,8 +59,6 @@ namespace Ginei
             Add(ResourceType.燃料, amount);
         }
 
-        public bool CanAfford(ResourceType t, float amount) => Get(t) >= amount;
-
         /// <summary>消費する（足りれば引いて true、足りなければ何もせず false）。</summary>
         public bool TryConsume(ResourceType t, float amount)
         {

@@ -45,6 +45,10 @@ namespace Ginei
         [Tooltip("この距離以内に敵がいる撤退では後退移動を使う（遠ければ通常移動で素早く離脱）")]
         public float reverseRetreatRange = 14f;
 
+        [Header("非戦闘艦の回避 #128")]
+        [Tooltip("非戦闘艦（偵察/入植/輸送）がこの距離以内の敵から逃げる（戦線を張らず交戦を避ける）")]
+        public float nonCombatEvadeRange = 22f;
+
         [Header("ZOC回避 #81")]
         [Tooltip("交戦意図のない移動（接近の通過・撤退）で、敵ZOCを横切らないよう進路を補正する")]
         public bool avoidEnemyZoc = true;
@@ -135,6 +139,13 @@ if (Time.time >= nextSearchTime)
                 return;
             }
 
+            // ── 非戦闘艦（#128）：戦線を張らず、近い敵からは逃げる（接近・交戦はしない）──
+            if (strength != null && !strength.IsCombatant)
+            {
+                UpdateNonCombatEvade(pos);
+                return;
+            }
+
             if (targetEnemy == null && currentState != AIState.撤退)
             {
                 // 敵がいない場合は停止
@@ -194,6 +205,28 @@ if (Time.time >= nextSearchTime)
                     }
                     break;
             }
+        }
+
+        /// <summary>
+        /// 非戦闘艦の回避挙動（#128）。近い敵からのみ逃げ、脅威が無ければその場で待機する
+        /// （任務移動はプレイヤー/専用Issueが指示）。撤退と同じ逃走（近ければ後退・遠ければ通常移動）を流用。
+        /// </summary>
+        private void UpdateNonCombatEvade(Vector2 pos)
+        {
+            if (targetEnemy == null) return; // 脅威なし＝待機
+
+            float distToEnemy = Vector2.Distance(pos, targetEnemy.transform.position);
+            if (distToEnemy > nonCombatEvadeRange) return; // 遠い敵は無視（無駄に逃げ回らない）
+
+            Vector2 awayDir = ((Vector2)transform.position - (Vector2)targetEnemy.transform.position).normalized;
+            Vector2 fleeTarget = SteerAroundBlackHoles(pos, pos + awayDir * 20f);
+            if (avoidEnemyZoc)
+                fleeTarget = ZoneOfControl.SteerAround(strength, pos, fleeTarget, zocAvoidStrength, null);
+
+            if (useReverseRetreat && distToEnemy <= reverseRetreatRange)
+                movement.SetReverseDestination(fleeTarget);
+            else
+                movement.SetDestination(fleeTarget);
         }
 
         // ────────────────────────────────────────────────

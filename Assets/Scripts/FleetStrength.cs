@@ -27,6 +27,13 @@ namespace Ginei
         [Header("陣営設定")]
         public Faction faction;
 
+        [Header("役割（#128・戦闘/非戦闘）")]
+        [Tooltip("部隊の役割。非戦闘艦（偵察/入植/輸送）は攻撃せず交戦を避け、勝敗カウントから外れる（撃沈はされうる）。既定=戦闘艦で従来動作")]
+        public ShipRole shipRole = ShipRole.戦闘艦;
+
+        /// <summary>戦闘艦か（#128。非戦闘艦は発砲・勝敗カウントの対象外）。</summary>
+        public bool IsCombatant => shipRole == ShipRole.戦闘艦;
+
         [Header("艦隊編制（#146・任意）")]
         [Tooltip("艦隊番号（0＝未指定＝従来どおり提督名のみ表示）")]
         public int fleetNumber = 0;

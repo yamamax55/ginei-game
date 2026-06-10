@@ -8,9 +8,21 @@ namespace Ginei
     /// </summary>
     public static class FactionRelations
     {
-        /// <summary>勢力 a と b が敵対するか（FactionData 優先、無ければ enum で判定）。</summary>
+        /// <summary>
+        /// 現在の外交状態（外交EPIC #189・任意）。設定されていれば交戦/同盟/不可侵/属国が敵対判定を駆動する。
+        /// null（既定）なら従来どおり FactionData/enum で判定＝<b>後方互換</b>。戦略セッション開始時に張り替える想定。
+        /// </summary>
+        public static DiplomacyState ActiveDiplomacy;
+
+        /// <summary>勢力 a と b が敵対するか（外交状態優先→FactionData→enum の順で判定）。</summary>
         public static bool IsHostile(FactionData aData, Faction aLegacy, FactionData bData, Faction bLegacy)
         {
+            // 外交状態が明示（交戦/同盟等）なら最優先。平時/レコード無しは null＝従来判定へフォールバック。
+            if (ActiveDiplomacy != null && aData != null && bData != null)
+            {
+                bool? diplomatic = DiplomacyRules.IsHostile(ActiveDiplomacy, aData.factionName, bData.factionName);
+                if (diplomatic.HasValue) return diplomatic.Value;
+            }
             if (aData != null && bData != null) return aData.IsHostileTo(bData);
             return aLegacy != bLegacy;
         }

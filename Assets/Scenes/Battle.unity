@@ -368,6 +368,7 @@ MonoBehaviour:
   admiralText: {fileID: 1599970447}
   factionText: {fileID: 1551120079}
   formationText: {fileID: 1653094395}
+  shipCountText: {fileID: 0}
   strengthBar: {fileID: 171024916}
   strengthBarFill: {fileID: 52085882}
   moraleBar: {fileID: 1565066850}
@@ -375,6 +376,7 @@ MonoBehaviour:
   empireColor: {r: 0.8, g: 0.2, b: 0.2, a: 1}
   allianceColor: {r: 0.2, g: 0.4, b: 0.8, a: 1}
   panelBgColor: {r: 0.05, g: 0.05, b: 0.1, a: 0.9}
+  panelWidth: 380
 --- !u!114 &103850823
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1556,6 +1558,10 @@ MonoBehaviour:
   zoomSpeed: 5
   minZoom: 2
   maxZoom: 20
+  startZoom: 16
+  edgeScrollEnabled: 1
+  edgeMargin: 12
+  edgeScrollSpeed: 18
   focusSmoothTime: 0.2
   minBounds: {x: -50, y: -50}
   maxBounds: {x: 50, y: 50}
@@ -3007,6 +3013,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.FleetCommander
   mainCamera: {fileID: 0}
+  aimDragThreshold: 0.5
+  circleWidth: 0.15
+  selectionCircleColor: {r: 0.3, g: 1, b: 0.5, a: 0.9}
+  targetCircleColor: {r: 1, g: 0.9, b: 0.2, a: 0.9}
+  targetHoverColor: {r: 1, g: 0.45, b: 0.1, a: 1}
+  zocSelfColor: {r: 0.3, g: 1, b: 0.5, a: 0.28}
+  zocEnemyColor: {r: 1, g: 0.3, b: 0.3, a: 0.3}
+  dragSelectPixelThreshold: 8
+  clickSelectPixelTolerance: 36
+  autoOpenMenuOnSelect: 1
+  selectionBoxBorderColor: {r: 0.3, g: 1, b: 0.5, a: 0.95}
+  selectionBoxFillColor: {r: 0.3, g: 1, b: 0.5, a: 0.12}
 --- !u!4 &1122094638
 Transform:
   m_ObjectHideFlags: 0
@@ -3195,6 +3213,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.BattleSetup
   fleetPrefab: {fileID: 3578503135173150785, guid: 71710143821c7b3469685fe742dd896c, type: 3}
   scenarioOverride: {fileID: 0}
+  spawnSeparation: 2.5
+  siegeApproachRadius: 5
+  siegeBesiegerRingRadius: 8.5
+  siegeBesiegerCount: 6
+  siegeBesiegerFleetStrength: 200
+  siegePlanetScale: 3
 --- !u!4 &1181385644
 Transform:
   m_ObjectHideFlags: 0
@@ -4030,15 +4054,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.GameSettings
   playerFaction: 1
+  playerFactionData: {fileID: 0}
   scenarioName: "\u30A2\u30B9\u30BF\u30FC\u30C6\u4F1A\u6226"
   selectedAdmiral: "\u30E9\u30A4\u30F3\u30CF\u30EB\u30C8"
   masterVolume: 1
   defaultTimeScale: 1
   alwaysShowGizmos: 0
+  cameraStartZoom: 16
+  edgeScrollEnabled: 1
   winner: 0
+  winnerName: 
   imperialSunkCount: 0
   allianceSunkCount: 0
   remainingStrength: 0
+  imperialRemainingStrength: 0
+  allianceRemainingStrength: 0
+  mvpAdmiral: 
+  victoryReason: 
+  factionStats: []
 --- !u!4 &1615989914
 Transform:
   m_ObjectHideFlags: 0

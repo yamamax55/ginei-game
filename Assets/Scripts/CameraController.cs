@@ -25,6 +25,14 @@ namespace Ginei
         [Tooltip("開始時のズーム（大きいほど引いた画。会戦開始時に適用）")]
         public float startZoom = 16f;
 
+        [Header("画面端スクロール (#87)")]
+        [Tooltip("マウスを画面端に寄せるとパンする（設定で有効/無効・GameSettings.edgeScrollEnabled を優先）")]
+        public bool edgeScrollEnabled = true;
+        [Tooltip("画面端と判定する余白（px）")]
+        public float edgeMargin = 12f;
+        [Tooltip("画面端スクロールの速度")]
+        public float edgeScrollSpeed = 18f;
+
         [Header("フォーカス設定")]
         [Tooltip("フォーカス時の移動の滑らかさ")]
         public float focusSmoothTime = 0.2f;
@@ -67,10 +75,14 @@ namespace Ginei
 
         private void Update()
         {
+            // 設定画面のトグル（GameSettings.edgeScrollEnabled）を反映（#87）
+            if (GameSettings.Instance != null) edgeScrollEnabled = GameSettings.Instance.edgeScrollEnabled;
+
             HandlePan();
+            HandleEdgeScroll();
             HandleZoom();
             HandleFocus();
-            
+
             // 範囲制限
             ClampPosition();
         }
@@ -125,19 +137,55 @@ namespace Ginei
         }
 
         /// <summary>
-        /// マウスホイールによるズーム操作。
+        /// マウスが画面端 edgeMargin(px) に入ったらその方向へパンする（#87）。
+        /// ウィンドウ非フォーカス時・カーソルが画面外のときは無効。中ドラッグ中も加算しない。
+        /// </summary>
+        private void HandleEdgeScroll()
+        {
+            if (!edgeScrollEnabled) return;
+            if (!Application.isFocused) return;          // 非フォーカス時は無効
+            if (Mouse.current == null) return;
+            if (Mouse.current.middleButton.isPressed) return; // ドラッグ中は端スクロールしない
+
+            Vector2 m = Mouse.current.position.ReadValue();
+            // カーソルが画面外なら無効（誤爆防止）
+            if (m.x < 0f || m.y < 0f || m.x > Screen.width || m.y > Screen.height) return;
+
+            Vector2 dir = Vector2.zero;
+            if (m.x <= edgeMargin) dir.x -= 1f;
+            else if (m.x >= Screen.width - edgeMargin) dir.x += 1f;
+            if (m.y <= edgeMargin) dir.y -= 1f;
+            else if (m.y >= Screen.height - edgeMargin) dir.y += 1f;
+
+            if (dir != Vector2.zero)
+            {
+                isFocusing = false;
+                float speedMultiplier = cam.orthographicSize / 10f; // ズームに応じて速度補正（パンと同方針）
+                transform.position += (Vector3)(dir.normalized * edgeScrollSpeed * speedMultiplier * Time.deltaTime);
+            }
+        }
+
+        /// <summary>
+        /// マウスホイールによるズーム操作。**カーソル中心ズーム（#87）**＝ズーム前後でカーソル下のワールド座標を維持する。
         /// </summary>
         private void HandleZoom()
         {
             if (Mouse.current == null) return;
 
             float scroll = Mouse.current.scroll.ReadValue().y;
-            if (Mathf.Abs(scroll) > 0.01f)
-            {
-                // スクロール方向に応じてサイズを変更（zoomSpeed を上げて従来より速く）
-                float newSize = cam.orthographicSize - (scroll * 0.01f * zoomSpeed);
-                cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
-            }
+            if (Mathf.Abs(scroll) <= 0.01f) return;
+
+            // ズーム前のカーソル下ワールド座標（2D 直交＝入力 z は x/y に影響しない）
+            Vector2 mouse = Mouse.current.position.ReadValue();
+            Vector3 worldBefore = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
+
+            float newSize = cam.orthographicSize - (scroll * 0.01f * zoomSpeed);
+            cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
+
+            // ズーム後に同じスクリーン点が指す座標を求め、ズレぶんカメラを移動＝カーソル中心ズーム
+            Vector3 worldAfter = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
+            Vector3 shift = worldBefore - worldAfter;
+            transform.position += new Vector3(shift.x, shift.y, 0f);
         }
 
         /// <summary>

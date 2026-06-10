@@ -45,12 +45,15 @@ namespace Ginei
         public bool alwaysShowGizmos = false;
         [Tooltip("会戦開始時のカメラズーム（大きいほど引いた画。CameraController が Start で参照）")]
         public float cameraStartZoom = 16f;
+        [Tooltip("画面端スクロール（#87・CameraController が参照）。マウスが画面端でパン")]
+        public bool edgeScrollEnabled = true;
 
         // システム設定の永続化キー（PlayerPrefs）
         private const string PrefVolume = "Ginei_MasterVolume";
         private const string PrefTimeScale = "Ginei_DefaultTimeScale";
         private const string PrefGizmos = "Ginei_AlwaysShowGizmos";
         private const string PrefZoom = "Ginei_CameraStartZoom";
+        private const string PrefEdgeScroll = "Ginei_EdgeScroll";
 
         [Header("戦績")]
         public Faction winner;
@@ -106,6 +109,7 @@ namespace Ginei
             defaultTimeScale = PlayerPrefs.GetFloat(PrefTimeScale, defaultTimeScale);
             alwaysShowGizmos = PlayerPrefs.GetInt(PrefGizmos, alwaysShowGizmos ? 1 : 0) == 1;
             cameraStartZoom = PlayerPrefs.GetFloat(PrefZoom, cameraStartZoom);
+            edgeScrollEnabled = PlayerPrefs.GetInt(PrefEdgeScroll, edgeScrollEnabled ? 1 : 0) == 1;
             AudioListener.volume = masterVolume;
         }
 
@@ -116,6 +120,7 @@ namespace Ginei
             PlayerPrefs.SetFloat(PrefTimeScale, defaultTimeScale);
             PlayerPrefs.SetInt(PrefGizmos, alwaysShowGizmos ? 1 : 0);
             PlayerPrefs.SetFloat(PrefZoom, cameraStartZoom);
+            PlayerPrefs.SetInt(PrefEdgeScroll, edgeScrollEnabled ? 1 : 0);
             PlayerPrefs.Save();
         }
 

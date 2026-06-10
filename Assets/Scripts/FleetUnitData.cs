@@ -22,8 +22,14 @@ namespace Ginei
         public Faction faction = Faction.帝国;
         [Tooltip("所属勢力データ（多勢力対応・任意）")]
         public FactionData factionData;
-        [Tooltip("配属中の指揮官（null＝空席）。提督が代わってもユニットは残る")]
+        [Tooltip("運用区分（#128/#883・戦闘/非戦闘）。既定=戦闘艦。梯団は戦闘艦隊と非戦闘艦隊を混成できない（ShipRoleRules）")]
+        public ShipRole shipRole = ShipRole.戦闘艦;
+        [Tooltip("配属中の提督＝司令（null＝空席）。提督が代わってもユニットは残る。指揮班(#885)の長")]
         public AdmiralData assignedAdmiral;
+        [Tooltip("副提督＝次席指揮官（#885・任意）。提督喪失時の継承者。提督以下の階級")]
+        public AdmiralData viceCommander;
+        [Tooltip("参謀＝参謀長（#885・任意）。能力を底上げする幕僚ネームド")]
+        public AdmiralData chiefOfStaff;
         [Tooltip("ユニット既定兵力（0＝提督側 baseStrength を使う＝後方互換）")]
         public int baseStrength;
         [Tooltip("初期陣形")]
@@ -35,6 +41,15 @@ namespace Ginei
 
         public bool IsActive => status == FleetStatus.現役;
         public bool HasAdmiral => assignedAdmiral != null;
+
+        /// <summary>提督＝司令（指揮班 #885 の長。<see cref="assignedAdmiral"/> の別名）。</summary>
+        public AdmiralData Commander => assignedAdmiral;
+        /// <summary>副提督が居るか（#885）。</summary>
+        public bool HasVice => viceCommander != null;
+        /// <summary>参謀が居るか（#885）。</summary>
+        public bool HasChief => chiefOfStaff != null;
+        /// <summary>提督・副提督・参謀の3ネームドが揃っているか（#885）。</summary>
+        public bool HasFullCommandStaff => assignedAdmiral != null && viceCommander != null && chiefOfStaff != null;
 
         /// <summary>表示名（固有名があればそれ、無ければ「第N艦隊」）。</summary>
         public string DisplayName => !string.IsNullOrEmpty(fleetName) ? fleetName : $"第{fleetNumber}艦隊";

@@ -4,6 +4,12 @@ using System.Collections;
 namespace Ginei
 {
     /// <summary>
+    /// 配下艦の艦種（#80）。戦艦＝高耐久・高火力・低速・大型／巡航艦＝中庸／駆逐艦＝低耐久・高速・小型。
+    /// 倍率・編成比率は <see cref="Squadron"/> 側で public 調整（実効値パターン）。
+    /// </summary>
+    public enum ShipClass { 戦艦, 巡航艦, 駆逐艦 }
+
+    /// <summary>
     /// 配下艦（旗艦の周囲に従う個艦）の戦闘単位。
     /// 自前の艦艇数(shipCount)を持ち、被弾で減算、0以下で消滅する。
     /// 陣営・攻撃性能は所属する旗艦(FleetStrength/FleetWeapon)に従う。
@@ -18,6 +24,22 @@ namespace Ginei
 
         [Tooltip("被弾判定用コライダーの半径")]
         public float colliderRadius = 0.3f;
+
+        [Header("艦種（#80・Squadron が編成時に設定）")]
+        [Tooltip("この配下艦の艦種（戦艦/巡航艦/駆逐艦）")]
+        public ShipClass shipClass = ShipClass.巡航艦;
+
+        [Tooltip("火力倍率（艦種で変わる。旗艦の基準ダメージを実効値として乗算＝基準は非破壊）")]
+        public float firepowerMultiplier = 1f;
+
+        [Tooltip("速度倍率（艦種で変わる。Squadron がスロット追従の上限速度に乗算。FleetMovement は変更しない）")]
+        public float speedMultiplier = 1f;
+
+        [Tooltip("陣営色に乗せる艦種の色味（識別用・微差）。FactionColor が陣営色×この色で塗る＝再着色でも維持")]
+        public Color classTint = Color.white;
+
+        /// <summary>スロット追従の速度倍率（Squadron が移動計算で参照）。</summary>
+        public float SpeedMultiplier => speedMultiplier;
 
         // 所属する旗艦まわり。陣営・攻撃性能はここから取得する（生成順に依存しないよう実行時に参照）。
         private FleetStrength flagship;
@@ -83,6 +105,9 @@ namespace Ginei
             // 攻撃に必要な旗艦情報が無ければ撃たない
             if (flagshipWeapon == null || flagshipArc == null) return;
 
+            // 非戦闘艦（#128）の配下艦も攻撃しない（旗艦の役割に従う）
+            if (flagship != null && !flagship.IsCombatant) return;
+
             // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止
             if (flagship != null && flagship.IsRetreating)
             {
@@ -113,8 +138,11 @@ namespace Ginei
         {
             float moraleFactor = flagshipMorale != null ? flagshipMorale.GetMoraleFactor() : 1.0f;
 
+            // 艦種の火力倍率を実効値として基準ダメージに乗算（旗艦の基準値は非破壊）。
+            int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier));
+
             bool isFlank;
-            int finalDamage = ShipCombat.ComputeDamage(flagshipWeapon.damage,
+            int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 flagship != null ? flagship.admiralData : null,
                 moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank);
 

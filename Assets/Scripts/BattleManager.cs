@@ -35,6 +35,7 @@ namespace Ginei
         {
             // 開始時にタイムスケールをリセット
             Time.timeScale = 1f;
+            GameInput.SetContext(InputContext.会戦); // 入力コンテキストを会戦に（#107）
             AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmBattle);
             // 開始時の隻数記録は、全艦の登録(Start)が済んだ最初の Update で行う（実行順非依存）
         }
@@ -44,7 +45,7 @@ namespace Ginei
             // システムビュー（非戦闘・恒星系の閲覧）：戦闘判定はせず、Backspace で戦略マップへ戻るだけ。
             if (BattleHandoff.IsSystemView)
             {
-                if (!isBattleOver && Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame)
+                if (!isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
                 {
                     isBattleOver = true;
                     ReturnToStrategyView();
@@ -52,8 +53,8 @@ namespace Ginei
                 return;
             }
 
-            // デバッグ用：Rキーでリスタート
-            if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
+            // デバッグ用：リスタート（入力は GameInput に集約・#107）
+            if (GameInput.WasPressed(GameAction.リスタート))
             {
                 RestartBattle();
                 return;
@@ -61,8 +62,7 @@ namespace Ginei
 
             // 戦略マップからの実会戦（C-2 二層遷移 #586 ②）：Backspace でいつでも戦略マップへ復帰。
             // 現時点の優勢側を勝者として結果を書き戻し、撤収する（離脱＝以後は自動委任）。
-            if (BattleHandoff.Pending && !isBattleOver &&
-                Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame)
+            if (BattleHandoff.Pending && !isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
             {
                 isBattleOver = true;
                 Time.timeScale = 0f;
@@ -322,7 +322,7 @@ namespace Ginei
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
-                if (fs != null && fs.IsAlive && LegacyOf(fs) == f) return fs;
+                if (CountsForVictory(fs) && LegacyOf(fs) == f) return fs;
             }
             return null;
         }
@@ -330,17 +330,20 @@ namespace Ginei
         /// <summary>陣営の反対側を返す。</summary>
         private static Faction Opposite(Faction f) => (f == Faction.帝国) ? Faction.同盟 : Faction.帝国;
 
-        /// <summary>生存旗艦の中に敵対するペアが1組でもあるか。</summary>
+        /// <summary>勝敗カウントの対象か（生存中の戦闘艦のみ。非戦闘艦#128は残存判定から除外）。</summary>
+        private static bool CountsForVictory(FleetStrength fs) => fs != null && fs.IsAlive && fs.IsCombatant;
+
+        /// <summary>生存戦闘旗艦の中に敵対するペアが1組でもあるか（非戦闘艦は戦線を作らない＝除外）。</summary>
         private static bool HasHostilePair(IReadOnlyList<FleetStrength> flagships)
         {
             for (int i = 0; i < flagships.Count; i++)
             {
                 FleetStrength a = flagships[i];
-                if (a == null || !a.IsAlive) continue;
+                if (!CountsForVictory(a)) continue;
                 for (int j = i + 1; j < flagships.Count; j++)
                 {
                     FleetStrength b = flagships[j];
-                    if (b == null || !b.IsAlive) continue;
+                    if (!CountsForVictory(b)) continue;
                     if (FactionRelations.IsHostile(a, b)) return true;
                 }
             }
@@ -359,7 +362,7 @@ namespace Ginei
             return false;
         }
 
-        /// <summary>勝者勢力の代表旗艦（残存旗艦数が最多、同数なら残存兵力が最大の勢力）。全滅なら null。</summary>
+        /// <summary>勝者勢力の代表旗艦（残存戦闘旗艦数が最多、同数なら残存兵力が最大の勢力）。全滅なら null。非戦闘艦#128は除外。</summary>
         private static FleetStrength DetermineWinner(IReadOnlyList<FleetStrength> alive)
         {
             FleetStrength best = null;
@@ -367,12 +370,12 @@ namespace Ginei
             for (int i = 0; i < alive.Count; i++)
             {
                 FleetStrength rep = alive[i];
-                if (rep == null) continue;
+                if (!CountsForVictory(rep)) continue; // 非戦闘艦は勝者代表にしない
                 int count = 0, strength = 0;
                 for (int j = 0; j < alive.Count; j++)
                 {
                     FleetStrength other = alive[j];
-                    if (other == null || !SameFaction(rep, other)) continue;
+                    if (!CountsForVictory(other) || !SameFaction(rep, other)) continue;
                     count++; strength += other.strength;
                 }
                 if (count > bestCount || (count == bestCount && strength > bestStrength))

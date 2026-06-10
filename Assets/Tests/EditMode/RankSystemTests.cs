@@ -195,5 +195,171 @@ namespace Ginei.Tests
             Assert.AreEqual("", RankSystem.ResolveRankNameOrDefault(null, 0));
             Assert.AreEqual("", RankSystem.ResolveRankNameOrDefault(MakeAllianceLikeFaction(), 0));
         }
+
+        // ───────── 敵対的エッジケース追加（境界/クランプ/null/分岐/不変条件） ─────────
+
+        // 帝国型（9＝上級大将を含む完全ラダー）。同盟型との非対称検証に使う。
+        private FactionData MakeImperialLikeFaction()
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.ranks = new List<FactionData.RankEntry>
+            {
+                new FactionData.RankEntry(5, "准将"),
+                new FactionData.RankEntry(6, "少将"),
+                new FactionData.RankEntry(7, "中将"),
+                new FactionData.RankEntry(8, "大将"),
+                new FactionData.RankEntry(9, "上級大将"),
+                new FactionData.RankEntry(10, "元帥"),
+            };
+            return f;
+        }
+
+        // (1) ResolveTier: ranks==null の faction は tier をそのまま返す（null ガード分岐）。
+        // 仕様：「階級が一つも無ければ tier をそのまま返す」。null ranks も同様であるべき。
+        [Test]
+        public void ResolveTier_NullRanksList_ReturnsSame()
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.ranks = null;
+            Assert.AreEqual(7, RankSystem.ResolveTier(f, 7));
+        }
+
+        // (2) ResolveTier: 全ランクより上の tier は直近下位（最上位 tier=10）へスナップ。
+        // 仕様：完全一致無し→直近下位優先。99 は 10 へ丸まるべき。
+        [Test]
+        public void ResolveTier_AboveAll_SnapsToTop()
+        {
+            var f = MakeAllianceLikeFaction();
+            Assert.AreEqual(10, RankSystem.ResolveTier(f, 99));
+        }
+
+        // (3) ResolveTier: 両側に候補がある欠番は「直近下位」を優先する非対称性。
+        // 同盟型(…7,8,10…)で tier 9 は下8/上10 の両方が在るが、仕様は下位優先＝8。
+        [Test]
+        public void ResolveTier_BetweenTwo_PrefersLowerNotHigher()
+        {
+            var f = MakeAllianceLikeFaction();
+            Assert.AreEqual(8, RankSystem.ResolveTier(f, 9));
+            // 帝国型なら 9 は実在 → 9 のまま（非対称の対照）。
+            Assert.AreEqual(9, RankSystem.ResolveTier(MakeImperialLikeFaction(), 9));
+        }
+
+        // (4) NextRankTier: ランク表に null エントリが混じっても落ちず正しく飛ばす（r==null 分岐）。
+        [Test]
+        public void NextRankTier_SkipsNullEntries()
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.ranks = new List<FactionData.RankEntry>
+            {
+                new FactionData.RankEntry(5, "准将"),
+                null,
+                new FactionData.RankEntry(8, "大将"),
+                null,
+            };
+            // 5 の次は（null を飛ばして）8。
+            Assert.AreEqual(8, RankSystem.NextRankTier(f, 5));
+            // 8 が最上位（null 以外で上が無い）→ 据え置き。
+            Assert.AreEqual(8, RankSystem.NextRankTier(f, 8));
+        }
+
+        // (5) PreviousRankTier: null エントリ混在でも直近下位を返す（r==null 分岐）。
+        [Test]
+        public void PreviousRankTier_SkipsNullEntries()
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.ranks = new List<FactionData.RankEntry>
+            {
+                null,
+                new FactionData.RankEntry(5, "准将"),
+                new FactionData.RankEntry(8, "大将"),
+                null,
+            };
+            Assert.AreEqual(5, RankSystem.PreviousRankTier(f, 8));
+            // 5 が最下位 → 据え置き。
+            Assert.AreEqual(5, RankSystem.PreviousRankTier(f, 5));
+        }
+
+        // (6) Next/Previous の往復：上位へ上げて下げると元に戻る（隣接 tier の単調往復不変条件）。
+        [Test]
+        public void NextThenPrevious_RoundTrips()
+        {
+            var f = MakeImperialLikeFaction();
+            for (int t = 5; t <= 9; t++)
+            {
+                int up = RankSystem.NextRankTier(f, t);
+                Assert.AreEqual(t, RankSystem.PreviousRankTier(f, up),
+                    $"tier {t} の昇進→降格で元に戻らない（up={up}）");
+            }
+        }
+
+        // (7) Compare の反対称性：Compare(a,b) と Compare(b,a) は符号が反転する不変条件。
+        [Test]
+        public void Compare_IsAntisymmetric()
+        {
+            Assert.AreEqual(System.Math.Sign(RankSystem.Compare(5, 10)),
+                            -System.Math.Sign(RankSystem.Compare(10, 5)));
+            Assert.AreEqual(0, RankSystem.Compare(-3, -3));
+            // 負 tier でも順序は保たれる。
+            Assert.Less(RankSystem.Compare(-5, -1), 0);
+            Assert.IsTrue(RankSystem.IsHigher(-1, -5));
+        }
+
+        // (8) AreEquivalent と Compare==0 の整合（同値判定の二重窓口が一致する不変条件）。
+        [Test]
+        public void AreEquivalent_ConsistentWithCompareZero()
+        {
+            int[] samples = { -2, 0, 5, 8, 10, 99 };
+            foreach (var a in samples)
+                foreach (var b in samples)
+                    Assert.AreEqual(RankSystem.Compare(a, b) == 0,
+                                    RankSystem.AreEquivalent(a, b),
+                                    $"AreEquivalent と Compare==0 が不一致（a={a}, b={b}）");
+        }
+
+        // (9) DefaultRankName: 負の tier / 上限直上は空文字（範囲外クランプの両端）。
+        [Test]
+        public void DefaultRankName_NegativeAndBoundary_IsEmpty()
+        {
+            Assert.AreEqual("", RankSystem.DefaultRankName(-1));
+            Assert.AreEqual("", RankSystem.DefaultRankName(4));   // 5 の直下
+            Assert.AreEqual("准将", RankSystem.DefaultRankName(5)); // 下端
+            Assert.AreEqual("元帥", RankSystem.DefaultRankName(10)); // 上端
+            Assert.AreEqual("", RankSystem.DefaultRankName(int.MaxValue));
+        }
+
+        // (10) ResolveRankNameOrDefault: 階級表が空でも既定ラダーへフォールバックする。
+        // 空 ranks → ResolveTier は tier 据え置き → GetRankName は "" → DefaultRankName(7)="中将"。
+        [Test]
+        public void ResolveRankNameOrDefault_EmptyTable_FallsBackToDefaultLadder()
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.ranks = new List<FactionData.RankEntry>();
+            Assert.AreEqual("中将", RankSystem.ResolveRankNameOrDefault(f, 7));
+            // 既定ラダーにも無い tier は空文字。
+            Assert.AreEqual("", RankSystem.ResolveRankNameOrDefault(f, 4));
+        }
+
+        // (11) ResolveRankNameOrDefault: 負 tier は faction の有無に関わらず空文字（tier<=0 ガード）。
+        [Test]
+        public void ResolveRankNameOrDefault_NegativeTier_IsEmpty()
+        {
+            Assert.AreEqual("", RankSystem.ResolveRankNameOrDefault(null, -5));
+            Assert.AreEqual("", RankSystem.ResolveRankNameOrDefault(MakeImperialLikeFaction(), -5));
+        }
+
+        // (12) ResolveRankName: ランク表に該当 tier があるが rankName が空文字のエントリは "" を返す。
+        // GetRankName は一致 tier の rankName をそのまま返す＝空名はそのまま空。
+        [Test]
+        public void ResolveRankName_EmptyNameEntry_ReturnsEmpty()
+        {
+            var f = ScriptableObject.CreateInstance<FactionData>();
+            f.ranks = new List<FactionData.RankEntry>
+            {
+                new FactionData.RankEntry(8, ""),
+            };
+            Assert.AreEqual("", RankSystem.ResolveRankName(f, 8));
+            // ただし OrDefault は空名を「引けなかった」とみなし既定ラダーへ → 大将。
+            Assert.AreEqual("大将", RankSystem.ResolveRankNameOrDefault(f, 8));
+        }
     }
 }

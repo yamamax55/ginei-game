@@ -24,7 +24,8 @@ namespace Ginei
                 this.baseInterestRate = Mathf.Max(0f, baseInterestRate);
                 this.riskPremiumSlope = Mathf.Max(0f, riskPremiumSlope);
                 this.safeDebtRatio = Mathf.Max(0f, safeDebtRatio);
-                this.crisisDebtRatio = Mathf.Max(safeDebtRatio + 0.01f, crisisDebtRatio);
+                // crisis は「クランプ後の」safe を基準に下限を取る（生の負 safe を使うと crisis<safe の不変条件違反になるため）
+                this.crisisDebtRatio = Mathf.Max(this.safeDebtRatio + 0.01f, crisisDebtRatio);
                 this.welfarePerDependent = Mathf.Max(0f, welfarePerDependent);
             }
 

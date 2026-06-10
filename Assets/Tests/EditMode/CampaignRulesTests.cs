@@ -81,5 +81,202 @@ namespace Ginei.Tests
             // 帝国 1.0×1.0=1.0 ＞ 同盟 1.0×(2/3)≈0.667
             Assert.AreEqual(Faction.帝国, CampaignRules.LeadingFaction(c));
         }
+
+        // ===== 以下、敵対的エッジケース（境界・クランプ・分岐・異常入力）=====
+
+        /// <summary>null 入力でクラッシュしない（EnsureStates/Tick）。EffectiveStability(null)=0、LeadingFaction(null)=帝国（既定）。</summary>
+        [Test]
+        public void NullInputs_AreSafe()
+        {
+            Assert.DoesNotThrow(() => CampaignRules.EnsureStates(null));
+            Assert.DoesNotThrow(() => CampaignRules.Tick(null, 1f));
+            Assert.IsNull(CampaignRules.GetState(null, Faction.帝国));
+            // GetState が null → EffectiveStability は 0
+            Assert.AreEqual(0f, CampaignRules.EffectiveStability(null, Faction.帝国), 1e-5f);
+            // states が無い → LeadingFaction は既定の帝国
+            Assert.AreEqual(Faction.帝国, CampaignRules.LeadingFaction(null));
+        }
+
+        /// <summary>map が null の CampaignState：EnsureStates は早期 return（状態を作らない）。EffectiveStability は cohesion=1 にフォールバック。</summary>
+        [Test]
+        public void NullMap_EnsureStatesNoop_EffectiveStabilityUsesUnitCohesion()
+        {
+            var c = new CampaignState(); // map == null
+            CampaignRules.EnsureStates(c);
+            // map が null なので所有勢力を列挙できず、状態は作られない（仕様：map null は早期 return）
+            Assert.AreEqual(0, c.states.Count);
+
+            // 状態を手動で足す（既定＝安定度1.0）
+            c.states.Add(new FactionState(Faction.帝国));
+            // 実装：map==null のとき cohesion=1f にフォールバック → 1.0×1.0=1.0
+            Assert.AreEqual(1f, CampaignRules.EffectiveStability(c, Faction.帝国), 1e-5f);
+        }
+
+        /// <summary>所有星系が0の勢力（状態だけ存在）：CohesionFactor は空コレクション→0 ⇒ EffectiveStability=0。</summary>
+        [Test]
+        public void FactionWithNoOwnedSystems_EffectiveStabilityIsZero()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国)); // 同盟は1星系も持たない
+            var c = new CampaignState(m);
+            // 同盟の状態を手で足す（盤面には同盟星系が無い）
+            c.states.Add(new FactionState(Faction.同盟));
+            // 同盟の OwnedSystemIds は空 → CohesionFactor=0 → 安定度1.0×0=0
+            Assert.AreEqual(0f, CampaignRules.EffectiveStability(c, Faction.同盟), 1e-5f);
+        }
+
+        /// <summary>EnsureStates は null 星系をスキップし、重複所有勢力を1つに畳む（distinct owner 数）。</summary>
+        [Test]
+        public void EnsureStates_SkipsNullSystems_AndDedupesOwners()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国));
+            m.AddSystem(Sys(1, Faction.帝国)); // 同じ帝国＝重複所有
+            m.AddSystem(null);                 // null はスキップされる（カウントしない）
+            m.AddSystem(Sys(2, Faction.同盟));
+            var c = new CampaignState(m);
+            CampaignRules.EnsureStates(c);
+            // distinct owner = {帝国, 同盟} = 2（null は無視・帝国重複は1つ）
+            Assert.AreEqual(2, c.states.Count);
+            Assert.IsNotNull(CampaignRules.GetState(c, Faction.帝国));
+            Assert.IsNotNull(CampaignRules.GetState(c, Faction.同盟));
+        }
+
+        /// <summary>EnsureStates は既存状態を上書きしない（カスタム値が保持される＝冪等の非破壊性）。</summary>
+        [Test]
+        public void EnsureStates_DoesNotOverwriteExistingState()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国));
+            var c = new CampaignState(m);
+            // 先にカスタム状態を入れておく（legitimacy を 0.42 に）
+            var custom = new FactionState(Faction.帝国);
+            custom.regime.legitimacy = 0.42f;
+            c.states.Add(custom);
+
+            CampaignRules.EnsureStates(c);
+            // 増えない（既に帝国状態がある）し、上書きもされない
+            Assert.AreEqual(1, c.states.Count);
+            Assert.AreSame(custom, CampaignRules.GetState(c, Faction.帝国));
+            Assert.AreEqual(0.42f, CampaignRules.GetState(c, Faction.帝国).regime.legitimacy, 1e-5f);
+        }
+
+        /// <summary>Tick の境界：dt<=0 は no-op（dt=0 と dt=-1 で状態が一切変化しない）。</summary>
+        [Test]
+        public void Tick_NonPositiveDt_IsNoop()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国));
+            var c = new CampaignState(m);
+            CampaignRules.EnsureStates(c);
+            var s = CampaignRules.GetState(c, Faction.帝国);
+
+            CampaignRules.Tick(c, 0f);
+            Assert.AreEqual(0f, s.regime.corruption, 1e-5f);
+            Assert.AreEqual(1f, s.regime.legitimacy, 1e-5f);
+
+            CampaignRules.Tick(c, -1f);
+            Assert.AreEqual(0f, s.regime.corruption, 1e-5f);
+            Assert.AreEqual(1f, s.regime.legitimacy, 1e-5f);
+        }
+
+        /// <summary>Tick(dt=1) の数値を手計算で固定：corruption rise = 0.1×(1-virtue0.5)×1 = 0.05 → legitimacy=0.95。</summary>
+        [Test]
+        public void Tick_OneSecond_ExactCorruptionAndLegitimacy()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国));
+            var c = new CampaignState(m);
+            CampaignRules.EnsureStates(c);
+            var s = CampaignRules.GetState(c, Faction.帝国);
+            // 既定 virtue=0.5、corruptionRate=0.1 → rise = 0.1*(1-0.5)*1 = 0.05
+            CampaignRules.Tick(c, 1f);
+            Assert.AreEqual(0.05f, s.regime.corruption, 1e-5f);
+            Assert.AreEqual(0.95f, s.regime.legitimacy, 1e-5f);
+        }
+
+        /// <summary>Tick は null 状態を含む states でもクラッシュしない（FactionStateRules.Tick が null no-op）。</summary>
+        [Test]
+        public void Tick_WithNullStateEntry_DoesNotThrow()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国));
+            var c = new CampaignState(m);
+            c.states.Add(null);                       // 異常：null エントリ
+            c.states.Add(new FactionState(Faction.帝国));
+            Assert.DoesNotThrow(() => CampaignRules.Tick(c, 1f));
+            // 正常な帝国状態はちゃんと進む
+            Assert.Greater(CampaignRules.GetState(c, Faction.帝国).regime.corruption, 0f);
+        }
+
+        /// <summary>LeadingFaction のタイブレーク：完全同点（両方 1.0×1.0=1.0）なら厳密 ">" により最初の状態勢力を返す。</summary>
+        [Test]
+        public void LeadingFaction_ExactTie_ReturnsFirstState()
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.同盟)); // states[0] が同盟になるよう同盟を先に
+            m.AddSystem(Sys(1, Faction.帝国));
+            var c = new CampaignState(m);
+            CampaignRules.EnsureStates(c);
+            // 両者とも単一星系＝一体化1.0、安定度1.0 → 完全同点。厳密 ">" なので states[0]=同盟を維持。
+            Assert.AreEqual(c.states[0].faction, CampaignRules.LeadingFaction(c));
+            Assert.AreEqual(Faction.同盟, CampaignRules.LeadingFaction(c));
+        }
+
+        /// <summary>LeadingFaction は実効安定度（安定度×一体化度）で比べる：安定度が低くても一体化で逆転しうる。</summary>
+        [Test]
+        public void LeadingFaction_ComparesEffectiveNotRawStability()
+        {
+            // 帝国＝分断（一体化0.5）だが安定度1.0 → 実効0.5。
+            // 同盟＝連結（一体化1.0）だが安定度を 0.4 に落とす → 実効0.4。
+            // ⇒ 帝国(0.5) ＞ 同盟(0.4) で帝国が勝つ。
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国));
+            m.AddSystem(Sys(1, Faction.帝国));
+            m.AddCorridor(new Corridor(0, 2, 1f)); // 帝国0 は敵星系2経由でしか帝国1へ繋がらない＝分断
+            m.AddSystem(Sys(2, Faction.同盟));
+            m.AddCorridor(new Corridor(2, 1, 1f));
+            var c = new CampaignState(m);
+            CampaignRules.EnsureStates(c);
+
+            // 同盟の安定度を下げる（legitimacy/cooperation/cohesion/hope の平均=安定度。全部0.4に）
+            var alliance = CampaignRules.GetState(c, Faction.同盟);
+            alliance.regime.legitimacy = 0.4f;
+            alliance.polity.cooperation = 0.4f;
+            alliance.organization.cohesion = 0.4f;
+            alliance.community.hope = 0.4f;
+
+            // 帝国：所有{0,1}、回廊は 0-2 と 2-1 のみ＝帝国のみを通る連結成分は最大1 → 一体化 1/2=0.5、安定度1.0 → 実効0.5
+            Assert.AreEqual(0.5f, CampaignRules.EffectiveStability(c, Faction.帝国), 1e-5f);
+            // 同盟：所有{2}単独＝一体化1.0、安定度0.4 → 実効0.4
+            Assert.AreEqual(0.4f, CampaignRules.EffectiveStability(c, Faction.同盟), 1e-5f);
+            Assert.AreEqual(Faction.帝国, CampaignRules.LeadingFaction(c));
+        }
+
+        /// <summary>EffectiveStability の単調性：同じ盤面・同じ国家状態なら、一体化度が高い方が実効安定度も高い（割引の単調性）。</summary>
+        [Test]
+        public void EffectiveStability_MonotonicInCohesion()
+        {
+            // 連結盤面（一体化1.0）
+            var mConnected = new GalaxyMap();
+            mConnected.AddSystem(Sys(0, Faction.帝国));
+            mConnected.AddSystem(Sys(1, Faction.帝国));
+            mConnected.AddCorridor(new Corridor(0, 1, 1f));
+            var cConnected = new CampaignState(mConnected);
+            CampaignRules.EnsureStates(cConnected);
+
+            // 分断盤面（一体化0.5）
+            var mSplit = new GalaxyMap();
+            mSplit.AddSystem(Sys(0, Faction.帝国));
+            mSplit.AddSystem(Sys(1, Faction.帝国)); // 回廊なし＝完全分断
+            var cSplit = new CampaignState(mSplit);
+            CampaignRules.EnsureStates(cSplit);
+
+            float connected = CampaignRules.EffectiveStability(cConnected, Faction.帝国);
+            float split = CampaignRules.EffectiveStability(cSplit, Faction.帝国);
+            Assert.Greater(connected, split);
+            Assert.AreEqual(1.0f, connected, 1e-5f); // 1.0×1.0
+            Assert.AreEqual(0.5f, split, 1e-5f);     // 1.0×0.5
+        }
     }
 }

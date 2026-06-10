@@ -17,6 +17,7 @@
 - [x] Wave12 (2026-06-10)：TerraformingRules / RivalryRules / FriendshipRules / MentorshipRules / HistoriographyRules / ReadinessRules / ForcedMarchRules（並列7＝約4分）
 - [x] Wave13 (2026-06-10)：MothballRules / RaidRules / ScorchedEarthRules / MutinyRules / EscalationRules / DeterrenceRules / ArmsRaceRules（並列7＝約5分）
 - [x] Wave14 (2026-06-10)：ArmsControlRules / AppeasementRules / InfluenceRules / DebtDiplomacyRules / ForeignAidRules / TribunalRules / CensusRules（並列7＝約6分）
+- [x] Wave15 (2026-06-10)：CoalitionRules / ImpeachmentRules / TermLimitRules / EmergencyPowersRules / FederalismRules / CitizenshipRules / PatronageRules（並列7＝約5分）
 
 ## キュー（上から順に消化）
 
@@ -35,13 +36,6 @@
 ### 抑止・外交
 
 ### 統治・制度
-- [ ] CoalitionRules：連立政権。単独過半数なき議会の連立形成＝政策は最小公倍数に薄まり、小党が拒否権を持つ。`PartyRules`（党勢・首班）を read-only で参照可＝連立の安定度
-- [ ] ImpeachmentRules：弾劾・不信任。合法的な政権打倒経路＝要件（証拠・議席）と成否、失敗した弾劾は政権を強化する。`CoupRules`（非合法打倒）の制度版
-- [ ] TermLimitRules：任期制限。権力の時間制約と「非常時だから」の延長誘惑＝一度破ると慣習が死ぬ（共和制の死）。`ConstitutionRules`（制約一般）とは別＝時間軸の制約
-- [ ] EmergencyPowersRules：国家緊急権。非常大権は危機を速く処理するが、解除されない非常事態が常態化する（全権委任法の罠）。`MartialLawRules`（治安戒厳）とは別＝憲法停止の力学
-- [ ] FederalismRules：連邦制。中央と地方の権限配分＝分権は多様性と引き換えに統一行動が鈍る。`SeparationOfPowersRules`（水平の分立）に対する垂直の分立
-- [ ] CitizenshipRules：市民権。参政権・公職資格の範囲＝拡大は統合を進め、二級市民の存在は火種を残す。`CultureRules`（民族同化）とは別＝法的地位の付与
-- [ ] PatronageRules：猟官制・恩顧主義。官職を支持者に配って忠誠を買う＝政権は安定するが行政能力が劣化する。`SeniorityRules`（席次vs実力）とは別＝忠誠vs能力の人事
 
 ### 宮廷・人物
 - [ ] CourtFavorRules：宮廷の寵愛・讒言。君主の寵を競う廷臣＝寵臣の専横と讒言による失脚、君主の眼力が防波堤。`PowerRules`（実権構造）とは別＝寵という通貨

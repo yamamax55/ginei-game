@@ -84,6 +84,19 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void ApplyAttrition_ReducesPool_ClampedAtZero()
+        {
+            FleetPool.Set(Faction.帝国, 1000);
+            Assert.AreEqual(700, FleetPoolRules.ApplyAttrition(Faction.帝国, 300));
+            Assert.AreEqual(700, FleetPool.Get(Faction.帝国));
+            // 過剰損耗は0下限
+            Assert.AreEqual(0, FleetPoolRules.ApplyAttrition(Faction.帝国, 9999));
+            // 負の損耗は0扱い（増えない）
+            FleetPool.Set(Faction.同盟, 500);
+            Assert.AreEqual(500, FleetPoolRules.ApplyAttrition(Faction.同盟, -100));
+        }
+
+        [Test]
         public void Building_IncreasesPool_AllowsMoreAllocation()
         {
             FleetPool.Set(Faction.帝国, 5000);

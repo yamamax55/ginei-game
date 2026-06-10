@@ -62,6 +62,9 @@ namespace Ginei
         public static bool Adjust(FleetUnitData unit, int delta)
             => unit != null && Adjust(unit, delta, FleetPool.Get(unit.faction));
 
+        /// <summary>損耗で勢力の総プールを減らす（<paramref name="lost"/>≥0 を差し引く・0下限）。新しい総数を返す（#884 損耗）。</summary>
+        public static int ApplyAttrition(Faction f, int lost) => FleetPool.Add(f, -Mathf.Max(0, lost));
+
         /// <summary>指定艦隊を除く、同勢力の現役艦隊の割当合計。</summary>
         private static int OthersAllocated(FleetUnitData unit)
         {

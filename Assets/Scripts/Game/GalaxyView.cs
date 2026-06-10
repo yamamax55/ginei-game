@@ -93,12 +93,15 @@ namespace Ginei
         private List<Person> commanders;
         private int campaignYear;
 
-        // #884 造船 → #148 艦隊プール供給：プレイヤー勢力のデモ造船所。暦の日次で建艦し、完成を FleetPool へ就役（総艦艇が増える）。
-        private Shipyard playerShipyard;
-        [Tooltip("プレイヤー勢力の初期艦隊プール（FleetPool 未設定時にシード）")]
+        // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
+        // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
+        private List<Shipyard> shipyards;
+        [Tooltip("各勢力の初期艦隊プール（FleetPool 未設定時にシード）")]
         public int initialFleetPool = 12000;
-        [Tooltip("デモ造船所の建艦速度（ポイント/戦略秒。巡航艦コスト60＝buildPower1で約1日1隻）")]
+        [Tooltip("星系造船所の建艦速度（ポイント/戦略秒。生産力係数 BUILD-2 を掛ける）")]
         public float shipyardBuildPower = 1f;
+        [Tooltip("戦略会戦の戦力喪失をプール損耗へ換算する倍率（1戦略戦力≒艦艇。BattleHandoff.StrengthScale 相当）")]
+        public int attritionPoolScale = 40;
 
         // TIME-7（#959）：暦の自動スロー（Paradox 風）。平時は暦を圧縮して速く流し、会戦の生起など「観るべき瞬間」は実時間へ減速。
         [Tooltip("平時に暦を実時間の何倍で流すか（自動スロー時は1倍＝実時間へ減速）。TIME-7 #959")]
@@ -204,7 +207,7 @@ namespace Ginei
                 engagedElapsed += dt;
                 if (engagedElapsed >= currentAutoResolveSeconds)
                 {
-                    StrategyRules.ResolveEncounters(reg);
+                    ResolveEncountersWithAttrition(); // #884 損耗：戦力喪失を勢力プールへ反映
                     engagedElapsed = 0f;
                     currentAutoResolveSeconds = 0.0;
                 }
@@ -526,37 +529,81 @@ namespace Ginei
         }
 
         /// <summary>
-        /// デモ造船所を用意する（#884→#148）。プレイヤー勢力の初期艦隊プールをシードし、連続建艦の先頭オーダーを積む。
-        /// 完成は暦の日次（<see cref="RunDailyCampaignTick"/>）で <see cref="FleetPool"/> へ就役＝編成画面の総艦艇が増える。
+        /// 星系ごとの造船所を用意する（#884→#148）。各勢力の初期艦隊プールをシードし、所有星系に造船所を置いて連続建艦を積む。
+        /// 完成は暦の日次（<see cref="RunDailyCampaignTick"/>）で所有勢力の <see cref="FleetPool"/> へ就役＝編成画面の総艦艇が増える。
         /// </summary>
         private void SetupShipyard()
         {
-            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
-            if (FleetPool.Get(pf) <= 0) FleetPool.Set(pf, Mathf.Max(0, initialFleetPool));
-            playerShipyard = new Shipyard(0, pf, 1, Mathf.Max(0f, shipyardBuildPower));
-            EnqueueNextBuild();
+            shipyards = new List<Shipyard>();
+            if (map == null) return;
+            var seeded = new HashSet<Faction>();
+            foreach (var s in map.systems)
+            {
+                if (s == null) continue;
+                if (seeded.Add(s.owner) && FleetPool.Get(s.owner) <= 0) FleetPool.Set(s.owner, Mathf.Max(0, initialFleetPool));
+                var yard = new Shipyard(s.id, s.owner, 1, Mathf.Max(0f, shipyardBuildPower));
+                ShipyardRules.Enqueue(yard, ShipClass.巡航艦, ShipRole.戦闘艦);
+                shipyards.Add(yard);
+            }
         }
 
-        /// <summary>造船キューが空なら次の建艦（巡航艦）を積む（連続生産）。</summary>
-        private void EnqueueNextBuild()
-        {
-            if (playerShipyard != null && playerShipyard.queue.Count == 0)
-                ShipyardRules.Enqueue(playerShipyard, ShipClass.巡航艦, ShipRole.戦闘艦);
-        }
-
-        /// <summary>暦の1日ぶん建艦を進め、完成艦を勢力プールへ就役させる（#884→#148・HUD告知）。</summary>
+        /// <summary>
+        /// 暦の1日ぶん全造船所の建艦を進め、完成艦を所有勢力プールへ就役させる（#884→#148）。生産力は内政（Province 安定度＝BUILD-2）連動。
+        /// プレイヤー勢力の完成のみ HUD 告知（AI 建艦は静かに進む）。
+        /// </summary>
         private void TickShipyard(float secondsPerDay)
         {
-            if (playerShipyard == null) return;
-            var done = ShipyardRules.Tick(playerShipyard, secondsPerDay, 1f); // 生産力係数は将来 BUILD-2/内政連動
-            int built = 0;
-            for (int i = 0; i < done.Count; i++) built += ShipyardRules.CommissionToPool(done[i]);
-            if (built > 0)
+            if (shipyards == null) return;
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            int playerBuilt = 0;
+            for (int i = 0; i < shipyards.Count; i++)
             {
-                battleMsg = $"造船完成：艦艇 +{built}（{playerShipyard.faction} プールへ／編成画面 B で配分）";
+                Shipyard yard = shipyards[i];
+                if (yard == null) continue;
+                provinces.TryGetValue(yard.systemId, out var prov);
+                float factor = ShipyardRules.ProductionFactor(prov); // BUILD-2：安定度比例＝支配≠即建艦
+                var done = ShipyardRules.Tick(yard, secondsPerDay, factor);
+                for (int j = 0; j < done.Count; j++)
+                {
+                    int built = ShipyardRules.CommissionToPool(done[j]);
+                    if (yard.faction == pf) playerBuilt += built;
+                }
+                if (yard.queue.Count == 0) ShipyardRules.Enqueue(yard, ShipClass.巡航艦, ShipRole.戦闘艦);
+            }
+            if (playerBuilt > 0)
+            {
+                battleMsg = $"造船完成：艦艇 +{playerBuilt}（プールへ／編成画面 B で配分）";
                 battleMsgTimer = 4f;
             }
-            EnqueueNextBuild();
+        }
+
+        /// <summary>戦略会戦の戦力喪失を勢力プールの損耗へ反映して解決する（#884 損耗）。解決前後の戦力差を debit。</summary>
+        private void ResolveEncountersWithAttrition()
+        {
+            var before = TotalStrengthByFaction();
+            StrategyRules.ResolveEncounters(reg);
+            var after = TotalStrengthByFaction();
+            foreach (var kv in before)
+            {
+                after.TryGetValue(kv.Key, out int now);
+                int lost = kv.Value - now;
+                if (lost > 0) FleetPoolRules.ApplyAttrition(kv.Key, lost * Mathf.Max(0, attritionPoolScale));
+            }
+        }
+
+        /// <summary>現在の戦略艦隊の勢力別合計戦力。</summary>
+        private Dictionary<Faction, int> TotalStrengthByFaction()
+        {
+            var d = new Dictionary<Faction, int>();
+            if (reg != null && reg.fleets != null)
+                for (int i = 0; i < reg.fleets.Count; i++)
+                {
+                    StrategicFleet f = reg.fleets[i];
+                    if (f == null) continue;
+                    d.TryGetValue(f.faction, out int s);
+                    d[f.faction] = s + f.strength;
+                }
+            return d;
         }
 
         /// <summary>

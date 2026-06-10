@@ -1,10 +1,8 @@
 {
-    "name": "Ginei.Runtime",
+    "name": "Ginei.Data",
     "rootNamespace": "Ginei",
     "references": [
-        "Unity.InputSystem",
-        "Unity.TextMeshPro",
-        "UnityEngine.UI"
+        "Ginei.Core"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

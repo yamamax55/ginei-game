@@ -146,23 +146,12 @@ namespace Ginei
 
         /// <summary>
         /// 使用する ScenarioData を解決します。
-        /// Inspector 指定 > GameSettings.scenarioName 一致(Resources 全走査) の順。
+        /// Inspector 指定 > GameSettings.scenarioName 一致 の順。索引は ContentDatabase（FND-1 #496）に集約。
         /// </summary>
         private ScenarioData ResolveScenario()
         {
             if (scenarioOverride != null) return scenarioOverride;
-
-            string targetName = GameSettings.Instance.scenarioName;
-
-            // Resources 配下の全 ScenarioData から scenarioName 一致を探す（ファイル名に依存しない）
-            ScenarioData[] all = Resources.LoadAll<ScenarioData>("");
-            foreach (var s in all)
-            {
-                if (s.scenarioName == targetName) return s;
-            }
-
-            // フォールバック：ファイル名一致で直接ロード
-            return Resources.Load<ScenarioData>(targetName);
+            return ScenarioData.Resolve(GameSettings.Instance.scenarioName);
         }
 
         /// <summary>

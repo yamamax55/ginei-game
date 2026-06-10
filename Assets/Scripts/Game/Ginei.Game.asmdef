@@ -1,17 +1,14 @@
 {
-    "name": "Ginei.Editor",
+    "name": "Ginei.Game",
     "rootNamespace": "Ginei",
     "references": [
         "Ginei.Core",
         "Ginei.Data",
-        "Ginei.Game",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "UnityEngine.UI"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

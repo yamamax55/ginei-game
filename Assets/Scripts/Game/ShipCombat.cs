@@ -191,14 +191,13 @@ namespace Ginei
             float attackBonus = 1.0f;
             if (admiral != null)
             {
-                attackBonus = 1.0f + (admiral.EffectiveAttack - 50) / 100f;
+                attackBonus = CombatModifiers.AbilityFactor(admiral.EffectiveAttack);
             }
 
             // 側背面ボーナス：被弾側の正面(up)と攻撃者方向の内積で倍率を補間
             Vector2 toAttacker = ((Vector2)(attackerPos - targetTf.position)).normalized;
             float dot = Vector2.Dot(targetTf.up, toAttacker);
-            float multiplier = Mathf.Lerp(flankMultiplier, 1.0f, (dot + 1.0f) / 2.0f);
-            isFlank = multiplier >= 1.3f;
+            float multiplier = CombatModifiers.FlankFactor(dot, flankMultiplier, out isFlank);
 
             return Mathf.RoundToInt(baseDamage * attackBonus * moraleFactor * multiplier);
         }

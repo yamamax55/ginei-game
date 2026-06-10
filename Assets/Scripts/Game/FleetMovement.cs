@@ -245,34 +245,35 @@ namespace Ginei
         /// </summary>
         private float GetMobilityFactor()
         {
-            float factor = 1.0f;
+            // 基準1.0から各係数を積み上げて合成（CombatModifiers/ModifierStack に一元化＝実効値パターン）
+            ModifierStack m = ModifierStack.Start();
 
             // 提督の機動能力による補正（機動50で1.0倍, 100で1.5倍, 0で0.5倍）
             // 参謀補完を反映した実効機動を使用（基準値は非破壊）
             if (strength != null && strength.admiralData != null)
             {
-                factor *= 1.0f + (strength.admiralData.EffectiveMobility - 50) / 100f;
+                m.Mul(CombatModifiers.AbilityFactor(strength.admiralData.EffectiveMobility));
             }
 
             // 士気による補正（敗走時は専用倍率を適用し、段階的な士気補正と二重に掛けない）
             if (moraleComponent != null)
             {
-                factor *= moraleComponent.IsRouted
+                m.Mul(moraleComponent.IsRouted
                     ? routedMobilityRatio
-                    : moraleComponent.GetMoraleFactor();
+                    : moraleComponent.GetMoraleFactor());
             }
 
             // 交戦中は機動性を低下
             if (weapon != null && weapon.IsInCombat)
             {
-                factor *= weapon.combatMobilityRatio;
+                m.Mul(weapon.combatMobilityRatio);
             }
 
             // 得意陣形ボーナス：現在陣形が提督の得意陣形と一致する間だけ移動補正（実効値パターン）
             if (strength != null && strength.admiralData != null && squadron != null
                 && strength.admiralData.IsPreferredFormation(squadron.currentFormation))
             {
-                factor *= Mathf.Max(0.1f, preferredFormationMobilityBonus);
+                m.Mul(Mathf.Max(0.1f, preferredFormationMobilityBonus));
             }
 
             // 減速ペナルティを2系統で算出して合算（下限つき）：
@@ -280,9 +281,9 @@ namespace Ginei
             //  ・ZOC(GetZocFactor)＝敵対部隊の支配領域（敵の素通り・離脱の妨害）
             float penalty = GetCongestionFactor() * GetZocFactor();
             penalty = Mathf.Max(penalty, minCombinedFactor); // 完全停止を防ぐ合算下限
-            factor *= penalty;
+            m.Mul(penalty);
 
-            return factor;
+            return m.Value;
         }
 
         /// <summary>

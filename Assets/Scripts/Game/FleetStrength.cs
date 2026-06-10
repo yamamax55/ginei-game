@@ -225,9 +225,8 @@ namespace Ginei
 
             // 防御力によるダメージ軽減（参謀補完を反映した実効防御）
             float defenseValue = admiralData != null ? admiralData.EffectiveDefense : 0f;
-            // 防御100でダメージ50%カット
-            float reduction = 1.0f - Mathf.Clamp(defenseValue / 200f, 0, 0.9f);
-            int finalDamage = Mathf.RoundToInt(rawDamage * reduction);
+            // 防御100でダメージ50%カット（公式は CombatModifiers に集約・DefenseDamageFactor(0)=1.0 で軽減なし）
+            int finalDamage = Mathf.RoundToInt(rawDamage * CombatModifiers.DefenseDamageFactor(defenseValue));
 
             // 得意陣形ボーナス：現在陣形が提督の得意陣形と一致する間だけ被ダメージをさらに軽減（実効値パターン）
             if (admiralData != null && squadron != null

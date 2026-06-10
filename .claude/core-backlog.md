@@ -14,6 +14,7 @@
 - [x] Wave9 (2026-06-10)：TerrorRules / RegencyRules / PlebisciteRules / AmnestyRules / PurgeRules / ConfiscationRules / DemagogueRules
 - [x] Wave10 (2026-06-10)：MartyrdomRules / CivilWarRules / HostageRules / MigrationRules / InflationRules / BlackMarketRules / ReconstructionRules（初の並列7実装＝実装フェーズ約7分）
 - [x] Wave11 (2026-06-10)：ReparationsRules / MonopolyRules / MegaProjectRules(#1090) / InnovationDiffusionRules / BufferStateRules / ChokepointValueRules / SenescenceRules（並列7＝約5分）
+- [x] Wave12 (2026-06-10)：TerraformingRules / RivalryRules / FriendshipRules / MentorshipRules / HistoriographyRules / ReadinessRules / ForcedMarchRules（並列7＝約4分）
 
 ## キュー（上から順に消化）
 
@@ -26,15 +27,8 @@
 ### 経済
 
 ### 戦略・人物
-- [ ] RivalryRules：宿敵（ヤン vs ラインハルト型）。好敵手の存在が互いの成長・士気を引き上げ、宿敵の死は勝者から張りを奪う。`GrowthRules`（経験成長）とは別＝関係性ボーナス
-- [ ] FriendshipRules：盟友（キルヒアイス/双璧型）。深い信頼の僚友は共同作戦にボーナス、喪失・反目は深い痛手。`CommandStaffRules`（職制上の補佐）とは別＝個人的紐帯
-- [ ] MentorshipRules：師弟（メルカッツ型）。老練の師が後進の成長を加速し、師の死で独り立ちが試される。`GrowthRules`（成長曲線）へ係数を渡す別系統＝伝授
-- [ ] HistoriographyRules：歴史叙述。勝者が歴史を書く＝人物の後世評価は政権の都合で改竄され、政権交代で再評価される。`ReputationRules`（存命中の名声）とは別＝死後の評価戦
-- [ ] TerraformingRules：テラフォーミング。非居住可能星系への長期投資で `habitable` 化＝入植先を作る。`ColonizationRules`（居住可能星系への入植）の前段＝別系統
 
 ### 軍事・即応態勢
-- [ ] ReadinessRules：即応態勢。警戒水準は維持費を食い、緩めると奇襲に弱い（休暇中の艦隊は出遅れる）。`VeterancyRules`（長期の熟練）とは別＝短期の警戒状態
-- [ ] ForcedMarchRules：強行軍。到着を早める代わりに疲労蓄積＝到着直後の戦闘ペナルティ、無理を重ねると落伍。`StrategicFleet`（移動そのもの）は不変＝疲労係数の算出のみ
 - [ ] MothballRules：予備役艦隊・モスボール。退蔵保管は維持費を大きく削るが、再就役に時間と整備費がかかる。`ShipAgingRules`（経年劣化）とは別＝保管状態の管理
 - [ ] RaidRules：縦深襲撃。敵後方の補給拠点・造船所への一撃離脱＝占領せず破壊して戻る、深入りほど帰還リスク。`CommerceRaidingRules`（船団狩り）とは別＝固定目標への強襲
 - [ ] ScorchedEarthRules：焦土戦術。撤退時に自領の資産を焼いて敵の利得を消す＝侵攻は鈍るが自国民の恨みと復興費が残る。`ReconstructionRules`（再建側）と対になる破壊側

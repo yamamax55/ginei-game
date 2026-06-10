@@ -68,6 +68,59 @@ namespace Ginei
             Register("Clock (GameClock)",         () => StrategySession.Clock);
         }
 
+        // ===== 用語集（フィールド名→日本語説明） =====
+
+        /// <summary>
+        /// フィールド/プロパティ名→日本語説明。汎用ダンパーは型の意味を知らないので、ここで名前を引いて
+        /// 説明を併記する。自動コード化ルーチンは新フィールドを生やすたびに1行足すだけ＝説明も歩調を合わせる。
+        /// 同名フィールド（legitimacy 等）は代表的な訳を1つ持つ（型をまたいでも概ね通じる粒度）。
+        /// </summary>
+        private static readonly Dictionary<string, string> glossary = new Dictionary<string, string>
+        {
+            // 共通
+            { "id", "識別子" }, { "faction", "勢力" }, { "owner", "所有勢力" }, { "ownerData", "所有勢力データ" },
+            { "ruler", "支配勢力" }, { "position", "座標" }, { "name", "名称" },
+            // FactionState（国家状態の合成）
+            { "regime", "王朝" }, { "polity", "統治体" }, { "organization", "組織" }, { "community", "共同体" },
+            { "inclusiveness", "統治スタイル 収奪0↔包摂1" }, { "taxRate", "税率" }, { "treasury", "国庫" },
+            { "states", "勢力ごとの国家状態" }, { "map", "銀河盤面" },
+            // Regime（王朝＝天命）
+            { "legitimacy", "正統性/天命" }, { "corruption", "腐敗/制度疲労" }, { "virtue", "統治の徳（高いほど腐敗が遅い）" },
+            // Polity（統治体＝合意）
+            { "population", "人口" }, { "rulerForce", "支配側の直接戦力" }, { "cooperation", "被支配者の協力/同意" },
+            { "oppression", "収奪/抑圧" },
+            // Organization（組織＝結束）
+            { "cohesion", "結束" }, { "institutionalization", "制度化（日常化への投資）" },
+            { "leaderCharisma", "リーダーの個人カリスマ" }, { "fragmented", "組織崩壊したか" },
+            // Community（共同体＝希望）
+            { "hope", "希望" }, { "repression", "秩序ルートの抑圧" }, { "dissent", "末人（ロンドン派）が立ったか" },
+            // GameClock（統一時間）
+            { "elapsedSeconds", "経過 game-秒" }, { "ElapsedSeconds", "経過 game-秒" },
+            { "speed", "時間速度" }, { "paused", "停止中か" },
+            // StarSystem / Corridor / GalaxyMap（盤面）
+            { "systemName", "星系名" }, { "planet", "防衛惑星（null=無防備）" }, { "habitable", "居住可能か" },
+            { "isColonized", "入植済みか" }, { "systemType", "星系の類型（工業/農業/鉱業/居住）" },
+            { "systems", "星系ノード一覧" }, { "corridors", "回廊エッジ一覧" },
+            { "aId", "端点A" }, { "bId", "端点B" }, { "length", "回廊長" }, { "type", "回廊種別（通商/要衝）" },
+            // Planet（攻城対象）
+            { "systemId", "所属星系ID" }, { "kind", "攻略対象の種別（惑星/要塞/コロニー）" }, { "KindName", "種別名" },
+            { "orbitalDefense", "制空権（>0で艦隊接近不可）" }, { "maxOrbitalDefense", "制空権の上限" },
+            { "invasionProgress", "侵略値の蓄積" }, { "invasionThreshold", "占領に要する侵略閾値" },
+            { "DomainDown", "制空権が崩壊したか" }, { "Captured", "占領されたか" }, { "FleetApproachBlocked", "接近限界が働いているか" },
+            // Province（内政）
+            { "nativeIdeology", "住民の思想（占領しても即は変わらない）" }, { "stability", "安定度0..100" },
+            { "integration", "占領統合度0..1" },
+        };
+
+        /// <summary>名前に対応する日本語説明「（説明）」を返す（末尾の " ▸"＝プロパティ印は無視・無ければ空）。</summary>
+        private static string Gloss(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            string key = name.EndsWith(" ▸") ? name.Substring(0, name.Length - 2) : name;
+            if (glossary.TryGetValue(key, out string g)) return "<color=#6f8a9a>（" + g + "）</color>";
+            return "";
+        }
+
         // ===== 内部状態 =====
 
         private GameObject overlayRoot;
@@ -221,7 +274,7 @@ namespace Ginei
                     if (visited.Contains(obj)) { sb.Append(indent).Append(Field(name)).Append("<color=#7a8694>↺ (循環参照)</color>\n"); return; }
                     visited.Add(obj);
                 }
-                sb.Append(indent).Append("<color=#bfe9c0>").Append(name).Append("</color> <color=#5b6b7a>(").Append(t.Name).Append(")</color>\n");
+                sb.Append(indent).Append("<color=#bfe9c0>").Append(name).Append("</color>").Append(Gloss(name)).Append(" <color=#5b6b7a>(").Append(t.Name).Append(")</color>\n");
                 if (depth >= maxDepth) { sb.Append(Indent(depth + 1)).Append("<color=#7a8694>…(深さ上限)</color>\n"); return; }
                 DumpMembers(sb, obj, t, depth + 1, visited);
                 return;
@@ -261,7 +314,7 @@ namespace Ginei
             return depth <= 0 ? "" : new string('　', depth);
         }
 
-        private static string Field(string name) => "<color=#cdd6df>" + name + "</color> ＝ ";
+        private static string Field(string name) => "<color=#cdd6df>" + name + "</color>" + Gloss(name) + " ＝ ";
 
         /// <summary>0..1 を「████░░░░ 0.42」のバーで追加する。</summary>
         private void AppendBar(StringBuilder sb, float v01)

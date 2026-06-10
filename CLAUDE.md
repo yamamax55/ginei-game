@@ -255,6 +255,15 @@
   2. **新しい state フィールド/プロパティ**を足したら、`CoreStateInspector` の `glossary` に `{ "フィールド名", "日本語説明" }` を1行足す（無くても崩れないが説明が出ない）。
 - 入力（G/J）は `GameInput`（#107）の `観測オーバーレイ切替`/`状態インスペクタ切替` に集約済み。`HelpOverlay` にも掲載。第2層「操作化」（プレイヤーがレバーを回す）はここから手で昇格させる＝自動化しない核。
 
+## スケーラビリティ規律（終盤ラグを生まない・PERF #1117）
+> グランドストラテジーの宿痾＝**終盤ラグ**を構造的に避ける。反面教師は Stellaris（pop単位経済が際限なく増え、毎ティック全再計算、N²相互作用、直列）。設計＝`docs/late-game-performance-design.md`。**「タイクン化回避」＝そのまま「ラグ回避」**（同じ決断の裏表）。新しい Tick系・カップリング・リストを足すときは下の5原則を必ず守る。
+1. **個体粒度へ降りない**：pop/個艦単位の経済を作らない。集約（勢力 `FactionState`／星系・惑星 `Province`＝#767 ハイブリッド）に留める。realism 欲しさの粒度低下が終盤ラグの第一原因。
+2. **毎フレームでなく暦境界でTick**：マクロ進行は `CalendarDispatcher`（日/月/年境界）に相乗りする。`Update` で毎フレーム全再計算しない（新 CPL#1109 等も日次Tickへ）。
+3. **差分・収束・キャッシュ**：状態は小さな delta で進め（`GovernanceRules` の目標値収束）、派生/集約値（`AggregateSystem`/`GalaxyPathfinder`）は**変化時のみ**再計算してキャッシュ（`Squadron` 陣形スロット・`BeamFx` グラデの既存規律をマクロ層へ）。
+4. **N²の相手数を増やさない**：ペア相互作用（外交#189 opinion／`FactionRelations`／CPL ブルウィップの鎖横断／SAW-4 裁定）は**遅延・オンデマンド・間引き**で、毎ティック全ペア走査しない。勢力数を少なく保つ。
+5. **シミュLOD（見ていない物は粗く）**：遠方/非係争/オフスクリーンは粗い粒度でTick・さらに集約。`AutoBattleSim`（観てない会戦は抽象解決）の思想を一般化＝**観測解像度とシミュ解像度を分離**するのが終盤ラグの根治薬。
+- 無制限増加するリスト（人物名簿/イベント履歴/`DisclosureLedger`/状況ログ）は GC・集約・上限を付ける（`NotificationCenter` の有界リングバッファが手本）。打ち切りは log で明示（silent truncation 禁止）。
+
 ## 日本語表示の注意
 - 頭上ラベル/ダメージ表示は legacy `TextMesh`：実行時フォントは **`FontProvider.JapaneseFont`** が解決する（唯一の窓口）。中身は `Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")`。**Unity6 で `"Arial.ttf"` は廃止され例外を投げる**（過去に一瞬で艦隊が消えるバグの原因）。エディタ内では `Assets/Fonts/msgothic.ttc` があれば優先。
 - UI の TMP は `Resources` の `"JapaneseFont_TMP"`(TMP_FontAsset) をフォールバックに使う。

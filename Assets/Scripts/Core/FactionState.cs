@@ -20,6 +20,12 @@ namespace Ginei
         /// <summary>統治スタイル 0..1（0=収奪的＝抑圧高・即効だが崩れる／1=包摂的＝抑圧低・遅いが安定・GEO-2 #843）。</summary>
         public float inclusiveness = 0.5f;
 
+        /// <summary>税率レバー 0..1（S5・縦スライス）。高いほど税収↑だが民心(<see cref="community"/>.hope)を蝕む。既定0.3。</summary>
+        public float taxRate = 0.3f;
+
+        /// <summary>国庫＝税収の蓄積（S5）。<see cref="CampaignRules.TickEconomy"/> が課税ベース×税率を毎ターン加算。</summary>
+        public float treasury = 0f;
+
         public FactionState() { }
 
         public FactionState(Faction faction, float inclusiveness = 0.5f)

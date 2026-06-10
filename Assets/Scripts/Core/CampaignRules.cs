@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Ginei
 {
@@ -10,6 +11,43 @@ namespace Ginei
     /// </summary>
     public static class CampaignRules
     {
+        /// <summary>課税ベースの人口あたり係数（人口×これ×安定度＝経済規模の代理。S5）。</summary>
+        public const float EconomyPerCapita = 1e-5f;
+        /// <summary>高税の負担が民心(希望)を蝕む速さ（/戦略秒。S5）。</summary>
+        public const float TaxBurdenDriftRate = 0.05f;
+
+        /// <summary>
+        /// 課税ベース＝人口 × <see cref="EconomyPerCapita"/> × 実効安定度（安定した大国ほど課税ベースが大きい）。
+        /// </summary>
+        public static float EconomyBase(FactionState s)
+        {
+            if (s == null || s.polity == null) return 0f;
+            float pop = s.polity.population > 0f ? s.polity.population : 0f;
+            return pop * EconomyPerCapita * FactionStateRules.Stability(s);
+        }
+
+        /// <summary>
+        /// 財政の時間進行（S5・縦スライス）：各勢力の税収を国庫へ加算し、高税の負担で民心(希望)を蝕む。
+        /// 既存の <see cref="Tick"/>（社会連鎖）とは別系統＝盤面側が両方を回す。null/dt&lt;=0 は無効。
+        /// </summary>
+        public static void TickEconomy(CampaignState c, float dt)
+        {
+            if (c == null || dt <= 0f) return;
+            for (int i = 0; i < c.states.Count; i++)
+            {
+                FactionState s = c.states[i];
+                if (s == null) continue;
+                // 税収を国庫へ（課税ベース×税率）
+                s.treasury += FiscalRules.TaxRevenue(EconomyBase(s), s.taxRate) * dt;
+                // 高税の負担で民心(希望=支持)が蝕まれる（状態を直接進める＝盤面の進行）
+                if (s.community != null)
+                {
+                    float burden = FiscalRules.TaxBurdenPenalty(s.taxRate) * TaxBurdenDriftRate * dt;
+                    s.community.hope = Mathf.Clamp01(s.community.hope - burden);
+                }
+            }
+        }
+
         /// <summary>盤面に1星系以上を所有する勢力それぞれに FactionState を用意する（無ければ追加）。</summary>
         public static void EnsureStates(CampaignState c)
         {

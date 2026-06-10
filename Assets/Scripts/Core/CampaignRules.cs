@@ -48,6 +48,17 @@ namespace Ginei
             }
         }
 
+        /// <summary>
+        /// 財政を <b>1 game-day ぶん</b>進める（TIME-6 #952＝暦の日境界で1回呼ぶ）。連続版 <see cref="TickEconomy"/> を
+        /// 1日の秒数（<paramref name="secondsPerDay"/>）で積分した量と一致＝総量は同じで、離散（日次）に切り替える。
+        /// フレームレート非依存・「暦比で同じ帰結」を厳密化する。secondsPerDay&lt;=0 は無効。
+        /// </summary>
+        public static void TickEconomyDay(CampaignState c, float secondsPerDay)
+        {
+            if (secondsPerDay <= 0f) return;
+            TickEconomy(c, secondsPerDay);
+        }
+
         /// <summary>盤面に1星系以上を所有する勢力それぞれに FactionState を用意する（無ければ追加）。</summary>
         public static void EnsureStates(CampaignState c)
         {

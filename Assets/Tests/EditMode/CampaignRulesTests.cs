@@ -350,5 +350,32 @@ namespace Ginei.Tests
             Assert.AreEqual(t, s.treasury, 1e-5f);
             Assert.AreEqual(0f, CampaignRules.EconomyBase(null), 1e-5f); // null 課税ベース=0
         }
+
+        // ───────── TIME-6：暦の日次経済（TickEconomyDay）─────────
+
+        [Test]
+        public void TickEconomyDay_EqualsContinuousOverOneDay()
+        {
+            // 日次1回 == 連続版を1日の秒数(60)で積分＝総量一致（離散化しても暦比で同じ帰結）
+            const float spd = 60f;
+            var cDay = OneFaction(out var sDay);   sDay.taxRate = 0.5f;
+            var cCont = OneFaction(out var sCont); sCont.taxRate = 0.5f;
+            CampaignRules.TickEconomyDay(cDay, spd);
+            CampaignRules.TickEconomy(cCont, spd);
+            Assert.AreEqual(sCont.treasury, sDay.treasury, 1e-4f);
+            Assert.AreEqual(sCont.community.hope, sDay.community.hope, 1e-5f);
+        }
+
+        [Test]
+        public void TickEconomyDay_NonPositiveSecondsPerDay_Safe()
+        {
+            var c = OneFaction(out var s);
+            s.taxRate = 0.5f;
+            float t = s.treasury;
+            CampaignRules.TickEconomyDay(c, 0f);   // 0 は無変化
+            CampaignRules.TickEconomyDay(c, -60f); // 負も無変化
+            CampaignRules.TickEconomyDay(null, 60f); // null 安全
+            Assert.AreEqual(t, s.treasury, 1e-5f);
+        }
     }
 }

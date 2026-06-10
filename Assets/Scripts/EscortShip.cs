@@ -108,6 +108,9 @@ namespace Ginei
             // 非戦闘艦（#128）の配下艦も攻撃しない（旗艦の役割に従う）
             if (flagship != null && !flagship.IsCombatant) return;
 
+            // 静観（#817）の配下艦も発砲しない（旗艦の旗幟に従う）
+            if (flagship != null && !flagship.IsFighting) return;
+
             // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止
             if (flagship != null && flagship.IsRetreating)
             {

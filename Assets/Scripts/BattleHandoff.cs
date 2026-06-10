@@ -23,6 +23,10 @@ namespace Ginei
         public static int fleetIdA, fleetIdB;          // 戦略側の艦隊ID（戻ってから紐付ける）
         public static string returnScene = "Strategy";
 
+        // 旗幟（#817 関ヶ原型）：国家状態由来の基準忠誠/調略浸透を会戦へ運ぶ（既定 1/0＝従来動作）
+        public static float loyaltyA = 1f, loyaltyB = 1f;
+        public static float intrigueA = 0f, intrigueB = 0f;
+
         // 出力：結果
         public static bool sideAWon;
         public static int survivorStrength;
@@ -107,6 +111,8 @@ namespace Ginei
             IsSystemView = false;
             factionA = a.faction; strengthA = a.strength; fleetIdA = a.id; admiralA = null;
             factionB = b.faction; strengthB = b.strength; fleetIdB = b.id; admiralB = null;
+            loyaltyA = loyaltyB = 1f;   // 旗幟は既定＝完全忠誠（戦略側が国家状態から上書きする・#817）
+            intrigueA = intrigueB = 0f;
             BattleHandoff.returnScene = returnScene;
             Pending = true;
             Resolved = false;

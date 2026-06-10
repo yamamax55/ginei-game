@@ -27,6 +27,8 @@ MonoBehaviour:
     fleetName: 
     corps: "\u89AA\u885B\u8ECD\u56E3"
     armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
+    loyalty: 1
+    intrigue: 0
   - admiral: {fileID: 11400000, guid: 136878f6588e9ee4085478918fe1b5a0, type: 2}
     faction: 0
     factionData: {fileID: 0}
@@ -36,6 +38,8 @@ MonoBehaviour:
     fleetName: 
     corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
     armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
+    loyalty: 1
+    intrigue: 0
   - admiral: {fileID: 11400000, guid: fafac2af8e3a6e74399d9ae0e78398b1, type: 2}
     faction: 0
     factionData: {fileID: 0}
@@ -45,6 +49,8 @@ MonoBehaviour:
     fleetName: 
     corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
     armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
+    loyalty: 1
+    intrigue: 0
   - admiral: {fileID: 11400000, guid: 35cea87aa862d0b4abbd3594c09d5a84, type: 2}
     faction: 1
     factionData: {fileID: 0}
@@ -54,6 +60,8 @@ MonoBehaviour:
     fleetName: 
     corps: "\u30A4\u30BC\u30EB\u30ED\u30FC\u30F3\u65B9\u9762\u8ECD"
     armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"
+    loyalty: 1
+    intrigue: 0
   - admiral: {fileID: 11400000, guid: 7adb924ef420cd745a0144a80b6b73c1, type: 2}
     faction: 1
     factionData: {fileID: 0}
@@ -63,6 +71,8 @@ MonoBehaviour:
     fleetName: 
     corps: "\u540C\u76DF\u672C\u968A"
     armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"
+    loyalty: 1
+    intrigue: 0
   - admiral: {fileID: 11400000, guid: 99a1c1e8b15deab419bd2270b6d5d613, type: 2}
     faction: 1
     factionData: {fileID: 0}
@@ -72,3 +82,5 @@ MonoBehaviour:
     fleetName: 
     corps: "\u540C\u76DF\u672C\u968A"
     armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"
+    loyalty: 1
+    intrigue: 0

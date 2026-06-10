@@ -88,6 +88,13 @@ namespace Ginei
                 return;
             }
 
+            // 静観（#817 関ヶ原型・フリーライダー #820）：山上で動かない＝発砲しない
+            if (myStrength != null && !myStrength.IsFighting)
+            {
+                IsInCombat = false;
+                return;
+            }
+
             // 旗艦喪失で退却中は発砲停止（交戦状態も解除して機動低下を起こさない）
             if (myStrength != null && myStrength.IsRetreating)
             {
@@ -187,6 +194,17 @@ namespace Ginei
             manualTarget = null;
             manualTargetFleet = null;
             useMissiles = false;
+        }
+
+        /// <summary>
+        /// 手動攻撃目標が指定艦隊（またはその所属個艦）なら解除する。
+        /// 寝返り（#817）で陣営が変わった艦隊を、旧敵が手動目標のまま撃ち続けないための整理用。
+        /// </summary>
+        public void ClearManualTargetIfFleet(Squadron fleet)
+        {
+            if (fleet == null) return;
+            if (manualTargetFleet == fleet) { ClearManualTarget(); return; }
+            if (manualTarget != null && ShipCombat.GetSquadronOf(manualTarget) == fleet) ClearManualTarget();
         }
 
         /// <summary>ミサイル攻撃モードの切替（残弾がある間だけミサイルで撃つ。弾切れで自動的に通常攻撃へ）。</summary>

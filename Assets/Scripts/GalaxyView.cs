@@ -166,6 +166,9 @@ namespace Ginei
             // 内政（#109）：所有変化で不安定化→時間で統合・安定。情報パネル(#759)が読む。
             TickGovernance(dt);
 
+            // 国家状態（#817 旗幟の出所）：各勢力の腐敗→合意→希望を銀河時間で進める。
+            CampaignRules.Tick(StrategySession.Campaign, dt);
+
             if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
             HandleMouse();
@@ -201,6 +204,10 @@ namespace Ginei
             }
 
             StrategySession.Provinces = provinces; // 以後この参照を永続化（static が生き続ける間）
+
+            // 国家状態（#817 旗幟の基準忠誠の出所）：Battle 往復で失わないよう StrategySession に持たせる。
+            if (StrategySession.Campaign == null) StrategySession.Campaign = new CampaignState(map);
+            CampaignRules.EnsureStates(StrategySession.Campaign);
         }
 
         private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)
@@ -661,6 +668,17 @@ namespace Ginei
             if (!NearestCorridor(w, out Corridor c, out _, out float d) || d > 0.6f) return false;
             if (!StrategyRules.TryGetEngagementOnCorridor(reg, c.aId, c.bId, out var a, out var b)) return false;
             BattleHandoff.Queue(a, b, "Strategy");
+
+            // 旗幟（#817）：国家状態から基準忠誠/調略の付け入りやすさを積む＝腐った国の艦隊は会戦中に寝返りうる。
+            var campaign = StrategySession.Campaign;
+            if (campaign != null)
+            {
+                FactionState sa = CampaignRules.GetState(campaign, a.faction);
+                FactionState sb = CampaignRules.GetState(campaign, b.faction);
+                if (sa != null) { BattleHandoff.loyaltyA = FactionLoyaltyRules.BaselineLoyalty(sa); BattleHandoff.intrigueA = FactionLoyaltyRules.BribeSusceptibility(sa); }
+                if (sb != null) { BattleHandoff.loyaltyB = FactionLoyaltyRules.BaselineLoyalty(sb); BattleHandoff.intrigueB = FactionLoyaltyRules.BribeSusceptibility(sb); }
+            }
+
             SceneManager.LoadScene("Battle");
             return true;
         }

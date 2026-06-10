@@ -146,6 +146,9 @@ if (Time.time >= nextSearchTime)
                 return;
             }
 
+            // ── 静観（#817 関ヶ原型）：山上で動かない＝接近も交戦もしない（発砲停止は FleetWeapon 側）──
+            if (strength != null && !strength.IsFighting) return;
+
             if (targetEnemy == null && currentState != AIState.撤退)
             {
                 // 敵がいない場合は停止

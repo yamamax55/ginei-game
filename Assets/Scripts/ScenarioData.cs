@@ -90,6 +90,14 @@ namespace Ginei
 
             [Tooltip("所属軍集団名（#147。空＝軍団直属/なし。corps の上位）")]
             public string armyGroup = "";
+
+            [Tooltip("自軍への忠誠 0..1（#817 関ヶ原型。1＝従来動作＝必ず戦う。低いと趨勢次第で静観・寝返り）")]
+            [Range(0f, 1f)]
+            public float loyalty = 1f;
+
+            [Tooltip("敵の調略の浸透 0..1（#817。高いほど劣勢時に寝返りやすい）")]
+            [Range(0f, 1f)]
+            public float intrigue = 0f;
         }
     }
 }

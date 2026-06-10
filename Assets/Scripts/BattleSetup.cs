@@ -195,6 +195,10 @@ namespace Ginei
                     strength.faction = entry.faction; // シナリオの enum 陣営を優先して上書き
                 }
 
+                // 旗幟（#817 関ヶ原型）：忠誠/調略浸透を反映（既定 1/0＝従来動作）
+                strength.loyalty = Mathf.Clamp01(entry.loyalty);
+                strength.intrigue = Mathf.Clamp01(entry.intrigue);
+
                 // 反映した勢力で色を再適用
                 FactionColor color = fleet.GetComponent<FactionColor>();
                 if (color != null) color.ApplyColors();
@@ -284,6 +288,9 @@ namespace Ginei
 
             var eA = MakeHandoffEntry(BattleHandoff.factionA, BattleHandoff.admiralA, BattleHandoff.strengthA, new Vector2(-6f, 0f));
             var eB = MakeHandoffEntry(BattleHandoff.factionB, BattleHandoff.admiralB, BattleHandoff.strengthB, new Vector2(6f, 0f));
+            // 旗幟（#817）：戦略側が国家状態から積んだ基準忠誠/調略浸透を会戦へ（既定 1/0＝従来動作）
+            eA.loyalty = BattleHandoff.loyaltyA; eA.intrigue = BattleHandoff.intrigueA;
+            eB.loyalty = BattleHandoff.loyaltyB; eB.intrigue = BattleHandoff.intrigueB;
             GameObject ga = SpawnFleet(eA, playerFaction);
             GameObject gb = SpawnFleet(eB, playerFaction);
             if (ga != null) fleets.Add(ga);

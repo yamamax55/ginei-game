@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -110,12 +109,6 @@ namespace Ginei
 
             // 手動攻撃目標の追尾（プレイヤー指定時）。移動中の敵を追う。
             HandlePursuit();
-
-            // デバッグ用: Zキーで強制発射（射界内の敵にのみ撃つ。空間へビームを出さない）
-            if (Keyboard.current != null && Keyboard.current.zKey.wasPressedThisFrame)
-            {
-                AttackNearestEnemyInArc();
-            }
 
             // 自動攻撃 または 指定ターゲット攻撃
             if (Time.time >= nextFireTime)

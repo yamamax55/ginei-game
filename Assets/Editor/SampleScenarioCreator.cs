@@ -62,13 +62,25 @@ namespace Ginei
                 Entry(uranff, Faction.同盟, new Vector2(-4f, -2f), Formation.横陣, 10),
             });
 
+            // 4) 関ヶ原型（#817）：同盟は名目兵力で優るが、調略済み・低忠誠の艦隊を抱える＝「戦う前に決まる戦い」。
+            //    アッテンボロー隊（小早川型・調略済み）は劣勢を見て寝返り、ウランフ隊（毛利型・低忠誠）は静観する。
+            CreateScenario("調略の会戦", new List<ScenarioData.FleetEntry>
+            {
+                Entry(reinhard, Faction.帝国, new Vector2(6f, 2f), Formation.紡錘陣, 1),
+                Entry(mittermeyer, Faction.帝国, new Vector2(6f, -2f), Formation.横陣, 3),
+                Entry(yang, Faction.同盟, new Vector2(-6f, 0f), Formation.鶴翼陣, 13),                                     // 義に殉じる主力（三成・大谷型）
+                Entry(attenborough, Faction.同盟, new Vector2(-6f, 4f), Formation.横陣, 14, loyalty: 0.25f, intrigue: 0.7f), // 小早川型＝劣勢で寝返る
+                Entry(uranff, Faction.同盟, new Vector2(-6f, -4f), Formation.方陣, 10, loyalty: 0.45f, intrigue: 0.2f),      // 毛利型＝山上で静観
+            });
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("Ginei: サンプルシナリオ3本と提督アセットを生成しました（Resources 配下にシナリオ／艦隊番号付き #146）。");
+            Debug.Log("Ginei: サンプルシナリオ4本と提督アセットを生成しました（Resources 配下にシナリオ／艦隊番号付き #146／関ヶ原型 #817）。");
         }
 
         private static ScenarioData.FleetEntry Entry(AdmiralData admiral, Faction faction, Vector2 pos, Formation formation,
-            int fleetNumber = 0, string fleetName = "", string corps = null, string armyGroup = null)
+            int fleetNumber = 0, string fleetName = "", string corps = null, string armyGroup = null,
+            float loyalty = 1f, float intrigue = 0f)
         {
             // #147 デモ：未指定なら勢力ごとの既定梯団を割り当て（番号付き艦隊のみ。表示確認用）。
             if (corps == null) corps = faction == Faction.帝国 ? "帝国主力軍団" : "同盟主力軍団";
@@ -83,7 +95,9 @@ namespace Ginei
                 fleetNumber = fleetNumber,  // #146：0=未指定（従来どおり提督名のみ）
                 fleetName = fleetName,
                 corps = hasNum ? corps : "",          // #147：番号なし艦隊には梯団を付けない
-                armyGroup = hasNum ? armyGroup : ""
+                armyGroup = hasNum ? armyGroup : "",
+                loyalty = loyalty,          // #817：旗幟（1/0＝従来動作）
+                intrigue = intrigue
             };
         }
 

@@ -19,6 +19,7 @@
     <!-- 純ロジック源（MonoBehaviour・UnityEditor・UI/IO 層を除外） -->
     <Compile Include="../Assets/Scripts/*.cs"
              Exclude="../Assets/Scripts/AudioManager.cs;
+                      ../Assets/Scripts/BattleAllegianceManager.cs;
                       ../Assets/Scripts/BattleManager.cs;
                       ../Assets/Scripts/BattleSetup.cs;
                       ../Assets/Scripts/BlackHole.cs;

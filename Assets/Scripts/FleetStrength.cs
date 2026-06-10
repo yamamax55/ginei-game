@@ -34,6 +34,21 @@ namespace Ginei
         /// <summary>戦闘艦か（#128。非戦闘艦は発砲・勝敗カウントの対象外）。</summary>
         public bool IsCombatant => shipRole == ShipRole.戦闘艦;
 
+        [Header("旗幟（#817 関ヶ原型・任意）")]
+        [Tooltip("自軍への忠誠 0..1。1=従来動作（必ず戦う）。低いと趨勢次第で静観・寝返りが起きる")]
+        [Range(0f, 1f)]
+        public float loyalty = 1f;
+
+        [Tooltip("敵の調略の浸透 0..1。高いほど劣勢時に寝返りやすい（#819 家康の手紙）")]
+        [Range(0f, 1f)]
+        public float intrigue = 0f;
+
+        /// <summary>会戦中の旗幟（BattleAllegianceManager が解決して書き込む）。静観中は発砲しない。</summary>
+        public Stance battleStance = Stance.戦う;
+
+        /// <summary>実際に戦うか（静観＝フリーライダー #820 は発砲しない）。</summary>
+        public bool IsFighting => battleStance != Stance.静観;
+
         [Header("艦隊編制（#146・任意）")]
         [Tooltip("艦隊番号（0＝未指定＝従来どおり提督名のみ表示）")]
         public int fleetNumber = 0;
@@ -321,10 +336,25 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 寝返り（#817）：陣営を敵側へ変更し、色・表示を再適用する。兵力・能力は非破壊（実効値パターンと同思想）。
+        /// 敵対判定は FactionRelations が毎クエリ計算するため、以後の索敵・勝敗カウントは自動で新陣営に従う。
+        /// </summary>
+        public void Defect(FactionData newData, Faction newLegacy)
+        {
+            factionData = newData;
+            faction = newLegacy;
+            FactionColor color = GetComponent<FactionColor>();
+            if (color != null) color.ApplyColors();
+            UpdateDisplay();
+            Debug.Log($"{admiralName} の艦隊が {newLegacy} へ寝返った（#817）。");
+        }
+
+        /// <summary>
         /// 旗艦喪失（艦艇数0）時の処理。破棄せず「部隊退却」へ移行する。
         /// 以降は IsAlive=false となり、攻撃・被弾・勝敗カウントから除外される。
+        /// 静観組の「戦わずして去る」（#817・BattleAllegianceManager）からも呼ばれる。
         /// </summary>
-        private void BeginRetreat()
+        public void BeginRetreat(bool withEffects = true)
         {
             if (IsRetreating) return;
             IsRetreating = true;
@@ -334,11 +364,14 @@ namespace Ginei
             // 退却＝戦闘除外。レジストリから外す（配下艦は各自の Update で外れる）
             FleetRegistry.Unregister(this);
 
-            // 旗艦喪失の演出（爆発＋カメラシェイク）
-            AudioManager.Instance.PlayExplosion();
-            SpawnExplosion(transform.position);
-            CameraController cam = Object.FindAnyObjectByType<CameraController>();
-            if (cam != null) cam.Shake();
+            // 旗艦喪失の演出（爆発＋カメラシェイク）。静観退き（#817・戦わず去る）では出さない
+            if (withEffects)
+            {
+                AudioManager.Instance.PlayExplosion();
+                SpawnExplosion(transform.position);
+                CameraController cam = Object.FindAnyObjectByType<CameraController>();
+                if (cam != null) cam.Shake();
+            }
 
             // AI を停止（退却移動を毎フレーム上書きしないように）。
             // 旗艦の FleetWeapon と配下艦 EscortShip は各 Update で IsRetreating を見て発砲を止める。

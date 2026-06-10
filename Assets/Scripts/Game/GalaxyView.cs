@@ -83,6 +83,9 @@ namespace Ginei
 
         private void Start()
         {
+            // 戦略マップシーンのコンテキストを設定（#107：会戦から戻った後も正しく絞られるよう再セット）
+            GameInput.SetContext(InputContext.戦略);
+
             cam = Camera.main;
             if (cam == null) cam = new GameObject("GalaxyCamera").AddComponent<Camera>();
             cam.orthographic = true;

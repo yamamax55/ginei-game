@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -67,10 +66,9 @@ namespace Ginei
             // 艦隊詳細パネル／編制パネル表示中は、そのパネルがポーズ／Esc を握る（入力を譲る）。
             if (FleetDetailPanel.IsOpen || OrderOfBattlePanel.IsOpen) return;
 
-            if (Keyboard.current == null) return;
-
+            // 入力は GameInput に集約（#107）。キー直読みをやめ論理アクションで問い合わせる。
             // Space: 一時停止 / 再開
-            if (Keyboard.current.spaceKey.wasPressedThisFrame)
+            if (GameInput.WasPressed(GameAction.ポーズ))
             {
                 TogglePause();
             }
@@ -78,7 +76,7 @@ namespace Ginei
             // Esc: ポーズメニュー
             // 優先順位「コマンドメニューを閉じる ＞ 移動/攻撃目標指定キャンセル ＞ ポーズ切替」。
             // 前2者が処理する状況ではポーズメニューを開かず、それぞれの処理に任せる。
-            if (Keyboard.current.escapeKey.wasPressedThisFrame)
+            if (GameInput.WasPressed(GameAction.キャンセル))
             {
                 CommandMenu commandMenu = Object.FindAnyObjectByType<CommandMenu>();
                 FleetCommander commander = Object.FindAnyObjectByType<FleetCommander>();
@@ -91,12 +89,12 @@ namespace Ginei
                 }
             }
 
-            // 数字キー: 倍速切り替え
+            // 数字キー: 倍速切り替え（Ctrl＋数字＝グループ選択#83とは修飾キーで分離）
             if (!isPaused)
             {
-                if (Keyboard.current.digit1Key.wasPressedThisFrame) SetTimeScale(1f);
-                if (Keyboard.current.digit2Key.wasPressedThisFrame) SetTimeScale(2f);
-                if (Keyboard.current.digit3Key.wasPressedThisFrame) SetTimeScale(3f);
+                if (GameInput.WasPressed(GameAction.倍速等速)) SetTimeScale(1f);
+                if (GameInput.WasPressed(GameAction.倍速2倍)) SetTimeScale(2f);
+                if (GameInput.WasPressed(GameAction.倍速3倍)) SetTimeScale(3f);
             }
         }
 

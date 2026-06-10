@@ -60,6 +60,9 @@ namespace Ginei
 
         private void Start()
         {
+            // タイトルシーンのコンテキストを設定（#107：会戦の倍速キー等が誤発火しないよう絞る）
+            GameInput.SetContext(InputContext.タイトル);
+
             // セーブデータがある場合のみ「続きから」ボタンを有効化
             if (continueButton != null)
             {

@@ -73,6 +73,11 @@ namespace Ginei
             new InputBinding(GameAction.カメラ下,       Key.S,         InputContext.会戦),
             new InputBinding(GameAction.カメラ左,       Key.A,         InputContext.会戦),
             new InputBinding(GameAction.カメラ右,       Key.D,         InputContext.会戦),
+            // カメラパンの代替キー（矢印）。同一アクションに複数キーを割り当て＝WasPressed/IsHeld は OR 評価。
+            new InputBinding(GameAction.カメラ上,       Key.UpArrow,    InputContext.会戦),
+            new InputBinding(GameAction.カメラ下,       Key.DownArrow,  InputContext.会戦),
+            new InputBinding(GameAction.カメラ左,       Key.LeftArrow,  InputContext.会戦),
+            new InputBinding(GameAction.カメラ右,       Key.RightArrow, InputContext.会戦),
             // #83：Ctrl＋数字＝グループ選択。倍速（修飾なし）と修飾キーで分離＝衝突しない。
             new InputBinding(GameAction.グループ選択1,  Key.Digit1,    InputContext.会戦, ctrl: true),
             new InputBinding(GameAction.グループ選択2,  Key.Digit2,    InputContext.会戦, ctrl: true),
@@ -103,12 +108,13 @@ namespace Ginei
             return false;
         }
 
-        /// <summary>指定コンテキストで有効なアクション一覧（ヘルプ表示＝「このシーンの操作」用）。</summary>
+        /// <summary>指定コンテキストで有効なアクション一覧（ヘルプ表示＝「このシーンの操作」用・重複なし）。</summary>
         public static List<GameAction> ActionsInContext(InputContext context)
         {
             var list = new List<GameAction>();
             for (int i = 0; i < table.Length; i++)
-                if (IsActiveIn(table[i].context, context)) list.Add(table[i].action);
+                if (IsActiveIn(table[i].context, context) && !list.Contains(table[i].action))
+                    list.Add(table[i].action); // 同一アクションの複数キー割当（W/↑等）は1件に畳む
             return list;
         }
 
@@ -161,38 +167,102 @@ namespace Ginei
         {
             switch (k)
             {
-                case Key.Digit1: return "1";
-                case Key.Digit2: return "2";
-                case Key.Digit3: return "3";
-                case Key.Space: return "Space";
-                case Key.Escape: return "Esc";
+                case Key.Digit1:    return "1";
+                case Key.Digit2:    return "2";
+                case Key.Digit3:    return "3";
+                case Key.Space:     return "Space";
+                case Key.Escape:    return "Esc";
                 case Key.Backspace: return "Backspace";
+                case Key.UpArrow:   return "↑";
+                case Key.DownArrow: return "↓";
+                case Key.LeftArrow: return "←";
+                case Key.RightArrow:return "→";
                 default: return k.ToString();
             }
         }
 
-        // ===== 入力読み取り（Unity 依存・null安全・コンテキストで絞る） =====
-
-        /// <summary>このフレームでアクションが押されたか（現在のコンテキストで有効なときのみ・修飾キー一致）。</summary>
-        public static bool WasPressed(GameAction action)
+        /// <summary>アクションに割り当てられた全キーを「/」区切りで返す（複数キー割当対応・HelpOverlay用）。</summary>
+        public static string KeyLabelFull(GameAction action)
         {
-            if (!TryGetBinding(action, out InputBinding b)) return false;
-            if (!IsActiveIn(b.context, Context)) return false;
-            Keyboard kb = Keyboard.current;
-            if (kb == null) return false;
-            if (!kb[b.key].wasPressedThisFrame) return false;
-            return kb.ctrlKey.isPressed == b.ctrl; // 修飾一致＝Ctrl＋数字と数字を分離（#83）
+            var labels = new List<string>();
+            for (int i = 0; i < table.Length; i++)
+            {
+                InputBinding b = table[i];
+                if (b.action != action) continue;
+                string lbl = (b.ctrl ? "Ctrl+" : "") + KeyName(b.key);
+                if (!labels.Contains(lbl)) labels.Add(lbl);
+            }
+            return labels.Count == 0 ? "" : string.Join(" / ", labels);
         }
 
-        /// <summary>アクションのキーが押下中か（カメラパン等の継続入力用）。</summary>
-        public static bool IsHeld(GameAction action)
+        // ===== アクション説明（HelpOverlay の自動生成用・#107） =====
+
+        private static readonly Dictionary<GameAction, string> descriptions = new Dictionary<GameAction, string>
         {
-            if (!TryGetBinding(action, out InputBinding b)) return false;
-            if (!IsActiveIn(b.context, Context)) return false;
+            { GameAction.ヘルプ切替,     "このヘルプを開く / 閉じる" },
+            { GameAction.キャンセル,     "ポーズメニュー / 各種キャンセル（優先順位あり）" },
+            { GameAction.ポーズ,         "ポーズ / 再開" },
+            { GameAction.倍速等速,       "等速（×1）" },
+            { GameAction.倍速2倍,        "倍速（×2）" },
+            { GameAction.倍速3倍,        "3倍速（×3）" },
+            { GameAction.選択フォーカス, "選択中の艦隊にフォーカス" },
+            { GameAction.リスタート,     "会戦をリスタート" },
+            { GameAction.戦略へ復帰,     "戦略マップへ戻る（自動委任で離脱）" },
+            { GameAction.カメラ上,       "カメラパン（上）" },
+            { GameAction.カメラ下,       "カメラパン（下）" },
+            { GameAction.カメラ左,       "カメラパン（左）" },
+            { GameAction.カメラ右,       "カメラパン（右）" },
+            { GameAction.グループ選択1,  "グループ 1 に割り当て / 呼び出し" },
+            { GameAction.グループ選択2,  "グループ 2 に割り当て / 呼び出し" },
+            { GameAction.グループ選択3,  "グループ 3 に割り当て / 呼び出し" },
+        };
+
+        /// <summary>アクションの日本語説明（HelpOverlay 自動生成用）。未登録なら enum 名にフォールバック。</summary>
+        public static string GetDescription(GameAction action)
+        {
+            descriptions.TryGetValue(action, out string desc);
+            return desc ?? action.ToString();
+        }
+
+        // ===== 入力読み取り（Unity 依存・null安全・コンテキストで絞る） =====
+
+        /// <summary>
+        /// このフレームでアクションが押されたか（現在のコンテキストで有効なときのみ・修飾キー一致）。
+        /// 同一アクションに複数キーが割り当たっていれば OR 評価（例：カメラ上＝W／↑）。
+        /// </summary>
+        public static bool WasPressed(GameAction action)
+        {
             Keyboard kb = Keyboard.current;
             if (kb == null) return false;
-            if (!kb[b.key].isPressed) return false;
-            return kb.ctrlKey.isPressed == b.ctrl;
+            for (int i = 0; i < table.Length; i++)
+            {
+                InputBinding b = table[i];
+                if (b.action != action) continue;
+                if (!IsActiveIn(b.context, Context)) continue;
+                if (!kb[b.key].wasPressedThisFrame) continue;
+                if (kb.ctrlKey.isPressed != b.ctrl) continue; // 修飾一致＝Ctrl＋数字と数字を分離（#83）
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// アクションのキーが押下中か（カメラパン等の継続入力用）。複数キー割当は OR 評価。
+        /// </summary>
+        public static bool IsHeld(GameAction action)
+        {
+            Keyboard kb = Keyboard.current;
+            if (kb == null) return false;
+            for (int i = 0; i < table.Length; i++)
+            {
+                InputBinding b = table[i];
+                if (b.action != action) continue;
+                if (!IsActiveIn(b.context, Context)) continue;
+                if (!kb[b.key].isPressed) continue;
+                if (kb.ctrlKey.isPressed != b.ctrl) continue;
+                return true;
+            }
+            return false;
         }
     }
 }

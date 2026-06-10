@@ -251,18 +251,39 @@ namespace Ginei
             PopulateHelpContent(content.transform);
         }
 
+        // キーボード操作のセクション定義（#107）。
+        // ここに書いた GameAction が HelpOverlay に自動反映される＝新規アクション追加で手書き更新不要。
+        // マウス/クリック操作は GameInput 対象外のため下の PopulateHelpContent 内にハードコードで残す。
+        private static readonly (string header, GameAction[] actions)[] keyboardSections =
+        {
+            ("■ カメラ操作（キー）", new[]
+            {
+                GameAction.カメラ上, GameAction.カメラ下, GameAction.カメラ左, GameAction.カメラ右,
+                GameAction.選択フォーカス,
+            }),
+            ("■ ポーズ・ヘルプ", new[]
+            {
+                GameAction.ポーズ, GameAction.キャンセル, GameAction.ヘルプ切替,
+            }),
+            ("■ 倍速・リスタート・復帰", new[]
+            {
+                GameAction.倍速等速, GameAction.倍速2倍, GameAction.倍速3倍,
+                GameAction.リスタート, GameAction.戦略へ復帰,
+            }),
+        };
+
         /// <summary>
         /// 操作一覧のテキストブロックをすべて生成する。
-        /// グループ見出しと操作行の組み合わせで構成する。
+        /// マウス/クリック操作はハードコード。キーボード操作は GameInput から自動生成（#107）。
         /// </summary>
         private void PopulateHelpContent(Transform parent)
         {
-            // ---- 選択 ----
+            // ---- 選択（マウス） ----
             AddGroupHeader(parent, "■ 選択");
             AddItem(parent, "左クリック", "部隊を選択（空白クリックで解除）");
             AddItem(parent, "右クリック", "コマンドメニューを開く");
 
-            // ---- 移動・向き指定 ----
+            // ---- 移動・向き指定（マウス主体） ----
             AddGroupHeader(parent, "■ 移動・向き指定");
             AddItem(parent, "コマンドメニュー「移動」", "移動先指定モードへ移行");
             AddItem(parent, "  右クリック押下", "カーソル位置を目標地点として確定");
@@ -270,7 +291,7 @@ namespace Ginei
             AddItem(parent, "  ボタンを離す", "移動命令を確定");
             AddItem(parent, "  Esc", "移動先指定をキャンセル");
 
-            // ---- 攻撃・目標指定 ----
+            // ---- 攻撃・目標指定（マウス主体） ----
             AddGroupHeader(parent, "■ 攻撃・目標指定");
             AddItem(parent, "コマンドメニュー「攻撃」", "攻撃目標指定モードへ移行");
             AddItem(parent, "  左クリック（敵艦隊）", "通常攻撃を即時発令");
@@ -281,23 +302,21 @@ namespace Ginei
             AddGroupHeader(parent, "■ 陣形変更");
             AddItem(parent, "コマンドメニュー「陣形変更」", "紡錘陣 / 鶴翼陣 / 円陣 / 横陣 / 方陣");
 
-            // ---- カメラ操作 ----
-            AddGroupHeader(parent, "■ カメラ操作");
-            AddItem(parent, "WASD / 矢印キー", "カメラパン");
+            // ---- カメラ操作（マウス・ハードコード） ----
+            // キー操作は下の keyboardSections ループで自動生成するため、マウス操作のみここに書く。
+            AddGroupHeader(parent, "■ カメラ操作（マウス）");
             AddItem(parent, "中ボタンドラッグ", "カメラパン");
             AddItem(parent, "マウスホイール", "ズームイン / アウト");
-            AddItem(parent, "F", "選択中の艦隊にフォーカス");
+            AddItem(parent, "画面端（設定で有効化）", "カーソルを端に寄せるとパン");
 
-            // ---- ポーズ・ヘルプ ----
-            AddGroupHeader(parent, "■ ポーズ・ヘルプ");
-            AddItem(parent, "Space", "ポーズ / 再開");
-            AddItem(parent, "Esc", "ポーズメニュー / 各種キャンセル（優先順位あり）");
-            AddItem(parent, "H", "このヘルプを開く / 閉じる");
-
-            // ---- 倍速・リスタート ----
-            AddGroupHeader(parent, "■ 倍速・リスタート");
-            AddItem(parent, "1 / 2 / 3", "倍速切り替え（×1 / ×2 / ×3）");
-            AddItem(parent, "R", "会戦をリスタート");
+            // ---- キーボード操作（GameInput から自動生成・#107） ----
+            // keyboardSections 配列にアクションを足すだけでヘルプに反映される。
+            foreach (var (header, actions) in keyboardSections)
+            {
+                AddGroupHeader(parent, header);
+                foreach (var action in actions)
+                    AddItem(parent, GameInput.KeyLabelFull(action), GameInput.GetDescription(action));
+            }
         }
 
         // ===== ヘルパー：コンテンツ行生成 =====

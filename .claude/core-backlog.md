@@ -19,6 +19,7 @@
 - [x] Wave14 (2026-06-10)：ArmsControlRules / AppeasementRules / InfluenceRules / DebtDiplomacyRules / ForeignAidRules / TribunalRules / CensusRules（並列7＝約6分）
 - [x] Wave15 (2026-06-10)：CoalitionRules / ImpeachmentRules / TermLimitRules / EmergencyPowersRules / FederalismRules / CitizenshipRules / PatronageRules（並列7＝約5分）
 - [x] Wave16 (2026-06-10)：CourtFavorRules / AmbitionRules / IllnessRules / ScandalRules / SerfdomRules / GenerationalMemoryRules / BreadAndCircusesRules（並列7＝約6分・親修正1件）
+- [x] Wave17 (2026-06-10)：VeteranPoliticsRules / StrikeRules / ReserveCurrencyRules / RationingRules / WarIndustryRules / ExplorationRules(G-2 #119) / SpaceWeatherRules（並列7＝約5分）
 
 ## キュー（上から順に消化）
 
@@ -41,19 +42,12 @@
 ### 宮廷・人物
 
 ### 社会
-- [ ] VeteranPoliticsRules：退役軍人の政治力。傷痍軍人・戦友会が圧力団体化＝恩給は財政を食い、冷遇は街頭の不満になる（在郷軍人会）。`RetirementRules`（個人の退役）とは別＝集団の政治力
-- [ ] StrikeRules：労働運動。賃金・待遇闘争が生産を止める＝弾圧か妥協か、組織率と景気で交渉力が振れる。`MarketRules`（生活水準）を read-only で参照可＝集団行動の解決
 
 ### 経済
-- [ ] ReserveCurrencyRules：基軸通貨特権。自国通貨が決済標準だと赤字を刷って埋められる（法外な特権）＝信認が崩れた日に全部返ってくる。`FiscalRules`（為替係数）とは別＝通貨覇権の力学
-- [ ] RationingRules：配給制。戦時の物資配給＝公平感が士気を支え、不公平の露見は闇市と不満を肥やす。`BlackMarketRules`（統制の影）と対になる政策側
-- [ ] WarIndustryRules：軍産複合体。軍需が利益集団化して講和に抵抗する＝戦争の長期化が「合理的」になる構造。`StockMarketRules`（企業一般）とは別＝戦争利得のロビー力学
 
 ### 戦略・探査
-- [ ] ExplorationRules：未知宙域探査（G-2 #119 のCore部分）。未探索星系の発見進捗・探査艦の能力・発見roll＝`ColonizationRules.CanColonize` が引数で受けている「探索済み」の供給源。偵察艦の固有機能の戦略版
 
 ### 戦域・環境（第3次追加）
-- [ ] SpaceWeatherRules：宙域気象。恒星嵐・重力波バーストが回廊を一時封鎖し通信を途絶させる動的イベント。`TerrainRules`（恒常の地形）とは別＝時限の環境イベント
 - [ ] RelicRules：遺失技術。地球時代・前文明の遺産発掘＝一点物の技術ブースト、独占と公開の選択。`ResearchRules`（自前研究）・`DisclosureRules`（物語の開示）とは別＝発掘の利得
 - [ ] DefenseLineRules：縦深防御線。複数陣地の防衛線＝前縁突破後の浸透と予備隊の反撃、一点突破か広正面か。`Fortress`（単一要塞）とは別＝線と縦深の防御
 - [ ] PrivateerRules：私掠免許。民間武装を国家が公認して敵通商を襲わせる＝安価な戦力だが統制が利かず戦後は海賊化する。`PiracyRules`（無主の暴力）の制度化＝対になる公認側

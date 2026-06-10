@@ -72,6 +72,12 @@ gh issue create --title "[XXX-n] <タイトル>" `
 - `/worldview-epic 次` でバックログ先頭の未処理を取り、1作品=1サイクルで回す。
 - **調査（Step 1-2）は作品間で独立＝並列ファンアウト可**（[`parallel-core-fanout.md`](./parallel-core-fanout.md) CCX-1 の方式で複数作品を同時調査）。ただし**起票（Step 4-6）は直列**＝issue 番号・roadmap 行・プレフィックスが競合するため。
 
+### クラウド自動実行（GitHub Actions・PC非依存）
+- ワークフロー `.github/workflows/worldview-epic.yml`（master）が **30分ごと（UTC :11/:41・混雑時刻回避）** に GitHub ホストランナーで1件処理する。`concurrency` で直列化（重なったら待機）・タイムアウト30分。周期は実測（1サイクル15〜20分＋CI構築3〜5分）に基づく。
+- **状態は専用ブランチ `auto/worldview-epics`** に commit/push して持ち回り（バックログ「済」更新が次回実行に見える）。たまった成果は PR で master へ取り込む。
+- **冪等ガード**：対象選定＝「バックログ先頭から、`gh issue list --search "in:title <作品名> 参考"` で既存EPICが**無い**最初の未行」。既存EPICがあるのに未のままの行は、子issueの不足を補完してから済へ直す（途中失敗からの自動復旧）。
+- 認証：Actions secret `CLAUDE_CODE_OAUTH_TOKEN`（`claude setup-token` で発行）。issue起票/pushは `GITHUB_TOKEN`。
+
 ## 4. 実例（この型の出荷実績）
 
 | 作品 | EPIC | 子Issue | 設計書 |

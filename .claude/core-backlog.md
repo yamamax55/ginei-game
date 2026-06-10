@@ -21,6 +21,7 @@
 - [x] Wave16 (2026-06-10)：CourtFavorRules / AmbitionRules / IllnessRules / ScandalRules / SerfdomRules / GenerationalMemoryRules / BreadAndCircusesRules（並列7＝約6分・親修正1件）
 - [x] Wave17 (2026-06-10)：VeteranPoliticsRules / StrikeRules / ReserveCurrencyRules / RationingRules / WarIndustryRules / ExplorationRules(G-2 #119) / SpaceWeatherRules（並列7＝約5分）
 - [x] Wave18 (2026-06-10)：RelicRules / DefenseLineRules / PrivateerRules / MedicalRules / BureaucracyBloatRules / SecretSocietyRules / FreePressRules（並列7＝5体がsession上限・親が残3テストを補完して完成）
+- [x] Wave19 (2026-06-10)：LobbyRules / PreferenceFalsificationRules / PriceControlRules / LandReformRules / FrontierRules / AsabiyyaRules / HegemonyRules（並列7＝約4分・Issue補充後の初Wave）
 
 ## キュー（上から順に消化）
 
@@ -51,17 +52,10 @@
 ### 戦域・環境（第3次追加）
 
 ### 統治・組織（第3次追加）
-- [ ] LobbyRules：圧力団体。業界・地域・団体の陳情が政策を歪める＝個別最適の集積が全体最適を壊す。`PartyRules`（政党）・`WarIndustryRules`（軍需ロビー＝特化版）とは別＝一般化されたロビー力学
-- [ ] PreferenceFalsificationRules：選好偽装（クーラン型）。抑圧下では本音が隠れ、世論調査も体制も「見かけの支持」しか見えない＝革命が突然に見える理由。`ConsentRules`（実際の協力）とは別＝表明と本音の乖離
 
 ### 経済・社会（第3次追加）
-- [ ] PriceControlRules：価格統制。統制価格は紙の上の安さ＝品不足と行列を生み、闇価格との乖離が統制の失敗度を測る。`RationingRules`（量の配分）と対になる価格の統制
-- [ ] LandReformRules：土地改革。地主の土地を小作へ再分配＝生産意欲と支持を買い、地主層の反発と短期混乱を払う。`SerfdomRules`（身分の解放）とは別＝資産の再分配
-- [ ] FrontierRules：辺境気質。中央から遠い星系ほど自立の気風が育ち、統制は薄く独立志向が強い。`LogisticsRules`（物理的連結）とは別＝距離の文化的効果
-- [ ] AsabiyyaRules：アサビーヤ（ハルドゥーン型）。建国世代の紐帯は繁栄の中で世代ごとに薄れ、爛熟した中枢は辺境の新興勢力に取って代わられる＝王朝の自然寿命。`DynastyRules`（天命・腐敗）とは別＝集団紐帯の世代減衰
 
 ### 覇権・体制（第3次追加）
-- [ ] HegemonyRules：覇権移行（トゥキディデスの罠）。台頭国と覇権国の力の交差が開戦確率を最大化する＝追い越しの瞬間が最も危ない。`ArmsRaceRules`（軍拡の螺旋）とは別＝構造的な力の遷移
 - [ ] OverextensionRules：過剰拡張（ポール・ケネディ型）。版図と公約が国力を超えると守るものが増えるほど弱くなる＝戦略的収縮の決断。`LogisticsRules`（一体化度）とは別＝負担と国力の比
 - [ ] BurdenSharingRules：同盟の負担分担。集団防衛のただ乗り問題＝盟主が背負うほど他が払わない、強制すれば同盟が軋む。`TreatyRules`（条約）・`LoyaltyRules`（会戦の静観）とは別＝平時の費用分担
 - [ ] CollectiveSecurityRules：集団安全保障（国際連盟型）。侵略者への全員制裁の建前＝個々の損得で参加が崩れる失敗モデル。`DiplomacyRules`（二国間）とは別＝多国間の約束の脆さ

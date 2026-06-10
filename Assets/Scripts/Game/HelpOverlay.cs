@@ -270,6 +270,11 @@ namespace Ginei
                 GameAction.倍速等速, GameAction.倍速2倍, GameAction.倍速3倍,
                 GameAction.リスタート, GameAction.戦略へ復帰,
             }),
+            // #83：部隊グループ（Ctrl＋数字＝選択中なら割り当て・空なら呼び出し）
+            ("■ 部隊グループ（Ctrl＋数字）", new[]
+            {
+                GameAction.グループ選択1, GameAction.グループ選択2, GameAction.グループ選択3,
+            }),
         };
 
         /// <summary>

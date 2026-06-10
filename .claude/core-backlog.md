@@ -23,6 +23,7 @@
 - [x] Wave18 (2026-06-10)：RelicRules / DefenseLineRules / PrivateerRules / MedicalRules / BureaucracyBloatRules / SecretSocietyRules / FreePressRules（並列7＝5体がsession上限・親が残3テストを補完して完成）
 - [x] Wave19 (2026-06-10)：LobbyRules / PreferenceFalsificationRules / PriceControlRules / LandReformRules / FrontierRules / AsabiyyaRules / HegemonyRules（並列7＝約4分・Issue補充後の初Wave）
 - [x] Wave20 (2026-06-10)：OverextensionRules / BurdenSharingRules / CollectiveSecurityRules / PartitionRules / PraetorianRules / CoupledProductionRules(#1110) / SpreadRules(#1111)（並列7・初のIssue由来テーマCPL含む・親がPartitionテスト混入を修正）
+- [x] Wave21 (2026-06-10)：ByproductGlutRules(#1113) / ChainFragilityRules(#1112) / ContinuousOperationRules(#1115) / IntermediateBufferRules(#1116) / ForageRules(#1128) / CulminatingPointRules(#1129) / SunziDoctrineRules(#1130)（並列7・連鎖経済CPL完結＋孫子SUN・全Issue由来）
 
 ## キュー（上から順に消化）
 
@@ -60,14 +61,7 @@
 
 ### Issue連動（第1次補充・2026-06-10／オープンIssueから純ロジック子Issueを選定）
 # 連鎖経済 CPL EPIC（#1110-1116）
-- [ ] ByproductGlutRules：副産物グルット＝連産の従産物が供給過剰で価格暴落（#1113）。`MarketRules`へ接続・連産×市場
-- [ ] ChainFragilityRules：連鎖の脆さ＝単一ノード遮断の上流グルット/下流欠品カスケード（#1112）。`SupplyRules`（補給線）とは別＝生産網の伝播
-- [ ] ContinuousOperationRules：連続運転の硬直＝稼働率・turndownコスト＝止められない戦時硬直（#1115）。`MobilizationRules`とは別＝プラントの慣性
-- [ ] IntermediateBufferRules：中間体の貯蔵不能＝バッファ無しがショックを増幅（#1116）。`ResourceStockpile`（備蓄可能財）とは別＝貯められない中間財
 # 孫子ドクトリン SUN EPIC（#1126-1130）
-- [ ] ForageRules：現地調達＝占領地・通過星系からの自律補給「糧を敵に因る」（#1128）。`SupplyRules`（後方からの補給線）とは別＝前線の自律調達
-- [ ] CulminatingPointRules：攻勢終末点＝補給距離比例の戦力効率低下（#1129）。`OverextensionRules`（版図と国力・バックログ）とは別＝作戦距離の戦力減衰
-- [ ] SunziDoctrineRules：謀攻優先＝謀>交>兵>攻城のAIスコアリング（#1130）。AIの戦略選択の重み付け＝盤面非依存のplain引数
 - [ ] DeceptionRules：戦略的欺瞞＝偽情報・陽動で敵AIの行動を歪める（#1126）。`FeintRules`（戦術の陽動・実装済み）とは別＝戦略AIの認識操作
 # 経済・通貨（SAW-1 #1072・ACC-1 #974）
 - [ ] CoinageRules：通貨改鋳と品位＝正貨の銀含有量・シニョリッジvs信用（#1072）。`InflationRules`（増発による物価）とは別＝硬貨の品位劣化

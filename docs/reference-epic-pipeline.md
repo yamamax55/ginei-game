@@ -77,6 +77,7 @@ gh issue create --title "[XXX-n] <タイトル>" `
 - **状態は専用ブランチ `auto/worldview-epics`** に commit/push して持ち回り（バックログ「済」更新が次回実行に見える）。たまった成果は PR で master へ取り込む。
 - **冪等ガード**：対象選定＝「バックログ先頭から、`gh issue list --search "in:title <作品名> 参考"` で既存EPICが**無い**最初の未行」。既存EPICがあるのに未のままの行は、子issueの不足を補完してから済へ直す（途中失敗からの自動復旧）。
 - 認証：Actions secret `CLAUDE_CODE_OAUTH_TOKEN`（`claude setup-token` で発行）。issue起票/pushは `GITHUB_TOKEN`。
+- **自動補充** `.github/workflows/worldview-backlog-refill.yml`：6時間ごと（UTC :23）に残量チェックし、**「未」が16冊未満なら**本システムの欠落軸に効く名著を**最大20冊**バックログ末尾へ追記（閾値16＝消費2冊/時×6時間＋マージン）。重複除外＝既存行/既存設計書/既存EPIC/モジュール化済み思想家の主著。**数合わせ禁止＝確信のある作品だけ・0冊でも可**。同じ concurrency グループで EPIC化と直列。残量が閾値以上なら Claude を起動せず grep 判定だけでスキップ（無課金）。
 
 ## 4. 実例（この型の出荷実績）
 

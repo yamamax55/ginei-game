@@ -42,6 +42,17 @@ namespace Ginei
 
         private void Update()
         {
+            // TIME-5（#951）：会戦中も統一クロックを進める＝潜行/復帰で時間が止まらない（戦略と同一時間）。
+            // 会戦の倍速(timeScale)をクロック速度へ写し、実時間で累積する（同一 static クロックを active シーンが進める）。
+            // 戦果（残存兵力）は BattleHandoff で銀河へ還元され、時間は同一クロックで連続する。
+            GameClock clock = StrategySession.Clock;
+            if (clock != null)
+            {
+                clock.speed = Mathf.Max(0f, Time.timeScale);
+                clock.paused = Time.timeScale <= 0f;
+                clock.Advance(Time.unscaledDeltaTime);
+            }
+
             // システムビュー（非戦闘・恒星系の閲覧）：戦闘判定はせず、Backspace で戦略マップへ戻るだけ。
             if (BattleHandoff.IsSystemView)
             {

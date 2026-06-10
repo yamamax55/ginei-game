@@ -18,6 +18,7 @@
 - [x] Wave13 (2026-06-10)：MothballRules / RaidRules / ScorchedEarthRules / MutinyRules / EscalationRules / DeterrenceRules / ArmsRaceRules（並列7＝約5分）
 - [x] Wave14 (2026-06-10)：ArmsControlRules / AppeasementRules / InfluenceRules / DebtDiplomacyRules / ForeignAidRules / TribunalRules / CensusRules（並列7＝約6分）
 - [x] Wave15 (2026-06-10)：CoalitionRules / ImpeachmentRules / TermLimitRules / EmergencyPowersRules / FederalismRules / CitizenshipRules / PatronageRules（並列7＝約5分）
+- [x] Wave16 (2026-06-10)：CourtFavorRules / AmbitionRules / IllnessRules / ScandalRules / SerfdomRules / GenerationalMemoryRules / BreadAndCircusesRules（並列7＝約6分・親修正1件）
 
 ## キュー（上から順に消化）
 
@@ -38,15 +39,8 @@
 ### 統治・制度
 
 ### 宮廷・人物
-- [ ] CourtFavorRules：宮廷の寵愛・讒言。君主の寵を競う廷臣＝寵臣の専横と讒言による失脚、君主の眼力が防波堤。`PowerRules`（実権構造）とは別＝寵という通貨
-- [ ] AmbitionRules：野心（ロイエンタール型）。実力者の野心は功績とともに育ち、主君の猜疑と共鳴して反逆の自己成就予言になる。`LoyaltyRules`（忠誠の解決）とは別＝野心と猜疑のスパイラル
-- [ ] IllnessRules：病臥（ラインハルト型）。英雄の病＝執務不能・戦線離脱・病状の隠蔽と漏洩、死期が見えた政権の継承レース。`LifecycleRules`（加齢死亡）とは別＝突発的な健康イベント
-- [ ] ScandalRules：醜聞。汚職・私行の露見が要人を失脚させる＝もみ消しは成功すれば無傷・失敗すれば倍返し。`SecurityRules`（体制側の監視）とは別＝個人の失脚力学
 
 ### 社会
-- [ ] SerfdomRules：農奴制と解放。身分制労働の生産は安定だが上限が低い＝解放は短期ショックと引き換えに流動性と忠誠を得る（帝国の農奴解放）。`RedistributionRules`（税の再分配）とは別＝身分の再編
-- [ ] GenerationalMemoryRules：戦争記憶の世代風化。戦争を知る世代が退場すると好戦論が再生する＝記憶の半減期が開戦閾値を下げる。`WarGoalRules.WarWeariness`（進行中の厭戦）とは別＝世代スケールの忘却
-- [ ] BreadAndCircusesRules：パンとサーカス。娯楽と配給の供給が政治的不満をガス抜きする＝効くが依存し、途切れた時の反動が大きい。`HopeRules`（希望の実体）とは別＝慰撫の代替財
 - [ ] VeteranPoliticsRules：退役軍人の政治力。傷痍軍人・戦友会が圧力団体化＝恩給は財政を食い、冷遇は街頭の不満になる（在郷軍人会）。`RetirementRules`（個人の退役）とは別＝集団の政治力
 - [ ] StrikeRules：労働運動。賃金・待遇闘争が生産を止める＝弾圧か妥協か、組織率と景気で交渉力が振れる。`MarketRules`（生活水準）を read-only で参照可＝集団行動の解決
 

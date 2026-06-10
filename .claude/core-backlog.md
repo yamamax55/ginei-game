@@ -15,6 +15,7 @@
 - [x] Wave10 (2026-06-10)：MartyrdomRules / CivilWarRules / HostageRules / MigrationRules / InflationRules / BlackMarketRules / ReconstructionRules（初の並列7実装＝実装フェーズ約7分）
 - [x] Wave11 (2026-06-10)：ReparationsRules / MonopolyRules / MegaProjectRules(#1090) / InnovationDiffusionRules / BufferStateRules / ChokepointValueRules / SenescenceRules（並列7＝約5分）
 - [x] Wave12 (2026-06-10)：TerraformingRules / RivalryRules / FriendshipRules / MentorshipRules / HistoriographyRules / ReadinessRules / ForcedMarchRules（並列7＝約4分）
+- [x] Wave13 (2026-06-10)：MothballRules / RaidRules / ScorchedEarthRules / MutinyRules / EscalationRules / DeterrenceRules / ArmsRaceRules（並列7＝約5分）
 
 ## キュー（上から順に消化）
 
@@ -29,15 +30,8 @@
 ### 戦略・人物
 
 ### 軍事・即応態勢
-- [ ] MothballRules：予備役艦隊・モスボール。退蔵保管は維持費を大きく削るが、再就役に時間と整備費がかかる。`ShipAgingRules`（経年劣化）とは別＝保管状態の管理
-- [ ] RaidRules：縦深襲撃。敵後方の補給拠点・造船所への一撃離脱＝占領せず破壊して戻る、深入りほど帰還リスク。`CommerceRaidingRules`（船団狩り）とは別＝固定目標への強襲
-- [ ] ScorchedEarthRules：焦土戦術。撤退時に自領の資産を焼いて敵の利得を消す＝侵攻は鈍るが自国民の恨みと復興費が残る。`ReconstructionRules`（再建側）と対になる破壊側
-- [ ] MutinyRules：艦隊反乱。部隊単位の集団的な命令拒否・艦の乗っ取り（待遇・思想・敗勢が引き金）。`DisciplineRules`（個別の抗命）・`CoupRules`（国家転覆）の中間スケール
 
 ### 抑止・外交
-- [ ] EscalationRules：エスカレーション管理。偶発的な国境事件が梯子を昇って戦争に至る／降りる判断＝威信と実利の綱引き。`DiplomacyRules`（状態遷移）へ宣戦を委譲＝梯子の力学のみ
-- [ ] DeterrenceRules：抑止。報復能力の顕示が開戦を思いとどまらせる＝能力×信憑性（脅しが信じられなければ無意味）。`ArmsRaceRules`（軍拡の螺旋）とは別＝開戦判断への写像
-- [ ] ArmsRaceRules：軍拡競争。相手の建艦に建艦で応える安全保障のジレンマ＝双方が貧しくなりながら相対優位は変わらない。`ShipyardRules`（建艦そのもの）を read-only で参照可
 - [ ] ArmsControlRules：軍縮条約（ワシントン体制型）。建艦上限・査察・秘密再軍備の発覚リスク＝信頼の制度化と裏切りの誘惑。`TreatyRules`（条約一般）とは別＝軍備の検証問題
 - [ ] AppeasementRules：宥和政策。譲歩が平和を買うか侵略の食欲を育てるか＝相手の性格（現状維持/拡張主義）を見誤ると破滅（ミュンヘンの教訓）。`DiplomacyRules` の opinion とは別＝譲歩の学習効果
 - [ ] InfluenceRules：勢力圏。直接領有せず経済・軍事顧問・政治介入で他国を影響下に置くグラデーション。`DiplomacyState`（属国＝形式）とは別＝非公式な浸透度

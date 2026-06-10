@@ -12,6 +12,7 @@ namespace Ginei
         // 共通（どのシーンでも）
         ヘルプ切替,
         キャンセル,
+        観測オーバーレイ切替,
         // 会戦
         ポーズ,
         倍速等速,
@@ -64,6 +65,8 @@ namespace Ginei
         {
             new InputBinding(GameAction.ヘルプ切替,     Key.H,         InputContext.共通),
             new InputBinding(GameAction.キャンセル,     Key.Escape,    InputContext.共通),
+            // 国家状態オブザーバ（Core純ロジックの可視化＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.観測オーバーレイ切替, Key.G,    InputContext.共通),
             new InputBinding(GameAction.ポーズ,         Key.Space,     InputContext.会戦),
             new InputBinding(GameAction.倍速等速,       Key.Digit1,    InputContext.会戦),
             new InputBinding(GameAction.倍速2倍,        Key.Digit2,    InputContext.会戦),
@@ -204,6 +207,7 @@ namespace Ginei
         {
             { GameAction.ヘルプ切替,     "このヘルプを開く / 閉じる" },
             { GameAction.キャンセル,     "ポーズメニュー / 各種キャンセル（優先順位あり）" },
+            { GameAction.観測オーバーレイ切替, "国家状態オブザーバを開く / 閉じる" },
             { GameAction.ポーズ,         "ポーズ / 再開" },
             { GameAction.倍速等速,       "等速（×1）" },
             { GameAction.倍速2倍,        "倍速（×2）" },

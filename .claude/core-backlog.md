@@ -11,21 +11,15 @@
 - [x] Wave6 (2026-06-10)：PiracyRules / TradeRules / MartialLawRules / CeremonyRules / GovernmentInExileRules / HonorsRules / PrisonerExchangeRules
 - [x] Wave7 (2026-06-10)：AmbushRules / EncirclementRules / FeintRules / MinefieldRules / CarrierRules / CommunicationsRules / ElectronicWarfareRules
 - [x] Wave8 (2026-06-10)：DesertionRules / SalvageRules / OperationPlanRules / AtrocityRules / CounterIntelligenceRules / CodebreakingRules / ResistanceRules
+- [x] Wave9 (2026-06-10)：TerrorRules / RegencyRules / PlebisciteRules / AmnestyRules / PurgeRules / ConfiscationRules / DemagogueRules
 
 ## キュー（上から順に消化）
 
 ### 軍事・戦術
 
 ### 戦争犯罪・諜報
-- [ ] TerrorRules：テロ（地球教型）。民間目標への攻撃が恐怖と過剰反応（弾圧→支持低下）を誘う＝テロの本当の武器は報復の自滅。`AssassinationRules`（要人狙い）とは別＝無差別と恐怖
 
 ### 政治・社会
-- [ ] RegencyRules：摂政・幼君（エルウィン・ヨーゼフ型）。幼君の正統性は時間で痩せ、摂政の実権と野心が育つ。`PowerRules`（傀儡一般）とは別＝未成年継承の特殊力学
-- [ ] PlebisciteRules：住民投票（バーラト和約型）。領土帰属・自治を票で決める、組織動員と監視の公正度で結果が振れる。`PartyRules`（選挙一般）とは別＝一回性の領土・体制投票
-- [ ] AmnestyRules：恩赦。内戦・反乱後の和解＝処罰（正義）と統合（実利）のトレードオフ、許しすぎは再発を招く。`CaptivityRules`（個別処遇）とは別＝集団和解
-- [ ] PurgeRules：粛清（リップシュタット後/スターリン型）。敵対派閥の一掃で統制は上がるが人材プールが毀損し恐怖が萎縮を生む。`CoupRules`（粛清結末）とは別＝政策としての粛清
-- [ ] ConfiscationRules：財産没収（門閥解体型）。既得権の資産を国庫へ＝財政は潤うが資産家層の忠誠が崩れ亡命・抵抗を生む。`RedistributionRules`（税による再分配）とは別＝一回性の収奪
-- [ ] DemagogueRules：扇動政治家（トリューニヒト型）。責任回避と敵作りで支持を集め、危機では姿を消して生き残る＝有能な無能の生存力。`PartyRules`（党勢）を read-only で参照可
 - [ ] MartyrdomRules：殉教の政治（ハイネセン/キルヒアイス型）。英雄の死は生前より強い動員力を持ち、遺志の独占解釈が後継の正統性を決める。`ReputationRules`（生者の名声）とは別＝死者の力
 - [ ] CivilWarRules：内戦（リップシュタット型）。国内が二分＝経済崩壊・対外無防備・勝者総取り。`CoupRules`（クーデター＝短期決着）とは別＝長期の分裂戦争
 - [ ] HostageRules：人質外交。要人の身柄が交渉材料になる（価値＝階級・血縁）、処刑は交渉力と引き換えに外聞を失う。`CaptivityRules`（捕虜処遇）へ委譲し重複しない＝交渉の力学のみ

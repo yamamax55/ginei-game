@@ -12,6 +12,7 @@
 - [x] Wave7 (2026-06-10)：AmbushRules / EncirclementRules / FeintRules / MinefieldRules / CarrierRules / CommunicationsRules / ElectronicWarfareRules
 - [x] Wave8 (2026-06-10)：DesertionRules / SalvageRules / OperationPlanRules / AtrocityRules / CounterIntelligenceRules / CodebreakingRules / ResistanceRules
 - [x] Wave9 (2026-06-10)：TerrorRules / RegencyRules / PlebisciteRules / AmnestyRules / PurgeRules / ConfiscationRules / DemagogueRules
+- [x] Wave10 (2026-06-10)：MartyrdomRules / CivilWarRules / HostageRules / MigrationRules / InflationRules / BlackMarketRules / ReconstructionRules（初の並列7実装＝実装フェーズ約7分）
 
 ## キュー（上から順に消化）
 
@@ -20,15 +21,8 @@
 ### 戦争犯罪・諜報
 
 ### 政治・社会
-- [ ] MartyrdomRules：殉教の政治（ハイネセン/キルヒアイス型）。英雄の死は生前より強い動員力を持ち、遺志の独占解釈が後継の正統性を決める。`ReputationRules`（生者の名声）とは別＝死者の力
-- [ ] CivilWarRules：内戦（リップシュタット型）。国内が二分＝経済崩壊・対外無防備・勝者総取り。`CoupRules`（クーデター＝短期決着）とは別＝長期の分裂戦争
-- [ ] HostageRules：人質外交。要人の身柄が交渉材料になる（価値＝階級・血縁）、処刑は交渉力と引き換えに外聞を失う。`CaptivityRules`（捕虜処遇）へ委譲し重複しない＝交渉の力学のみ
-- [ ] MigrationRules：平時移民。経済格差・思想的自由を求めて人口が国境を越える＝頭脳流出/流入。`RefugeeRules`（戦火の強制移動）とは別＝自発的移動
 
 ### 経済
-- [ ] InflationRules：戦時インフレ。通貨増発で戦費は賄えるが物価上昇→実質賃金低下→不満蓄積＝見えない税。`FiscalRules`（国債・金利）とは別＝通貨価値の劣化
-- [ ] BlackMarketRules：闇市。統制経済（動員・配給）の裏で必ず湧く、取り締まりは資源を食い黙認は統制を骨抜きに。`MobilizationRules`（統制そのもの）とは別＝統制の影
-- [ ] ReconstructionRules：戦後復興。荒廃地への投資が回復を早め復興需要が経済を押す、放置は荒廃の固定化。`ColonizationRules`（新規入植）とは別＝既存地の再建
 - [ ] ReparationsRules：賠償金（ヴェルサイユの罠）。過酷な賠償は敗者の経済を殺し復讐主義を育てる＝勝者の取り分と次の戦争の種のトレードオフ。`WarGoalRules`（講和条件一般）とは別＝賠償の長期帰結
 - [ ] MonopolyRules：独占・財閥。市場支配が価格を吊り上げ政治を買収する、解体は効率と引き換えに反発。`MarketRules`（競争市場）とは別＝市場の失敗
 - [ ] MegaprojectRules：巨大事業（要塞建造型・PIL-1 #1090 が正仕様＝段階建設・財政ドレイン・発起人死後の継承）。長期巨額の段階投資＝中断の埋没費用、完成すれば戦略を変える。`ShipyardRules`（艦の量産）とは別＝一点物の巨大建造。実装時は #1090 本文（CalendarDispatcher/FiscalRules/SuccessionRules 接続）に従う

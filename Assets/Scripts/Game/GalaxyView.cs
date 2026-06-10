@@ -59,8 +59,6 @@ namespace Ginei
         private Material lineMat;
         private bool paused;
         private float occupyTimer;
-        private string battleMsg = "";
-        private float battleMsgTimer;
         private float engagedElapsed;      // 交戦中が継続している時間（自動解決の猶予計測）
         private double currentAutoResolveSeconds; // TIME-4：現交戦の自動解決所要時間（AutoBattleSim 算出・game-seconds）
         private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
@@ -141,8 +139,8 @@ namespace Ginei
             if (BattleHandoff.Resolved && StrategyRules.ApplyHandoffResult(reg))
             {
                 int others = StrategyRules.ResolveEncounters(reg);
-                battleMsg = others > 0 ? $"実会戦の結果を反映（観ていない{others}戦線は自動解決）" : "実会戦の結果を反映しました";
-                battleMsgTimer = 3f;
+                NotificationCenter.Push(NotificationCategory.戦闘,
+                    others > 0 ? $"実会戦の結果を反映（観ていない{others}戦線は自動解決）" : "実会戦の結果を反映しました");
             }
 
             // 惑星攻城の戦術マップでの進捗を惑星へ書き戻す（#131）
@@ -162,15 +160,14 @@ namespace Ginei
                     s.owner = BattleHandoff.besiegerFaction;
                     p.orbitalDefense = p.maxOrbitalDefense; // 新所有者が制空権を再建
                     p.invasionProgress = 0f;
-                    battleMsg = $"{s.systemName} を占領しました";
+                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意, $"{s.systemName} を占領しました");
                 }
                 else
                 {
                     p.orbitalDefense = Mathf.Clamp01(BattleHandoff.siegeResultDefense) * p.maxOrbitalDefense;
                     p.invasionProgress = Mathf.Clamp01(BattleHandoff.siegeResultInvasion) * p.invasionThreshold;
-                    battleMsg = $"{s.systemName} の攻城を進めました";
+                    NotificationCenter.Push(NotificationCategory.占領, $"{s.systemName} の攻城を進めました");
                 }
-                battleMsgTimer = 3f;
             }
             BattleHandoff.Clear();
         }
@@ -230,7 +227,6 @@ namespace Ginei
             if (clock != null && policyCalendar != null)
                 policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyCampaignTick, onYear: RunAnnualLifecycleTick);
 
-            if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
             HandleMouse();
             Refresh();
@@ -572,8 +568,7 @@ namespace Ginei
             }
             if (playerBuilt > 0)
             {
-                battleMsg = $"造船完成：艦艇 +{playerBuilt}（プールへ／編成画面 B で配分）";
-                battleMsgTimer = 4f;
+                NotificationCenter.Push(NotificationCategory.建艦, $"造船完成：艦艇 +{playerBuilt}（プールへ／編成画面 B で配分）");
             }
         }
 
@@ -667,8 +662,7 @@ namespace Ginei
             {
                 Person d = deceased[i];
                 int age = LifecycleRules.Age(d, campaignYear);
-                battleMsg = $"{d.faction} {d.name} 提督 死去（享年 {age}）";
-                battleMsgTimer = 4f;
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
             }
         }
 
@@ -826,13 +820,7 @@ namespace Ginei
 
         private void UpdateBanner()
         {
-            if (battleMsgTimer > 0f)
-            {
-                banner.text = battleMsg;
-                banner.color = new Color(1f, 0.6f, 0.3f);
-                return;
-            }
-
+            // イベント通知は左下フィード（NotificationFeed・#964）へ集約。バナーは現在状態のみ表示。
             if (AnyEngaged())
             {
                 double total = currentAutoResolveSeconds > 0.0 ? currentAutoResolveSeconds : autoResolveDelay;

@@ -213,6 +213,7 @@
 - **ZOC（支配領域）判定は `ZoneOfControl`(static) が唯一の窓口(#81)**：`CanProject`(退却=IsAlive false・敗走=IsRouted でZOC消失)／`GetRadius`(外接円×`FleetMovement.zocRadiusScale`)／`HostileIntensityAt`(敵ZOC最深侵入度0..1)／`SteerAround`(AI回避の目標補正)。半径倍率等の調整値は各艦の `FleetMovement` に持たせ `ZoneOfControl` はそれを読むだけ（重複パラメータを増やさない）。列挙は `FleetRegistry.AllFlagships`＋`FactionRelations.IsHostile`。新たなZOC判定の直書きを増やさずここへ集約する。
 - 日本語フォント読み込みは `FontProvider.JapaneseFont`(static) に集約済み（`FleetStrength`/`FleetMorale`/`DamagePopup` が参照）。新規の legacy TextMesh も必ずここを使う。
 - ビーム描画は `BeamFx`(static) に集約済み（`FleetWeapon`/`EscortShip` が参照）。LineRenderer のマテリアル/幅カーブ/グラデ/フェードをここで一元化。新規のビーム表現も `Sprites/Default` 直書きを増やさずここに寄せる。
+- **戦闘・移動の係数公式は `CombatModifiers`(static・Core) ＋ `ModifierStack`(struct) に集約（#106）**：提督能力→倍率 `AbilityFactor(stat)=1+(stat-50)/100`（攻撃/機動共通）・防御→被ダメ倍率 `DefenseDamageFactor(def)=1-Clamp(def/200,0,0.9)`・側背面 `FlankFactor(dot,min,out isFlank)=Lerp(min,1,(dot+1)/2)`(閾値 `FlankHitThreshold`=1.3)。倍率合成は `ModifierStack`(基準1.0→`Mul`で積む→`Value`/`ClampMin(min)`・ゼロ確保)。`FleetMovement.GetMobilityFactor`/`ShipCombat.ComputeDamage`/`FleetStrength.TakeDamage` が消費。**新規の係数(#72陣形特性/#104得意陣形/提督スキル/成長等)はインライン計算を増やさず CombatModifiers に公式を足し ModifierStack で積む**。公式は `CombatModifiersTests` が従来式と厳密一致で固定（EditMode/TestHarness）。
 
 ## UI Toolkit 段階移行（#UI統一・見切れ防止）
 - 新規/複雑なUIは **UI Toolkit（UITK）** へ段階移行する（既存の uGUI コード生成パネルは順次置換）。flexbox＋`ScrollView` でレイアウト自動＝**見切れが原理的に起きない**、テーマ USS で**統一**。

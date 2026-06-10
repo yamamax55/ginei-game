@@ -30,6 +30,7 @@
 - [x] Wave25 (2026-06-10)：MrpRules(#984) / ProductionOrderRules(#985) / CapacitySchedulingRules(#987) / ValueChainRules(#1023) / FirmRules(#1024) / CapitalInvestmentRules(#1025) / PublicPrivateSeparationRules(#1035)（並列7・全Issue由来・生産網SCM完結＋企業FRM）
 - [x] Wave26 (2026-06-10)：PropertyRightsRules(#1036) / InheritanceRules(#1038) / PerformanceReviewRules(#995) / CompensationRules(#996) / SpyRoleRules(#1127) / BullwhipRules(#1114) / BalanceOfPowerRules(#1103)（並列7・全Issue由来・所有OWN/人事HCM/連鎖CPL完結＋孫子用間/三国志着手）
 - [x] Wave27 (2026-06-10)：CounselRules(#1104) / PledgeRules(#1105) / AlienationStratagemRules(#1106) / MilitaryColonyRules(#1107) / CoinageSpeculationRules(#1073) / InformationAsymmetryRules(#1074) / SpatialArbitrageRules(#1075)（並列7・全Issue由来・三国志SGZ＋狼と香辛料SAW）
+- [x] Wave28 (2026-06-10)：CorneringRules(#1076) / MerchantCreditRules(#1077) / PlanetaryDefenseRules(#1070) / FleetCapRules(#1067) / MeritPromotionRules(#1064) / OperationalAptitudeRules(#1063) / RefitPurchaseRules(#1068)（並列7・全Issue由来・狼と香辛料SAW完結＋Almagest ALM・親がmeta生成漏れ補完）
 
 ## キュー（上から順に消化）
 
@@ -86,13 +87,6 @@
 # 孫子 SUN残り＋連鎖経済CPL-4
 # 三国志演義 SGZ（#1103-1107）
 # 狼と香辛料 SAW（#1073-1077）
-- [ ] CorneringRules：買い占め・投機・バブル＝商品コーナリング動学（#1076）。`MonopolyRules`(構造的独占)とは別＝投機的な買い占めとバブル崩壊
-- [ ] MerchantCreditRules：ネームド商人の信用・為替手形・レバレッジ・破産（#1077）。`BankRules`(銀行)とは別＝商人個人の信用とレバレッジ破産
 # Almagest ALM（純ロジック子Issue）
-- [ ] PlanetaryDefenseRules：惑星防衛3層＝防衛艦隊/防衛衛星/軌道部隊＋迎撃/防衛区別（#1070）。`PlanetSiegeRules`(攻城)の防御側＝層別の迎撃
-- [ ] FleetCapRules：FCS.Cap＝配備可能艦数＝指揮容量Cap÷必要Cap・階級と二重（#1067）。`OrderOfBattle`(編制)とは別＝指揮容量の制約
-- [ ] MeritPromotionRules：功績値→昇進→最大編成数（#1064）。`MeritRankRules`(軍功爵位)とは別＝功績が指揮できる部隊数を増やす
-- [ ] OperationalAptitudeRules：作戦適性S〜E＝地形別（遭遇戦/拠点侵攻/拠点防衛）の提督適性（#1063）。`AdmiralData`能力の地形別補正＝得意な戦闘類型
-- [ ] RefitPurchaseRules：改装/復元＋建造vs購入＝既存艦の改装と新造/購入の損得（#1068）。`ShipyardRules`(新造)・`ArmamentDesignRules`(設計)とは別＝改装の経済
 - [ ] TechTreeRules：技術ツリー配線＝基礎技術→前提充足で新技術出現（#1065）。`ResearchRules`(研究進捗)とは別＝技術の前提依存グラフ
 - [ ] EndingBranchRules：エンディング分岐＝評判/同盟国数/イベント経験の条件評価で結末を分岐（#1061）。`DisclosureRules`(開示連鎖)とは別＝最終分岐の条件スコアリング

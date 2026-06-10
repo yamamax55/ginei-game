@@ -20,6 +20,7 @@
 - [x] Wave15 (2026-06-10)：CoalitionRules / ImpeachmentRules / TermLimitRules / EmergencyPowersRules / FederalismRules / CitizenshipRules / PatronageRules（並列7＝約5分）
 - [x] Wave16 (2026-06-10)：CourtFavorRules / AmbitionRules / IllnessRules / ScandalRules / SerfdomRules / GenerationalMemoryRules / BreadAndCircusesRules（並列7＝約6分・親修正1件）
 - [x] Wave17 (2026-06-10)：VeteranPoliticsRules / StrikeRules / ReserveCurrencyRules / RationingRules / WarIndustryRules / ExplorationRules(G-2 #119) / SpaceWeatherRules（並列7＝約5分）
+- [x] Wave18 (2026-06-10)：RelicRules / DefenseLineRules / PrivateerRules / MedicalRules / BureaucracyBloatRules / SecretSocietyRules / FreePressRules（並列7＝5体がsession上限・親が残3テストを補完して完成）
 
 ## キュー（上から順に消化）
 
@@ -48,15 +49,8 @@
 ### 戦略・探査
 
 ### 戦域・環境（第3次追加）
-- [ ] RelicRules：遺失技術。地球時代・前文明の遺産発掘＝一点物の技術ブースト、独占と公開の選択。`ResearchRules`（自前研究）・`DisclosureRules`（物語の開示）とは別＝発掘の利得
-- [ ] DefenseLineRules：縦深防御線。複数陣地の防衛線＝前縁突破後の浸透と予備隊の反撃、一点突破か広正面か。`Fortress`（単一要塞）とは別＝線と縦深の防御
-- [ ] PrivateerRules：私掠免許。民間武装を国家が公認して敵通商を襲わせる＝安価な戦力だが統制が利かず戦後は海賊化する。`PiracyRules`（無主の暴力）の制度化＝対になる公認側
-- [ ] MedicalRules：救護・衛生。救護能力が損耗の「死亡/治療後復帰」比を変える＝衛生への投資は見えない兵力。`RepairRules`（艦の修理）の人員版＝別系統
 
 ### 統治・組織（第3次追加）
-- [ ] BureaucracyBloatRules：官僚制肥大（パーキンソンの法則）。定員は仕事量と無関係に自己増殖し、管理コストが実務を圧迫する＝定期的な行革の必要。`MinistryRules`（編制ツリー）とは別＝人数の動態
-- [ ] SecretSocietyRules：秘密結社（地球教型）。制度の裏で要職へ浸透する隠れた網＝発覚まで見えず、摘発は浸透度の一部しか剥がせない。`ReligionRules`（公然の宗教）・`EspionageRules`（国家の諜報）とは別＝非国家の隠密網
-- [ ] FreePressRules：報道の自由。自由な報道は腐敗・失政を早期に露見させる（政権には痛いが体制には薬）＝統制は短期の静穏と長期の腐敗蓄積。`PropagandaRules`（発信側）とは別＝監視者の自由度
 - [ ] LobbyRules：圧力団体。業界・地域・団体の陳情が政策を歪める＝個別最適の集積が全体最適を壊す。`PartyRules`（政党）・`WarIndustryRules`（軍需ロビー＝特化版）とは別＝一般化されたロビー力学
 - [ ] PreferenceFalsificationRules：選好偽装（クーラン型）。抑圧下では本音が隠れ、世論調査も体制も「見かけの支持」しか見えない＝革命が突然に見える理由。`ConsentRules`（実際の協力）とは別＝表明と本音の乖離
 

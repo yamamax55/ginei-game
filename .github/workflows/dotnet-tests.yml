@@ -1,0 +1,31 @@
+name: Tests
+
+# 純ロジック（Core/Data・非 MonoBehaviour）を TestHarness で検証する軽量 CI。
+# Unity ライセンス不要・数秒で完了（GameCI のライセンス地雷を回避＝持続可能）。
+# Unity 依存（MonoBehaviour/UI/シーン）はエディタ Play・MCP ハーネスで別途検証。
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# 同一ブランチの古い実行はキャンセル（無駄なランナー消費を防ぐ）
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testharness:
+    name: TestHarness (dotnet)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run TestHarness (純ロジック EditMode テスト)
+        run: dotnet test TestHarness/GineiLogic.Tests.csproj --configuration Release -v normal

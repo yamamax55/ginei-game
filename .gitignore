@@ -8,8 +8,13 @@
 .vs/
 *.csproj
 *.sln
+*.slnx
+.vscode/
 # Claude Code のローカル状態・worktree（追跡しない）
 .claude/
+# MCP ローカル設定（マシン固有の絶対パスを含むため追跡しない）/ Serena のインデックスキャッシュ
+.mcp.json
+.serena/
 # ローカルのバックアップzip・セットアップ用スクリプト（追跡しない）
 /*.zip
 /gh_setup.sh

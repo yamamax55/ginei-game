@@ -55,6 +55,7 @@ namespace Ginei
         // ビーム演出（旗艦と独立した自前の LineRenderer）。実行時生成、OnDestroyで破棄。
         private LineRenderer beamLine;
         private Material beamMaterial;
+        private Color gradientColor = new Color(-1f, -1f, -1f, -1f); // 適用済みビーム色（変化時のみグラデ再構築）
 
         /// <summary>所属する旗艦の部隊（艦隊単位の攻撃指示・標的判定用）。</summary>
         public Squadron ParentSquadron => parentSquadron;
@@ -188,41 +189,31 @@ namespace Ginei
 
             beamLine = GetComponent<LineRenderer>();
             if (beamLine == null) beamLine = gameObject.AddComponent<LineRenderer>();
-            beamLine.positionCount = 2;
-            beamLine.startWidth = flagshipWeapon.beamWidth;
-            beamLine.endWidth = flagshipWeapon.beamWidth;
-            beamLine.useWorldSpace = true;
-            beamLine.numCapVertices = 2;
-            beamLine.alignment = LineAlignment.View;
-            beamLine.sortingOrder = 20;
-            beamLine.enabled = false;
-
-            beamMaterial = new Material(Shader.Find("Sprites/Default"));
-            beamMaterial.color = flagshipWeapon.beamColor;
+            // 見た目は BeamFx に集約（旗艦と同じ質感）。描画ロジックを FleetWeapon と重複させない。
+            BeamFx.ConfigureLine(beamLine, flagshipWeapon.beamWidth);
+            beamMaterial = BeamFx.CreateMaterial();
             beamLine.material = beamMaterial;
+            EnsureBeamGradient(flagshipWeapon.beamColor);
         }
 
         private void FireBeam(Vector3 targetPos)
         {
             if (beamLine == null) return;
+            // 陣営色の実行時変更に追従（色が変わった時だけグラデ再構築＝GC節約）
+            EnsureBeamGradient(flagshipWeapon.beamColor);
             StopAllCoroutines();
-            StartCoroutine(ShowBeamCoroutine(targetPos));
-        }
-
-        private IEnumerator ShowBeamCoroutine(Vector3 targetPos)
-        {
-            // 発射時に旗艦の beamColor を反映（陣営色の実行時変更に追従）
-            beamLine.material.color = flagshipWeapon.beamColor;
-
-            beamLine.enabled = true;
             // 終点は命中点。万一射程を超える点を渡されても射程端でクランプし、画面端まで伸びるのを防ぐ。
             Vector3 origin = transform.position;
-            beamLine.SetPosition(0, origin);
-            beamLine.SetPosition(1, ClampBeamEnd(origin, targetPos));
+            StartCoroutine(BeamFx.Play(beamLine, beamMaterial, flagshipWeapon.beamWidth, flagshipWeapon.beamDuration,
+                origin, ClampBeamEnd(origin, targetPos)));
+        }
 
-            yield return new WaitForSeconds(flagshipWeapon.beamDuration);
-
-            beamLine.enabled = false;
+        /// <summary>ビーム色のグラデを適用。色が変わった時だけ再構築する（GC節約）。</summary>
+        private void EnsureBeamGradient(Color c)
+        {
+            if (beamLine == null || c == gradientColor) return;
+            gradientColor = c;
+            BeamFx.ApplyGradient(beamLine, c);
         }
 
         /// <summary>ビーム終点を射程内にクランプする（射程外まで線が伸びるのを防ぐ）。</summary>

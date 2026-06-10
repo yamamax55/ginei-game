@@ -52,6 +52,7 @@ namespace Ginei
         private Material beamMaterial; // 実行時生成。OnDestroyで破棄
         private bool useMissiles;      // 手動攻撃指示でミサイルを選んだか（弾切れで自動解除）
         private Color shotBeamColor;   // 直近ショットのビーム色（通常/ミサイルで切替）
+        private Color gradientColor = new Color(-1f, -1f, -1f, -1f); // 適用済みビーム色（変化時のみグラデ再構築）
 
         private void Awake()
         {
@@ -65,19 +66,11 @@ namespace Ginei
             // ビーム表示用のLineRenderer（既にあれば再利用。WeaponArcとの二重追加・プレハブ焼き込み対策）
             beamLine = GetComponent<LineRenderer>();
             if (beamLine == null) beamLine = gameObject.AddComponent<LineRenderer>();
-            beamLine.positionCount = 2;        // 焼き込みで0になっていると描画されないため明示
-            beamLine.startWidth = beamWidth;
-            beamLine.endWidth = beamWidth;
-            beamLine.useWorldSpace = true;
-            beamLine.numCapVertices = 2;
-            beamLine.alignment = LineAlignment.View;
-            beamLine.sortingOrder = 20;        // 背景(-100)や艦より手前に描画
-            beamLine.enabled = false;
-
-            // マテリアル設定 (Unlit系を使用)
-            beamMaterial = new Material(Shader.Find("Sprites/Default"));
-            beamMaterial.color = beamColor;
+            // 見た目は BeamFx に集約（白熱コア＋テーパー幅＋放電フェード）。描画ロジックを EscortShip と重複させない。
+            BeamFx.ConfigureLine(beamLine, beamWidth);
+            beamMaterial = BeamFx.CreateMaterial();
             beamLine.material = beamMaterial;
+            EnsureBeamGradient(beamColor);
         }
 
         private void OnDestroy()
@@ -314,26 +307,22 @@ namespace Ginei
 
         private void FireBeam(Vector3 targetPos)
         {
+            if (beamLine == null) return;
+            // 通常/ミサイルの色をグラデへ反映（色が変わった時だけ再構築＝GC節約）
+            EnsureBeamGradient(shotBeamColor);
             StopAllCoroutines();
-            StartCoroutine(ShowBeamCoroutine(targetPos));
-        }
-
-        private IEnumerator ShowBeamCoroutine(Vector3 targetPos)
-        {
-            if (beamLine == null) yield break;
-
-            // 発射時のビーム色を反映（通常=beamColor、ミサイル=missileBeamColor）
-            beamLine.material.color = shotBeamColor;
-
-            beamLine.enabled = true;
             // 終点は命中点。万一射程を超える点を渡されても射程端でクランプし、画面端まで伸びるのを防ぐ。
             Vector3 origin = transform.position;
-            beamLine.SetPosition(0, origin);
-            beamLine.SetPosition(1, ClampBeamEnd(origin, targetPos));
+            StartCoroutine(BeamFx.Play(beamLine, beamMaterial, beamWidth, beamDuration,
+                origin, ClampBeamEnd(origin, targetPos)));
+        }
 
-            yield return new WaitForSeconds(beamDuration);
-
-            beamLine.enabled = false;
+        /// <summary>ビーム色（白熱コア→陣営/ミサイル色）のグラデを適用。色が変わった時だけ再構築する。</summary>
+        private void EnsureBeamGradient(Color c)
+        {
+            if (beamLine == null || c == gradientColor) return;
+            gradientColor = c;
+            BeamFx.ApplyGradient(beamLine, c);
         }
 
         /// <summary>ビーム終点を射程内にクランプする（射程外まで線が伸びるのを防ぐ）。</summary>

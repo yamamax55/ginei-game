@@ -52,7 +52,8 @@ namespace Ginei
             // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
             if (BattleHandoff.Pending)
             {
-                if (BattleHandoff.IsPlanetSiege) SetupPlanetSiege();
+                if (BattleHandoff.IsSystemView) SetupSystemView();      // 非戦闘＝星系の閲覧（恒星系ビュー）
+                else if (BattleHandoff.IsPlanetSiege) SetupPlanetSiege();
                 else SetupFromHandoff();
                 return;
             }
@@ -317,6 +318,25 @@ namespace Ginei
         // ===== 惑星攻城＝戦術マップ突入（#131 PB-1/PB-5）=====
 
         /// <summary>
+        /// 非戦闘のシステムビューを生成する（星系をダブルクリックで入場）。中心に恒星を置き、
+        /// 星系名と軌道リング（惑星配置のプレースホルダ）を描くだけ。艦隊・勝利条件は無し。
+        /// ★後の宿題（方針=#767）：恒星を中心に第一惑星・第二惑星…を象徴配置し、惑星単位の内政を操作可にする（SystemView へ追加）。
+        /// </summary>
+        private void SetupSystemView()
+        {
+            ClearExistingFleets();
+            ScenarioData.ActiveScenario = null; // 勝利条件なし（戦闘判定しない）
+
+            var view = new GameObject("SystemView").AddComponent<SystemView>();
+            view.systemId = BattleHandoff.systemViewId;
+            view.ownerFaction = BattleHandoff.systemViewOwner;
+            view.systemName = string.IsNullOrEmpty(BattleHandoff.systemViewName) ? "星系" : BattleHandoff.systemViewName;
+            // 恒星の色は所有勢力でうっすら寄せる（無所属＝既定の暖色）
+            if (BattleHandoff.systemViewOwner == Faction.同盟) view.starColor = new Color(0.7f, 0.85f, 1f);
+            view.Build();
+        }
+
+        /// <summary>
         /// 惑星攻城の戦術マップを生成する。中心に惑星(＋アルテミスの首飾り射程＝接近限界リング)、
         /// 攻城艦隊を惑星の周囲に円環状（首飾り射程の外）に配置して惑星へ正対させる。
         /// 艦隊は SiegeArena が射程内へ入れないよう押し出す＝首飾り射程の外までしか近づけない。
@@ -334,7 +354,11 @@ namespace Ginei
             arena.planetScale = siegePlanetScale;
             arena.planetColor = (BattleHandoff.planetOwner == Faction.帝国)
                 ? new Color(0.85f, 0.3f, 0.25f) : new Color(0.3f, 0.5f, 0.9f);
-            arena.planetLabel = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
+            // 中心ラベルは「種別 名称」。要塞/コロニーは種別を前置（惑星は従来どおり名称のみ＝後方互換）。
+            string siegeName = string.IsNullOrEmpty(BattleHandoff.planetName) ? "惑星" : BattleHandoff.planetName;
+            arena.planetLabel = BattleHandoff.planetKind == Planet.SiegeTargetKind.惑星
+                ? siegeName
+                : $"{BattleHandoff.planetKind}　{siegeName}";
             arena.besiegerFaction = BattleHandoff.besiegerFaction;
             arena.planetOwner = BattleHandoff.planetOwner;
             arena.initialDefenseRatio = BattleHandoff.planetDefenseRatio;

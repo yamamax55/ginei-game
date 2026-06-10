@@ -1,7 +1,52 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
 {
+    /// <summary>
+    /// 星系の集約内政（ハイブリッド・#767）。星系は固有データを重複して持たず、配下の惑星 Province を
+    /// 人口加重でロールアップした「集約ビュー」として表す（集約バックボーン＝単一の真実は惑星側）。
+    /// 勢力層はこの星系集約をさらに積み上げ、薄い国策（GovernanceRules の modifier）で下位へ波及させる。
+    /// </summary>
+    public readonly struct SystemGovernance
+    {
+        /// <summary>集約対象の惑星数。</summary>
+        public readonly int planetCount;
+        /// <summary>総人口（Pop の合計）。</summary>
+        public readonly float totalPopulation;
+        /// <summary>人口加重平均の安定度(0..100)。</summary>
+        public readonly float weightedStability;
+        /// <summary>人口加重平均の統合度(0..1)。</summary>
+        public readonly float weightedIntegration;
+        /// <summary>人口が最も多い住民思想（支配思想。空=不明）。</summary>
+        public readonly string dominantIdeology;
+        /// <summary>有効産出力 Σ(OutputFactor×population)。</summary>
+        public readonly float totalOutput;
+        /// <summary>いずれかの惑星が反乱リスク域か。</summary>
+        public readonly bool anyUnrest;
+        /// <summary>最も荒れている惑星の反乱圧(0..1)。</summary>
+        public readonly float maxRebelPressure;
+
+        public SystemGovernance(int planetCount, float totalPopulation, float weightedStability,
+            float weightedIntegration, string dominantIdeology, float totalOutput, bool anyUnrest, float maxRebelPressure)
+        {
+            this.planetCount = planetCount;
+            this.totalPopulation = totalPopulation;
+            this.weightedStability = weightedStability;
+            this.weightedIntegration = weightedIntegration;
+            this.dominantIdeology = dominantIdeology ?? "";
+            this.totalOutput = totalOutput;
+            this.anyUnrest = anyUnrest;
+            this.maxRebelPressure = maxRebelPressure;
+        }
+    }
+
+    /// <summary>
+    /// 勢力の統治政策（#112・ハイブリッド内政の「薄い国策レイヤー」#767）。勢力層が選び、下位の惑星/星系へ
+    /// modifier として波及する（勢力は固有データを最小限＝この政策だけ持つ）。既定=民生＝中立（後方互換）。
+    /// </summary>
+    public enum GovernancePolicy { 民生, 動員, 弾圧, 解放 }
+
     /// <summary>
     /// 内政の数値解決（#109 P-1/P-2 最小ループ・純ロジック test-first）。攻城/戦略から呼ばれる唯一の窓口。
     /// 安定度は「目標値へ時間で収束」する：目標＝基準＋思想一致(±)−戦時−補給不足−(未統合ぶんの占領不満)。
@@ -25,14 +70,26 @@ namespace Ginei
         public const float MinOutputFactor = 0.3f;          // 安定0でも最低限の産出
         public const float MaxStability = 100f;
 
+        // --- 統治政策（#112）の効果（勢力の薄い国策レイヤー・#767）。民生＝基準(0)＝後方互換 ---
+        public const float PolicyCivilStability = 0f;        // 民生：中立（基準）
+        public const float PolicyMobilizeStability = -10f;   // 動員：戦時動員の負担で安定−
+        public const float PolicySuppressStability = 12f;    // 弾圧：力による秩序で安定+
+        public const float PolicyLiberateStability = -3f;    // 解放：短期はわずかに安定−
+        public const float PolicySuppressIntegrationMul = 0.5f; // 弾圧：統合が遅い（恨みが残る）
+        public const float PolicyLiberateIntegrationMul = 1.8f; // 解放：統合が速い（民心を得る）
+
         /// <summary>
         /// 安定度の目標値（収束先）を算出する純関数。プリミティブのみ＝テスト容易。
         /// </summary>
         /// <param name="integration">占領統合度(0..1)。低いほど占領不満で目標が下がる。</param>
         /// <param name="ideologyMod">思想一致の補正（一致=+、不一致=−、不明=0。<see cref="IdeologyModifier"/>）。</param>
         public static float EquilibriumStability(float integration, float ideologyMod, bool supplyOk, bool atWar)
+            => EquilibriumStability(integration, ideologyMod, supplyOk, atWar, GovernancePolicy.民生);
+
+        /// <summary>統治政策(#112)を含めた安定度の目標値（純関数）。民生は基準＝従来と同値。</summary>
+        public static float EquilibriumStability(float integration, float ideologyMod, bool supplyOk, bool atWar, GovernancePolicy policy)
         {
-            float target = BaseStability + ideologyMod;
+            float target = BaseStability + ideologyMod + PolicyStabilityModifier(policy);
             if (!supplyOk) target -= SupplyPenalty;
             if (atWar) target -= WarPenalty;
             // 未統合ぶんの占領不満（integration=1 で消える）
@@ -40,18 +97,45 @@ namespace Ginei
             return Mathf.Clamp(target, 0f, MaxStability);
         }
 
+        /// <summary>統治政策の安定度補正（#112・薄い国策レイヤー）。民生=0（基準）。</summary>
+        public static float PolicyStabilityModifier(GovernancePolicy policy)
+        {
+            switch (policy)
+            {
+                case GovernancePolicy.動員: return PolicyMobilizeStability;
+                case GovernancePolicy.弾圧: return PolicySuppressStability;
+                case GovernancePolicy.解放: return PolicyLiberateStability;
+                default:                   return PolicyCivilStability; // 民生＝基準
+            }
+        }
+
+        /// <summary>統治政策の統合速度倍率（弾圧=遅い・解放=速い・他=等倍）。</summary>
+        public static float PolicyIntegrationMultiplier(GovernancePolicy policy)
+        {
+            switch (policy)
+            {
+                case GovernancePolicy.弾圧: return PolicySuppressIntegrationMul;
+                case GovernancePolicy.解放: return PolicyLiberateIntegrationMul;
+                default:                   return 1f;
+            }
+        }
+
         /// <summary>
         /// 1tick の内政更新：統合度を進め、安定度を目標へ寄せる（戦略時間に dt 比例＝timeScale 追従）。
         /// </summary>
         public static void Tick(Province p, FactionData ownerData, bool supplyOk, bool atWar, float deltaTime)
+            => Tick(p, ownerData, supplyOk, atWar, deltaTime, GovernancePolicy.民生);
+
+        /// <summary>統治政策(#112)を反映した1tick内政更新。政策が統合速度と安定度目標へ波及する。民生は従来と同値。</summary>
+        public static void Tick(Province p, FactionData ownerData, bool supplyOk, bool atWar, float deltaTime, GovernancePolicy policy)
         {
             if (p == null || deltaTime <= 0f) return;
 
-            // 占領地の統合を時間で進める（自国領は既に 1）
-            p.integration = Mathf.Clamp01(p.integration + IntegrationRate * deltaTime);
+            // 占領地の統合を時間で進める（自国領は既に 1）。政策で速度が変わる（弾圧=遅い/解放=速い）。
+            p.integration = Mathf.Clamp01(p.integration + IntegrationRate * PolicyIntegrationMultiplier(policy) * deltaTime);
 
             float mod = IdeologyModifier(ownerData, p.nativeIdeology);
-            float target = EquilibriumStability(p.integration, mod, supplyOk, atWar);
+            float target = EquilibriumStability(p.integration, mod, supplyOk, atWar, policy);
             p.stability = Mathf.MoveTowards(p.stability, target, StabilitySpeed * deltaTime);
             p.stability = Mathf.Clamp(p.stability, 0f, MaxStability);
         }
@@ -92,6 +176,71 @@ namespace Ginei
             if (ownerData == null || string.IsNullOrEmpty(ownerData.ideology) || string.IsNullOrEmpty(nativeIdeology))
                 return 0f; // 不明＝中立
             return ownerData.ideology == nativeIdeology ? IdeologyMatchBonus : -IdeologyMismatchPenalty;
+        }
+
+        /// <summary>
+        /// 配下の惑星 Province 群を星系単位へ集約する（ハイブリッドの集約バックボーン・#767）。純関数。
+        /// 安定度・統合度は人口加重平均、支配思想は人口最多、産出は Σ(OutputFactor×population)。
+        /// 全惑星 pop=0 のときはゼロ割を避けて単純平均にフォールバック。null/空は既定(planetCount=0)を返す。
+        /// </summary>
+        public static SystemGovernance AggregateSystem(IReadOnlyList<Province> planets)
+        {
+            if (planets == null) return default;
+
+            int count = 0;
+            float totalPop = 0f, stabAcc = 0f, intAcc = 0f, output = 0f, maxRebel = 0f;
+            bool unrest = false;
+            var ideologyPop = new Dictionary<string, float>();
+
+            for (int i = 0; i < planets.Count; i++)
+            {
+                Province p = planets[i];
+                if (p == null) continue;
+                count++;
+                float pop = Mathf.Max(0f, p.population);
+                totalPop += pop;
+                stabAcc += p.stability * pop;
+                intAcc += Mathf.Clamp01(p.integration) * pop;
+                output += OutputFactor(p) * pop;
+                if (IsUnrest(p)) unrest = true;
+                float rb = RebelPressure(p);
+                if (rb > maxRebel) maxRebel = rb;
+                if (!string.IsNullOrEmpty(p.nativeIdeology))
+                {
+                    ideologyPop.TryGetValue(p.nativeIdeology, out float acc);
+                    ideologyPop[p.nativeIdeology] = acc + pop;
+                }
+            }
+
+            if (count == 0) return default;
+
+            float wStab, wInt;
+            if (totalPop > 0f)
+            {
+                wStab = stabAcc / totalPop;
+                wInt = intAcc / totalPop;
+            }
+            else
+            {
+                // 全惑星 pop=0：単純平均（ゼロ割回避）
+                float s = 0f, ig = 0f; int n = 0;
+                for (int i = 0; i < planets.Count; i++)
+                {
+                    Province p = planets[i];
+                    if (p == null) continue;
+                    s += p.stability; ig += Mathf.Clamp01(p.integration); n++;
+                }
+                wStab = n > 0 ? s / n : 0f;
+                wInt = n > 0 ? ig / n : 0f;
+            }
+
+            // 人口最多の思想（支配思想）
+            string dominant = "";
+            float best = -1f;
+            foreach (var kv in ideologyPop)
+                if (kv.Value > best) { best = kv.Value; dominant = kv.Key; }
+
+            return new SystemGovernance(count, totalPop, wStab, wInt, dominant, output, unrest, maxRebel);
         }
     }
 }

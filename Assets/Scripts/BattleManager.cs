@@ -42,6 +42,17 @@ namespace Ginei
 
         private void Update()
         {
+            // システムビュー（非戦闘・恒星系の閲覧）：戦闘判定はせず、Backspace で戦略マップへ戻るだけ。
+            if (BattleHandoff.IsSystemView)
+            {
+                if (!isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
+                {
+                    isBattleOver = true;
+                    ReturnToStrategyView();
+                }
+                return;
+            }
+
             // デバッグ用：リスタート（入力は GameInput に集約・#107）
             if (GameInput.WasPressed(GameAction.リスタート))
             {
@@ -158,6 +169,17 @@ namespace Ginei
                 BattleHandoff.SetSiegeResult(BattleHandoff.planetDefenseRatio, BattleHandoff.planetInvasionRatio, false);
 
             string ret = BattleHandoff.returnScene;
+            Time.timeScale = 1f;
+            SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(ret) ? "Strategy" : ret);
+        }
+
+        /// <summary>
+        /// 非戦闘のシステムビューから戦略マップへ戻る。戦闘結果は無いので受け渡しをクリアして戻るだけ。
+        /// </summary>
+        private void ReturnToStrategyView()
+        {
+            string ret = BattleHandoff.returnScene;
+            BattleHandoff.Clear();
             Time.timeScale = 1f;
             SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(ret) ? "Strategy" : ret);
         }

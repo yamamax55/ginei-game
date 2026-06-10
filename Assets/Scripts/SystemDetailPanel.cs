@@ -203,9 +203,14 @@ namespace Ginei
             Planet p = s.planet;
             if (p != null)
             {
-                int dpct = Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense));
                 int ipct = Mathf.FloorToInt(100f * p.invasionProgress / Mathf.Max(1f, p.invasionThreshold));
-                sb.AppendLine($"制空権: {dpct}%　{(p.DomainDown ? "（ドメイン・ダウン）" : "（健在＝接近限界）")}");
+                sb.AppendLine($"種別: {p.KindName}"); // 惑星/要塞/コロニー（PB-6）
+                if (p.maxOrbitalDefense > 0f)
+                {
+                    int dpct = Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense));
+                    sb.AppendLine($"制空権: {dpct}%　{(p.DomainDown ? "（ドメイン・ダウン）" : "（健在＝接近限界）")}");
+                }
+                else sb.AppendLine("制空権: なし（軌道超兵器なし＝接近限界なし）"); // コロニー
                 sb.AppendLine($"侵略値: {ipct}%　{(p.Captured ? "（占領済み）" : "")}");
             }
             else sb.AppendLine("防衛惑星なし（停泊で占領）");

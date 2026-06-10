@@ -67,3 +67,31 @@
 - [ ] CollectiveSecurityRules：集団安全保障（国際連盟型）。侵略者への全員制裁の建前＝個々の損得で参加が崩れる失敗モデル。`DiplomacyRules`（二国間）とは別＝多国間の約束の脆さ
 - [ ] PartitionRules：戦後分割。敗戦国の領土を勝者間で分配＝取り分の不満が次の対立軸になり、分割線が将来の火種。`TreatyRules`（条約一般）とは別＝分配の力学
 - [ ] PraetorianRules：親衛隊の両刃。君主直属の精鋭は守護者にして簒奪者＝厚遇するほど政治力を持ち、冷遇すれば守りが薄い。`CivilianControlRules`（軍全体の統制）とは別＝近衛の特殊問題
+
+### Issue連動（第1次補充・2026-06-10／オープンIssueから純ロジック子Issueを選定）
+# 連鎖経済 CPL EPIC（#1110-1116）
+- [ ] CoupledProductionRules：連産品＝固定比の同時産出（JointRecipe・#1110）。1工程が複数財を不可分に産む。`MarketRules`（単一財需給）とは別＝生産の結合
+- [ ] SpreadRules：スプレッド＝マージン(出力−入力)・原料高で採算消失（#1111）。`FiscalRules`（国家財政）とは別＝個別工程の採算の力学
+- [ ] ByproductGlutRules：副産物グルット＝連産の従産物が供給過剰で価格暴落（#1113）。`MarketRules`へ接続・連産×市場
+- [ ] ChainFragilityRules：連鎖の脆さ＝単一ノード遮断の上流グルット/下流欠品カスケード（#1112）。`SupplyRules`（補給線）とは別＝生産網の伝播
+- [ ] ContinuousOperationRules：連続運転の硬直＝稼働率・turndownコスト＝止められない戦時硬直（#1115）。`MobilizationRules`とは別＝プラントの慣性
+- [ ] IntermediateBufferRules：中間体の貯蔵不能＝バッファ無しがショックを増幅（#1116）。`ResourceStockpile`（備蓄可能財）とは別＝貯められない中間財
+# 孫子ドクトリン SUN EPIC（#1126-1130）
+- [ ] ForageRules：現地調達＝占領地・通過星系からの自律補給「糧を敵に因る」（#1128）。`SupplyRules`（後方からの補給線）とは別＝前線の自律調達
+- [ ] CulminatingPointRules：攻勢終末点＝補給距離比例の戦力効率低下（#1129）。`OverextensionRules`（版図と国力・バックログ）とは別＝作戦距離の戦力減衰
+- [ ] SunziDoctrineRules：謀攻優先＝謀>交>兵>攻城のAIスコアリング（#1130）。AIの戦略選択の重み付け＝盤面非依存のplain引数
+- [ ] DeceptionRules：戦略的欺瞞＝偽情報・陽動で敵AIの行動を歪める（#1126）。`FeintRules`（戦術の陽動・実装済み）とは別＝戦略AIの認識操作
+# 経済・通貨（SAW-1 #1072・ACC-1 #974）
+- [ ] CoinageRules：通貨改鋳と品位＝正貨の銀含有量・シニョリッジvs信用（#1072）。`InflationRules`（増発による物価）とは別＝硬貨の品位劣化
+- [ ] LedgerRules：複式簿記＝勘定体系＋仕訳エンジン（Σ借方=Σ貸方・#974）。`FiscalRules`（歳入歳出の集計）とは別＝記帳の整合性エンジン
+# 評判メタ（ALM-5 #1059）
+- [ ] WangDaoRules：王道値/覇道値＋主義ドリフト＝統治スタイルの評判メタ層（#1059）。`ReputationRules`（個人の名声）とは別＝勢力の道(王道/覇道)
+# Pillars of the Earth EPIC（#1091-1096）
+- [ ] QualityScheduleRules：工期と品質のトレードオフ＝急造が崩落/火災/襲撃の確率を上げる（#1091）。`MegaProjectRules`（#1090実装済み）へ接続＝方針レバー
+- [ ] TechBearerRules：技術は人に宿る＝工法保持者の死で喪失・引き抜き/亡命で伝播（#1092）。`InnovationDiffusionRules`（国家間の拡散・実装済み）とは別＝人という乗り物
+- [ ] CharterRightsRules：利権と特許状＝市場開設権/採掘権の授与・取消・争奪（#1093）。`MagnaCartaRules`（王権制約一般）とは別＝個別利権の管轄争い
+- [ ] CityGrowthRules：大事業が都市を育てる＝プロジェクト→人口流入→市場成立→Province成長（#1094）。`GovernanceRules`（安定度）とは別＝集積による成長
+- [ ] SuccessionWarRules：継承戦争＝君主死×継承危機→請求者並立→旗幟カスケードの国家規模化（#1095）。`LoyaltyRules`（会戦の寝返り・実装済み）の適用範囲拡大
+- [ ] ClericalCareerRules：聖職キャリア＝宗教組織の役職ラダー・理想vs野心（#1096）。`CareerPipelineRules`（武/官/技）の第4系統＝聖
+# 艦艇設計（ALM-12 #1066）
+- [ ] ArmamentDesignRules：艦艇再設計＝技術スロット装填・拡張性/搭載量の制約最適化（#1066）。`ShipClass`（戦艦/巡航/駆逐の固定枠）とは別＝設計の自由度

@@ -10,19 +10,13 @@
 - [x] Wave5 (2026-06-10)：PursuitRules / AssassinationRules / SanctionsRules / WarPoliticsRules / DisasterRules / EducationRules / ShipAgingRules
 - [x] Wave6 (2026-06-10)：PiracyRules / TradeRules / MartialLawRules / CeremonyRules / GovernmentInExileRules / HonorsRules / PrisonerExchangeRules
 - [x] Wave7 (2026-06-10)：AmbushRules / EncirclementRules / FeintRules / MinefieldRules / CarrierRules / CommunicationsRules / ElectronicWarfareRules
+- [x] Wave8 (2026-06-10)：DesertionRules / SalvageRules / OperationPlanRules / AtrocityRules / CounterIntelligenceRules / CodebreakingRules / ResistanceRules
 
 ## キュー（上から順に消化）
 
 ### 軍事・戦術
-- [ ] DesertionRules：脱走。長期戦・低士気・補給切れで兵が静かに消える（戦闘によらない損耗）。`MercenaryRules`（金銭離反）・`DisciplineRules`（抗命）とは別＝無言の退出
-- [ ] SalvageRules：戦場回収。会戦後の残骸・漂流艦から戦力/資源を回収（勝者が戦場を制する利得）。`BoardingRules.PrizeValue`（拿捕）とは別＝戦闘後の回収
-- [ ] OperationPlanRules：作戦立案。参謀の `operation` 能力（現状未使用）から作戦計画の質→会戦初期条件（配置・補給・予備隊）の優劣を出す。`CommandStaffRules`（配置・能力補完）へ委譲し重複しない
 
 ### 戦争犯罪・諜報
-- [ ] AtrocityRules：虐殺・軌道爆撃（ヴェスターラント型）。実行/黙認の選択が支持・正統性・敵のプロパガンダ素材へ波及＝短期の戦果と引き換えの長期の汚点。`PropagandaRules` を read-only で参照可
-- [ ] CounterIntelligenceRules：防諜。敵スパイ網の摘発・二重スパイ・偽情報の流し込み（敵の意思決定を汚染）。`EspionageRules`（自分の諜報）とは別＝守りと毒
-- [ ] CodebreakingRules：暗号解読。通信傍受の蓄積で敵企図の先読み確率が上がる、暗号更新でリセット。`ReconRules`（物理探知）とは別＝信号情報
-- [ ] ResistanceRules：占領地レジスタンス。未統合の占領地で破壊工作・情報漏れが起き、弾圧か懐柔かの統治コストを迫る。`GovernanceRules`（安定度収束）を read-only で参照可＝抵抗活動の解決
 - [ ] TerrorRules：テロ（地球教型）。民間目標への攻撃が恐怖と過剰反応（弾圧→支持低下）を誘う＝テロの本当の武器は報復の自滅。`AssassinationRules`（要人狙い）とは別＝無差別と恐怖
 
 ### 政治・社会

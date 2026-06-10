@@ -25,6 +25,7 @@
 - [x] Wave20 (2026-06-10)：OverextensionRules / BurdenSharingRules / CollectiveSecurityRules / PartitionRules / PraetorianRules / CoupledProductionRules(#1110) / SpreadRules(#1111)（並列7・初のIssue由来テーマCPL含む・親がPartitionテスト混入を修正）
 - [x] Wave21 (2026-06-10)：ByproductGlutRules(#1113) / ChainFragilityRules(#1112) / ContinuousOperationRules(#1115) / IntermediateBufferRules(#1116) / ForageRules(#1128) / CulminatingPointRules(#1129) / SunziDoctrineRules(#1130)（並列7・連鎖経済CPL完結＋孫子SUN・全Issue由来）
 - [x] Wave22 (2026-06-10)：DeceptionRules(#1126) / CoinageRules(#1072) / LedgerRules(#974) / WangDaoRules(#1059) / QualityScheduleRules(#1091) / TechBearerRules(#1092) / CharterRightsRules(#1093)（並列7・全Issue由来・2回目補充後）
+- [x] Wave23 (2026-06-10)：CityGrowthRules(#1094) / SuccessionWarRules(#1095) / ClericalCareerRules(#1096) / ArmamentDesignRules(#1066) / BalanceSheetRules(#975) / IncomeStatementRules(#976) / FiscalPolicyRules(#1013)（並列7・全Issue由来・Pillars完結＋会計B/S・P/LがLedger土台に）
 
 ## キュー（上から順に消化）
 
@@ -66,18 +67,11 @@
 # 経済・通貨（SAW-1 #1072・ACC-1 #974）
 # 評判メタ（ALM-5 #1059）
 # Pillars of the Earth EPIC（#1091-1096）
-- [ ] CityGrowthRules：大事業が都市を育てる＝プロジェクト→人口流入→市場成立→Province成長（#1094）。`GovernanceRules`（安定度）とは別＝集積による成長
-- [ ] SuccessionWarRules：継承戦争＝君主死×継承危機→請求者並立→旗幟カスケードの国家規模化（#1095）。`LoyaltyRules`（会戦の寝返り・実装済み）の適用範囲拡大
-- [ ] ClericalCareerRules：聖職キャリア＝宗教組織の役職ラダー・理想vs野心（#1096）。`CareerPipelineRules`（武/官/技）の第4系統＝聖
 # 艦艇設計（ALM-12 #1066）
-- [ ] ArmamentDesignRules：艦艇再設計＝技術スロット装填・拡張性/搭載量の制約最適化（#1066）。`ShipClass`（戦艦/巡航/駆逐の固定枠）とは別＝設計の自由度
 
 ### Issue連動（第2次補充・2026-06-10／ERP系の純ロジック子Issue）
 # 会計 ACC（#975,#976）
-- [ ] BalanceSheetRules：貸借対照表B/S＝資産=負債+純資産の整合（#975）。`LedgerRules`(仕訳・第1次補充)の集計表＝静的スナップショット。`FiscalRules`(歳入歳出)とは別
-- [ ] IncomeStatementRules：損益計算書P/L＝収益−費用=損益・暦で締め（#976）。`LedgerRules`のフロー集計＝期間損益。`FiscalRules`とは別＝企業会計の様式
 # 財務AI AFN（#1013-1016）
-- [ ] FiscalPolicyRules：財務ガードレール＝債務上限/準備金下限/税率レンジの逸脱判定（#1013）。`FiscalRules`(財政の実体)へ被せる国策レイヤー＝逸脱検知のみ
 - [ ] AutoTreasuryRules：自律財務運用＝準備金割れで自動起債/借換/支払（#1014・タッチレス）。`FiscalRules`/`FiscalPolicyRules`を入力に取る自動操縦＝AIの財務行動選択
 - [ ] CashFlowForecastRules：CF予測＝あとNヶ月で債務超過になる早期警告（#1015）。`FiscalRules`の将来投影＝予測のみ（実体は動かさない）
 - [ ] FinancialAnomalyRules：異常検知＝粉飾/横領/異常支出のフラグ（#1016）。会計の整合崩れ・統計外れ値の検出＝`LedgerRules`/`BalanceSheetRules`を read-only で監査

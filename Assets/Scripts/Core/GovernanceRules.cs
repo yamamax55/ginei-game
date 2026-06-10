@@ -185,7 +185,7 @@ namespace Ginei
         /// </summary>
         public static SystemGovernance AggregateSystem(IReadOnlyList<Province> planets)
         {
-            if (planets == null) return default;
+            if (planets == null) return new SystemGovernance(0, 0f, 0f, 0f, "", 0f, false, 0f);
 
             int count = 0;
             float totalPop = 0f, stabAcc = 0f, intAcc = 0f, output = 0f, maxRebel = 0f;
@@ -212,7 +212,7 @@ namespace Ginei
                 }
             }
 
-            if (count == 0) return default;
+            if (count == 0) return new SystemGovernance(0, 0f, 0f, 0f, "", 0f, false, 0f);
 
             float wStab, wInt;
             if (totalPop > 0f)

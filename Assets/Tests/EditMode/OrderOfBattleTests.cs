@@ -130,5 +130,218 @@ namespace Ginei.Tests
             Assert.Contains(1, imp.fleetNumbers);
             Assert.Contains(1, all.fleetNumbers);
         }
+
+        // ===== 敵対的エッジケース（追記） =====
+
+        /// <summary>Get/Attach/Detach は未知の formationId に対して null/false を返し、例外を出さない。</summary>
+        [Test]
+        public void UnknownFormationId_IsRejectedSafely()
+        {
+            Assert.IsNull(OrderOfBattle.Get(99999));
+            Assert.IsFalse(OrderOfBattle.AttachFleet(99999, 1));
+            Assert.IsFalse(OrderOfBattle.DetachFleet(99999, 1));
+            Assert.IsFalse(OrderOfBattle.AttachFormation(99999, 1));
+            Assert.IsFalse(OrderOfBattle.DetachFormation(99999, 1));
+            Assert.IsFalse(OrderOfBattle.CanAttachFleet(99999, 1));
+            Assert.IsFalse(OrderOfBattle.AssignCommander(99999, Admiral(10)));
+            // 未知 id への UnassignCommander は no-op（例外を出さない）
+            Assert.DoesNotThrow(() => OrderOfBattle.UnassignCommander(99999));
+            // 未知 id の集計は空・0
+            Assert.AreEqual(0, OrderOfBattle.AllFleetNumbersUnder(99999).Count);
+            Assert.AreEqual(0, OrderOfBattle.CountFleetsUnder(99999));
+        }
+
+        /// <summary>艦隊番号は正のみ有効：0 と負はクランプの下端で拒否される（仕様：fleetNumber &gt; 0）。</summary>
+        [Test]
+        public void FleetNumber_ZeroOrNegative_IsRejected()
+        {
+            var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            Assert.IsFalse(OrderOfBattle.AttachFleet(corps.id, 0));   // 境界：0 は無効
+            Assert.IsFalse(OrderOfBattle.AttachFleet(corps.id, -1));  // 負は無効
+            Assert.IsFalse(OrderOfBattle.CanAttachFleet(corps.id, 0));
+            Assert.IsFalse(OrderOfBattle.CanAttachFleet(corps.id, -5));
+            Assert.AreEqual(0, corps.fleetNumbers.Count);
+            // 境界の反対端：1 は最小の有効番号
+            Assert.IsTrue(OrderOfBattle.AttachFleet(corps.id, 1));
+            Assert.AreEqual(1, corps.fleetNumbers.Count);
+        }
+
+        /// <summary>同一艦隊の二重編入は重複を作らない（冪等＝集合的所属）。</summary>
+        [Test]
+        public void AttachFleet_Twice_IsIdempotent_NoDuplicate()
+        {
+            var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            Assert.IsTrue(OrderOfBattle.AttachFleet(corps.id, 7));
+            Assert.IsTrue(OrderOfBattle.AttachFleet(corps.id, 7)); // もう一度同じ番号
+            Assert.AreEqual(1, corps.fleetNumbers.Count(n => n == 7)); // 重複しない
+            Assert.AreEqual(1, corps.fleetNumbers.Count);
+        }
+
+        /// <summary>非メンバーの DetachFleet は false（消す対象が無い）。空梯団・他番号でも false。</summary>
+        [Test]
+        public void DetachFleet_NonMember_ReturnsFalse()
+        {
+            var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            Assert.IsFalse(OrderOfBattle.DetachFleet(corps.id, 5)); // 空梯団
+            OrderOfBattle.AttachFleet(corps.id, 5);
+            Assert.IsFalse(OrderOfBattle.DetachFleet(corps.id, 6)); // 居ない番号
+            Assert.Contains(5, corps.fleetNumbers);                  // 5 は残る
+        }
+
+        /// <summary>梯団を自分自身へ編入はできない（parentId == childId 拒否）。</summary>
+        [Test]
+        public void AttachFormation_SelfAttach_IsRejected()
+        {
+            var g = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            Assert.IsFalse(OrderOfBattle.AttachFormation(g.id, g.id));
+            Assert.IsFalse(g.childFormationIds.Contains(g.id));
+            Assert.AreEqual(0, g.parentId);
+        }
+
+        /// <summary>勢力をまたいだ梯団編入は拒否（faction が違えば付けられない）。</summary>
+        [Test]
+        public void AttachFormation_CrossFaction_IsRejected()
+        {
+            var impGroup = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var allCorps = OrderOfBattle.Create(EchelonType.軍団, Faction.同盟);
+            Assert.IsFalse(OrderOfBattle.AttachFormation(impGroup.id, allCorps.id));
+            Assert.IsFalse(impGroup.childFormationIds.Contains(allCorps.id));
+            Assert.AreEqual(0, allCorps.parentId);
+        }
+
+        /// <summary>下位梯団も単一親：別の親に付け替えると旧親の子リストから消える。</summary>
+        [Test]
+        public void AttachFormation_SingleParent_MovesBetweenGroups()
+        {
+            var g1 = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var g2 = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            Assert.IsTrue(OrderOfBattle.AttachFormation(g1.id, corps.id));
+            Assert.IsTrue(OrderOfBattle.AttachFormation(g2.id, corps.id)); // g1 から g2 へ移る
+            Assert.IsFalse(g1.childFormationIds.Contains(corps.id));        // 旧親から消える
+            Assert.IsTrue(g2.childFormationIds.Contains(corps.id));
+            Assert.AreEqual(g2.id, corps.parentId);
+        }
+
+        /// <summary>循環防止は孫レベルでも効く：祖父を孫の下に付けると循環になるため拒否（多段 WouldCycle）。</summary>
+        [Test]
+        public void AttachFormation_PreventsDeepCycle_Grandchild()
+        {
+            var grand = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var mid = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var leaf = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            Assert.IsTrue(OrderOfBattle.AttachFormation(grand.id, mid.id));
+            Assert.IsTrue(OrderOfBattle.AttachFormation(mid.id, leaf.id));
+            // leaf の下に grand を付けると grand→mid→leaf→grand の循環 → 拒否
+            Assert.IsFalse(OrderOfBattle.AttachFormation(leaf.id, grand.id));
+            Assert.IsFalse(leaf.childFormationIds.Contains(grand.id));
+        }
+
+        /// <summary>同一艦隊番号が複数の下位梯団に（不正に）居ても、集計は重複排除して1回だけ数える（合計保存則）。</summary>
+        [Test]
+        public void AllFleetNumbersUnder_DeduplicatesSharedNumber()
+        {
+            var group = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var c1 = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            var c2 = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            OrderOfBattle.AttachFormation(group.id, c1.id);
+            OrderOfBattle.AttachFormation(group.id, c2.id);
+            // 単一所属を破る経路（直接 list 操作）で同じ番号 9 を両方へ：集計の dedup を検証
+            c1.fleetNumbers.Add(9);
+            c2.fleetNumbers.Add(9);
+            var all = OrderOfBattle.AllFleetNumbersUnder(group.id);
+            Assert.AreEqual(1, all.Count(n => n == 9)); // 9 は1回だけ
+            Assert.AreEqual(1, all.Count);
+            Assert.AreEqual(1, OrderOfBattle.CountFleetsUnder(group.id));
+        }
+
+        /// <summary>GetOrCreate：名前一致は再利用、faction/echelon/名前のいずれか違えば別物を作る。null/空名は毎回新規。</summary>
+        [Test]
+        public void GetOrCreate_NameMatch_ReusesElseCreates()
+        {
+            var first = OrderOfBattle.GetOrCreate(EchelonType.軍団, Faction.帝国, "第1軍団");
+            var same = OrderOfBattle.GetOrCreate(EchelonType.軍団, Faction.帝国, "第1軍団");
+            Assert.AreSame(first, same); // 同勢力・同echelon・同名 → 再利用
+
+            var otherFaction = OrderOfBattle.GetOrCreate(EchelonType.軍団, Faction.同盟, "第1軍団");
+            Assert.AreNotSame(first, otherFaction); // 勢力違いは別物
+
+            var otherEchelon = OrderOfBattle.GetOrCreate(EchelonType.軍集団, Faction.帝国, "第1軍団");
+            Assert.AreNotSame(first, otherEchelon); // echelon 違いは別物
+
+            // 空名/null は照合せず毎回新規（仕様：IsNullOrEmpty はスキップ）
+            var anon1 = OrderOfBattle.GetOrCreate(EchelonType.軍団, Faction.帝国, "");
+            var anon2 = OrderOfBattle.GetOrCreate(EchelonType.軍団, Faction.帝国, "");
+            Assert.AreNotSame(anon1, anon2);
+            var anonNull1 = OrderOfBattle.GetOrCreate(EchelonType.軍団, Faction.帝国, null);
+            var anonNull2 = OrderOfBattle.GetOrCreate(EchelonType.軍団, Faction.帝国, null);
+            Assert.AreNotSame(anonNull1, anonNull2);
+        }
+
+        /// <summary>AllFormations は勢力で厳密に絞る（他勢力は混じらない・件数一致）。</summary>
+        [Test]
+        public void AllFormations_FiltersByFactionExactly()
+        {
+            OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            OrderOfBattle.Create(EchelonType.軍団, Faction.同盟);
+            Assert.AreEqual(2, OrderOfBattle.AllFormations(Faction.帝国).Count);
+            Assert.AreEqual(1, OrderOfBattle.AllFormations(Faction.同盟).Count);
+            Assert.IsTrue(OrderOfBattle.AllFormations(Faction.帝国).All(f => f.faction == Faction.帝国));
+        }
+
+        /// <summary>艦隊echelon の階級ゲートは tier==7 ちょうどで通る（境界の等号・オフバイワン）。tier 6 は不可。</summary>
+        [Test]
+        public void AssignCommander_FleetEchelon_BoundaryTier()
+        {
+            var fleet = OrderOfBattle.Create(EchelonType.艦隊, Faction.帝国);
+            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(6))); // 7 未満は不可
+            Assert.IsFalse(fleet.HasCommander);
+            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(7)));  // ちょうど 7 で可（>= 判定）
+            Assert.IsTrue(fleet.HasCommander);
+            // 上位tierも当然可
+            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(10)));
+        }
+
+        /// <summary>CanCommand は null提督・各echelonの境界で正しく判定する（単調性：高tierほど多くの梯団を持てる）。</summary>
+        [Test]
+        public void CanCommand_NullAndBoundaries()
+        {
+            Assert.IsFalse(OrderOfBattle.CanCommand(null, EchelonType.艦隊));
+            // 大将(8)は艦隊(7)・軍団(8)を持てるが軍集団(10)は持てない
+            var general = Admiral(8);
+            Assert.IsTrue(OrderOfBattle.CanCommand(general, EchelonType.艦隊));
+            Assert.IsTrue(OrderOfBattle.CanCommand(general, EchelonType.軍団));
+            Assert.IsFalse(OrderOfBattle.CanCommand(general, EchelonType.軍集団));
+            // 軍集団境界：9 は不可、10 は可
+            Assert.IsFalse(OrderOfBattle.CanCommand(Admiral(9), EchelonType.軍集団));
+            Assert.IsTrue(OrderOfBattle.CanCommand(Admiral(10), EchelonType.軍集団));
+        }
+
+        /// <summary>AssignCommander が階級ゲートで失敗しても既存の司令は維持される（現状維持＝置き換えない）。</summary>
+        [Test]
+        public void AssignCommander_FailedGate_KeepsExistingCommander()
+        {
+            var group = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var marshal = Admiral(10);
+            Assert.IsTrue(OrderOfBattle.AssignCommander(group.id, marshal));
+            // 大将(8)は軍集団を持てない → 失敗、元帥のまま据え置き
+            Assert.IsFalse(OrderOfBattle.AssignCommander(group.id, Admiral(8)));
+            Assert.AreSame(marshal, group.commander);
+        }
+
+        /// <summary>DetachFormation：親リストに居ない子は false（false 時に child.parentId を巻き込まない）。</summary>
+        [Test]
+        public void DetachFormation_NonChild_ReturnsFalse_DoesNotClearParent()
+        {
+            var g1 = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var g2 = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            OrderOfBattle.AttachFormation(g1.id, corps.id); // corps の親は g1
+            // g2 から corps を外そうとしても g2 の子ではない → false
+            Assert.IsFalse(OrderOfBattle.DetachFormation(g2.id, corps.id));
+            Assert.AreEqual(g1.id, corps.parentId); // 親は g1 のまま（巻き込み無し）
+            Assert.IsTrue(g1.childFormationIds.Contains(corps.id));
+        }
     }
 }

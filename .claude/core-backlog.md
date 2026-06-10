@@ -28,6 +28,7 @@
 - [x] Wave23 (2026-06-10)：CityGrowthRules(#1094) / SuccessionWarRules(#1095) / ClericalCareerRules(#1096) / ArmamentDesignRules(#1066) / BalanceSheetRules(#975) / IncomeStatementRules(#976) / FiscalPolicyRules(#1013)（並列7・全Issue由来・Pillars完結＋会計B/S・P/LがLedger土台に）
 - [x] Wave24 (2026-06-10)：AutoTreasuryRules(#1014) / CashFlowForecastRules(#1015) / FinancialAnomalyRules(#1016) / SupplierRatingRules(#1004) / SourcingAuctionRules(#1005) / SupplyContractRules(#1006) / BomRules(#983)（並列7・全Issue由来・財務AI完結＋調達＋生産網・親がParamsネスト修正1件）
 - [x] Wave25 (2026-06-10)：MrpRules(#984) / ProductionOrderRules(#985) / CapacitySchedulingRules(#987) / ValueChainRules(#1023) / FirmRules(#1024) / CapitalInvestmentRules(#1025) / PublicPrivateSeparationRules(#1035)（並列7・全Issue由来・生産網SCM完結＋企業FRM）
+- [x] Wave26 (2026-06-10)：PropertyRightsRules(#1036) / InheritanceRules(#1038) / PerformanceReviewRules(#995) / CompensationRules(#996) / SpyRoleRules(#1127) / BullwhipRules(#1114) / BalanceOfPowerRules(#1103)（並列7・全Issue由来・所有OWN/人事HCM/連鎖CPL完結＋孫子用間/三国志着手）
 
 ## キュー（上から順に消化）
 
@@ -78,18 +79,11 @@
 # 生産網 SCM（#983,#984,#985,#987）
 # 企業 FRM（#1023,#1024,#1025）
 # 所有 OWN（#1035,#1036,#1038）
-- [ ] PropertyRightsRules：私有財産の保護＝民法・保護強度→投資意欲（#1036・#170/#624接続）。財産権の強さが経済を動かす＝`ConfiscationRules`(没収)・`MagnaCartaRules`の財産版
-- [ ] InheritanceRules：相続・継承＝資産の世代継承（#1038・継承法#646接続）。`SuccessionLawRules`(爵位/君主位)とは別＝資産・封土の相続（分割/長子で散逸か集中か）
 # 人事 HCM（#995,#996）
-- [ ] PerformanceReviewRules：人事評価9-box＝実績×潜在のマトリクス（#995）。昇進/配置の入力＝`SeniorityRules`(席次)とは別＝業績評価
-- [ ] CompensationRules：報酬・授爵・賞罰＝Compensation→士気/忠誠（#996・#817接続）。`HonorsRules`(勲章インフレ)・`MeritRankRules`(軍功爵位)を束ねる報酬体系→`LoyaltyRules`へ
 
 ### Issue連動（第3次補充・2026-06-10／孫子SUN残・三国志SGZ・狼と香辛料SAW・Almagest ALM）
 # 孫子 SUN残り＋連鎖経済CPL-4
-- [ ] SpyRoleRules：用間5種体系＝郷間/内間/反間/死間/生間の役割別効果・リスク（#1127孫子用間篇）。`EspionageRules`(諜報一般)の役割分類＝間者の種類で効果と発覚リスクが変わる
-- [ ] BullwhipRules：ブルウィップ効果＝多段サプライチェーンで需要変動が上流へ増幅（#1114）。`ChainFragilityRules`(遮断の伝播)とは別＝変動の増幅。連鎖経済CPL EPIC完結
 # 三国志演義 SGZ（#1103-1107）
-- [ ] BalanceOfPowerRules：多極均衡・勢力均衡圧力＝最強勢力の台頭が弱小の連衡を生む自動圧力（#1103）。`DiplomacyRules`(二国間)とは別＝多極のシステム圧力（合従連衡）
 - [ ] CounselRules：献策システム＝参謀が策を提案→君主が採択→帰結修正子（#1104）。`CommandStaffRules`(能力補完)とは別＝策の提案と採否の力学
 - [ ] PledgeRules：個人結盟と盟誓＝義兄弟型誓約・拘束力・離反ペナルティ（#1105桃園結義）。`LoyaltyRules`(会戦の旗幟)・`FriendshipRules`(紐帯)とは別＝制度的誓約
 - [ ] AlienationStratagemRules：離間の計＝標的勢力ペアのopinion工作で同盟を崩す（#1106）。`EspionageRules`拡張・`DiplomacyRules`のopinionへ波及＝敵同士を仲違いさせる

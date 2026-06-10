@@ -17,9 +17,12 @@ namespace Ginei
         /// <summary>戦役の世界状態（勢力ごとの国家状態・#817 旗幟の基準忠誠の出所）。Battle 往復でも腐敗/合意を失わない。</summary>
         public static CampaignState Campaign;
 
+        /// <summary>統一ゲーム時間の唯一の権威（TIME-1 #947）。戦略/戦術が共有し、Battle 往復でも時間を失わない。</summary>
+        public static GameClock Clock = new GameClock();
+
         public static bool HasState => Map != null && Reg != null;
 
         public static void Set(GalaxyMap map, StrategicFleetRegistry reg) { Map = map; Reg = reg; }
-        public static void Clear() { Map = null; Reg = null; Provinces = null; Campaign = null; }
+        public static void Clear() { Map = null; Reg = null; Provinces = null; Campaign = null; Clock = new GameClock(); }
     }
 }

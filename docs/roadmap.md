@@ -81,7 +81,7 @@
 ## 3. Phase A：残りタスク
 
 ### 3-1. RTS操作の仕上げ
-- ~~**#83 部隊グループ（Ctrl+数字）**~~ ✅ **完了**（`FleetCommander.HandleControlGroups`＝選択中なら割当・空なら呼出。ヘルプ/CLAUDE.md 反映済）
+- ~~**#83 部隊グループ（Alt+数字）**~~ ✅ **完了**（`FleetCommander.HandleControlGroups`＝選択中なら割当・空なら呼出。Unityエディタの Ctrl+数字と衝突回避のため Alt 採用。ヘルプ/CLAUDE.md 反映済）
 - **#86 アクティブポーズ**（med・ポーズ中の命令発行）
 - #84 ミニマップ（med）
 

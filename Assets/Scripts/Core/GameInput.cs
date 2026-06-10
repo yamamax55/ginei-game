@@ -36,14 +36,16 @@ namespace Ginei
         public readonly GameAction action;
         public readonly Key key;
         public readonly bool ctrl;
+        public readonly bool alt;
         public readonly InputContext context;
 
-        public InputBinding(GameAction action, Key key, InputContext context, bool ctrl = false)
+        public InputBinding(GameAction action, Key key, InputContext context, bool ctrl = false, bool alt = false)
         {
             this.action = action;
             this.key = key;
             this.context = context;
             this.ctrl = ctrl;
+            this.alt = alt;
         }
     }
 
@@ -78,10 +80,11 @@ namespace Ginei
             new InputBinding(GameAction.カメラ下,       Key.DownArrow,  InputContext.会戦),
             new InputBinding(GameAction.カメラ左,       Key.LeftArrow,  InputContext.会戦),
             new InputBinding(GameAction.カメラ右,       Key.RightArrow, InputContext.会戦),
-            // #83：Ctrl＋数字＝グループ選択。倍速（修飾なし）と修飾キーで分離＝衝突しない。
-            new InputBinding(GameAction.グループ選択1,  Key.Digit1,    InputContext.会戦, ctrl: true),
-            new InputBinding(GameAction.グループ選択2,  Key.Digit2,    InputContext.会戦, ctrl: true),
-            new InputBinding(GameAction.グループ選択3,  Key.Digit3,    InputContext.会戦, ctrl: true),
+            // #83：Alt＋数字＝グループ選択。倍速（修飾なし）・Unity エディタの Ctrl＋数字（ウィンドウ切替）と
+            // 衝突しないよう Alt で分離。
+            new InputBinding(GameAction.グループ選択1,  Key.Digit1,    InputContext.会戦, alt: true),
+            new InputBinding(GameAction.グループ選択2,  Key.Digit2,    InputContext.会戦, alt: true),
+            new InputBinding(GameAction.グループ選択3,  Key.Digit3,    InputContext.会戦, alt: true),
         };
 
         /// <summary>全キー割当（読み取り専用・UI/検証用）。</summary>
@@ -132,7 +135,7 @@ namespace Ginei
                 InputBinding b = bindings[i];
                 foreach (InputContext ctx in ConcreteContexts(b.context))
                 {
-                    string slot = ctx + "|" + b.key + (b.ctrl ? "|Ctrl" : "");
+                    string slot = ctx + "|" + b.key + (b.ctrl ? "|Ctrl" : "") + (b.alt ? "|Alt" : "");
                     if (occupied.TryGetValue(slot, out GameAction other) && other != b.action)
                         conflicts.Add($"{slot}: {other} ⇔ {b.action}");
                     else
@@ -149,7 +152,7 @@ namespace Ginei
         public static string KeyLabel(GameAction action)
         {
             if (!TryGetBinding(action, out InputBinding b)) return "";
-            return (b.ctrl ? "Ctrl+" : "") + KeyName(b.key);
+            return (b.ctrl ? "Ctrl+" : "") + (b.alt ? "Alt+" : "") + KeyName(b.key);
         }
 
         private static IEnumerable<InputContext> ConcreteContexts(InputContext c)
@@ -189,7 +192,7 @@ namespace Ginei
             {
                 InputBinding b = table[i];
                 if (b.action != action) continue;
-                string lbl = (b.ctrl ? "Ctrl+" : "") + KeyName(b.key);
+                string lbl = (b.ctrl ? "Ctrl+" : "") + (b.alt ? "Alt+" : "") + KeyName(b.key);
                 if (!labels.Contains(lbl)) labels.Add(lbl);
             }
             return labels.Count == 0 ? "" : string.Join(" / ", labels);
@@ -240,7 +243,8 @@ namespace Ginei
                 if (b.action != action) continue;
                 if (!IsActiveIn(b.context, Context)) continue;
                 if (!kb[b.key].wasPressedThisFrame) continue;
-                if (kb.ctrlKey.isPressed != b.ctrl) continue; // 修飾一致＝Ctrl＋数字と数字を分離（#83）
+                if (kb.ctrlKey.isPressed != b.ctrl) continue; // 修飾は厳密一致
+                if (kb.altKey.isPressed != b.alt) continue;   // Alt＋数字＝グループと素の数字＝倍速を分離（#83）
                 return true;
             }
             return false;
@@ -260,6 +264,7 @@ namespace Ginei
                 if (!IsActiveIn(b.context, Context)) continue;
                 if (!kb[b.key].isPressed) continue;
                 if (kb.ctrlKey.isPressed != b.ctrl) continue;
+                if (kb.altKey.isPressed != b.alt) continue;
                 return true;
             }
             return false;

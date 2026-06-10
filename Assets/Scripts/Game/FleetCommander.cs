@@ -19,7 +19,7 @@ namespace Ginei
 
         public List<Selectable> SelectedFleets => selectedFleets;
 
-        // 部隊グループ（#83・Ctrl＋数字）。グループ番号→割り当て艦隊。選択中ならそのグループへ割当、
+        // 部隊グループ（#83・Alt＋数字）。グループ番号→割り当て艦隊。選択中ならそのグループへ割当、
         // 空なら呼び出して選択する（割当/呼出は同じキーで状況により切替＝GameInput の説明どおり）。
         private readonly Dictionary<int, List<Selectable>> controlGroups = new Dictionary<int, List<Selectable>>();
 
@@ -835,9 +835,9 @@ namespace Ginei
         // ===== 部隊グループ（#83・Ctrl＋数字）=====
 
         /// <summary>
-        /// 部隊グループの入力処理（Ctrl＋1/2/3）。選択中の艦隊があればそのグループへ割り当て、
+        /// 部隊グループの入力処理（Alt＋1/2/3）。選択中の艦隊があればそのグループへ割り当て、
         /// 無ければ既存グループを呼び出して選択する（割り当て/呼び出しは同じキーで状況により切替）。
-        /// バインドは <see cref="GameInput"/>（会戦コンテキスト・Ctrl修飾で倍速と分離）。
+        /// バインドは <see cref="GameInput"/>（会戦コンテキスト・Alt修飾で倍速・Unityエディタの Ctrl＋数字と分離）。
         /// </summary>
         private void HandleControlGroups()
         {

@@ -67,3 +67,53 @@
 - [ ] MentorshipRules：師弟（メルカッツ型）。老練の師が後進の成長を加速し、師の死で独り立ちが試される。`GrowthRules`（成長曲線）へ係数を渡す別系統＝伝授
 - [ ] HistoriographyRules：歴史叙述。勝者が歴史を書く＝人物の後世評価は政権の都合で改竄され、政権交代で再評価される。`ReputationRules`（存命中の名声）とは別＝死後の評価戦
 - [ ] TerraformingRules：テラフォーミング。非居住可能星系への長期投資で `habitable` 化＝入植先を作る。`ColonizationRules`（居住可能星系への入植）の前段＝別系統
+
+### 軍事・即応態勢
+- [ ] ReadinessRules：即応態勢。警戒水準は維持費を食い、緩めると奇襲に弱い（休暇中の艦隊は出遅れる）。`VeterancyRules`（長期の熟練）とは別＝短期の警戒状態
+- [ ] ForcedMarchRules：強行軍。到着を早める代わりに疲労蓄積＝到着直後の戦闘ペナルティ、無理を重ねると落伍。`StrategicFleet`（移動そのもの）は不変＝疲労係数の算出のみ
+- [ ] MothballRules：予備役艦隊・モスボール。退蔵保管は維持費を大きく削るが、再就役に時間と整備費がかかる。`ShipAgingRules`（経年劣化）とは別＝保管状態の管理
+- [ ] RaidRules：縦深襲撃。敵後方の補給拠点・造船所への一撃離脱＝占領せず破壊して戻る、深入りほど帰還リスク。`CommerceRaidingRules`（船団狩り）とは別＝固定目標への強襲
+- [ ] ScorchedEarthRules：焦土戦術。撤退時に自領の資産を焼いて敵の利得を消す＝侵攻は鈍るが自国民の恨みと復興費が残る。`ReconstructionRules`（再建側）と対になる破壊側
+- [ ] MutinyRules：艦隊反乱。部隊単位の集団的な命令拒否・艦の乗っ取り（待遇・思想・敗勢が引き金）。`DisciplineRules`（個別の抗命）・`CoupRules`（国家転覆）の中間スケール
+
+### 抑止・外交
+- [ ] EscalationRules：エスカレーション管理。偶発的な国境事件が梯子を昇って戦争に至る／降りる判断＝威信と実利の綱引き。`DiplomacyRules`（状態遷移）へ宣戦を委譲＝梯子の力学のみ
+- [ ] DeterrenceRules：抑止。報復能力の顕示が開戦を思いとどまらせる＝能力×信憑性（脅しが信じられなければ無意味）。`ArmsRaceRules`（軍拡の螺旋）とは別＝開戦判断への写像
+- [ ] ArmsRaceRules：軍拡競争。相手の建艦に建艦で応える安全保障のジレンマ＝双方が貧しくなりながら相対優位は変わらない。`ShipyardRules`（建艦そのもの）を read-only で参照可
+- [ ] ArmsControlRules：軍縮条約（ワシントン体制型）。建艦上限・査察・秘密再軍備の発覚リスク＝信頼の制度化と裏切りの誘惑。`TreatyRules`（条約一般）とは別＝軍備の検証問題
+- [ ] AppeasementRules：宥和政策。譲歩が平和を買うか侵略の食欲を育てるか＝相手の性格（現状維持/拡張主義）を見誤ると破滅（ミュンヘンの教訓）。`DiplomacyRules` の opinion とは別＝譲歩の学習効果
+- [ ] InfluenceRules：勢力圏。直接領有せず経済・軍事顧問・政治介入で他国を影響下に置くグラデーション。`DiplomacyState`（属国＝形式）とは別＝非公式な浸透度
+- [ ] DebtDiplomacyRules：債務外交。貸し込んだ債権が政治的レバレッジになる＝返せない借り手は港を差し出す。`BankRules`（信用創造）・`FiscalRules`（自国財政）とは別＝対外債権の武器化
+- [ ] ForeignAidRules：対外援助。敵対勢力の災害救援・friendly な開発援助が opinion と勢力圏を買う＝善意と買収の二重底。`DisasterRules`（国内救援）とは別＝越境する援助
+- [ ] TribunalRules：戦犯裁判。戦後の勝者の裁き＝正義の执行と報復の間、過酷なら遺恨・寛大なら不処罰の不満。`AtrocityRules`（罪そのもの）の後段＝裁きの政治
+
+### 統治・制度
+- [ ] CensusRules：国勢調査・統計精度。国家が自国を「見えて」いるか＝統計が粗いと徴税・徴募・政策が外れる（見えない国は治められない）。`DemographicsRules`（実際の人口）とは別＝認識とのズレ
+- [ ] CoalitionRules：連立政権。単独過半数なき議会の連立形成＝政策は最小公倍数に薄まり、小党が拒否権を持つ。`PartyRules`（党勢・首班）を read-only で参照可＝連立の安定度
+- [ ] ImpeachmentRules：弾劾・不信任。合法的な政権打倒経路＝要件（証拠・議席）と成否、失敗した弾劾は政権を強化する。`CoupRules`（非合法打倒）の制度版
+- [ ] TermLimitRules：任期制限。権力の時間制約と「非常時だから」の延長誘惑＝一度破ると慣習が死ぬ（共和制の死）。`ConstitutionRules`（制約一般）とは別＝時間軸の制約
+- [ ] EmergencyPowersRules：国家緊急権。非常大権は危機を速く処理するが、解除されない非常事態が常態化する（全権委任法の罠）。`MartialLawRules`（治安戒厳）とは別＝憲法停止の力学
+- [ ] FederalismRules：連邦制。中央と地方の権限配分＝分権は多様性と引き換えに統一行動が鈍る。`SeparationOfPowersRules`（水平の分立）に対する垂直の分立
+- [ ] CitizenshipRules：市民権。参政権・公職資格の範囲＝拡大は統合を進め、二級市民の存在は火種を残す。`CultureRules`（民族同化）とは別＝法的地位の付与
+- [ ] PatronageRules：猟官制・恩顧主義。官職を支持者に配って忠誠を買う＝政権は安定するが行政能力が劣化する。`SeniorityRules`（席次vs実力）とは別＝忠誠vs能力の人事
+
+### 宮廷・人物
+- [ ] CourtFavorRules：宮廷の寵愛・讒言。君主の寵を競う廷臣＝寵臣の専横と讒言による失脚、君主の眼力が防波堤。`PowerRules`（実権構造）とは別＝寵という通貨
+- [ ] AmbitionRules：野心（ロイエンタール型）。実力者の野心は功績とともに育ち、主君の猜疑と共鳴して反逆の自己成就予言になる。`LoyaltyRules`（忠誠の解決）とは別＝野心と猜疑のスパイラル
+- [ ] IllnessRules：病臥（ラインハルト型）。英雄の病＝執務不能・戦線離脱・病状の隠蔽と漏洩、死期が見えた政権の継承レース。`LifecycleRules`（加齢死亡）とは別＝突発的な健康イベント
+- [ ] ScandalRules：醜聞。汚職・私行の露見が要人を失脚させる＝もみ消しは成功すれば無傷・失敗すれば倍返し。`SecurityRules`（体制側の監視）とは別＝個人の失脚力学
+
+### 社会
+- [ ] SerfdomRules：農奴制と解放。身分制労働の生産は安定だが上限が低い＝解放は短期ショックと引き換えに流動性と忠誠を得る（帝国の農奴解放）。`RedistributionRules`（税の再分配）とは別＝身分の再編
+- [ ] GenerationalMemoryRules：戦争記憶の世代風化。戦争を知る世代が退場すると好戦論が再生する＝記憶の半減期が開戦閾値を下げる。`WarGoalRules.WarWeariness`（進行中の厭戦）とは別＝世代スケールの忘却
+- [ ] BreadAndCircusesRules：パンとサーカス。娯楽と配給の供給が政治的不満をガス抜きする＝効くが依存し、途切れた時の反動が大きい。`HopeRules`（希望の実体）とは別＝慰撫の代替財
+- [ ] VeteranPoliticsRules：退役軍人の政治力。傷痍軍人・戦友会が圧力団体化＝恩給は財政を食い、冷遇は街頭の不満になる（在郷軍人会）。`RetirementRules`（個人の退役）とは別＝集団の政治力
+- [ ] StrikeRules：労働運動。賃金・待遇闘争が生産を止める＝弾圧か妥協か、組織率と景気で交渉力が振れる。`MarketRules`（生活水準）を read-only で参照可＝集団行動の解決
+
+### 経済
+- [ ] ReserveCurrencyRules：基軸通貨特権。自国通貨が決済標準だと赤字を刷って埋められる（法外な特権）＝信認が崩れた日に全部返ってくる。`FiscalRules`（為替係数）とは別＝通貨覇権の力学
+- [ ] RationingRules：配給制。戦時の物資配給＝公平感が士気を支え、不公平の露見は闇市と不満を肥やす。`BlackMarketRules`（統制の影）と対になる政策側
+- [ ] WarIndustryRules：軍産複合体。軍需が利益集団化して講和に抵抗する＝戦争の長期化が「合理的」になる構造。`StockMarketRules`（企業一般）とは別＝戦争利得のロビー力学
+
+### 戦略・探査
+- [ ] ExplorationRules：未知宙域探査（G-2 #119 のCore部分）。未探索星系の発見進捗・探査艦の能力・発見roll＝`ColonizationRules.CanColonize` が引数で受けている「探索済み」の供給源。偵察艦の固有機能の戦略版

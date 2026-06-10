@@ -26,6 +26,7 @@
 - [x] Wave21 (2026-06-10)：ByproductGlutRules(#1113) / ChainFragilityRules(#1112) / ContinuousOperationRules(#1115) / IntermediateBufferRules(#1116) / ForageRules(#1128) / CulminatingPointRules(#1129) / SunziDoctrineRules(#1130)（並列7・連鎖経済CPL完結＋孫子SUN・全Issue由来）
 - [x] Wave22 (2026-06-10)：DeceptionRules(#1126) / CoinageRules(#1072) / LedgerRules(#974) / WangDaoRules(#1059) / QualityScheduleRules(#1091) / TechBearerRules(#1092) / CharterRightsRules(#1093)（並列7・全Issue由来・2回目補充後）
 - [x] Wave23 (2026-06-10)：CityGrowthRules(#1094) / SuccessionWarRules(#1095) / ClericalCareerRules(#1096) / ArmamentDesignRules(#1066) / BalanceSheetRules(#975) / IncomeStatementRules(#976) / FiscalPolicyRules(#1013)（並列7・全Issue由来・Pillars完結＋会計B/S・P/LがLedger土台に）
+- [x] Wave24 (2026-06-10)：AutoTreasuryRules(#1014) / CashFlowForecastRules(#1015) / FinancialAnomalyRules(#1016) / SupplierRatingRules(#1004) / SourcingAuctionRules(#1005) / SupplyContractRules(#1006) / BomRules(#983)（並列7・全Issue由来・財務AI完結＋調達＋生産網・親がParamsネスト修正1件）
 
 ## キュー（上から順に消化）
 
@@ -72,15 +73,8 @@
 ### Issue連動（第2次補充・2026-06-10／ERP系の純ロジック子Issue）
 # 会計 ACC（#975,#976）
 # 財務AI AFN（#1013-1016）
-- [ ] AutoTreasuryRules：自律財務運用＝準備金割れで自動起債/借換/支払（#1014・タッチレス）。`FiscalRules`/`FiscalPolicyRules`を入力に取る自動操縦＝AIの財務行動選択
-- [ ] CashFlowForecastRules：CF予測＝あとNヶ月で債務超過になる早期警告（#1015）。`FiscalRules`の将来投影＝予測のみ（実体は動かさない）
-- [ ] FinancialAnomalyRules：異常検知＝粉飾/横領/異常支出のフラグ（#1016）。会計の整合崩れ・統計外れ値の検出＝`LedgerRules`/`BalanceSheetRules`を read-only で監査
 # 調達 PRC（#1004,#1005,#1006）
-- [ ] SupplierRatingRules：サプライヤー評価＝信頼性/納期遵守/関係スコア（#1004）。納入実績の加重評価＝発注先選定の入力。`TradeRules`(交易利得)とは別
-- [ ] SourcingAuctionRules：逆オークション＝RFQ→入札→落札の価格発見（#1005）。複数サプライヤーの競争見積で最安/最適を選ぶ＝`MarketRules`(連続市場)とは別＝離散入札
-- [ ] SupplyContractRules：契約管理＝長期供給契約 vs spot・破棄=戦争/制裁（#1006・DIP-2接続）。契約の履行/破棄の損得＝`TreatyRules`の商業版・`DiplomacyRules`へ波及
 # 生産網 SCM（#983,#984,#985,#987）
-- [ ] BomRules：部品表BOM＝艦→部品→素材の多層展開（#983・BomRules.Explode）。1製品の所要部材を再帰展開＝`CoupledProductionRules`(連産レシピ)とは別＝分解の木
 - [ ] MrpRules：MRP所要量計算＝在庫×生産予定→正味所要→計画オーダー・リードタイム（#984）。`BomRules`の展開を入力に正味所要を出す＝資材所要計画
 - [ ] ProductionOrderRules：発注・生産オーダー＝PO/PrOを鉱業/工業/船渠へ割付（#985）。`MrpRules`の計画オーダーを能力へ配分＝`ShipyardRules`(就役)とは別＝手前の発注
 - [ ] CapacitySchedulingRules：有限能力スケジューリング＝WIP・ボトルネック・スループット（#987）。`ProductionOrderRules`を有限設備へ詰める＝制約理論TOC

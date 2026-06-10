@@ -31,7 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
           claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"'
           prompt: |
             あなたは銀英伝風戦略ゲームのリポジトリ（ブランチ auto/worldview-epics チェックアウト済み）で、

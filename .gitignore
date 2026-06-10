@@ -12,8 +12,10 @@
 .vscode/
 # Unity AssetGeneration の中間生成物（最終アセットは Assets/Art へ取り込み済み・元PNG/JSONは追跡しない）
 GeneratedAssets/
-# Claude Code のローカル状態・worktree（追跡しない）
-.claude/
+# Claude Code のローカル状態・worktree（追跡しない）。ただしプロジェクト共有のコマンド/バックログは追跡する
+.claude/*
+!.claude/commands/
+!.claude/core-backlog.md
 # MCP ローカル設定（マシン固有の絶対パスを含むため追跡しない）/ Serena のインデックスキャッシュ
 .mcp.json
 .serena/

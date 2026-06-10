@@ -97,11 +97,13 @@ namespace Ginei.Tests
         [Test]
         public void EffectiveStatBonus_ClampedToArchetypeCeiling()
         {
-            // 巨大経験で飽和カーブはほぼ peak に到達。base=0 なので上限は ceiling のみが効く。
-            var risen = new Growth(GrowthArchetype.叩き上げ, 1_000_000f);
+            // 首席型は飽和カーブの漸近値(initialBonus+peak=37)が天井(30)を上回るため、
+            // 巨大経験で天井にクランプされる＝ceiling が実際に効くケース。
+            // （叩き上げ等は漸近値が天井未満でクランプが発動しない＝自然に天井下で頭打ち＝設計どおり）
+            var risen = new Growth(GrowthArchetype.首席型, 1_000_000f);
             int bonus = GrowthRules.EffectiveStatBonus(risen, 0);
 
-            var p = GrowthRules.ForArchetype(GrowthArchetype.叩き上げ);
+            var p = GrowthRules.ForArchetype(GrowthArchetype.首席型);
             Assert.LessOrEqual(bonus, p.ceiling, "アーキタイプ天井を超えない");
             Assert.AreEqual(p.ceiling, bonus, "巨大経験では天井に張り付く");
         }

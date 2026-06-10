@@ -13,6 +13,7 @@
 - [x] Wave8 (2026-06-10)：DesertionRules / SalvageRules / OperationPlanRules / AtrocityRules / CounterIntelligenceRules / CodebreakingRules / ResistanceRules
 - [x] Wave9 (2026-06-10)：TerrorRules / RegencyRules / PlebisciteRules / AmnestyRules / PurgeRules / ConfiscationRules / DemagogueRules
 - [x] Wave10 (2026-06-10)：MartyrdomRules / CivilWarRules / HostageRules / MigrationRules / InflationRules / BlackMarketRules / ReconstructionRules（初の並列7実装＝実装フェーズ約7分）
+- [x] Wave11 (2026-06-10)：ReparationsRules / MonopolyRules / MegaProjectRules(#1090) / InnovationDiffusionRules / BufferStateRules / ChokepointValueRules / SenescenceRules（並列7＝約5分）
 
 ## キュー（上から順に消化）
 
@@ -23,15 +24,8 @@
 ### 政治・社会
 
 ### 経済
-- [ ] ReparationsRules：賠償金（ヴェルサイユの罠）。過酷な賠償は敗者の経済を殺し復讐主義を育てる＝勝者の取り分と次の戦争の種のトレードオフ。`WarGoalRules`（講和条件一般）とは別＝賠償の長期帰結
-- [ ] MonopolyRules：独占・財閥。市場支配が価格を吊り上げ政治を買収する、解体は効率と引き換えに反発。`MarketRules`（競争市場）とは別＝市場の失敗
-- [ ] MegaprojectRules：巨大事業（要塞建造型・PIL-1 #1090 が正仕様＝段階建設・財政ドレイン・発起人死後の継承）。長期巨額の段階投資＝中断の埋没費用、完成すれば戦略を変える。`ShipyardRules`（艦の量産）とは別＝一点物の巨大建造。実装時は #1090 本文（CalendarDispatcher/FiscalRules/SuccessionRules 接続）に従う
-- [ ] InnovationDiffusionRules：技術伝播。先進技術は交易・諜報・模倣で漏れる＝技術独占は時限。`ResearchRules`（自前研究）とは別＝他国からの流入
 
 ### 戦略・人物
-- [ ] BufferStateRules：緩衝国（フェザーン型）。両大国の間で等距離外交・経済的不可欠性で自立を保つ小国の生存戦略、均衡が崩れた瞬間に併呑される。`DiplomacyRules`（二国関係）とは別＝三体問題の生存術
-- [ ] ChokepointValueRules：要衝価値。回廊の戦略価値（迂回路の有無・経済流量・前線距離）を点数化＝AI・自動配備の判断材料。`GalaxyPathfinder`（経路探索）を read-only で参照可
-- [ ] SenescenceRules：名将の衰え。加齢で能力の実効値が峠を越えて下る（全盛期→緩やかな下り坂）、本人は気づきにくい。`LifecycleRules`（死亡）・`RetirementRules`（停年制度）とは別＝能力曲線
 - [ ] RivalryRules：宿敵（ヤン vs ラインハルト型）。好敵手の存在が互いの成長・士気を引き上げ、宿敵の死は勝者から張りを奪う。`GrowthRules`（経験成長）とは別＝関係性ボーナス
 - [ ] FriendshipRules：盟友（キルヒアイス/双璧型）。深い信頼の僚友は共同作戦にボーナス、喪失・反目は深い痛手。`CommandStaffRules`（職制上の補佐）とは別＝個人的紐帯
 - [ ] MentorshipRules：師弟（メルカッツ型）。老練の師が後進の成長を加速し、師の死で独り立ちが試される。`GrowthRules`（成長曲線）へ係数を渡す別系統＝伝授

@@ -278,5 +278,77 @@ namespace Ginei.Tests
             Assert.AreEqual(1.0f, connected, 1e-5f); // 1.0×1.0
             Assert.AreEqual(0.5f, split, 1e-5f);     // 1.0×0.5
         }
+
+        // ───────── S5：税収・国庫・税負担（TickEconomy）─────────
+
+        private static CampaignState OneFaction(out FactionState s)
+        {
+            var m = new GalaxyMap();
+            m.AddSystem(Sys(0, Faction.帝国));
+            var c = new CampaignState(m);
+            CampaignRules.EnsureStates(c);
+            s = CampaignRules.GetState(c, Faction.帝国);
+            return c;
+        }
+
+        [Test]
+        public void TickEconomy_CollectsTaxIntoTreasury()
+        {
+            var c = OneFaction(out var s);
+            s.taxRate = 0.5f;
+            float baseEco = CampaignRules.EconomyBase(s); // pop×係数×安定度
+            float before = s.treasury;
+            CampaignRules.TickEconomy(c, 1f);
+            // 税収＝課税ベース×税率（dt=1）
+            Assert.AreEqual(before + baseEco * 0.5f, s.treasury, 1e-4f);
+            Assert.Greater(s.treasury, before);
+        }
+
+        [Test]
+        public void TickEconomy_HigherTaxYieldsMoreRevenue_AndErodesHopeMore()
+        {
+            var cLow = OneFaction(out var sLow);  sLow.taxRate = 0.2f;
+            var cHigh = OneFaction(out var sHigh); sHigh.taxRate = 0.8f;
+            CampaignRules.TickEconomy(cLow, 1f);
+            CampaignRules.TickEconomy(cHigh, 1f);
+            // 高税ほど税収が多い
+            Assert.Greater(sHigh.treasury, sLow.treasury);
+            // 高税ほど民心(希望)が下がる
+            Assert.Less(sHigh.community.hope, sLow.community.hope);
+        }
+
+        [Test]
+        public void TickEconomy_ZeroTax_NoRevenue_NoBurden()
+        {
+            var c = OneFaction(out var s);
+            s.taxRate = 0f;
+            float hopeBefore = s.community.hope;
+            CampaignRules.TickEconomy(c, 1f);
+            Assert.AreEqual(0f, s.treasury, 1e-5f);          // 税率0＝税収0
+            Assert.AreEqual(hopeBefore, s.community.hope, 1e-5f); // 負担0＝希望不変
+        }
+
+        [Test]
+        public void TickEconomy_TaxBurden_DropsHope_ClampedAtZero()
+        {
+            var c = OneFaction(out var s);
+            s.taxRate = 1f;
+            s.community.hope = 0.001f; // 既に下限近く
+            CampaignRules.TickEconomy(c, 100f); // 大 dt でも 0 未満にならない
+            Assert.GreaterOrEqual(s.community.hope, 0f);
+            Assert.AreEqual(0f, s.community.hope, 1e-5f);
+        }
+
+        [Test]
+        public void TickEconomy_NullAndNonPositiveDt_Safe()
+        {
+            var c = OneFaction(out var s);
+            float t = s.treasury;
+            CampaignRules.TickEconomy(null, 1f);  // null 安全
+            CampaignRules.TickEconomy(c, 0f);     // dt=0 で無変化
+            CampaignRules.TickEconomy(c, -1f);    // 負 dt で無変化
+            Assert.AreEqual(t, s.treasury, 1e-5f);
+            Assert.AreEqual(0f, CampaignRules.EconomyBase(null), 1e-5f); // null 課税ベース=0
+        }
     }
 }

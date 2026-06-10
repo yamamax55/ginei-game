@@ -74,7 +74,20 @@ namespace Ginei
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
         private TextMesh banner;
         private TextMesh helpLine;
+        private TextMesh policyLine;                 // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示
         private readonly Dictionary<int, TextMesh> siegeLabels = new Dictionary<int, TextMesh>();
+
+        // S5/S6（縦スライス）：税率レバー・財政・支持低下イベント
+        [Header("内政スライス（S5/S6）")]
+        [Tooltip("税率の1操作あたりの増減")]
+        public float taxStep = 0.05f;
+        [Tooltip("民心(希望)がこの値を下回ると不満イベントを提示")]
+        public float hopeEventThreshold = 0.35f;
+        [Tooltip("イベント条件のスキャン間隔（銀河時間秒）")]
+        public float policyEventInterval = 1.0f;
+        private EventEngine policyEngine;
+        private EventContext policyCtx;
+        private float policyEventTimer;
 
         // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
         private readonly Dictionary<int, Province> provinces = new Dictionary<int, Province>();
@@ -99,6 +112,7 @@ namespace Ginei
 
             BuildDemoGalaxy();
             SetupGovernance();
+            SetupEvents(); // S6：支持低下イベント（#116 エンジン）を用意
             BuildVisuals();
 
             // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映。
@@ -142,8 +156,8 @@ namespace Ginei
 
         private void Update()
         {
-            // 星系情報パネル表示中は戦略マップの入力・進行を止める（パネルがポーズ＆入力を処理）。
-            if (SystemDetailPanel.IsOpen) return;
+            // 星系情報パネル／イベント提示モーダル表示中は戦略マップの入力・進行を止める（各パネルがポーズ＆入力を処理）。
+            if (SystemDetailPanel.IsOpen || StrategyEventPanel.IsOpen) return;
 
             HandleKeys();
 
@@ -171,6 +185,9 @@ namespace Ginei
 
             // 国家状態（#817 旗幟の出所）：各勢力の腐敗→合意→希望を銀河時間で進める。
             CampaignRules.Tick(StrategySession.Campaign, dt);
+            // 財政（S5）：税収を国庫へ・高税の負担で民心を蝕む。支持低下イベント（S6）の条件を間引きで判定。
+            CampaignRules.TickEconomy(StrategySession.Campaign, dt);
+            TickPolicyEvents(dt);
 
             if (battleMsgTimer > 0f) battleMsgTimer -= Time.deltaTime; // 実時間で表示
 
@@ -405,13 +422,105 @@ namespace Ginei
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 交戦中の回廊をダブルクリック:潜行(実会戦) / 星系をダブルクリック:システムビュー / 右ク:星系へ進軍 or 回廊で停止保持 / I:星系情報 / Space:停止 / 1・2・3:速度",
+            // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示（バナー直下）
+            policyLine = MakeLabel(transform, "", new Vector3(0f, 6.6f, 0f), 0.7f).GetComponent<TextMesh>();
+            policyLine.color = new Color(0.85f, 0.9f, 0.7f);
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 回廊ダブルクリック:潜行 / 星系ダブルクリック:システムビュー / 右ク:進軍 / I:星系情報 / =・-:税率 / Space:停止 / 1・2・3:速度",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
 
+        // ===== S5/S6：財政スライス（税率レバー・国庫・支持低下イベント）=====
+
+        /// <summary>プレイヤー勢力の国家状態（無ければ null）。</summary>
+        private FactionState PlayerState()
+        {
+            var campaign = StrategySession.Campaign;
+            if (campaign == null) return null;
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            return CampaignRules.GetState(campaign, pf);
+        }
+
+        /// <summary>支持低下イベント（#116 エンジン経由）を用意する。Start で SetupGovernance の後に呼ぶ。</summary>
+        private void SetupEvents()
+        {
+            policyEngine = new EventEngine();
+            policyCtx = new EventContext(
+                GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国);
+
+            var unrest = new GameEventDef
+            {
+                id = "民衆の不満",
+                title = "民衆の不満",
+                body = "重税に民が苦しんでいる。民心が離れ始めた——どう応える？",
+                repeatable = true,
+                cooldown = 8f,
+            };
+            // 条件：プレイヤー勢力の民心(希望)がしきい値を下回る
+            unrest.condition = ctx =>
+            {
+                FactionState s = PlayerState();
+                return s != null && s.community != null && s.community.hope < hopeEventThreshold;
+            };
+            // 選択肢＝政治的帰結（盤面の状態を直接動かす）
+            unrest.AddChoice("減税して民を宥める（税率↓・民心↑）", ctx =>
+            {
+                FactionState s = PlayerState();
+                if (s == null) return;
+                s.taxRate = Mathf.Clamp01(s.taxRate - 0.15f);
+                if (s.community != null) s.community.hope = Mathf.Clamp01(s.community.hope + 0.12f);
+            });
+            unrest.AddChoice("強硬に抑え込む（抑圧↑・短期しのぎ）", ctx =>
+            {
+                FactionState s = PlayerState();
+                if (s == null || s.community == null) return;
+                s.community.repression = Mathf.Clamp01(s.community.repression + 0.2f);
+                s.community.hope = Mathf.Clamp01(s.community.hope + 0.05f); // 力で一時的に持ち直す
+            });
+            policyEngine.Register(unrest);
+        }
+
+        /// <summary>間引き間隔ごとに支持低下イベントの条件を判定し、発火したらモーダル提示する（S6）。</summary>
+        private void TickPolicyEvents(float dt)
+        {
+            if (policyEngine == null || StrategyEventPanel.IsOpen) return;
+            policyEventTimer += dt;
+            if (policyEventTimer < policyEventInterval) return;
+            policyEventTimer = 0f;
+
+            GameEventDef fired = policyEngine.Tick(policyCtx, Time.time, 0.5f);
+            if (fired != null) ShowPolicyEvent(fired);
+        }
+
+        /// <summary>発火したイベント定義を選択肢付きモーダルで提示し、選択で <see cref="EventEngine.Resolve"/> する。</summary>
+        private void ShowPolicyEvent(GameEventDef def)
+        {
+            var choices = new System.Collections.Generic.List<(string, System.Action)>();
+            for (int i = 0; i < def.choices.Count; i++)
+            {
+                int idx = i; // クロージャ用に確定
+                choices.Add((def.choices[i].label, () => policyEngine.Resolve(idx, policyCtx)));
+            }
+            StrategyEventPanel.Show(def.title, def.body, choices);
+        }
+
+        /// <summary>プレイヤー勢力の税率/国庫/民心/安定度を読み取り表示する（S5・毎フレーム）。</summary>
+        private void UpdatePolicyLine()
+        {
+            if (policyLine == null) return;
+            FactionState s = PlayerState();
+            if (s == null) { policyLine.text = ""; return; }
+            float hope = s.community != null ? s.community.hope : 0f;
+            float stab = CampaignRules.EffectiveStability(StrategySession.Campaign,
+                GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国);
+            policyLine.text = $"税率 {s.taxRate * 100f:0}%　国庫 {s.treasury:0}　民心 {hope * 100f:0}%　安定度 {stab * 100f:0}%　[=/- で税率]";
+            // 民心が閾値割れで警告色
+            policyLine.color = hope < hopeEventThreshold ? new Color(1f, 0.5f, 0.4f) : new Color(0.85f, 0.9f, 0.7f);
+        }
+
         private void Refresh()
         {
+            UpdatePolicyLine(); // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示
             // 回廊色：交戦中は戦闘色で点滅、前線（両端が敵対所有＝FTL不可）は赤、要衝は金、その他は通常
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
             for (int i = 0; i < corridorLines.Count && i < map.corridors.Count; i++)
@@ -597,6 +706,13 @@ namespace Ginei
             var kb = Keyboard.current;
             if (kb == null) return;
             if (kb.spaceKey.wasPressedThisFrame) paused = !paused;
+            // S5：税率レバー（= で増税 / - で減税）。プレイヤー勢力の国家状態を直接操作。
+            FactionState ps = PlayerState();
+            if (ps != null)
+            {
+                if (kb.equalsKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate + taxStep);
+                if (kb.minusKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate - taxStep);
+            }
             if (kb.digit1Key.wasPressedThisFrame) { galaxySpeed = 0.5f; paused = false; }
             if (kb.digit2Key.wasPressedThisFrame) { galaxySpeed = 1f; paused = false; }
             if (kb.digit3Key.wasPressedThisFrame) { galaxySpeed = 2f; paused = false; }

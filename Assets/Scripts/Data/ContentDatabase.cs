@@ -81,6 +81,13 @@ namespace Ginei
             return new List<ScenarioData>(scenarios.Values);
         }
 
+        /// <summary>索引済みの全提督（Resources 配下に置かれた分のみ。提督は Assets/Data/Admirals 主体＝空のこともある）。</summary>
+        public static IReadOnlyList<AdmiralData> AllAdmirals()
+        {
+            EnsureBuilt();
+            return new List<AdmiralData>(admirals.Values);
+        }
+
         // ===== 手動登録（テスト・動的追加） =====
 
         public static void RegisterFaction(FactionData f)

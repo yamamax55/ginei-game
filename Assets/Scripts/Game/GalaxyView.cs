@@ -62,6 +62,7 @@ namespace Ginei
         private string battleMsg = "";
         private float battleMsgTimer;
         private float engagedElapsed;      // 交戦中が継続している時間（自動解決の猶予計測）
+        private double currentAutoResolveSeconds; // TIME-4：現交戦の自動解決所要時間（AutoBattleSim 算出・game-seconds）
         private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
         private Vector2 lastClickWorld;
 
@@ -162,6 +163,14 @@ namespace Ginei
             HandleKeys();
 
             float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
+            // TIME-1（#947）：統一クロックを駆動。galaxySpeed/paused を権威クロックへ同期し累積秒を進める
+            // （日付HUD・時間連続性・自動解決の所要時間の出所）。
+            if (StrategySession.Clock != null)
+            {
+                StrategySession.Clock.speed = galaxySpeed;
+                StrategySession.Clock.paused = paused;
+                StrategySession.Clock.Advance(Time.deltaTime);
+            }
             reg.Tick(dt);
 
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
@@ -169,10 +178,18 @@ namespace Ginei
             StrategyRules.BeginEngagements(reg);
             if (AnyEngaged())
             {
+                // TIME-4（#950）：自動解決の所要時間を AutoBattleSim（裏の簡易戦術シミュ）で算出＝
+                // 観戦会戦と同じ game-time を消費する（固定 autoResolveDelay でなく交戦戦力から決まる）。
+                if (currentAutoResolveSeconds <= 0.0) currentAutoResolveSeconds = ComputeEngagementDuration();
                 engagedElapsed += dt;
-                if (engagedElapsed >= autoResolveDelay) { StrategyRules.ResolveEncounters(reg); engagedElapsed = 0f; }
+                if (engagedElapsed >= currentAutoResolveSeconds)
+                {
+                    StrategyRules.ResolveEncounters(reg);
+                    engagedElapsed = 0f;
+                    currentAutoResolveSeconds = 0.0;
+                }
             }
-            else engagedElapsed = 0f;
+            else { engagedElapsed = 0f; currentAutoResolveSeconds = 0.0; }
 
             // 防衛惑星の攻城（停泊した敵対艦隊が S-AV で制空権制圧→侵略→占領）。銀河時間で進む。
             StrategyRules.TickSieges(map, reg, dt, new SiegeParams(siegeSuppressRate, siegeInvadeRate, siegeDefenseRegen));
@@ -643,7 +660,8 @@ namespace Ginei
 
             if (AnyEngaged())
             {
-                float remain = Mathf.Max(0f, autoResolveDelay - engagedElapsed);
+                double total = currentAutoResolveSeconds > 0.0 ? currentAutoResolveSeconds : autoResolveDelay;
+                float remain = Mathf.Max(0f, (float)total - engagedElapsed);
                 banner.text = $"⚔ 回廊で交戦中：ダブルクリックで潜行（手動指揮）／放置で自動解決（残り{remain:0.0}）";
                 banner.color = combatColor;
                 return;
@@ -858,6 +876,26 @@ namespace Ginei
         {
             foreach (var f in reg.fleets) if (f != null && f.engaged) return true;
             return false;
+        }
+
+        /// <summary>
+        /// 交戦中の最初の敵対ペアから自動解決の所要時間を <see cref="AutoBattleSim"/>（裏の簡易戦術シミュ）で見積もる
+        /// （TIME-4 #950・時間統一）。ペアが取れなければ従来の固定値にフォールバック。返り値は game-seconds。
+        /// </summary>
+        private double ComputeEngagementDuration()
+        {
+            StrategicFleet a = null;
+            foreach (var f in reg.fleets)
+            {
+                if (f == null || !f.engaged) continue;
+                if (a == null) { a = f; continue; }
+                if (FactionRelations.IsHostile(null, a.faction, null, f.faction))
+                {
+                    var r = AutoBattleSim.Resolve(a.strength, f.strength);
+                    return r.durationSeconds > 0.0 ? r.durationSeconds : autoResolveDelay;
+                }
+            }
+            return autoResolveDelay; // フォールバック（従来値）
         }
 
         /// <summary>回廊 c の上に交戦中の艦隊が居るか（描画の点滅判定用）。</summary>

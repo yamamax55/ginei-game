@@ -23,12 +23,15 @@ concurrency:
 
 permissions:
   contents: write
+  issues: read    # バックログ補充（/core-backlog-refill＝gh issue list）用
 
 jobs:
   core-wave:
     name: /core-wave 1Wave 実行
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}   # gh CLI（Issue読み取り）に供給
     steps:
       - name: Checkout（量産ブランチ）
         uses: actions/checkout@v4
@@ -58,8 +61,10 @@ jobs:
             - .claude/core-backlog.md の未着手（[ ]）上位7件を実装（モジュール＋EditModeテスト＋.meta）
             - cd TestHarness && dotnet test -v q で全テストパスを確認（失敗したら直す）
             - CLAUDE.md のWave列挙とテスト数、バックログの消化状況を更新
+            - バックログ残が14件未満なら .claude/commands/core-backlog-refill.md の手順で
+              GitHub Issues（gh issue list）から最大21テーマを補充
             - 「WaveN：…」の形式でコミットし、現在のブランチ（claude/core-mobile-production-nr9lst）へ push
-            - バックログが空なら何も変更せず終了
+            - バックログが空で補充も不能なら何も変更せず終了
           claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep"'
 
       - name: 結果サマリ

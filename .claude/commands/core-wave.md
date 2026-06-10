@@ -29,9 +29,13 @@ Unity不要環境（スマホ・クラウド）で `TestHarness`（`dotnet test`
    - CLAUDE.md「テスト基盤（EditMode）」セクション末尾の Wave 列挙に新 Wave を1文追記し、
      末尾の「全Nテスト」を実数に更新。
    - `.claude/core-backlog.md` の消化済みテーマを `[x]` にし、Wave番号・日付を「済み」へ移す。
-8. **コミット＆プッシュ**：現在のブランチへ
+8. **バックログ補充チェック**：更新後の未着手（`- [ ]`）が **14件未満**なら、
+   `.claude/commands/core-backlog-refill.md` の手順で **GitHub Issues から補充**する
+   （Issue由来のテーマを最大21件追記・適合Issueが無ければ補充せず枯渇時に停止報告）。
+9. **コミット＆プッシュ**：現在のブランチへ
    `WaveN：<テーマ要約>のCore純ロジックM本を量産（test-first・配線待ち）` でコミットし push。
    既存 PR があればそのまま反映される（PR 本文の更新は任意）。
+   push 前に `git pull --rebase` で他経路（Actions/別セッション）の先行コミットを取り込む。
 
 ## 禁止事項
 - バックログ外のテーマの無断実装（キュー追加は人間がやる）。

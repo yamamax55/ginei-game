@@ -43,7 +43,7 @@
 - [ ] ReconstructionRules：戦後復興。荒廃地への投資が回復を早め復興需要が経済を押す、放置は荒廃の固定化。`ColonizationRules`（新規入植）とは別＝既存地の再建
 - [ ] ReparationsRules：賠償金（ヴェルサイユの罠）。過酷な賠償は敗者の経済を殺し復讐主義を育てる＝勝者の取り分と次の戦争の種のトレードオフ。`WarGoalRules`（講和条件一般）とは別＝賠償の長期帰結
 - [ ] MonopolyRules：独占・財閥。市場支配が価格を吊り上げ政治を買収する、解体は効率と引き換えに反発。`MarketRules`（競争市場）とは別＝市場の失敗
-- [ ] MegaprojectRules：巨大事業（要塞建造型）。長期巨額の段階投資＝中断の埋没費用、完成すれば戦略を変える。`ShipyardRules`（艦の量産）とは別＝一点物の巨大建造
+- [ ] MegaprojectRules：巨大事業（要塞建造型・PIL-1 #1090 が正仕様＝段階建設・財政ドレイン・発起人死後の継承）。長期巨額の段階投資＝中断の埋没費用、完成すれば戦略を変える。`ShipyardRules`（艦の量産）とは別＝一点物の巨大建造。実装時は #1090 本文（CalendarDispatcher/FiscalRules/SuccessionRules 接続）に従う
 - [ ] InnovationDiffusionRules：技術伝播。先進技術は交易・諜報・模倣で漏れる＝技術独占は時限。`ResearchRules`（自前研究）とは別＝他国からの流入
 
 ### 戦略・人物

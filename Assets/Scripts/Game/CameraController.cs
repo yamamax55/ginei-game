@@ -93,15 +93,12 @@ namespace Ginei
         private void HandlePan()
         {
             Vector2 input = Vector2.zero;
-            
-            // キー入力（WASD / 矢印）
-            if (Keyboard.current != null)
-            {
-                if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) input.y += 1;
-                if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) input.y -= 1;
-                if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) input.x -= 1;
-                if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) input.x += 1;
-            }
+
+            // キー入力（WASD / 矢印）は GameInput に集約（#107）。各アクションは複数キー（W/↑等）を OR 評価。
+            if (GameInput.IsHeld(GameAction.カメラ上)) input.y += 1;
+            if (GameInput.IsHeld(GameAction.カメラ下)) input.y -= 1;
+            if (GameInput.IsHeld(GameAction.カメラ左)) input.x -= 1;
+            if (GameInput.IsHeld(GameAction.カメラ右)) input.x += 1;
 
             if (input != Vector2.zero)
             {
@@ -193,7 +190,7 @@ namespace Ginei
         /// </summary>
         private void HandleFocus()
         {
-            if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
+            if (GameInput.WasPressed(GameAction.選択フォーカス))
             {
                 isFocusing = true;
             }

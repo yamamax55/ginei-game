@@ -90,5 +90,36 @@ namespace Ginei.Tests
             Assert.AreEqual(Key.R, b.key);
             Assert.AreEqual(InputContext.会戦, b.context);
         }
+
+        [Test]
+        public void CameraPan_HasWasdAndArrowBindings()
+        {
+            // カメラパンは WASD と矢印の2キーずつ割り当て（#107・OR 評価）。衝突はしない（別キー）。
+            int upBindings = 0;
+            var keys = new List<Key>();
+            foreach (var b in GameInput.Bindings)
+                if (b.action == GameAction.カメラ上) { upBindings++; keys.Add(b.key); }
+            Assert.AreEqual(2, upBindings, "カメラ上は W と ↑ の2キー");
+            Assert.Contains(Key.W, keys);
+            Assert.Contains(Key.UpArrow, keys);
+            Assert.AreEqual(0, GameInput.FindConflicts().Count, "複数キー割当でも衝突しない");
+        }
+
+        [Test]
+        public void ActionsInContext_DeduplicatesMultiKeyActions()
+        {
+            // カメラ上は2キーあるが、コンテキスト一覧では1件に畳まれる（ヘルプ重複表示を防ぐ）。
+            List<GameAction> battle = GameInput.ActionsInContext(InputContext.会戦);
+            int count = 0;
+            foreach (var a in battle) if (a == GameAction.カメラ上) count++;
+            Assert.AreEqual(1, count, "複数キー割当でもアクション一覧では1件");
+        }
+
+        [Test]
+        public void KeyLabel_CameraUp_PrefersFirstBinding()
+        {
+            // 複数キーのアクションは最初の割当（W）を表示名に使う。
+            Assert.AreEqual("W", GameInput.KeyLabel(GameAction.カメラ上));
+        }
     }
 }

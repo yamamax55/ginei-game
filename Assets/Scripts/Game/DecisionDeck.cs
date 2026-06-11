@@ -14,8 +14,9 @@ namespace Ginei
     /// 決裁デスク（DESK-4/5 #1632/#1633）。イベント/決裁を<b>時間を止めずに右下へ積み上げる</b>能動フィード
     /// （左下 <see cref="NotificationFeed"/> の能動版）。<see cref="DecisionTriageRules"/> を game-時間で回し、
     /// 規定時間で最小化→さらに猶予超で AI が既定選択を機械的に採択（自動解決）。<b>重大決裁だけ</b>
-    /// <see cref="GameClock"/> を止める（アクティブポーズ＝本当にやばいやつ）。
-    /// Strategy/Battle へ自動生成（NotificationFeed/TimeDisplay と同型）。効果の実適用（effectKey→世界）は DESK-6 で合流。
+    /// <see cref="GameClock"/> を止める（アクティブポーズ）。各カードは <b>本文の開閉（▾）・最小化（─）</b> を持ち、
+    /// デッキ上部の<b>ドラッグハンドルで自由に移動</b>できる（<see cref="UIDragMove"/>）。
+    /// 効果の実適用（effectKey→世界）は DESK-6（合流）で。Strategy/Battle へ自動生成。
     /// </summary>
     public class DecisionDeck : MonoBehaviour
     {
@@ -43,9 +44,11 @@ namespace Ginei
         }
 
         private RectTransform container;
+        private GameObject dragHandle;
         private TMP_FontAsset jpFont;
         private bool deskPausedClock;
         private string lastSignature = "";
+        private readonly HashSet<int> collapsed = new HashSet<int>(); // 本文を畳んだ決裁id（要約のみ表示）
 
         // ===== 自動生成 =====
 
@@ -109,13 +112,16 @@ namespace Ginei
                 else if (!shouldStop && deskPausedClock) { clock.Resume(); deskPausedClock = false; }
             }
 
-            // 表示は状態が変わった時だけ作り直す（毎フレームのボタン再生成を避ける）
+            // 表示は状態が変わった時だけ作り直す（毎フレームのボタン再生成を避ける＝ドラッグ位置も保つ）
             string sig = Signature();
             if (sig != lastSignature)
             {
                 Rebuild();
                 lastSignature = sig;
             }
+
+            // デッキに何も無ければハンドルを隠す
+            if (dragHandle != null) dragHandle.SetActive(Queue.Count > 0);
         }
 
         // ===== 表示 =====
@@ -134,14 +140,13 @@ namespace Ginei
 
         private void Rebuild()
         {
-            // 既存カードを破棄
+            // ドラッグハンドル以外を破棄（ハンドルは位置保持のため残す）
             for (int i = container.childCount - 1; i >= 0; i--)
-                Destroy(container.GetChild(i).gameObject);
-
-            // 最小化バッジ（下端＝最後に追加されるものが最下段）
-            int minimized = Queue.MinimizedCount();
-            if (minimized > 0)
-                BuildMinimizedBadge(minimized);
+            {
+                var c = container.GetChild(i);
+                if (c.gameObject == dragHandle) continue;
+                Destroy(c.gameObject);
+            }
 
             // 表示するカード（最小化・解決済を除く＝提示中/新着）。重大→経過順で優先。
             var visible = new List<PendingDecision>();
@@ -161,10 +166,13 @@ namespace Ginei
             int shown = 0;
             for (int i = 0; i < visible.Count && shown < maxVisibleCards; i++, shown++)
             {
-                // 新着は提示中へ（提示開始）
                 if (visible[i].status == DecisionStatus.新着) visible[i].status = DecisionStatus.提示中;
                 BuildCard(visible[i]);
             }
+
+            // 最小化バッジ（最下段＝コーナー寄り）
+            int minimized = Queue.MinimizedCount();
+            if (minimized > 0) BuildMinimizedBadge(minimized);
         }
 
         private void BuildCard(PendingDecision d)
@@ -174,31 +182,77 @@ namespace Ginei
             var bg = card.AddComponent<Image>();
             bg.color = CardColor(d.severity);
             var vlg = card.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(10, 10, 8, 8);
+            vlg.padding = new RectOffset(8, 8, 6, 8);
             vlg.spacing = 4f;
             vlg.childControlWidth = true; vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
             var le = card.AddComponent<LayoutElement>();
             le.preferredWidth = cardWidth;
 
-            // ヘッダ（重要度＋タイトル）
-            AddLabel(card.transform, $"<b>[{d.severity}]</b> {d.title}", 20f,
-                d.severity == DecisionSeverity.重大 ? new Color(1f, 0.85f, 0.85f) : Color.white);
+            // --- ヘッダ行（要約＋本文開閉▾＋最小化─）＝Windowライクなタイトルバー ---
+            var header = new GameObject("Header");
+            header.transform.SetParent(card.transform, false);
+            var hbg = header.AddComponent<Image>();
+            hbg.color = new Color(0f, 0f, 0f, 0.25f);
+            var hlg = header.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 4f; hlg.childControlWidth = true; hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = true;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            var hle = header.AddComponent<LayoutElement>();
+            hle.minHeight = 30f;
 
-            // 選択肢ボタン
-            for (int i = 0; i < d.choices.Count; i++)
+            // 要約（タイトル）＝可変幅で残りを占める
+            var summary = AddLabel(header.transform, $"<b>[{d.severity}]</b> {d.title}", 18f,
+                d.severity == DecisionSeverity.重大 ? new Color(1f, 0.85f, 0.85f) : Color.white);
+            var sle = summary.gameObject.AddComponent<LayoutElement>();
+            sle.flexibleWidth = 1f;
+
+            bool hasBody = !string.IsNullOrEmpty(d.body);
+            GameObject collapsible = null;
+
+            // 本文の開閉トグル（本文がある時だけ）
+            if (hasBody)
             {
-                int idx = i;                 // クロージャ用にコピー
-                PendingDecision dd = d;
-                AddButton(card.transform, d.choices[i], () => ResolveDecision(dd, idx));
+                int id = d.id;
+                var toggleGo = AddButton(header.transform, collapsed.Contains(id) ? "▾" : "▴",
+                    null, small: true, fixedWidth: 34f);
+                var toggleTmp = toggleGo.GetComponentInChildren<TextMeshProUGUI>();
+                var btn = toggleGo.GetComponent<Button>();
+                btn.onClick.AddListener(() =>
+                {
+                    if (collapsible == null) return;
+                    bool nowCollapsed = collapsible.activeSelf; // 表示中→畳む
+                    collapsible.SetActive(!nowCollapsed);
+                    if (nowCollapsed) collapsed.Add(id); else collapsed.Remove(id);
+                    if (toggleTmp != null) toggleTmp.text = nowCollapsed ? "▾" : "▴";
+                });
             }
 
-            // 重大以外は最小化ボタン（重大は手を止めさせる＝最小化させない）
+            // 最小化（─）＝重大以外。重大は手を止めさせる＝最小化させない
             if (d.severity != DecisionSeverity.重大)
             {
                 PendingDecision dd = d;
-                AddButton(card.transform, "― 後で（最小化）", () => { Queue.Minimize(dd); }, small: true);
+                AddButton(header.transform, "─", () => Queue.Minimize(dd), small: true, fixedWidth: 34f);
             }
+
+            // --- 本文＋選択肢（畳める） ---
+            collapsible = new GameObject("Body");
+            collapsible.transform.SetParent(card.transform, false);
+            var cvlg = collapsible.AddComponent<VerticalLayoutGroup>();
+            cvlg.spacing = 4f; cvlg.childControlWidth = true; cvlg.childControlHeight = true;
+            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
+
+            if (hasBody)
+                AddLabel(collapsible.transform, d.body, 16f, new Color(0.86f, 0.9f, 0.95f));
+
+            for (int i = 0; i < d.choices.Count; i++)
+            {
+                int idx = i;
+                PendingDecision dd = d;
+                AddButton(collapsible.transform, d.choices[i], () => ResolveDecision(dd, idx));
+            }
+
+            collapsible.SetActive(!collapsed.Contains(d.id)); // 畳み状態を復元（既定＝展開＝本文表示）
         }
 
         private void BuildMinimizedBadge(int count)
@@ -276,9 +330,22 @@ namespace Ginei
             vlg.childForceExpandWidth = false; vlg.childForceExpandHeight = false;
             var fitter = cont.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize; // 下端から上へ積む
+
+            // ドラッグハンドル（デッキ全体を自由移動）＝常に最上段に置く
+            dragHandle = new GameObject("DragHandle");
+            dragHandle.transform.SetParent(container, false);
+            var hImg = dragHandle.AddComponent<Image>();
+            hImg.color = new Color(0.12f, 0.14f, 0.18f, 0.95f);
+            var hle = dragHandle.AddComponent<LayoutElement>();
+            hle.preferredWidth = cardWidth; hle.minHeight = 26f;
+            var drag = dragHandle.AddComponent<UIDragMove>();
+            drag.target = container;
+            var hLabel = AddLabel(dragHandle.transform, "≡ 決裁デスク（ドラッグで移動）", 15f, new Color(0.7f, 0.78f, 0.86f));
+            hLabel.alignment = TextAlignmentOptions.Center;
+            dragHandle.SetActive(false);
         }
 
-        private void AddLabel(Transform parent, string text, float size, Color color)
+        private TextMeshProUGUI AddLabel(Transform parent, string text, float size, Color color)
         {
             var go = new GameObject("Label");
             go.transform.SetParent(parent, false);
@@ -289,9 +356,11 @@ namespace Ginei
             label.enableWordWrapping = true;
             label.raycastTarget = false;
             if (jpFont != null) label.font = jpFont;
+            return label;
         }
 
-        private void AddButton(Transform parent, string label, UnityEngine.Events.UnityAction action, bool small = false)
+        private GameObject AddButton(Transform parent, string label, UnityEngine.Events.UnityAction action,
+            bool small = false, float fixedWidth = 0f)
         {
             var btnObj = new GameObject("Button");
             btnObj.transform.SetParent(parent, false);
@@ -299,10 +368,11 @@ namespace Ginei
             img.color = small ? new Color(0.22f, 0.26f, 0.32f, 0.9f) : new Color(0.26f, 0.40f, 0.56f, 1f);
             var btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = img;
-            btn.onClick.AddListener(action);
+            if (action != null) btn.onClick.AddListener(action);
             var le = btnObj.AddComponent<LayoutElement>();
-            le.minHeight = small ? 30f : 38f;
-            le.preferredHeight = small ? 30f : 38f;
+            le.minHeight = small ? 28f : 36f;
+            le.preferredHeight = small ? 28f : 36f;
+            if (fixedWidth > 0f) { le.preferredWidth = fixedWidth; le.flexibleWidth = 0f; }
 
             var txtObj = new GameObject("Text");
             txtObj.transform.SetParent(btnObj.transform, false);
@@ -314,7 +384,9 @@ namespace Ginei
             tmp.fontSize = small ? 16f : 18f;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
+            tmp.raycastTarget = false;
             if (jpFont != null) tmp.font = jpFont;
+            return btnObj;
         }
 
         private void EnsureEventSystem()
@@ -332,15 +404,21 @@ namespace Ginei
             if (Queue.ActiveCount() > 0) return; // 既に何か積まれていれば何もしない
 
             var tax = new PendingDecision(9001, "減税の建白（政治家箱）", DecisionSeverity.通常,
-                DecisionSource.建白結果, "tax.cut", defaultChoiceIndex: 1);
+                DecisionSource.建白結果, "tax.cut", defaultChoiceIndex: 1,
+                body: "辺境の議員から減税の建白が上がっている。重税に民が苦しんでおり、民心の離反が懸念される。" +
+                      "ただし国庫はすでに細っており、減税は歳入を削る。財務官僚は強く難色を示している。");
             tax.choices.Add("裁可する"); tax.choices.Add("見送る（現状維持）");
 
             var treaty = new PendingDecision(9002, "辺境星系との通商条約", DecisionSeverity.重要,
-                DecisionSource.イベント, "treaty.sign", defaultChoiceIndex: 1);
+                DecisionSource.イベント, "treaty.sign", defaultChoiceIndex: 1,
+                body: "辺境の独立星系群が通商条約の締結を打診してきた。締結すれば交易路が開け国庫が潤うが、" +
+                      "隣接する大国を刺激し、外交関係が悪化する恐れがある。");
             treaty.choices.Add("締結する"); treaty.choices.Add("保留する");
 
-            var coup = new PendingDecision(9003, "重大：地方総督のクーデターの兆候", DecisionSeverity.重大,
-                DecisionSource.イベント, "", defaultChoiceIndex: 0);
+            var coup = new PendingDecision(9003, "地方総督のクーデターの兆候", DecisionSeverity.重大,
+                DecisionSource.イベント, "", defaultChoiceIndex: 0,
+                body: "辺境を治める総督が中央への上納を渋り、独自に兵を集めているとの報告。放置すれば離反は確実。" +
+                      "鎮圧は兵力を割き、懐柔は中央の威信を損なう。どちらにせよ時間の猶予はない。");
             coup.choices.Add("鎮圧を命じる"); coup.choices.Add("懐柔する");
 
             Queue.Enqueue(tax);

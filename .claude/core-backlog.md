@@ -103,6 +103,7 @@
 - [x] Wave34 (2026-06-11)：CommercialIntegrityRules(#1590) / CarryingCapacityRules(#1574) / MalthusianCheckRules(#1575) / PoorLawRules(#1580) / MoralSproutsRules(#1564) / GovernanceStyleRules(#1568) / MoralForceRules(#1570)（並列7・スミスTMS完結＋マルサスMALT＋孟子MENC・全テスト一発green）
 - [x] Wave35 (2026-06-11)：DefenseGuildRules(#1555) / CompetenceLegitimacyRules(#1565) / FrugalityDoctrineRules(#1567) / NonAggressionDoctrineRules(#1560) / WaterDoctrineRules(#1558) / SpontaneousOrderRules(#1556) / EmbeddednessRules(#1588)（並列7・墨子MOZI＋老子LAOZ＋ハイエクHAYK＋ポランニーPOLA完結・全テスト一発green）
 - [x] Wave36 (2026-06-11)：EffectiveDemandRules(#1540) / MultiplierRules(#1542) / AnimalSpiritsRules(#1545) / LiquidityPreferenceRules(#1548) / ThriftParadoxRules(#1552) / PlanningDriftRules(#1541) / CalculationProblemRules(#1544)（並列7・ケインズKEYN完結＋ハイエクHAYK・全テスト一発green）
+- [x] Wave37 (2026-06-11)：AuthoritarianSelectionRules(#1547) / LegalGeneralityRules(#1549) / EconomicFreedomRules(#1553) / WuWeiRules(#1546) / ReversalRules(#1550) / ContentmentRules(#1554) / ThoughtlessnessRules(#1530)（並列7・ハイエクHAYK完結＋老子LAOZ完結＋アーレントBNAL着手・親がWuWeiテスト対称性修正）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -166,13 +167,13 @@
 - [x] ThriftParadoxRules：節約のパラドックス＝全勢力一斉緊縮→需要連鎖崩壊→集合的行為問題（KEYN-5 #1552）。`MultiplierRules`(乗数)とは別＝合成の誤謬（Wave36）
 - [x] PlanningDriftRules：計画経済ドリフト＝介入累積ラチェット→権威主義圧力（HAYK-1 #1541・ハイエク隷属への道）。`SocialProtectionRules`(保護ラチェット)とは別＝統制の累積が権威主義を呼ぶ（Wave36）
 - [x] CalculationProblemRules：計算問題と中央計画の効率損失＝価格なき計画→生産性ペナルティ（HAYK-2 #1544）。`MarketRules`(価格発見)とは別＝計画経済の情報問題（Wave36）
-- [ ] AuthoritarianSelectionRules：なぜワルモノが上に立つか＝全体主義体制の指導者選別バイアス（HAYK-3 #1547）。`CoupRules`/`PurgeRules`とは別＝逆淘汰の選別圧
-- [ ] LegalGeneralityRules：法の一般性と恣意的命令＝RuleOfLawIndex→合意撤回・抵抗権連動（HAYK-4 #1549）。`MagnaCartaRules`/`ConstitutionRules`とは別＝法の一般性vs個別命令
-- [ ] EconomicFreedomRules：経済的自由と政治的自由の連動＝経済統制度→協力係数→安定度（HAYK-5 #1553）。`ConsentRules`(協力)/`SpontaneousOrderRules`とは別＝二つの自由の連動
-- [ ] WuWeiRules：無為ガバナンス＝少介入→自然安定・介入過剰の逆U字ペナルティ（LAOZ-1 #1546・老子）。`GovernanceRules`(安定度)とは別＝無為の治の逆U字
-- [ ] ReversalRules：反者道之動＝汎用逆U字 tipping-point 曲線（LAOZ-2 #1550）。`EscalationRules`(梯子)とは別＝物極まれば反るの汎用曲線
-- [ ] ContentmentRules：知足安定＝適正規模ボーナス・版図一体化の正側補完（LAOZ-3 #1554）。`LogisticsRules`(一体化)/`OverextensionRules`(過拡張)とは別＝知足の適正規模
-- [ ] ThoughtlessnessRules：悪の凡庸性＝hierarchyDepth×complianceNorm→moralAgencyFactorとAtrocityRisk（BNAL-1 #1530・アーレント）。`AtrocityRules`(虐殺の実行)とは別＝無思考による加担（BanalityState同梱）
+- [x] AuthoritarianSelectionRules：なぜワルモノが上に立つか＝全体主義体制の指導者選別バイアス（HAYK-3 #1547）。`CoupRules`/`PurgeRules`とは別＝逆淘汰の選別圧（Wave37）
+- [x] LegalGeneralityRules：法の一般性と恣意的命令＝RuleOfLawIndex→合意撤回・抵抗権連動（HAYK-4 #1549）。`MagnaCartaRules`/`ConstitutionRules`とは別＝法の一般性vs個別命令（Wave37）
+- [x] EconomicFreedomRules：経済的自由と政治的自由の連動＝経済統制度→協力係数→安定度（HAYK-5 #1553）。`ConsentRules`(協力)/`SpontaneousOrderRules`とは別＝二つの自由の連動（Wave37）
+- [x] WuWeiRules：無為ガバナンス＝少介入→自然安定・介入過剰の逆U字ペナルティ（LAOZ-1 #1546・老子）。`GovernanceRules`(安定度)とは別＝無為の治の逆U字（Wave37）
+- [x] ReversalRules：反者道之動＝汎用逆U字 tipping-point 曲線（LAOZ-2 #1550）。`EscalationRules`(梯子)とは別＝物極まれば反るの汎用曲線（Wave37）
+- [x] ContentmentRules：知足安定＝適正規模ボーナス・版図一体化の正側補完（LAOZ-3 #1554）。`LogisticsRules`(一体化)/`OverextensionRules`(過拡張)とは別＝知足の適正規模（Wave37）
+- [x] ThoughtlessnessRules：悪の凡庸性＝hierarchyDepth×complianceNorm→moralAgencyFactorとAtrocityRisk（BNAL-1 #1530・アーレント）。`AtrocityRules`(虐殺の実行)とは別＝無思考による加担（BanalityState同梱）（Wave37）
 - [ ] PluralityRules：複数性と公的領域＝perspectiveDiversity・IsTotalitarian・ActionCapacity・AtomizationLevel（BNAL-2 #1532）。`FreePressRules`/`PreferenceFalsificationRules`とは別＝複数性の喪失（PoliticalSpace同梱）
 - [ ] TotalitarianRules：全体主義の動態＝atomization・terror・ideologySubstitution・TerrorLoopGain（BNAL-3 #1535）。`SecurityRules`(秘密警察)/`MartialLawRules`とは別＝全体主義の自己強化ループ（TotalitarianPressure同梱）
 - [ ] WarCrimesRules：組織犯罪の責任連鎖＝IndividualCulpability・CanClaimObedience・TrialOutcome（BNAL-4 #1536）。`TribunalRules`(法廷の正統性)/`AtrocityRules`とは別＝指揮系統の個人有責性（AccountabilityChain同梱）

@@ -56,9 +56,9 @@
 - **`CalendarTick`/`CalendarDispatcher`(Core・TIME-6)**：暦の日/月/年**境界**を数え、跨いだぶんコールバック発火（per-day/month/year フック）。`GalaxyView` が日次で財政(`CampaignRules.TickEconomyDay`)・支持低下イベント・造船・年次で加齢を回す。ポーズで停止・倍速で暦比一定。
 - **`TimeFlowRules`(Core・TIME-7 自動スロー)**：平時は暦を圧縮して速く流し（既定 1年≈12分）、会戦の生起・前線突入など**観るべき瞬間**は実時間へ自動減速。`GalaxyView` が `clock.Advance(realDt×compression)` で暦だけ伸縮（実時間アクションの速さは不変）。
 - **`AutoBattleSim`(Core・TIME-4)**：自動解決を Lanchester 二乗則で時間積分し**所要 game-time** を返す（観戦会戦と同じ時間を消費）。
-- **`TimeDisplay`(Game)**：右上に二重暦＋時刻＋速度を表示。+/- で速度変更。Strategy/Battle 両シーン自動生成。
+- **`TimeDisplay`(Game)**：二重暦＋時刻＋速度の表示と +/- 速度入力。**整形/入力の単一窓口**＝static `TryFormatNow(out text,out color)`/`StepSpeedInput()`/`DateParams`（二重実装しない）。**会戦は右上HUDを自動生成**、**戦略は浮きHUDを生成せず `StrategyMapWindow` の上部メニューに表示**（同じ static を再利用）。
 - **`NotificationCenter`(Core・NOTIF-1)**：通知の**単一窓口**。`Push(category,severity,msg)`→seq採番／`Since(seq)`差分／`Recent`/`Capacity`リングバッファ/`Clear`。`NotificationCategory`{システム/戦闘/建艦/占領/政治/人事/内政/外交}×`NotificationSeverity`{情報/注意/警告}。**新規通知は battleMsg 等を増やさずここへ Push**。
-- **`NotificationFeed`(Game・NOTIF-2)**：画面**左下**にトーストを縦積み、実時間で自動フェード。両シーン自動生成・重要度色分け・クリックスルー。`GalaxyView` の会戦結果/占領/造船完成/提督死去は NotificationCenter 経由でここに出る（バナーは現在状態のみ）。
+- **`NotificationFeed`(Game・NOTIF-2)**：画面**左下の枠付き通知パネル**（Windows風＝タイトルバーでドラッグ移動・最小化・タブ［全般/重要/決裁］）。**最新 `maxRows`(既定5)件を常時表示**（時間で消さず履歴は N の `NotificationLogOverlay`）。両シーン自動生成・重要度色分け。`GalaxyView` の会戦結果/占領/造船完成/提督死去は NotificationCenter 経由でここに出る（バナーは現在状態のみ）。
 
 ## 艦隊編成プール（#148 / #884 造船供給）
 > 「勢力の総艦艇プール → 各艦隊へ配分 → 提督/副提督/参謀を配属」を戦略マップから操作する。
@@ -117,7 +117,9 @@
 | `CommandMenu` | uGUI | 右クリックメニュー。選択状況で 移動/後退/攻撃/陣形変更/情報/選択 を動的生成。「後退」は `FleetCommander.StartWaitingForReverseTarget()`（向きを保って下がる）。「攻撃」は選択中つねに表示し、押すと `FleetCommander.StartWaitingForAttackTarget()` で目標指定モードへ移行（左ク=通常攻撃／右ク=攻撃種別メニュー）。`OpenAttackTypeMenu(screenPos)` で通常/ミサイルの選択メニューを開く。陣形サブメニューのボタンは `Formation` enum から動的生成（`BuildFormationButtons`、シーン手配線に非依存）。`OpenMenu`/`CloseMenu`/`IsOpen`/`ChangeFormation(int)`。画面端クランプ。 |
 | `FleetHUDManager` | uGUI | 選択艦隊の 提督/陣営/兵力バー/士気バー/陣形 を表示。任意で `shipCountText`(旗艦艦艇数＋配下艦残存数)を表示。`ChangeFormation(int)`。`ShowMessage(text, duration)` で画面上部に通知を実時間で一定時間表示（攻撃対象通知などに使用、TMPテキストを実行時生成）。 |
 | `OrderOfBattlePanel` | Battle シーン | **O キーで開閉する編制管理UI（#147・`OrderOfBattle`/`FleetRoster` ビューア＋組み替え）**。プレイヤー勢力の梯団ツリー（軍集団 ⊃ 軍団 ⊃ 第N艦隊＋司令の階級名）を表示し、**艦隊の［移動］→軍団の［ここへ］で別軍団へ移す（中身流動）**＝`OrderOfBattle.AttachFleet`＋該当 `FleetStrength.corpsName`/`armyGroupName` を更新してHUDへ即反映。未編入艦隊も一覧。**梯団の［任命］→司令選任モード**＝在席提督を**階級ゲート(#14)付き**で一覧（必要tier未満は×・選べない＝ゲートをUIで体感）／解任可（`OrderOfBattle.AssignCommander`/`CanCommand`/`UnassignCommander`）。数値ロジックは持たず static 窓口を読むだけ。**表示中 `Time.timeScale=0` でポーズ**（`PauseManager` は `OrderOfBattlePanel.IsOpen` の間ポーズ入力を譲る）。`HelpOverlay` と同じ `RuntimeInitializeOnLoadMethod` で Battle に自動生成。`IsOpen`/`Toggle`/`Close`。**UI Toolkit で実装（UI段階移行のパイロット）**＝flexbox＋`ScrollView` でレイアウト自動＝見切れが原理的に起きない。基盤は `GineiUITK`。 |
-| `HelpOverlay` | Battle シーン | H キーで開閉する操作ヘルプオーバーレイ。TimeScale 非依存（ポーズ中も開閉可）。`[RuntimeInitializeOnLoadMethod]` で Battle シーンに自動生成（シーン手配線不要）。Canvas/ディマー/スクロールビュー/操作一覧（選択・移動・攻撃・陣形・カメラ・ポーズ・倍速）をコードで構築。`Toggle()`/`SetVisible(bool)`。 |
+| `HelpOverlay` | Battle/Strategy シーン | H キーで開閉する操作ヘルプ。TimeScale 非依存。**Battle/Strategy 両シーンに自動生成**（`RuntimeInitializeOnLoadMethod`）し、シーン文脈でそのシーンの操作だけ出す。キーボード操作は `GameInput.ActionsInContext` で**自動列挙**（新キー追加で自動反映）、マウス操作はシーン別。`Toggle()`/`SetVisible(bool)`。 |
+| `StrategyMapWindow` | Strategy シーン | 戦略マップの Windows 風UI（銀英伝意匠）＝**①上部固定コマンドメニューバー**（国家ステータス税率/国庫/民心/安定度＋二重暦/時刻/速度＋ボタン列 勢力/財政/軍事/人事/解決/情報/通知/ヘルプ＝各既存パネルの `Toggle()` を `FindAnyObjectByType` で呼ぶ）と**②ドラッグで動かせる星系マップ窓**。**整合の要**＝正規化矩形 `mapRect`(0〜1・画面全体基準) を唯一の真実とし `Camera.rect` と窓UIアンカーの両方へ同じ値を与える（両者とも画面全体基準＝解像度/アスペクト非依存でピクセル一致・`GetWorldCorners` 逆算しない）。タイトルバーのドラッグ(`MapWindowDrag`)で `mapRect` を正規化平行移動。当たり判定は `Camera.ScreenToWorldPoint`(ビューポート rect 尊重)で窓移動後も維持。窓外は**背景カメラ**(cullingMask=0・全画面 SolidColor 黒)で残像防止。時刻整形/速度入力は `TimeDisplay` の static を再利用。浮きHUD(税率行/操作ヒント)は `GalaxyView.HideWorldHud=true` で抑制し上メニューへ集約。自動生成。 |
+| `MapWindowDrag` | uGUI 部品 | タイトルバー等につけてドラッグ量(ピクセル delta)を `onDragDelta` でコールバックする小コンポーネント（`IDragHandler`）。`StrategyMapWindow` が `mapRect` を動かすのに使う（anchoredPosition は触らない）。`UIDragMove`(anchoredPosition を直接動かす版)とは別用途。 |
 
 ### 艦隊コンポーネント（旗艦 GameObject に付く）
 | クラス | 責務 / 主なAPI |

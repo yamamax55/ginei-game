@@ -119,9 +119,7 @@ namespace Ginei
             switch (s)
             {
                 case DecisionStatus.新着:
-                case DecisionStatus.提示中:
-                case DecisionStatus.決裁待ち:
-                case DecisionStatus.再浮上: return 0; // 未処理
+                case DecisionStatus.提示中: return 0; // 未処理
                 case DecisionStatus.最小化: return 1; // 最小化
                 case DecisionStatus.自動解決: return 2; // 自動処理
                 case DecisionStatus.決裁済: return 3; // 決裁済

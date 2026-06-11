@@ -106,6 +106,7 @@
 - [x] Wave37 (2026-06-11)：AuthoritarianSelectionRules(#1547) / LegalGeneralityRules(#1549) / EconomicFreedomRules(#1553) / WuWeiRules(#1546) / ReversalRules(#1550) / ContentmentRules(#1554) / ThoughtlessnessRules(#1530)（並列7・ハイエクHAYK完結＋老子LAOZ完結＋アーレントBNAL着手・親がWuWeiテスト対称性修正）
 - [x] Wave38 (2026-06-11)：PluralityRules(#1532) / TotalitarianRules(#1535) / WarCrimesRules(#1536) / PoliticalEthicsRules(#1528) / PoliticalVocationRules(#1531) / PlebiscitaryRules(#1533) / PopulationMigrationRules(#1566)（並列7・アーレントBNAL完結＋ウェーバーWEBR完結＋孟子MENC完結・全テスト一発green）
 - [x] Wave39 (2026-06-11)：ConquestGovernanceRules(#1139) / FearVsHatredRules(#1140) / AdvisorCandorRules(#1141) / VirtuFortunaRules(#1142) / FrictionRules(#1133) / TrinitarianTensionRules(#1135) / CenterOfGravityRules(#1136)（並列7・マキャヴェッリ君主論MKV完結＋クラウゼヴィッツ戦争論CLZ・全テスト一発green）
+- [x] Wave40 (2026-06-11)：HerrschaftRules(#1525) / StatelessnessRules(#1526) / SuperfluousnessRules(#1524) / ImperialBlowbackRules(#1522) / TerrorPrincipleRules(#1519) / HistoricismTrapRules(#1521) / ToleranceParadoxRules(#1518)（並列7・ウェーバー支配類型＋アーレント全体主義TOTL完結＋ポパー開かれた社会POPR着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -196,13 +197,13 @@
 
 ### Issue連動（第9次補充・2026-06-11／全体主義・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
 # アーレント全体主義TOTL／ポパー開かれた社会POPR／フーコー規律PANO／アリストテレス政治学ARIS／トクヴィルTOCQ／ウェーバーWEBR-1
-- [ ] HerrschaftRules：支配の三類型＝伝統的/カリスマ的/合法的×安定プロファイル・崩壊モード（WEBR-1 #1525・ウェーバー）。`CivilianControlRules`/`RegimeRules`とは別＝支配の正統性類型（HerrschaftType同梱）
-- [ ] StatelessnessRules：無権利者の創出＝国籍剥奪・法外人口クラス（TOTL-5 #1526・アーレント）。`CitizenshipRules`(市民権の段階)/`RefugeeRules`とは別＝権利を持つ権利の剥奪
-- [ ] SuperfluousnessRules：余剰性＝使い捨て人口が全体主義運動の吸収率を上げる（TOTL-4 #1524）。`DemographicsRules`/`TotalitarianRules`とは別＝余剰人間が運動の燃料になる
-- [ ] ImperialBlowbackRules：帝国主義の還流＝辺境の暴力が国内の急進化へフィードバック（TOTL-3 #1522）。`FrontierRules`/`OverextensionRules`とは別＝植民地暴力の本国還流
-- [ ] TerrorPrincipleRules：テロの原理化＝道具だった恐怖が目的に変わり粛清が自己増殖する（TOTL-2 #1519）。`TerrorRules`(テロの劇場性)/`PurgeRules`とは別＝恐怖が手段から目的へ転化
-- [ ] HistoricismTrapRules：歴史主義の罠＝必然論イデオロギーが適応拒否を生み脆性を増す（POPR-5 #1521・ポパー開かれた社会）。`DynastyRules`(天命)とは別＝歴史法則信仰が硬直を呼ぶ
-- [ ] ToleranceParadoxRules：寛容のパラドックス＝不寛容派の容認が乗っ取りリスクを生む抑制のジレンマ（POPR-4 #1518）。`PluralityRules`/`FreePressRules`とは別＝寛容が自らを滅ぼす逆説
+- [x] HerrschaftRules：支配の三類型＝伝統的/カリスマ的/合法的×安定プロファイル・崩壊モード（WEBR-1 #1525・ウェーバー）。`CivilianControlRules`/`RegimeRules`とは別＝支配の正統性類型（HerrschaftType同梱）（Wave40）
+- [x] StatelessnessRules：無権利者の創出＝国籍剥奪・法外人口クラス（TOTL-5 #1526・アーレント）。`CitizenshipRules`(市民権の段階)/`RefugeeRules`とは別＝権利を持つ権利の剥奪（Wave40）
+- [x] SuperfluousnessRules：余剰性＝使い捨て人口が全体主義運動の吸収率を上げる（TOTL-4 #1524）。`DemographicsRules`/`TotalitarianRules`とは別＝余剰人間が運動の燃料になる（Wave40）
+- [x] ImperialBlowbackRules：帝国主義の還流＝辺境の暴力が国内の急進化へフィードバック（TOTL-3 #1522）。`FrontierRules`/`OverextensionRules`とは別＝植民地暴力の本国還流（Wave40）
+- [x] TerrorPrincipleRules：テロの原理化＝道具だった恐怖が目的に変わり粛清が自己増殖する（TOTL-2 #1519）。`TerrorRules`(テロの劇場性)/`PurgeRules`とは別＝恐怖が手段から目的へ転化（Wave40）
+- [x] HistoricismTrapRules：歴史主義の罠＝必然論イデオロギーが適応拒否を生み脆性を増す（POPR-5 #1521・ポパー開かれた社会）。`DynastyRules`(天命)とは別＝歴史法則信仰が硬直を呼ぶ（Wave40）
+- [x] ToleranceParadoxRules：寛容のパラドックス＝不寛容派の容認が乗っ取りリスクを生む抑制のジレンマ（POPR-4 #1518）。`PluralityRules`/`FreePressRules`とは別＝寛容が自らを滅ぼす逆説（Wave40）
 - [ ] InstitutionalCorrectionRules：誤り蓄積と脆性崩壊＝errorStock臨界→非線形崩壊確率（POPR-3 #1517）。`RegimeRules`(腐敗)/`AsabiyyaRules`とは別＝自己修正できない制度の誤り蓄積
 - [ ] PiecemealEngineeringRules：漸進的改革vs全体改造＝リスク分布の二様・改革モード選択（POPR-2 #1514）。`DynastyRules.Reform`/`LandReformRules`とは別＝漸進改革とユートピア改造のリスク差
 - [ ] OpennessRules：開放度スペクトル＝自己修正能力・誤り蓄積・適応速度（POPR-1 #1511・開かれた社会）。`SpontaneousOrderRules`/`FreePressRules`とは別＝開かれた社会vs閉じた社会の適応力（OpennessState同梱）

@@ -101,6 +101,7 @@
 - [x] Wave32 (2026-06-11)：OstentationRules(#1601) / InternationalOrderRules(#1599) / CompetitiveDemocracyRules(#1598) / EmulationRules(#1597) / FictitiousCommodityRules(#1596) / IntellectualCritiqueRules(#1595) / VeblenGoodsRules(#1593)（並列7・ヴェブレンVEBL完結＋ポランニーPOLA＋シュンペーターSCHU・全テスト一発green）
 - [x] Wave33 (2026-06-11)：CreativeDestructionRules(#1581) / EntrepreneurRules(#1584) / BureaucratizationRules(#1587) / InnovationWaveRules(#1591) / EmpathyRules(#1578) / ImpartialObserverRules(#1582) / MoralStyleRules(#1586)（並列7・シュンペーターSCHU完結＋スミス道徳感情論TMS・親がMoralStyleの正規化/全0分岐2バグ修正）
 - [x] Wave34 (2026-06-11)：CommercialIntegrityRules(#1590) / CarryingCapacityRules(#1574) / MalthusianCheckRules(#1575) / PoorLawRules(#1580) / MoralSproutsRules(#1564) / GovernanceStyleRules(#1568) / MoralForceRules(#1570)（並列7・スミスTMS完結＋マルサスMALT＋孟子MENC・全テスト一発green）
+- [x] Wave35 (2026-06-11)：DefenseGuildRules(#1555) / CompetenceLegitimacyRules(#1565) / FrugalityDoctrineRules(#1567) / NonAggressionDoctrineRules(#1560) / WaterDoctrineRules(#1558) / SpontaneousOrderRules(#1556) / EmbeddednessRules(#1588)（並列7・墨子MOZI＋老子LAOZ＋ハイエクHAYK＋ポランニーPOLA完結・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -147,13 +148,13 @@
 - [x] MoralSproutsRules：四端モデル＝仁/義/礼/智の住民道徳的感受性（MENC-1 #1564・孟子）。`MoralStyleRules`(統治スタイル)/`GovernanceRules`とは別＝住民の道徳的素地（MoralSprouts同梱）（Wave34）
 - [x] GovernanceStyleRules：仁政と覇道の時間動態＝王道の長期持続性vs覇道の短期最強（MENC-3 #1568）。`WangDaoRules`(王道覇道の主義ドリフト)とは別＝仁政vs覇道の時間トレードオフ（Wave34）
 - [x] MoralForceRules：浩然之気＝一貫した善政の積み重ね→道徳的気力蓄積→忠誠/カリスマ係数（MENC-4 #1570）。`FocusRules`(三密集中)/`ReputationRules`とは別＝善政の積み重ねが生む気力（MoralForce同梱）（Wave34）
-- [ ] DefenseGuildRules：守城専門集団＝非国家の防衛請負組織（MOZI-1 #1555・墨子）。`MercenaryRules`(傭兵)/`FortressRules`(要塞)とは別＝守城専門の請負ギルド（DefenseGuild同梱）
-- [ ] CompetenceLegitimacyRules：尚賢の正統性直結＝能力→体制正統性の保全倍率（MOZI-4 #1565）。`MeritPromotionRules`(功績昇進)/`PersonRules`とは別＝賢者登用が正統性を保つ
-- [ ] FrugalityDoctrineRules：節用の財政効率＝倹約ドクトリン→産出↑・貴族合意↓（MOZI-5 #1567）。`FiscalRules`(財政)/`RationingRules`(配給)とは別＝倹約の財政効率と貴族の不満
-- [ ] NonAggressionDoctrineRules：非攻ドクトリン＝自己拘束→外交信用・攻撃不可のトレードオフ（MOZI-2 #1560）。`DiplomacyRules`(条約)/`DeterrenceRules`とは別＝自己拘束による外交信用
-- [ ] WaterDoctrineRules：柔弱ドクトリン＝短期劣後・長期士気回復力（LAOZ-4 #1558・老子）。`Moraleの係数算出`/`ResilienceRules`系とは別＝柔よく剛を制す長期回復
-- [ ] SpontaneousOrderRules：自生的秩序の脆弱性＝強制介入→自生的秩序侵食→市場効率低下（HAYK-6 #1556・ハイエク）。`MarketRules`(需給)/`GovernanceRules`とは別＝介入が自生秩序を蝕む
-- [ ] EmbeddednessRules：市場の埋め込み度指標＝自由化で効率↑不安定↑のトレードオフ（POLA-1 #1588・ポランニー、MarketEmbeddedness同梱）。`SocialProtectionRules`(保護ラチェット)/`MarketRules`とは別＝市場の社会への埋め込み度
+- [x] DefenseGuildRules：守城専門集団＝非国家の防衛請負組織（MOZI-1 #1555・墨子）。`MercenaryRules`(傭兵)/`FortressRules`(要塞)とは別＝守城専門の請負ギルド（DefenseGuild同梱）（Wave35）
+- [x] CompetenceLegitimacyRules：尚賢の正統性直結＝能力→体制正統性の保全倍率（MOZI-4 #1565）。`MeritPromotionRules`(功績昇進)/`PersonRules`とは別＝賢者登用が正統性を保つ（Wave35）
+- [x] FrugalityDoctrineRules：節用の財政効率＝倹約ドクトリン→産出↑・貴族合意↓（MOZI-5 #1567）。`FiscalRules`(財政)/`RationingRules`(配給)とは別＝倹約の財政効率と貴族の不満（Wave35）
+- [x] NonAggressionDoctrineRules：非攻ドクトリン＝自己拘束→外交信用・攻撃不可のトレードオフ（MOZI-2 #1560）。`DiplomacyRules`(条約)/`DeterrenceRules`とは別＝自己拘束による外交信用（Wave35）
+- [x] WaterDoctrineRules：柔弱ドクトリン＝短期劣後・長期士気回復力（LAOZ-4 #1558・老子）。`Moraleの係数算出`/`ResilienceRules`系とは別＝柔よく剛を制す長期回復（Wave35）
+- [x] SpontaneousOrderRules：自生的秩序の脆弱性＝強制介入→自生的秩序侵食→市場効率低下（HAYK-6 #1556・ハイエク）。`MarketRules`(需給)/`GovernanceRules`とは別＝介入が自生秩序を蝕む（Wave35）
+- [x] EmbeddednessRules：市場の埋め込み度指標＝自由化で効率↑不安定↑のトレードオフ（POLA-1 #1588・ポランニー、MarketEmbeddedness同梱）。`SocialProtectionRules`(保護ラチェット)/`MarketRules`とは別＝市場の社会への埋め込み度（Wave35）
 
 ### Issue連動（第7次補充・2026-06-11／経済学・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
 # ケインズKEYN（#1538）／ハイエクHAYK（#1539）／老子LAOZ（#1543）／アーレントBNAL（#1527）／ウェーバーWEBR／孟子MENC

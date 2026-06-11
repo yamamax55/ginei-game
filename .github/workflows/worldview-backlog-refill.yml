@@ -1,13 +1,12 @@
 name: worldview-backlog-refill
 
-# 参考EPICバックログの自動補充（docs/reference-epic-pipeline.md 参照）
-# EPIC化(worldview-epic)の消費ペース=2冊/時間。6時間ごとに残量を見て、閾値を切ったら名著を補充する。
+# 補充ループ multi-modal発掘（docs/reference-epic-categories.md の各軸を並列に掘る）
+# 6時間ごと・未16冊未満で発動。各軸が互いをblindに発掘＝自分の概念外のネタが入る
 on:
   schedule:
     - cron: '23 */6 * * *'
   workflow_dispatch: {}
 
-# EPIC化ワークフローと同じグループ＝auto/worldview-epics への push を直列化
 concurrency:
   group: worldview-epic
   cancel-in-progress: false
@@ -19,49 +18,148 @@ permissions:
   actions: read
 
 jobs:
-  refill:
+  gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      needed: ${{ steps.gate.outputs.needed }}
+      matrix: ${{ steps.gate.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: auto/worldview-epics
           fetch-depth: 0
-
-      - name: Check backlog level
-        id: level
+      - name: Gate (level check) and build axis matrix
+        id: gate
         run: |
-          count=$(grep -c '^| 未 |' docs/reference-epic-backlog.md || true)
-          echo "remaining=$count" >> "$GITHUB_OUTPUT"
-          echo "バックログ残量（未）: $count 冊"
+          REMAIN=$(grep -c '^| 未 |' docs/reference-epic-backlog.md || echo 0)
+          echo "backlog 未: $REMAIN"
+          if [ "$REMAIN" -ge 16 ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+          MATRIX=$(python3 - <<'PY'
+import json,re
+rows=[]
+for l in open("docs/reference-epic-categories.md",encoding="utf-8"):
+    l=l.rstrip("\n")
+    if not l.startswith("| "): continue
+    if "<!--" in l: continue
+    cells=[c.strip() for c in l.strip().strip("|").split("|")]
+    if len(cells)<2: continue
+    axis,hint=cells[0],cells[1]
+    if axis=="軸" or set(axis)<=set("-: "): continue
+    if not axis: continue
+    rows.append({"axis":axis,"hint":hint})
+print(json.dumps(rows,ensure_ascii=False))
+PY
+)
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
-      - name: Refill backlog
-        if: ${{ steps.level.outputs.remaining < 16 }}
+  discover:
+    needs: gate
+    if: needs.gate.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      max-parallel: 6
+      fail-fast: false
+      matrix:
+        item: ${{ fromJson(needs.gate.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Discover candidates on one axis
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ github.token }}
+          AXIS: ${{ matrix.item.axis }}
+          HINT: ${{ matrix.item.hint }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
-          claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"'
+          claude_args: '--allowedTools "Bash,Read,Grep,Glob,WebSearch"'
           prompt: |
-            あなたは銀英伝風戦略ゲーム（戦術艦隊戦＋戦略・統治・群像・経済の多層シミュレーション）のリポジトリ
-            （ブランチ auto/worldview-epics チェックアウト済み）で、参考EPICバックログを補充する。
+            探索軸＝環境変数 AXIS、探索指示＝環境変数 HINT。
+            この軸で「本システム（銀英伝風の星間国家戦略＋思想/歴史/経済/群像シミュ）」の欠落軸に効くネタを最大3件発掘する。
+            手順：
+            1. 重複除外（必須）。以下と重なるものは選ばない——
+               (a) docs/reference-epic-backlog.md の既存行（済/未/吸収とも）
+               (b) docs/*-reference-design.md が既にある題材
+               (c) `gh issue list --state all --label type:epic --limit 100` のタイトルに登場する題材
+               (d) CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念
+            2. **数合わせをしない**。確信を持って「効く」と言えるものだけ（最大3件・0件でもよい）。分野の偏りを避ける。
+            3. 各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：
+               | 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
+            0件なら /tmp/out/lines.txt は作らない or 空でよい。issue起票・他ファイル編集・git操作はしない。
+            著作権：固有名・教義・実在人物の表象は使わず構造パターンのみ（宗教・人物軸は特に「風」モチーフ厳守）。
+      - name: Upload axis candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: discover-${{ strategy.job-index }}
+          path: /tmp/out
+          if-no-files-found: ignore
 
-            1. docs/reference-epic-pipeline.md（手順書）・docs/reference-epic-backlog.md（現在の表）・CLAUDE.md の
-               「テスト基盤」節（既存純ロジック一覧）・docs/ 配下の *-reference-design.md 一覧を読む。
-            2. 本システムに取り込むべき名著（古典・思想書・歴史書・経済書・SF・文学。ゲームも可）を最大20冊選定する。
-               選定基準＝「このシステムの欠落軸にメカニクス／世界観の構造パターンを供給できるか」。
-               分野バランス（軍事/政治統治/経済組織/歴史/社会心理/文学SF）を取ること。
-            3. 重複除外（必須）: 以下のいずれかに該当する作品は選ばない——
-               (a) バックログ表に既にある（済/未とも）
-               (b) docs/*-reference-design.md が既にある
-               (c) `gh issue list --state all --label type:epic --limit 100` のタイトルに登場する
-               (d) CLAUDE.md で既にモジュール化済みの思想家の主著（例: 論語/ロールズ正義論/国家はなぜ衰退するのか/21世紀の資本）。
-               ただし既存モジュールの「理論原典・深化」として新しい軸を足せる場合は、着眼点にその旨を明記すれば採用可。
-            4. **数合わせをしない**: 確信を持って「効く」と言える作品だけ追加する。20冊未満でも0冊でもよい。
-            5. docs/reference-epic-backlog.md の表の末尾（コメント行の直前）に
-               `| 未 | <著者『作品』> | <着眼点＝欠落軸＋既存モジュール接続先> | — |` 形式で追記する。
-               既存の行は一切変更しない。
-            6. git config で user.name "worldview-epic-bot" / user.email "actions@users.noreply.github.com" を設定し、
-               docs/reference-epic-backlog.md のみ add して commit し、auto/worldview-epics へ push する。
-               コミットメッセージ: `docs: 参考EPICバックログ自動補充（+N冊）`。追加0冊なら commit せず正常終了。
+  integrate:
+    needs: discover
+    if: always() && needs.discover.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Download all axis candidates
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/disc
+      - name: Integrate (dedup + single push)
+        run: |
+          set -e
+          git config user.name "worldview-epic-bot"
+          git config user.email "actions@users.noreply.github.com"
+          python3 - <<'PY'
+import glob,re
+p="docs/reference-epic-backlog.md"
+lines=open(p,encoding="utf-8").read().split("\n")
+def key(row):
+    cells=[c.strip() for c in row.strip().strip("|").split("|")]
+    if len(cells)<2: return None
+    name=re.sub(r'^\[[^\]]*\]\s*','',cells[1])
+    return name.strip()
+existing=set()
+for l in lines:
+    if l.startswith("| 未 |") or l.startswith("| 済 |") or l.startswith("| 吸収 |"):
+        k=key(l)
+        if k: existing.add(k)
+newrows=[]
+for f in sorted(glob.glob("/tmp/disc/*/lines.txt")):
+    for l in open(f,encoding="utf-8"):
+        l=l.rstrip("\n")
+        if not l.startswith("| 未 |"): continue
+        k=key(l)
+        if not k or k in existing: continue
+        existing.add(k); newrows.append(l)
+if newrows:
+    out=[]; inserted=False
+    for l in lines:
+        if (not inserted) and l.startswith("<!--"):
+            out.extend(newrows); inserted=True
+        out.append(l)
+    if not inserted: out.extend(newrows)
+    open(p,"w",encoding="utf-8").write("\n".join(out))
+    print(f"added {len(newrows)} candidates")
+else:
+    print("added 0 candidates")
+PY
+          git add docs/reference-epic-backlog.md
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "docs: 補充ループ multi-modal発掘（自動・N軸並列・dedup集約）"
+            git push origin HEAD:auto/worldview-epics
+          fi

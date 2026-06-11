@@ -30,6 +30,13 @@ namespace Ginei.Tests
             return s;
         }
 
+        private static AdmiralData Admiral(string name)
+        {
+            var a = ScriptableObject.CreateInstance<AdmiralData>();
+            a.admiralName = name;
+            return a;
+        }
+
         [Test]
         public void FactionByName_ResolvesRegistered()
         {
@@ -45,6 +52,23 @@ namespace Ginei.Tests
             var s = Scenario("アスターテ会戦");
             ContentDatabase.RegisterScenario(s);
             Assert.AreSame(s, ContentDatabase.ScenarioByName("アスターテ会戦"));
+        }
+
+        [Test]
+        public void RegisterScenario_IndexesReferencedAdmirals_AndStaff()
+        {
+            // 提督は Resources 外にあり、シナリオの参照グラフ経由で索引化される（ベストプラクティス）
+            var staff = Admiral("参謀キルヒアイス");
+            var cmdr = Admiral("ラインハルト");
+            cmdr.staffOfficers = new[] { staff };
+            var s = Scenario("アスターテ会戦");
+            s.fleets.Add(new ScenarioData.FleetEntry { admiral = cmdr });
+
+            ContentDatabase.RegisterScenario(s);
+
+            Assert.AreSame(cmdr, ContentDatabase.AdmiralByName("ラインハルト"));
+            Assert.AreSame(staff, ContentDatabase.AdmiralByName("参謀キルヒアイス")); // 参謀も索引
+            Assert.AreEqual(2, ContentDatabase.AllAdmirals().Count);
         }
 
         [Test]

@@ -70,28 +70,11 @@ namespace Ginei
             sb.Append("<b>人物名鑑</b>　提督の能力・階級・参謀　(P で閉じる)\n");
             sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
 
-            var seen = new HashSet<AdmiralData>();
-            var rows = new List<Row>();
-            var scenarios = ContentDatabase.AllScenarios();
-            if (scenarios != null)
-            {
-                for (int i = 0; i < scenarios.Count; i++)
-                {
-                    var sc = scenarios[i];
-                    if (sc == null || sc.fleets == null) continue;
-                    for (int j = 0; j < sc.fleets.Count; j++)
-                    {
-                        var fe = sc.fleets[j];
-                        if (fe == null) continue;
-                        AddAdmiral(fe.admiral, fe.factionData, fe.faction, seen, rows);
-                        if (fe.admiral != null && fe.admiral.staffOfficers != null)
-                            for (int k = 0; k < fe.admiral.staffOfficers.Length; k++)
-                                AddAdmiral(fe.admiral.staffOfficers[k], fe.factionData, fe.faction, seen, rows);
-                    }
-                }
-            }
+            // 提督は ContentDatabase に集約済み（シナリオ参照グラフ経由で索引・Resources 外でも拾える）。
+            var admirals = ContentDatabase.AllAdmirals();
+            int count = admirals != null ? admirals.Count : 0;
 
-            if (rows.Count == 0)
+            if (count == 0)
             {
                 sb.Append("\n<color=#ffcc66>人物データがありません。</color>\n");
                 sb.Append("シナリオ（Resources）に提督（AdmiralData）が登録されていません。\n");
@@ -99,27 +82,20 @@ namespace Ginei
                 return sb.ToString();
             }
 
-            int shown = Mathf.Min(rows.Count, maxPersons);
-            for (int i = 0; i < shown; i++) AppendPerson(sb, rows[i]);
-            if (rows.Count > shown) sb.Append($"\n<color=#8aa0b0>…他 {rows.Count - shown} 名</color>");
-            sb.Append($"\n\n<color=#8aa0b0>計 {rows.Count} 名</color>");
+            int shown = Mathf.Min(count, maxPersons);
+            for (int i = 0; i < shown; i++) AppendPerson(sb, admirals[i]);
+            if (count > shown) sb.Append($"\n<color=#8aa0b0>…他 {count - shown} 名</color>");
+            sb.Append($"\n\n<color=#8aa0b0>計 {count} 名</color>");
             return sb.ToString();
         }
 
-        private struct Row { public AdmiralData a; public FactionData fd; public Faction f; }
-
-        private static void AddAdmiral(AdmiralData a, FactionData fd, Faction f, HashSet<AdmiralData> seen, List<Row> rows)
+        private void AppendPerson(StringBuilder sb, AdmiralData a)
         {
-            if (a == null || !seen.Add(a)) return;
-            rows.Add(new Row { a = a, fd = fd, f = f });
-        }
-
-        private void AppendPerson(StringBuilder sb, Row row)
-        {
-            AdmiralData a = row.a;
-            string rank = RankSystem.ResolveRankNameOrDefault(row.fd, a.rankTier);
+            if (a == null) return;
+            // 勢力ごとの階級表があればそれを使いたいが、AdmiralData は enum faction のみ持つ＝既定ラダーで解決。
+            string rank = RankSystem.ResolveRankNameOrDefault(null, a.rankTier);
             string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
-            string fac = row.fd != null ? row.fd.factionName : row.f.ToString();
+            string fac = a.faction.ToString();
             string proto = a.isProtagonist ? "　<color=#ffd54a>★主人公</color>" : "";
 
             sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{a.EpithetName}</color>　<color=#9fb0c0>[{fac}]</color>{proto}\n");

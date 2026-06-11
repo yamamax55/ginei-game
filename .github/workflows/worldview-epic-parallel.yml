@@ -35,10 +35,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
           claude_args: '--allowedTools "Bash,Read,Grep,Glob"'
           prompt: |
-            docs/reference-epic-backlog.md の表の全作品（状態欄に関わらず2列目の作品名すべて）を候補プールとみなす。実在EPICが唯一の真実：
-各候補について gh issue list --state all --label type:epic --limit 300 で全EPICタイトルと照合し、その作品の参考EPICが既に存在する（「○○風」等の別表記・著者名/作品名でも一致）ものは除外する。
-まだEPICが無い候補を、表の上から順に最大5件選ぶ。3〜4字英大文字プレフィックスを割当（docs/roadmap.mdとdocs/*-reference-design.mdをgrepし互いにも既存にも一意）。
-結果を /tmp/matrix.json に [{"work":"<作品名そのまま>","prefix":"<PFX>"}] で書く。未EPICの候補が無ければ []。issue起票やファイル編集はしない。
+            docs/reference-epic-backlog.md の表で状態「未」の先頭から最大5件を選ぶ。
+            各作品について：(1) gh issue list --state all --limit 5 --search "in:title <作品名の主要部>" で既存EPICが無いことを確認（あれば除外）。(2) 意味のある3〜4字の英大文字プレフィックスを割当（例 VEN/LEAR）。docs/roadmap.md と docs/*-reference-design.md を grep し5件が互いにも既存にも重複しないこと。
+            結果を /tmp/matrix.json に JSON配列で書く: [{"work":"<作品名そのまま>","prefix":"<PFX>"}]。未が無い・全て既存なら []。issue起票やファイル編集はしない。
       - name: Emit matrix
         id: out
         run: |
@@ -102,7 +101,7 @@ jobs:
           set -e
           git config user.name "worldview-epic-bot"
           git config user.email "actions@users.noreply.github.com"
-          echo 'aW1wb3J0IG9zLGdsb2IsanNvbixzaHV0aWwKZm9yIGQgaW4gc29ydGVkKGdsb2IuZ2xvYigiL3RtcC9hcnRpZmFjdHMvcmVzdWx0LSoiKSk6CiAgICBmPW9zLnBhdGguam9pbihkLCJmcmFnbWVudC5qc29uIikKICAgIGlmIG5vdCBvcy5wYXRoLmV4aXN0cyhmKSBvciBvcy5wYXRoLmdldHNpemUoZik9PTA6IGNvbnRpbnVlCiAgICBmcmFnPWpzb24ubG9hZChvcGVuKGYsZW5jb2Rpbmc9InV0Zi04IikpCiAgICBmb3IgbWQgaW4gZ2xvYi5nbG9iKG9zLnBhdGguam9pbihkLCIqLm1kIikpOiBzaHV0aWwuY29weShtZCwiZG9jcy8iKQogICAgcmxpbmU9ZnJhZy5nZXQoInJvYWRtYXBfbGluZSIsIiIpCiAgICBpZiBybGluZToKICAgICAgICBycD0iZG9jcy9yb2FkbWFwLm1kIjsgTD1vcGVuKHJwLGVuY29kaW5nPSJ1dGYtOCIpLnJlYWQoKS5zcGxpdCgiXG4iKQogICAgICAgIGZvciBpLGwgaW4gZW51bWVyYXRlKEwpOgogICAgICAgICAgICBpZiAicmVmZXJlbmNlLWVwaWMtYXV0by1hbmNob3IiIGluIGw6IEwuaW5zZXJ0KGkscmxpbmUpOyBicmVhawogICAgICAgIG9wZW4ocnAsInciLGVuY29kaW5nPSJ1dGYtOCIpLndyaXRlKCJcbiIuam9pbihMKSkKcHJpbnQoImludGVncmF0ZWQgKHJvYWRtYXArZGVzaWduZG9jIG9ubHk7IGJhY2tsb2cgdW50b3VjaGVkID0gc2luZ2xlIHNvdXJjZSBvZiB0cnV0aCkiKQ==' | base64 -d > /tmp/integ.py
+          echo 'aW1wb3J0IG9zLGdsb2IsanNvbixzaHV0aWwKZm9yIGQgaW4gc29ydGVkKGdsb2IuZ2xvYigiL3RtcC9hcnRpZmFjdHMvcmVzdWx0LSoiKSk6CiAgICBmPW9zLnBhdGguam9pbihkLCJmcmFnbWVudC5qc29uIikKICAgIGlmIG5vdCBvcy5wYXRoLmV4aXN0cyhmKSBvciBvcy5wYXRoLmdldHNpemUoZik9PTA6IGNvbnRpbnVlCiAgICBmcmFnPWpzb24ubG9hZChvcGVuKGYsZW5jb2Rpbmc9InV0Zi04IikpCiAgICBmb3IgbWQgaW4gZ2xvYi5nbG9iKG9zLnBhdGguam9pbihkLCIqLm1kIikpOiBzaHV0aWwuY29weShtZCwiZG9jcy8iKQogICAgcmxpbmU9ZnJhZy5nZXQoInJvYWRtYXBfbGluZSIsIiIpOyB3b3JrPWZyYWcuZ2V0KCJ3b3JrIiwiIik7IGJkb25lPWZyYWcuZ2V0KCJiYWNrbG9nX2RvbmUiLCIiKQogICAgaWYgcmxpbmU6CiAgICAgICAgcnA9ImRvY3Mvcm9hZG1hcC5tZCI7IEw9b3BlbihycCxlbmNvZGluZz0idXRmLTgiKS5yZWFkKCkuc3BsaXQoIlxuIikKICAgICAgICBmb3IgaSxsIGluIGVudW1lcmF0ZShMKToKICAgICAgICAgICAgaWYgInJlZmVyZW5jZS1lcGljLWF1dG8tYW5jaG9yIiBpbiBsOiBMLmluc2VydChpLHJsaW5lKTsgYnJlYWsKICAgICAgICBvcGVuKHJwLCJ3IixlbmNvZGluZz0idXRmLTgiKS53cml0ZSgiXG4iLmpvaW4oTCkpCiAgICBpZiBiZG9uZSBhbmQgd29yazoKICAgICAgICBicD0iZG9jcy9yZWZlcmVuY2UtZXBpYy1iYWNrbG9nLm1kIjsgQj1vcGVuKGJwLGVuY29kaW5nPSJ1dGYtOCIpLnJlYWQoKS5zcGxpdCgiXG4iKQogICAgICAgIGRvbmU9RmFsc2UKICAgICAgICBmb3IgaSxsIGluIGVudW1lcmF0ZShCKToKICAgICAgICAgICAgaWYgbm90IGRvbmUgYW5kIGwuc3RhcnRzd2l0aCgifCDmnKogfCIpIGFuZCB3b3JrIGluIGw6IEJbaV09YmRvbmU7IGRvbmU9VHJ1ZQogICAgICAgIGlmIG5vdCBkb25lOgogICAgICAgICAgICBmb3IgaSxsIGluIGVudW1lcmF0ZShCKToKICAgICAgICAgICAgICAgIGlmIGwuc3RhcnRzd2l0aCgiPCEtLSIpOiBCLmluc2VydChpLGJkb25lKTsgZG9uZT1UcnVlOyBicmVhawogICAgICAgIG9wZW4oYnAsInciLGVuY29kaW5nPSJ1dGYtOCIpLndyaXRlKCJcbiIuam9pbihCKSkKcHJpbnQoImludGVncmF0ZWQiKQ==' | base64 -d > /tmp/integ.py
           python3 /tmp/integ.py
           git add docs/
           if git diff --cached --quiet; then

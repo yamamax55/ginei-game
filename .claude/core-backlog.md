@@ -108,6 +108,7 @@
 - [x] Wave39 (2026-06-11)：ConquestGovernanceRules(#1139) / FearVsHatredRules(#1140) / AdvisorCandorRules(#1141) / VirtuFortunaRules(#1142) / FrictionRules(#1133) / TrinitarianTensionRules(#1135) / CenterOfGravityRules(#1136)（並列7・マキャヴェッリ君主論MKV完結＋クラウゼヴィッツ戦争論CLZ・全テスト一発green）
 - [x] Wave40 (2026-06-11)：HerrschaftRules(#1525) / StatelessnessRules(#1526) / SuperfluousnessRules(#1524) / ImperialBlowbackRules(#1522) / TerrorPrincipleRules(#1519) / HistoricismTrapRules(#1521) / ToleranceParadoxRules(#1518)（並列7・ウェーバー支配類型＋アーレント全体主義TOTL完結＋ポパー開かれた社会POPR着手・全テスト一発green）
 - [x] Wave41 (2026-06-11)：InstitutionalCorrectionRules(#1517) / PiecemealEngineeringRules(#1514) / OpennessRules(#1511) / PanoptismRules(#1507) / NormalizationRules(#1508) / ExaminationRules(#1509) / MesoiRules(#1495)（並列7・ポパー開かれた社会POPR完結＋フーコー規律PANO完結＋アリストテレスARIS着手・親がPanoptismテストclamp修正）
+- [x] Wave42 (2026-06-11)：CommonGoodOrientationRules(#1499) / ChrematisticsRules(#1502) / CivicPhiliaRules(#1503) / TyrantToolkitRules(#1504) / SoftDespotismRules(#1492) / EqualityDriftRules(#1498) / AssociationRules(#1482)（並列7・アリストテレス政治学ARIS完結＋トクヴィルTOCQ完結・3000テスト突破=全3053・一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -212,13 +213,13 @@
 - [x] NormalizationRules：規律訓練と標準化＝訓練強度→信頼性↑・創発シナジー↓（PANO-2 #1508）。`VeterancyRules`/`DisciplineRules`とは別＝規律権力による標準化のトレードオフ（Wave41）
 - [x] ExaminationRules：考課制度＝定期記録→昇進反映・反乱予兆検出精度向上（PANO-3 #1509）。`PerformanceReviewRules`(9-box)とは別＝フーコー的試験・記録の権力（Wave41）
 - [x] MesoiRules：中間層安定化係数＝FiscalClass中間層シェア→政体安定倍率（ARIS-1 #1495・アリストテレス政治学）。`RedistributionRules`/`CoalitionRules`とは別＝中間層が分厚いほど政体が安定（Wave41）
-- [ ] CommonGoodOrientationRules：公益-私益政体品質スコア＝累進度・制度制約→腐敗加速係数（ARIS-2 #1499）。`JusticeRules`/`RegimeRules`とは別＝政体が公益志向か私益志向かの品質
-- [ ] ChrematisticsRules：収奪経済志向＝管理型/収奪型の動機区別→腐敗加速の別回路（ARIS-3 #1502）。`MonopolyRules`/`ExtractiveDecay`とは別＝アリストテレスの蓄財術批判
-- [ ] CivicPhiliaRules：市民的信頼と審議崩壊＝不平等・僭主圧力で低下→膠着増幅（ARIS-4 #1503）。`ConsentRules`/`SeparationOfPowersRules`とは別＝市民的友愛（ポリス的信頼）
-- [ ] TyrantToolkitRules：僭主維持術＝貧困化課税・出る杭排除・大型事業・密告・不信醸成の短長期効果（ARIS-5 #1504）。`SecurityRules`/`PurgeRules`とは別＝アリストテレスの僭主術カタログ
-- [ ] SoftDespotismRules：穏やかな専制＝行政後見国家・暴力なき受動化（TOCQ-4 #1492・トクヴィル）。`CoupRules`(暴力的奪取)とは別＝福祉的後見による自由の去勢（CoupRulesとの対称系）
-- [ ] EqualityDriftRules：平等化の潮流と身分侵食＝民主化圧力が階級/序列に与える長期係数（TOCQ-5 #1498）。`SerfdomRules`/`CitizenshipRules`とは別＝身分制を溶かす平等化の不可逆潮流
-- [ ] AssociationRules：中間団体・市民結社＝国家と個人の間の自発的緩衝体（TOCQ-2 #1482）。`PluralityRules`(複数性)/`LobbyRules`とは別＝トクヴィルの結社が専制を防ぐ（CivicAssociation同梱）
+- [x] CommonGoodOrientationRules：公益-私益政体品質スコア＝累進度・制度制約→腐敗加速係数（ARIS-2 #1499）。`JusticeRules`/`RegimeRules`とは別＝政体が公益志向か私益志向かの品質（Wave42）
+- [x] ChrematisticsRules：収奪経済志向＝管理型/収奪型の動機区別→腐敗加速の別回路（ARIS-3 #1502）。`MonopolyRules`/`ExtractiveDecay`とは別＝アリストテレスの蓄財術批判（Wave42）
+- [x] CivicPhiliaRules：市民的信頼と審議崩壊＝不平等・僭主圧力で低下→膠着増幅（ARIS-4 #1503）。`ConsentRules`/`SeparationOfPowersRules`とは別＝市民的友愛（ポリス的信頼）（Wave42）
+- [x] TyrantToolkitRules：僭主維持術＝貧困化課税・出る杭排除・大型事業・密告・不信醸成の短長期効果（ARIS-5 #1504）。`SecurityRules`/`PurgeRules`とは別＝アリストテレスの僭主術カタログ（Wave42）
+- [x] SoftDespotismRules：穏やかな専制＝行政後見国家・暴力なき受動化（TOCQ-4 #1492・トクヴィル）。`CoupRules`(暴力的奪取)とは別＝福祉的後見による自由の去勢（CoupRulesとの対称系）（Wave42）
+- [x] EqualityDriftRules：平等化の潮流と身分侵食＝民主化圧力が階級/序列に与える長期係数（TOCQ-5 #1498）。`SerfdomRules`/`CitizenshipRules`とは別＝身分制を溶かす平等化の不可逆潮流（Wave42）
+- [x] AssociationRules：中間団体・市民結社＝国家と個人の間の自発的緩衝体（TOCQ-2 #1482）。`PluralityRules`(複数性)/`LobbyRules`とは別＝トクヴィルの結社が専制を防ぐ（CivicAssociation同梱）（Wave42）
 
 ### Issue連動（第10次補充・2026-06-11／共和制・自由主義・社会契約EPIC群の純ロジック子Issue・21件＝3Wave分）
 # フェデラリストFED／マキャヴェッリ論考DISC／ミル自由論MILL／ルソー社会契約ROUS／ホッブズLEVI／トクヴィルTOCQ-1

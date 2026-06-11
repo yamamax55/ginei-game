@@ -114,6 +114,7 @@
 - [x] Wave45 (2026-06-11)：GeneralWillRules(#1462) / LawgiverRules(#1464) / PolityScaleRules(#1466) / CivicFaithRules(#1468) / AnarchyCostRules(#1459) / SecurityDilemmaRules(#1461) / CovenantRules(#1463)（並列7・ルソー社会契約論ROUS完結＋ホッブズ・リヴァイアサンLEVI完結・全テスト一発green）
 - [x] Wave46 (2026-06-11)：AnacyclosisRules(#1442) / MixedConstitutionRules(#1445) / TycheRules(#1448) / UniversalHistoryRules(#1451) / InstitutionalMemoryRules(#1454) / GovernmentPrincipleRules(#1439) / PolityCorruptionRules(#1440)（並列7・ポリュビオス政体循環論POLY完結＋モンテスキュー法の精神MONT着手・親がFearDiminishingReturnsテスト比較修正）
 - [x] Wave47 (2026-06-11)：ClimatePolityFitRules(#1443) / IntermediatePowerRules(#1446) / LegalFitnessRules(#1449) / CommerceModeratesWarRules(#1453) / PropertyOriginRules(#1447) / TrustMandateRules(#1450) / ModernizationProgramRules(#1431)（並列7・モンテスキュー法の精神MONT完結＋ロック統治二論LOCK＋孫子拡張SKUN着手・親がClimatePolityFitテストclamp修正）
+- [x] Wave48 (2026-06-11)：FleetDoctrineRules(#1432) / NationalDeterminationRules(#1433) / SeaControlLeverageRules(#1434) / ForeignAdvisorRules(#1435) / DecisiveBattleWindowRules(#1436) / SovereigntyNormRules(#1428) / KontributionRules(#1420)（並列7・孫子拡張SKUN完結＋三十年戦争TYW着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -266,16 +267,16 @@
 - [x] PropertyOriginRules：労働財産論と先占権＝コモンズ/請求権の強さ（LOCK-1 #1447・ロック統治二論）。`PropertyRightsRules`(財産保護)/`ColonizationRules`とは別＝ロックの労働が財産を生む先占権（Wave47）
 - [x] TrustMandateRules：信託解消連鎖＝侵犯蓄積→信託解消→反乱正当化（LOCK-2 #1450）。`ConsentRules`/`CovenantRules`とは別＝ロックの政府は信託で抵抗権が信託違反で発動（Wave47）
 - [x] ModernizationProgramRules：近代化プログラム＝研究×造船×人材の多面加速・改革連動（SKUN-1 #1431・坂の上の雲型）。`ResearchRules`/`ShipyardRules`とは別＝後発国の富国強兵の多面加速（Wave47）
-- [ ] FleetDoctrineRules：艦隊ドクトリン選択＝enum{決戦/漸減/通商破壊/現存艦隊}→AI行動重みとドクトリン相性（SKUN-2 #1432）。`SunziDoctrineRules`/`OperationalAptitudeRules`とは別＝海軍ドクトリンの選択と相性
-- [ ] NationalDeterminationRules：国家意志・後発国の底力＝劣位戦力比での戦闘効率補正・士気回復加速（SKUN-3 #1433）。`Moraleの係数`/`RoyalPresenceRules`とは別＝背水の劣勢国の底力
-- [ ] SeaControlLeverageRules：制海権×陸上作戦協調＝制海権保有→隣接惑星攻城・補給ボーナス（SKUN-4 #1434）。`LogisticsRules`/`PlanetSiegeRules`とは別＝制海権が陸上作戦を有利にする
-- [ ] ForeignAdvisorRules：外国顧問・軍事援助＝同盟条件下で研究・人材育成を加速（SKUN-5 #1435）。`ForeignAidRules`/`MentorshipRules`とは別＝お雇い外国人による近代化加速
-- [ ] DecisiveBattleWindowRules：決戦の機会窓口＝蓄積条件が揃ったとき決戦の機会が発火（SKUN-6 #1436）。`EscalationRules`/`CenterOfGravityRules`とは別＝決戦の好機の生起判定（EventEngineへ接続想定の純ロジック部）
-- [ ] SovereigntyNormRules：主権規範の醸成＝領土主権規範の成熟→宗教的干渉の正当性低下（TYW-5 #1428・三十年戦争/ウェストファリア）。`DiplomacyRules`/`InfluenceRules`とは別＝主権国家規範の確立（内政不干渉）
+- [x] FleetDoctrineRules：艦隊ドクトリン選択＝enum{決戦/漸減/通商破壊/現存艦隊}→AI行動重みとドクトリン相性（SKUN-2 #1432）。`SunziDoctrineRules`/`OperationalAptitudeRules`とは別＝海軍ドクトリンの選択と相性（Wave48）
+- [x] NationalDeterminationRules：国家意志・後発国の底力＝劣位戦力比での戦闘効率補正・士気回復加速（SKUN-3 #1433）。`Moraleの係数`/`RoyalPresenceRules`とは別＝背水の劣勢国の底力（Wave48）
+- [x] SeaControlLeverageRules：制海権×陸上作戦協調＝制海権保有→隣接惑星攻城・補給ボーナス（SKUN-4 #1434）。`LogisticsRules`/`PlanetSiegeRules`とは別＝制海権が陸上作戦を有利にする（Wave48）
+- [x] ForeignAdvisorRules：外国顧問・軍事援助＝同盟条件下で研究・人材育成を加速（SKUN-5 #1435）。`ForeignAidRules`/`MentorshipRules`とは別＝お雇い外国人による近代化加速（Wave48）
+- [x] DecisiveBattleWindowRules：決戦の機会窓口＝蓄積条件が揃ったとき決戦の機会が発火（SKUN-6 #1436）。`EscalationRules`/`CenterOfGravityRules`とは別＝決戦の好機の生起判定（EventEngineへ接続想定の純ロジック部）（Wave48）
+- [x] SovereigntyNormRules：主権規範の醸成＝領土主権規範の成熟→宗教的干渉の正当性低下（TYW-5 #1428・三十年戦争/ウェストファリア）。`DiplomacyRules`/`InfluenceRules`とは別＝主権国家規範の確立（内政不干渉）（Wave48）
 
 ### Issue連動（第12次補充・2026-06-11／戦争・軍事社会EPIC群の純ロジック子Issue・21件＝3Wave分）
 # 三十年戦争TYW／項羽と劉邦KORY／レマルク西部戦線RMK／革命戦争WAP／スペイン内戦SPW
-- [ ] KontributionRules：コントリビューション制＝占領地の組織的抽出・前進圧力・戦争の自己永続（TYW-1 #1420・三十年戦争）。`ForageRules`(現地調達)/`SanctionsRules`とは別＝占領地搾取が戦争を自己永続させる（戦争が戦争を養う）
+- [x] KontributionRules：コントリビューション制＝占領地の組織的抽出・前進圧力・戦争の自己永続（TYW-1 #1420・三十年戦争）。`ForageRules`(現地調達)/`SanctionsRules`とは別＝占領地搾取が戦争を自己永続させる（戦争が戦争を養う）（Wave48）
 - [ ] KriegsherrRules：軍事請負将軍＝将軍が私的融資で軍を所有・財務レバレッジ→政治的要求（TYW-2 #1424）。`MercenaryRules`/`PraetorianRules`とは別＝ヴァレンシュタイン型の私兵を持つ将軍の政治力
 - [ ] WarPurposeDriftRules：開戦理由の腐食＝宗教→権力政治ドリフト・イデオロギー的同盟逆転（TYW-3 #1426）。`WarGoalRules`/`DiplomacyRules`とは別＝戦争目的が当初の大義から権力闘争へ変質する
 - [ ] MultipartyPeaceRules：多極講和の協調問題＝三者以上の包括パッケージ合意・膠着検知（TYW-4 #1427）。`WarGoalRules`(講和受諾)/`CoalitionRules`とは別＝ウェストファリア型の多国間講和の難しさ

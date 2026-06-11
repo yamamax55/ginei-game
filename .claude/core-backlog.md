@@ -99,6 +99,7 @@
 - [x] Wave30 (2026-06-11)：AccusationCascadeRules(#1625) / ContraryPositionRules(#1624) / BubblePriceRules(#1622) / BoomFraudRules(#1621) / ManiaRules(#1620) / DebtDeflationRules(#1619) / FinancialContagionRules(#1615)（並列7・マッカイ狂気とバブルMNIA＋キンドルバーガー熱狂恐慌崩壊KNDB・親がBubble overload/DebtDeflationテストscale修正）
 - [x] Wave31 (2026-06-11)：StandardizationRules(#1614) / LenderOfLastResortRules(#1613) / TransshipmentRules(#1612) / TransportCostRules(#1611) / CrisisCycleRules(#1610) / CeremonialismRules(#1603) / SocialProtectionRules(#1602)（並列7・レビンソンCNTR＋キンドルバーガーKNDB＋ヴェブレンVEBL＋ポランニーPOLA・親がStandardizationテスト算術修正）
 - [x] Wave32 (2026-06-11)：OstentationRules(#1601) / InternationalOrderRules(#1599) / CompetitiveDemocracyRules(#1598) / EmulationRules(#1597) / FictitiousCommodityRules(#1596) / IntellectualCritiqueRules(#1595) / VeblenGoodsRules(#1593)（並列7・ヴェブレンVEBL完結＋ポランニーPOLA＋シュンペーターSCHU・全テスト一発green）
+- [x] Wave33 (2026-06-11)：CreativeDestructionRules(#1581) / EntrepreneurRules(#1584) / BureaucratizationRules(#1587) / InnovationWaveRules(#1591) / EmpathyRules(#1578) / ImpartialObserverRules(#1582) / MoralStyleRules(#1586)（並列7・シュンペーターSCHU完結＋スミス道徳感情論TMS・親がMoralStyleの正規化/全0分岐2バグ修正）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -131,13 +132,13 @@
 ### Issue連動（第6次補充・2026-06-11／経済思想・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
 # シュンペーターSCHU（#1579）／スミス道徳感情論TMS（#1576）／マルサス人口論MALT（#1573）
 # 孟子MENC（#1561）／墨子MOZI（#1551）／老子LAOZ（#1543）／ハイエクHAYK（#1539）／ポランニーPOLA（#1585）
-- [ ] CreativeDestructionRules：創造的破壊＝新技術が旧市場を萎縮させる破壊面＋置換ショック（SCHU-1 #1581）。`InnovationDiffusionRules`(技術伝播)/`ResearchRules`(研究)とは別＝新陳代謝の破壊側
-- [ ] EntrepreneurRules：企業家類型と起業活動＝均衡破壊者(イノベーター)vs管理者の人物弁別（SCHU-2 #1584）。`PersonRules`(適材適所)/`FirmRules`(企業)とは別＝起業家精神の弁別
-- [ ] BureaucratizationRules：官僚化とイノベーション死＝成功→制度化→革新力喪失の自壊ループ（SCHU-3 #1587）。`BureaucracyBloatRules`(人数肥大)/`CeremonialismRules`(儀礼性)とは別＝成功が革新を殺す逆説
-- [ ] InnovationWaveRules：革新クラスターと景気波動＝コンドラチェフ型4フェーズ（SCHU-4 #1591）。`CrisisCycleRules`(ミンスキー金融循環)とは別＝技術革新の長期波動
-- [ ] EmpathyRules：共感評判エンジン＝行動→道徳評価→支持/忠誠/opinion修正子（TMS-1 #1578・スミス道徳感情論）。`ReputationRules`(名声)/`JusticeRules`(正義観)とは別＝共感に基づく道徳評価
-- [ ] ImpartialObserverRules：公平な観察者フィルター＝自己欺瞞バイアス→腐敗加速のブレーキ（TMS-2 #1582）。`RegimeRules`(腐敗)とは別＝内なる観察者による自制
-- [ ] MoralStyleRules：3徳統治スタイル軸＝慎慮/仁愛/正義→安定度修正子（TMS-3 #1586）。`GovernanceRules`(安定度)/`WangDaoRules`(王道覇道)とは別＝徳の統治スタイル
+- [x] CreativeDestructionRules：創造的破壊＝新技術が旧市場を萎縮させる破壊面＋置換ショック（SCHU-1 #1581）。`InnovationDiffusionRules`(技術伝播)/`ResearchRules`(研究)とは別＝新陳代謝の破壊側（Wave33）
+- [x] EntrepreneurRules：企業家類型と起業活動＝均衡破壊者(イノベーター)vs管理者の人物弁別（SCHU-2 #1584）。`PersonRules`(適材適所)/`FirmRules`(企業)とは別＝起業家精神の弁別（Wave33）
+- [x] BureaucratizationRules：官僚化とイノベーション死＝成功→制度化→革新力喪失の自壊ループ（SCHU-3 #1587）。`BureaucracyBloatRules`(人数肥大)/`CeremonialismRules`(儀礼性)とは別＝成功が革新を殺す逆説（Wave33）
+- [x] InnovationWaveRules：革新クラスターと景気波動＝コンドラチェフ型4フェーズ（SCHU-4 #1591）。`CrisisCycleRules`(ミンスキー金融循環)とは別＝技術革新の長期波動（Wave33）
+- [x] EmpathyRules：共感評判エンジン＝行動→道徳評価→支持/忠誠/opinion修正子（TMS-1 #1578・スミス道徳感情論）。`ReputationRules`(名声)/`JusticeRules`(正義観)とは別＝共感に基づく道徳評価（Wave33）
+- [x] ImpartialObserverRules：公平な観察者フィルター＝自己欺瞞バイアス→腐敗加速のブレーキ（TMS-2 #1582）。`RegimeRules`(腐敗)とは別＝内なる観察者による自制（Wave33）
+- [x] MoralStyleRules：3徳統治スタイル軸＝慎慮/仁愛/正義→安定度修正子（TMS-3 #1586）。`GovernanceRules`(安定度)/`WangDaoRules`(王道覇道)とは別＝徳の統治スタイル（Wave33）
 - [ ] CommercialIntegrityRules：商業誠実性の信頼基盤＝繰り返し交易→信頼蓄積→opinion修正（TMS-4 #1590）。`TradeRules`(交易利得)/`DiplomacyRules`(opinion)とは別＝商業の信頼蓄積
 - [ ] CarryingCapacityRules：食糧天井関数＝農業産出×人口→FoodStressRatio（MALT-1 #1574・マルサス人口論）。`DemographicsRules`(人口動態)/`ResourceProductionRules`(資源)とは別＝食糧の収容限界
 - [ ] MalthusianCheckRules：マルサスチェック＝FoodStressRatio→出生率↓・死亡率↑の変調係数（MALT-2 #1575）。`DemographicsRules`(VitalRates)とは別＝食糧逼迫の人口抑制

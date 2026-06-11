@@ -219,3 +219,27 @@
 - [ ] SoftDespotismRules：穏やかな専制＝行政後見国家・暴力なき受動化（TOCQ-4 #1492・トクヴィル）。`CoupRules`(暴力的奪取)とは別＝福祉的後見による自由の去勢（CoupRulesとの対称系）
 - [ ] EqualityDriftRules：平等化の潮流と身分侵食＝民主化圧力が階級/序列に与える長期係数（TOCQ-5 #1498）。`SerfdomRules`/`CitizenshipRules`とは別＝身分制を溶かす平等化の不可逆潮流
 - [ ] AssociationRules：中間団体・市民結社＝国家と個人の間の自発的緩衝体（TOCQ-2 #1482）。`PluralityRules`(複数性)/`LobbyRules`とは別＝トクヴィルの結社が専制を防ぐ（CivicAssociation同梱）
+
+### Issue連動（第10次補充・2026-06-11／共和制・自由主義・社会契約EPIC群の純ロジック子Issue・21件＝3Wave分）
+# フェデラリストFED／マキャヴェッリ論考DISC／ミル自由論MILL／ルソー社会契約ROUS／ホッブズLEVI／トクヴィルTOCQ-1
+- [ ] FactionMultiplicityRules：派閥増殖安定則＝HHI逆数→多数派暴政リスク低下・会派形成コスト（FED-1 #1473・フェデラリスト）。`CoalitionRules`/`PartyRules`とは別＝派閥が多いほど多数派専制が起きにくい（マディソン）
+- [ ] AmbitionCounterRules：野心相殺設計＝制度ポジションの自己利益→抑制均衡の能動的発動条件（FED-2 #1476）。`SeparationOfPowersRules`/`ImpeachmentRules`とは別＝「野心には野心を対抗させる」設計
+- [ ] CompoundRepublicRules：複合共和制と二層主権＝委譲/保留権限→垂直抑制強度→専制リスク低下（FED-3 #1481）。`FederalismRules`/`ConstitutionRules`とは別＝二層主権の垂直チェック
+- [ ] ExtendedRepublicRules：拡大共和国の安定＝版図規模×派閥多様性→安定補正（FED-4 #1485）。`LogisticsRules`/`PolityScaleRules`とは別＝大共和国ほど派閥が中和し安定（マディソン）
+- [ ] ExecutiveEnergyRules：行政エネルギーと単一執政＝執政の統一→決断速度×クーデター確率低下のトレードオフ（FED-5 #1489）。`CivilianControlRules`/`CoupRules`とは別＝単一執政の決断力（ハミルトン）
+- [ ] RepresentativeFilterRules：代表による派閥濾過＝選挙区規模→濾過強度→派閥的歪み低減（FED-6 #1494）。`PartyRules`/`PlebisciteRules`とは別＝代表制が直接民主の派閥熱を濾す
+- [ ] CensorshipRules：情報自由度と検閲水準＝短期安定vs長期腐敗の非対称（MILL-1 #1474・ミル自由論、InformationEnvironment同梱）。`FreePressRules`(腐敗発見)/`PropagandaRules`とは別＝検閲の短期安定と長期腐敗
+- [ ] PublicOpinionRules：世論ダイナミクスと多数派専制＝意見多様度→情報品質係数（MILL-2 #1477、OpinionField同梱）。`PropagandaRules`/`DemagogueRules`とは別＝世論場の多数派専制と情報品質
+- [ ] HarmPrincipleRules：危害原理の形式化＝過剰抑圧の加速コスト・正当性閾値（MILL-3 #1480）。`MartialLawRules`/`JusticeRules`とは別＝「他者への危害のみ規制しうる」ミルの原理
+- [ ] LibertyCultureRules：個性と実験の社会価値＝意見多様度→研究・適応力係数（MILL-5 #1487）。`OpennessRules`/`ResearchRules`とは別＝自由な個性が社会の実験室になる（ミル）
+- [ ] MajorityTyrannyRules：多数者の専制＝社会的同質化圧力・少数意見の封殺（TOCQ-1 #1478・トクヴィル、MinorityOpinion同梱）。`PluralityRules`/`PreferenceFalsificationRules`とは別＝多数派の社会的同調圧力
+- [ ] MilitiaLoyaltyRules：市民軍・志願兵・傭兵の忠誠軸＝徴募源→逆境時の離反確率差（DISC-2 #1483・マキャヴェッリ論考）。`MercenaryRules`/`ConscriptionRules`とは別＝徴募源別の逆境忠誠
+- [ ] RinnovazioneRules：リノヴァツィオーネ＝制度疲弊→刷新ウィンドウ→予防的自己刷新（DISC-3 #1488）。`DynastyRules.Reform`/`InstitutionalCorrectionRules`とは別＝危機前の予防的刷新（マキャヴェッリ「初心に立ち返る」）
+- [ ] FounderTrajectoryRules：建国者の自己廃絶テスト＝制度投資速度vs権力集中速度→共和制軌道or専制固定の評価（DISC-4 #1493）。`SuccessionRules`/`PublicPrivateSeparationRules`とは別＝建国者が制度を残すか権力を握るか
+- [ ] GeneralWillRules：一般意志汚染指標＝派閥捕獲vs公益統治の合成スコア（ROUS-1 #1462・ルソー社会契約、GeneralWillState同梱）。`CommonGoodOrientationRules`/`LobbyRules`とは別＝一般意志vs特殊意志の汚染
+- [ ] LawgiverRules：立法者パラドックス＝建国の憲法制定権力・一回性の制度初期化（ROUS-2 #1464）。`ConstitutionRules`/`FounderTrajectoryRules`とは別＝ルソーの立法者（制度を作る者は制度の外）
+- [ ] PolityScaleRules：政体規模適合＝版図×人口→政体適合度スコア・ミスマッチペナルティ（ROUS-3 #1466）。`ExtendedRepublicRules`/`OverextensionRules`とは別＝政体には適正規模がある（ルソーは小国を是とした）
+- [ ] CivicFaithRules：市民宗教＝政府製造の政治的結束信仰・形骸化→崩壊の動学（ROUS-4 #1468、CivicFaith同梱）。`ReligionRules`/`HopeRules`とは別＝ルソーの市民宗教（政治的結束の信仰）
+- [ ] AnarchyCostRules：無政府宙域の自然状態コスト＝崩壊後の宙域コスト・隣接不安定化・再統合インセンティブ（LEVI-1 #1459・ホッブズ、AnarchyState同梱）。`CivilWarRules`/`FrontierRules`とは別＝万人の万人に対する闘争のコスト
+- [ ] SecurityDilemmaRules：安全保障ジレンマ＝防衛目的の建艦が隣接を刺激し螺旋→「誰も望まない戦争」（LEVI-2 #1461・ホッブズ）。`ArmsRaceRules`(リチャードソン量の螺旋)とは別＝防衛動機が生む猜疑の構造
+- [ ] CovenantRules：コヴェナント＝保護契約の閾値＝防衛失敗で服従義務消滅→合意撤回へ転送（LEVI-3 #1463）。`ConsentRules`/`CovenantRules`とは別＝ホッブズの保護と服従の契約（守れない主権者への服従は消える）

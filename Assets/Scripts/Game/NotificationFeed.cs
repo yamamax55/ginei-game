@@ -7,25 +7,34 @@ using TMPro;
 namespace Ginei
 {
     /// <summary>
-    /// 画面左下のメッセージフィード（#964 NOTIF-2）。<see cref="NotificationCenter"/> の新着をトーストで縦積み表示し、
-    /// 実時間（unscaled）で自動フェード→破棄する。Strategy/Battle 両シーンへ自動生成（TimeDisplay と同様の uGUI HUD）。
-    /// 生成時に <see cref="NotificationCenter.LastSeq"/> を既読にして履歴フラッドを防ぐ。クリックスルー（raycastTarget=false）。
+    /// 画面左下の通知パネル（#964 NOTIF-2）。<see cref="NotificationCenter"/> を単一ソースに、直近 <see cref="maxRows"/> 件を
+    /// <b>枠付き（Windows 風・タイトルバー＋ドラッグ移動 <see cref="UIDragMove"/>）で常時表示</b>する。
+    /// 旧仕様（時間で消えるトースト）と違い、**新着が来たら古いものを押し出すだけで4〜5件は残る**＝見逃さない。
+    /// 生成時に <see cref="NotificationCenter.Recent"/> で直近履歴を seed し、以降の新着は <see cref="NotificationCenter.Since"/>
+    /// で全件反映する（取りこぼさない）。全履歴は N キーの <see cref="NotificationLogOverlay"/> で遡れる。
+    /// Strategy/Battle 両シーンへ自動生成。クリックはタイトルバーのドラッグのみ受ける（行はクリックスルー）。
     /// </summary>
     public class NotificationFeed : MonoBehaviour
     {
-        [Tooltip("トーストの表示秒数（実時間）")]
-        public float toastDuration = 6f;
-        [Tooltip("末尾のフェード秒数")]
-        public float fadeTime = 1.2f;
-        [Tooltip("同時表示の最大数（超過は古いものから消す）")]
-        public int maxToasts = 7;
+        [Header("表示")]
+        [Tooltip("常時残す通知の最大件数（超過は古いものから押し出す）")]
+        public int maxRows = 5;
+        [Tooltip("パネルの幅（ピクセル）")]
+        public float panelWidth = 600f;
+        [Tooltip("画面左下からのマージン（X, Y）。下端で見切れないよう Y は余裕を取る")]
+        public Vector2 margin = new Vector2(24f, 40f);
+
+        [Header("配色（ゲーム意匠）")]
+        public Color panelColor = new Color(0.05f, 0.07f, 0.12f, 0.94f);
+        public Color borderColor = new Color(0.45f, 0.40f, 0.22f, 0.9f);
+        public Color titleBarColor = new Color(0.09f, 0.12f, 0.18f, 1f);
+        public Color accentColor = new Color(1f, 0.84f, 0.36f, 1f);
 
         private long lastSeq;
-        private RectTransform container;
+        private RectTransform window;     // 枠ウィンドウ本体（ドラッグ対象）
+        private Transform rowsParent;     // 通知行の親
         private TMP_FontAsset jpFont;
-
-        private class Toast { public GameObject go; public CanvasGroup cg; public float age; }
-        private readonly List<Toast> toasts = new List<Toast>();
+        private readonly List<GameObject> rows = new List<GameObject>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -46,63 +55,50 @@ namespace Ginei
 
         private void Awake()
         {
-            lastSeq = NotificationCenter.LastSeq; // 生成以降の新着だけ出す（履歴フラッド防止）
             jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             BuildUI();
+
+            // 直近履歴を seed（パネルを空にしない＝開いた瞬間から4〜5件見える）。
+            // Recent は新しい順で返すため、古い→新しいの順に積む（新着が下＝Since と同じ並び）。
+            var recent = NotificationCenter.Recent(maxRows);
+            for (int i = recent.Count - 1; i >= 0; i--) AddRow(recent[i]);
+            lastSeq = NotificationCenter.LastSeq; // 以降は新着だけ追記
         }
 
         private void Update()
         {
-            // 新着をトースト化（古い順に Since で取得）
+            // 新着を全件追記（古い順）。時間では消さず、件数超過で古いものを押し出す＝4〜5件は常に残る。
             var fresh = NotificationCenter.Since(lastSeq);
             for (int i = 0; i < fresh.Count; i++)
             {
-                SpawnToast(fresh[i]);
+                AddRow(fresh[i]);
                 lastSeq = fresh[i].seq;
-            }
-
-            // 上限を超えたら古いものから除去
-            while (toasts.Count > maxToasts) RemoveToast(0);
-
-            // フェード進行（実時間）。破棄しながら逆順走査。
-            float dt = Time.unscaledDeltaTime;
-            for (int i = toasts.Count - 1; i >= 0; i--)
-            {
-                Toast t = toasts[i];
-                t.age += dt;
-                if (t.age >= toastDuration) { RemoveToast(i); continue; }
-                float fadeStart = Mathf.Max(0f, toastDuration - fadeTime);
-                t.cg.alpha = t.age <= fadeStart ? 1f : Mathf.InverseLerp(toastDuration, fadeStart, t.age);
             }
         }
 
-        private void SpawnToast(Notification n)
+        /// <summary>通知1件を行として追加し、上限を超えたら最古を押し出す。</summary>
+        private void AddRow(Notification n)
         {
-            var go = new GameObject("Toast");
-            go.transform.SetParent(container, false);
-            var cg = go.AddComponent<CanvasGroup>();
-            cg.interactable = false; cg.blocksRaycasts = false;
+            var go = new GameObject("Row");
+            go.transform.SetParent(rowsParent, false);
 
             var label = go.AddComponent<TextMeshProUGUI>();
             label.text = $"▸ {n.message}";
-            label.fontSize = 20f;
+            label.fontSize = 19f;
             label.color = SeverityColor(n.severity);
-            label.raycastTarget = false;
-            label.alignment = TextAlignmentOptions.BottomLeft;
+            label.raycastTarget = false; // クリックスルー
+            label.alignment = TextAlignmentOptions.Left;
             label.enableWordWrapping = true;
             if (jpFont != null) label.font = jpFont;
-            var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 520f;
 
-            go.transform.SetAsLastSibling(); // 新しいものが下
-            toasts.Add(new Toast { go = go, cg = cg, age = 0f });
-        }
+            go.transform.SetAsLastSibling(); // 新しいものを下に
+            rows.Add(go);
 
-        private void RemoveToast(int index)
-        {
-            if (index < 0 || index >= toasts.Count) return;
-            if (toasts[index].go != null) Destroy(toasts[index].go);
-            toasts.RemoveAt(index);
+            while (rows.Count > maxRows)
+            {
+                if (rows[0] != null) Destroy(rows[0]);
+                rows.RemoveAt(0);
+            }
         }
 
         private static Color SeverityColor(NotificationSeverity s)
@@ -114,6 +110,8 @@ namespace Ginei
                 default: return new Color(0.9f, 0.93f, 0.96f);
             }
         }
+
+        // ===== UI 構築 =====
 
         private void BuildUI()
         {
@@ -127,22 +125,90 @@ namespace Ginei
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             canvasObj.AddComponent<GraphicRaycaster>();
 
-            var cont = new GameObject("FeedContainer");
-            cont.transform.SetParent(canvasObj.transform, false);
-            container = cont.AddComponent<RectTransform>();
-            container.anchorMin = new Vector2(0f, 0f); // 左下
-            container.anchorMax = new Vector2(0f, 0f);
-            container.pivot = new Vector2(0f, 0f);
-            container.anchoredPosition = new Vector2(16f, 16f);
-            container.sizeDelta = new Vector2(540f, 0f);
+            // 枠ウィンドウ（左下・下端から余裕を取って見切れ防止・下端アンカーで上へ伸びる）
+            var win = new GameObject("NotificationWindow");
+            win.transform.SetParent(canvasObj.transform, false);
+            window = win.AddComponent<RectTransform>();
+            window.anchorMin = new Vector2(0f, 0f);
+            window.anchorMax = new Vector2(0f, 0f);
+            window.pivot = new Vector2(0f, 0f);
+            window.anchoredPosition = margin;
+            window.sizeDelta = new Vector2(panelWidth, 0f);
 
-            var vlg = cont.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 4f;
+            var bg = win.AddComponent<Image>();
+            bg.color = panelColor;
+            var border = win.AddComponent<Outline>();
+            border.effectColor = borderColor;
+            border.effectDistance = new Vector2(2f, -2f);
+
+            var winVlg = win.AddComponent<VerticalLayoutGroup>();
+            winVlg.padding = new RectOffset(0, 0, 0, 0);
+            winVlg.spacing = 0f;
+            winVlg.childControlWidth = true;
+            winVlg.childControlHeight = true;
+            winVlg.childForceExpandWidth = true;
+            winVlg.childForceExpandHeight = false;
+            var winFitter = win.AddComponent<ContentSizeFitter>();
+            winFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize; // 内容に応じて上へ伸びる
+
+            BuildTitleBar(win.transform);
+            BuildRowsArea(win.transform);
+        }
+
+        /// <summary>タイトルバー（Windows 風・つかんでドラッグ移動）。</summary>
+        private void BuildTitleBar(Transform parent)
+        {
+            var bar = new GameObject("TitleBar");
+            bar.transform.SetParent(parent, false);
+            var img = bar.AddComponent<Image>();
+            img.color = titleBarColor;
+            var le = bar.AddComponent<LayoutElement>();
+            le.minHeight = 30f;
+            le.preferredHeight = 30f;
+
+            // つかんでウィンドウを移動（決裁デスクと同じ UIDragMove を再利用）
+            var drag = bar.AddComponent<UIDragMove>();
+            drag.target = window;
+
+            var label = new GameObject("Caption").AddComponent<TextMeshProUGUI>();
+            label.transform.SetParent(bar.transform, false);
+            var lrt = label.rectTransform;
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = new Vector2(12f, 0f); lrt.offsetMax = new Vector2(-12f, 0f);
+            label.text = "≡ 通知　（ドラッグで移動／N で履歴）";
+            label.fontSize = 15f;
+            label.color = accentColor;
+            label.alignment = TextAlignmentOptions.Left;
+            label.raycastTarget = false; // バー本体にドラッグを通す
+            if (jpFont != null) label.font = jpFont;
+
+            // タイトルバー下端の金色ルール線
+            var rule = new GameObject("Rule");
+            rule.transform.SetParent(bar.transform, false);
+            var rrt = rule.AddComponent<RectTransform>();
+            rrt.anchorMin = new Vector2(0f, 0f); rrt.anchorMax = new Vector2(1f, 0f);
+            rrt.pivot = new Vector2(0.5f, 0f);
+            rrt.sizeDelta = new Vector2(0f, 2f); rrt.anchoredPosition = Vector2.zero;
+            var ri = rule.AddComponent<Image>();
+            ri.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.5f);
+            ri.raycastTarget = false;
+        }
+
+        /// <summary>通知行を縦積みする領域（新しいものが下）。</summary>
+        private void BuildRowsArea(Transform parent)
+        {
+            var area = new GameObject("Rows");
+            area.transform.SetParent(parent, false);
+            area.AddComponent<RectTransform>();
+            var vlg = area.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(12, 12, 8, 10);
+            vlg.spacing = 5f;
             vlg.childAlignment = TextAnchor.LowerLeft;
-            vlg.childControlWidth = true; vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = false; vlg.childForceExpandHeight = false;
-            var fitter = cont.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize; // 下端アンカーから上へ伸びる
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            rowsParent = area.transform;
         }
     }
 }

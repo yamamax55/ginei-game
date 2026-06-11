@@ -55,7 +55,11 @@ namespace Ginei
         public void Restore(PendingDecision d)
         {
             if (d == null) return;
-            if (d.status == DecisionStatus.最小化) d.status = DecisionStatus.提示中;
+            if (d.status == DecisionStatus.最小化)
+            {
+                d.status = DecisionStatus.提示中;
+                d.elapsed = 0f; // 再提示＝締切をリセット（即・再最小化を防ぐ＝展開がちゃんと効く）
+            }
         }
 
         /// <summary>人が決裁する＝選択を確定し決裁済へ。採択した効果キーを返す（呼び出し側が適用）。</summary>

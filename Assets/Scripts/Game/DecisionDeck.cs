@@ -99,6 +99,7 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
                     $"［自動処理］{d.title} → {ChoiceLabel(d, d.chosenIndex)}");
             }
+            if (resolved.Count > 0) Queue.PruneResolved(); // 自動解決済みを掃く（溜め込まない）
 
             // DESK-4：活性な重大が居る間だけ時間を止める（自分が止めたぶんだけ戻す）
             if (clock != null)
@@ -224,6 +225,7 @@ namespace Ginei
             Queue.Resolve(d, choiceIndex);
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                 $"［裁可］{d.title} → {ChoiceLabel(d, choiceIndex)}");
+            Queue.PruneResolved(); // 決裁済みを掃く
             // effectKey→世界 の実適用は DESK-6（イベント/目安箱の合流）で。
         }
 

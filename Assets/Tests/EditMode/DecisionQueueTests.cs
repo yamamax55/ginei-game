@@ -38,6 +38,22 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void Restore_ResetsDeadline_SoExpandSticks()
+        {
+            // 締切を過ぎて最小化された決裁を展開すると、経過がリセットされ即・再最小化されない
+            var q = new DecisionQueue();
+            var d = Dec(1, DecisionSeverity.通常);
+            d.elapsed = 999f; // 締切を大きく超過
+            q.Enqueue(d);
+            q.Minimize(d);
+            Assert.AreEqual(DecisionStatus.最小化, d.status);
+
+            q.Restore(d);
+            Assert.AreEqual(DecisionStatus.提示中, d.status);
+            Assert.AreEqual(0f, d.elapsed, 1e-4f); // 締切リセット＝展開がちゃんと効く
+        }
+
+        [Test]
         public void Resolve_ReturnsEffectKey_AndLeavesActive()
         {
             var q = new DecisionQueue();

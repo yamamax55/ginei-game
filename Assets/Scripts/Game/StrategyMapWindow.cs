@@ -7,39 +7,42 @@ namespace Ginei
 {
     /// <summary>
     /// 戦略（星系）マップの Windows 風UI（銀英伝の古典UI意匠・#UI統一）。
-    /// 構成は2つ：①画面上部の<b>固定コマンドメニューバー</b>（国家ステータス・二重暦/速度・各パネルを開くボタン列）と、
-    /// ②<b>ドラッグで動かせる星系マップ窓</b>。マップ窓はカメラのビューポート <see cref="Camera.rect"/> を窓の中身領域に合わせ、
-    /// タイトルバーをつかむと窓ごと移動できる（<see cref="UIDragMove"/>＋毎フレーム rect 同期）。
-    /// <b>当たり判定維持</b>：<see cref="GalaxyView"/> は <see cref="Camera.ScreenToWorldPoint"/> でクリックを拾い、
-    /// これはビューポート rect を尊重するため窓を動かしても選択/進軍は正しく動く。
-    /// 窓の外（デスクトップ領域）は<b>背景カメラ</b>が毎フレーム黒でクリアするため残像が出ない。
-    /// 浮いていた税率行/操作ヒントは <see cref="GalaxyView.HideWorldHud"/> で抑制し上メニューへ集約。Strategy シーンのみ自動生成。
+    /// ①画面上部の<b>固定コマンドメニューバー</b>（国家ステータス・二重暦/速度・各パネルを開くボタン列）と、
+    /// ②<b>ドラッグで動かせる星系マップ窓</b>から成る。
+    /// <b>整合の要</b>：マップ窓は正規化矩形 <c>mapRect</c>（0〜1・画面全体基準）を唯一の真実とし、
+    /// <see cref="Camera.rect"/> と窓UIのアンカーの<b>両方に同じ mapRect を与える</b>＝両者とも画面全体基準なので
+    /// 解像度・アスペクトに依らず<b>ピクセル一致</b>する（GetWorldCorners/Screen 依存の逆算をしない）。
+    /// タイトルバーのドラッグは mapRect を正規化で平行移動する。<see cref="GalaxyView"/> は <see cref="Camera.ScreenToWorldPoint"/>
+    /// でクリックを拾い、これはビューポート rect を尊重するため窓移動後も選択/進軍が正しく動く。
+    /// 窓の外は<b>背景カメラ</b>が黒でクリアし残像を防ぐ。浮きHUDは <see cref="GalaxyView.HideWorldHud"/> で抑制し上メニューへ集約。Strategy 専用。
     /// </summary>
     public class StrategyMapWindow : MonoBehaviour
     {
         [Header("上部メニューバー")]
-        [Tooltip("メニューバーの高さ（画面高に対する比）")]
         public float menuBarFrac = 0.088f;
 
-        [Header("マップ窓の初期配置（参照解像度 1920x1080 ピクセル）")]
-        public float windowMargin = 30f;     // 左右マージン
-        public float windowGapTop = 12f;      // メニューバーとの隙間
-        public float windowMarginBottom = 34f;
-        public float mapTitleHeight = 30f;    // 窓タイトルバーの高さ
+        [Header("マップ窓")]
+        [Tooltip("窓タイトルバーの高さ（ピクセル）")]
+        public float mapTitleHeight = 30f;
 
         [Header("配色（ゲーム意匠）")]
-        public Color frameColor = new Color(0.09f, 0.12f, 0.18f, 1f);
         public Color menuBarColor = new Color(0.11f, 0.15f, 0.22f, 1f);
         public Color titleBarColor = new Color(0.13f, 0.18f, 0.26f, 1f);
         public Color buttonColor = new Color(0.16f, 0.21f, 0.30f, 1f);
         public Color accentColor = new Color(1f, 0.84f, 0.36f, 1f);
         public Color desktopColor = new Color(0.02f, 0.02f, 0.05f, 1f);
 
+        // マップ窓の正規化矩形（画面全体を 0〜1 とした位置/大きさ）。camera.rect と窓UIの両方に使う＝必ず一致。
+        private Rect mapRect = new Rect(0.02f, 0.03f, 0.96f, 0.84f);
+
         private Camera cam;
-        private Camera bgCam;            // 窓の外を黒でクリア（残像防止）
+        private Camera bgCam;
         private Rect originalRect;
         private bool rectApplied;
-        private RectTransform mapContent; // マップ窓の中身領域（= camera.rect の元）
+
+        private RectTransform titleBarRT;
+        private RectTransform contentRT;
+        private RectTransform edgeLeft, edgeRight, edgeBottom;
         private TextMeshProUGUI clockLabel;
         private TextMeshProUGUI statsLabel;
 
@@ -67,7 +70,7 @@ namespace Ginei
             GalaxyView.HideWorldHud = true;
             SetupBackgroundCamera();
             BuildUI();
-            SyncCameraRect(); // 初期反映
+            ApplyLayout();
         }
 
         private void OnDestroy()
@@ -88,11 +91,7 @@ namespace Ginei
             UpdateStatsLabel();
         }
 
-        private void LateUpdate()
-        {
-            // 窓のドラッグ後に rect を合わせる（レイアウト確定後）
-            SyncCameraRect();
-        }
+        private void LateUpdate() => ApplyLayout();
 
         // ===== カメラ =====
 
@@ -105,32 +104,66 @@ namespace Ginei
             var go = new GameObject("StrategyDesktopCamera");
             bgCam = go.AddComponent<Camera>();
             bgCam.orthographic = true;
-            bgCam.depth = cam.depth - 1f;          // 先に描いて全画面を黒クリア
+            bgCam.depth = cam.depth - 1f;
             bgCam.clearFlags = CameraClearFlags.SolidColor;
             bgCam.backgroundColor = desktopColor;
-            bgCam.cullingMask = 0;                 // 何も描かず塗るだけ
+            bgCam.cullingMask = 0;
             bgCam.rect = new Rect(0f, 0f, 1f, 1f);
         }
 
-        /// <summary>マップ窓の中身領域のスクリーン矩形を camera.rect（正規化）へ反映する。</summary>
-        private void SyncCameraRect()
+        /// <summary>タイトルバーのドラッグで窓（mapRect）を正規化平行移動する。</summary>
+        private void OnTitleDrag(Vector2 deltaPixels)
         {
-            if (cam == null || mapContent == null) return;
-            Vector3[] c = new Vector3[4];
-            mapContent.GetWorldCorners(c); // ScreenSpaceOverlay では画面ピクセル座標
-            float sw = Screen.width, sh = Screen.height;
-            if (sw <= 0f || sh <= 0f) return;
+            float sw = Screen.width > 0 ? Screen.width : 1920f;
+            float sh = Screen.height > 0 ? Screen.height : 1080f;
+            mapRect.x += deltaPixels.x / sw;
+            mapRect.y += deltaPixels.y / sh;
+            ApplyLayout();
+        }
 
-            float x = c[0].x / sw;
-            float y = c[0].y / sh;
-            float w = (c[2].x - c[0].x) / sw;
-            float h = (c[2].y - c[0].y) / sh;
+        /// <summary>mapRect を camera.rect と窓UIのアンカーへ反映（両者とも画面全体基準＝一致）。</summary>
+        private void ApplyLayout()
+        {
+            if (cam == null) return;
+            mapRect.width = Mathf.Clamp(mapRect.width, 0.15f, 1f);
+            mapRect.height = Mathf.Clamp(mapRect.height, 0.15f, 1f);
+            mapRect.x = Mathf.Clamp(mapRect.x, 0f, 1f - mapRect.width);
+            mapRect.y = Mathf.Clamp(mapRect.y, 0f, 1f - mapRect.height);
+            cam.rect = mapRect;
 
-            // 画面内に収め、退化（幅/高さ≈0）を弾く
-            x = Mathf.Clamp01(x); y = Mathf.Clamp01(y);
-            w = Mathf.Clamp(w, 0.05f, 1f - x);
-            h = Mathf.Clamp(h, 0.05f, 1f - y);
-            cam.rect = new Rect(x, y, w, h);
+            float x0 = mapRect.xMin, x1 = mapRect.xMax, y0 = mapRect.yMin, y1 = mapRect.yMax;
+
+            if (contentRT != null) { Stretch(contentRT, x0, y0, x1, y1); }
+            if (titleBarRT != null)
+            {
+                titleBarRT.anchorMin = new Vector2(x0, y1);
+                titleBarRT.anchorMax = new Vector2(x1, y1);
+                titleBarRT.pivot = new Vector2(0.5f, 0f);
+                titleBarRT.sizeDelta = new Vector2(0f, mapTitleHeight);
+                titleBarRT.anchoredPosition = Vector2.zero;
+            }
+            // 縁取り（細いバー）
+            Edge(edgeLeft, x0, y0, x0, y1, new Vector2(0f, 0.5f), new Vector2(2f, 0f));
+            Edge(edgeRight, x1, y0, x1, y1, new Vector2(1f, 0.5f), new Vector2(2f, 0f));
+            Edge(edgeBottom, x0, y0, x1, y0, new Vector2(0.5f, 0f), new Vector2(0f, 2f));
+        }
+
+        private static void Stretch(RectTransform rt, float x0, float y0, float x1, float y1)
+        {
+            rt.anchorMin = new Vector2(x0, y0);
+            rt.anchorMax = new Vector2(x1, y1);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        private static void Edge(RectTransform rt, float x0, float y0, float x1, float y1, Vector2 pivot, Vector2 sizeDelta)
+        {
+            if (rt == null) return;
+            rt.anchorMin = new Vector2(x0, y0);
+            rt.anchorMax = new Vector2(x1, y1);
+            rt.pivot = pivot;
+            rt.sizeDelta = sizeDelta;
+            rt.anchoredPosition = Vector2.zero;
         }
 
         // ===== UI =====
@@ -146,17 +179,16 @@ namespace Ginei
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             canvasObj.AddComponent<GraphicRaycaster>();
+            Transform root = canvasObj.transform;
 
-            BuildMenuBar(canvasObj.transform);
-            BuildMapWindow(canvasObj.transform);
+            BuildMenuBar(root);
+            BuildMapWindow(root);
         }
 
-        /// <summary>画面上部の固定コマンドメニューバー（ステータス＋時計＋コマンド列）。</summary>
         private void BuildMenuBar(Transform root)
         {
             var bar = AddBar(root, "MenuBar", new Vector2(0f, 1f - menuBarFrac), new Vector2(1f, 1f), menuBarColor);
 
-            // 上段：ステータス（中央）＋時計（右）
             var top = new GameObject("TopRow").AddComponent<RectTransform>();
             top.transform.SetParent(bar.transform, false);
             top.anchorMin = new Vector2(0f, 0.48f); top.anchorMax = new Vector2(1f, 1f);
@@ -172,7 +204,6 @@ namespace Ginei
             clockLabel = AddText(top, "", 16f, new Color(0.95f, 0.92f, 0.7f), TextAlignmentOptions.Right);
             SetAnchors(clockLabel.rectTransform, new Vector2(0.74f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-20f, 0f));
 
-            // 下段：コマンドボタン列
             var cmd = new GameObject("CommandRow").AddComponent<RectTransform>();
             cmd.transform.SetParent(bar.transform, false);
             cmd.anchorMin = new Vector2(0f, 0f); cmd.anchorMax = new Vector2(1f, 0.48f);
@@ -191,71 +222,43 @@ namespace Ginei
             AddCommand(cmd.transform, "通知", () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle());
             AddCommand(cmd.transform, "ヘルプ", () => UnityEngine.Object.FindAnyObjectByType<HelpOverlay>()?.Toggle());
 
-            // メニューバー下端の金色ルール線
             var rule = AddBar(bar.transform, "Rule", new Vector2(0f, 0f), new Vector2(1f, 0f),
                 new Color(accentColor.r, accentColor.g, accentColor.b, 0.6f));
             var rrt = (RectTransform)rule.transform; rrt.pivot = new Vector2(0.5f, 0f); rrt.sizeDelta = new Vector2(0f, 2f);
         }
 
-        /// <summary>ドラッグで動かせる星系マップ窓（タイトルバー＋透明な中身領域＝camera.rect）。</summary>
         private void BuildMapWindow(Transform root)
         {
-            // 窓root（左上アンカー・ドラッグで anchoredPosition を動かす）
-            var win = new GameObject("MapWindow").AddComponent<RectTransform>();
-            win.transform.SetParent(root, false);
-            win.anchorMin = new Vector2(0f, 1f); win.anchorMax = new Vector2(0f, 1f);
-            win.pivot = new Vector2(0f, 1f);
-            float topPx = menuBarFrac * 1080f + windowGapTop;
-            float h = 1080f - topPx - windowMarginBottom;
-            float w = 1920f - 2f * windowMargin;
-            win.anchoredPosition = new Vector2(windowMargin, -topPx);
-            win.sizeDelta = new Vector2(w, h);
-            // 窓root には Image を付けない（中身は透明＝マップを見せる・クリックを塞がない）。
-            // 縁取りは中身領域の周囲に細い枠バーで描く（マップの上に不透明UIを重ねない）。
-
-            // タイトルバー（上端・つかんで移動）
-            var titleBar = new GameObject("MapTitleBar").AddComponent<RectTransform>();
-            titleBar.transform.SetParent(win.transform, false);
-            titleBar.anchorMin = new Vector2(0f, 1f); titleBar.anchorMax = new Vector2(1f, 1f);
-            titleBar.pivot = new Vector2(0.5f, 1f);
-            titleBar.sizeDelta = new Vector2(0f, mapTitleHeight);
-            titleBar.anchoredPosition = Vector2.zero;
-            var tImg = titleBar.gameObject.AddComponent<Image>();
+            // タイトルバー（つかんで移動・mapRect を動かす）
+            var bar = new GameObject("MapTitleBar").AddComponent<RectTransform>();
+            bar.transform.SetParent(root, false);
+            titleBarRT = bar;
+            var tImg = bar.gameObject.AddComponent<Image>();
             tImg.color = titleBarColor;
-            var drag = titleBar.gameObject.AddComponent<UIDragMove>();
-            drag.target = win;
-
-            var cap = AddText(titleBar, "≡ 星系マップ　（ドラッグで移動）", 15f, accentColor, TextAlignmentOptions.Left);
+            var drag = bar.gameObject.AddComponent<MapWindowDrag>();
+            drag.onDragDelta = OnTitleDrag;
+            var cap = AddText(bar, "≡ 星系マップ　（ドラッグで移動）", 15f, accentColor, TextAlignmentOptions.Left);
             SetAnchors(cap.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-12f, 0f));
 
-            // 中身領域（透明＝マップが見える。ここが camera.rect になる）
-            mapContent = new GameObject("MapContent").AddComponent<RectTransform>();
-            mapContent.transform.SetParent(win.transform, false);
-            mapContent.anchorMin = new Vector2(0f, 0f); mapContent.anchorMax = new Vector2(1f, 1f);
-            mapContent.offsetMin = new Vector2(2f, 2f);
-            mapContent.offsetMax = new Vector2(-2f, -mapTitleHeight);
-            // Image は付けない（透明）＝マップのクリックを妨げない＆カメラが透けて見える
+            // 中身領域（透明＝マップを見せる・クリックを塞がない）。アンカーは ApplyLayout で mapRect に合わせる。
+            contentRT = new GameObject("MapContent").AddComponent<RectTransform>();
+            contentRT.transform.SetParent(root, false);
 
-            // 窓の縁取り（細い金色バー・クリックは塞がない）
+            // 縁取り（細い金色バー・raycast しない）
             Color edge = new Color(accentColor.r, accentColor.g, accentColor.b, 0.5f);
-            AddEdgeBar(win, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(2f, 0f), Vector2.zero, edge);          // 左
-            AddEdgeBar(win, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(2f, 0f), Vector2.zero, edge);          // 右
-            AddEdgeBar(win, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), Vector2.zero, edge);          // 下
-            AddEdgeBar(win, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, 2f), new Vector2(0f, -mapTitleHeight), edge); // タイトル下のルール
+            edgeLeft = MakeEdge(root, edge);
+            edgeRight = MakeEdge(root, edge);
+            edgeBottom = MakeEdge(root, edge);
         }
 
-        /// <summary>窓の縁に細いバーを置く（raycastTarget=false＝マップ操作を妨げない）。</summary>
-        private static void AddEdgeBar(Transform parent, Vector2 aMin, Vector2 aMax, Vector2 pivot,
-            Vector2 sizeDelta, Vector2 anchoredPos, Color color)
+        private static RectTransform MakeEdge(Transform parent, Color color)
         {
             var go = new GameObject("Edge");
             go.transform.SetParent(parent, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = aMin; rt.anchorMax = aMax; rt.pivot = pivot;
-            rt.sizeDelta = sizeDelta; rt.anchoredPosition = anchoredPos;
             var img = go.AddComponent<Image>();
-            img.color = color;
-            img.raycastTarget = false;
+            img.color = color; img.raycastTarget = false;
+            return rt;
         }
 
         private void UpdateStatsLabel()

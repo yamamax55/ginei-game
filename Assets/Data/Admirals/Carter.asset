@@ -21,6 +21,8 @@ MonoBehaviour:
   regnalNumber: 0
   epithet: "\u30DF\u30E9\u30AF\u30EB"
   callName: "\u30B0\u30EA\u30FC\u30F3"
+  isProtagonist: 0
+  rankTier: 7
   leadership: 94
   attack: 84
   defense: 90

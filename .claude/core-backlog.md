@@ -96,7 +96,30 @@
 - [x] RoyalPresenceRules：君主の臨御＝親征（#899）。前線に立つ王は士気/戦力が格別に上がるが戦死/捕虜リスクを負い、立たぬ王は威信が下がる＝リスクとリターンの賭け。`ReputationRules`(名声)/`IllnessRules`(健康)とは別＝親征の損得（Wave29）
 - [x] CommandLegitimacyRules：会戦指揮の正統性＝文民統制で服従/デバフ/部分的不服従/不服従（#898）。指揮権の正統性が将兵の服従度を決める＝なぜプレイヤーは会戦を指揮できるのか。`CivilianControlRules`(クーデター)とは別＝戦場での命令服従（Wave29）
 
-> **キュー枯渇（2026-06-10・Wave29完了）**：適合する純ロジック子Issueプールが尽きた（第4次補充で新規2件のみ＝終盤）。
-> 自律量産ループはここで自然終端＝再アームしない。新テーマを追加する場合は、人間がIssueを書く→
-> `.github/workflows/core-wave.yml`（GitHub Actions・要 `CLAUDE_CODE_OAUTH_TOKEN` secret）が次サイクルで拾うか、
-> `/core-backlog-refill` を手動実行する。
+> **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
+
+### Issue連動（第5次補充・2026-06-11／経済思想・社会理論EPIC群の純ロジック子Issue・21件＝3Wave分）
+# マッカイ『狂気とバブル』MNIA（#1617）／キンドルバーガー『熱狂、恐慌、崩壊』KNDB（#1608）
+# レビンソン『コンテナ物語』CNTR（#1609）／ヴェブレン『有閑階級の理論』VEBL（#1589）
+# ポランニー『大転換』POLA（#1585）／シュンペーター SCHU（#1579）
+- [ ] AccusationCascadeRules：崩壊後の告発カスケード＝スケープゴート自己増殖を制度強度で抑制（MNIA-4 #1625）。`PurgeRules`(政策粛清)/`TerrorRules`(恐怖)とは別＝マニア崩壊後の責任転嫁連鎖
+- [ ] ContraryPositionRules：逆張り迫害・勝利構造＝マニアピーク時の迫害コストと崩壊後の逆転（MNIA-3 #1624）。`PreferenceFalsificationRules`(選好偽装)とは別＝群集に逆らう者の損益反転
+- [ ] BubblePriceRules：バブル価格解離＝マニア強度で価格乗数が膨らみ崩壊後オーバーシュートで底割れ（MNIA-2 #1622）。`CorneringRules`(買い占め投機)/`MarketRules`(需給均衡)とは別＝信念が値を動かす解離
+- [ ] BoomFraudRules：ブーム詐欺と信頼崩壊＝熱狂期に詐欺出現確率が上がり収縮期に発覚（KNDB-5 #1621）。`EspionageRules`/`ScandalRules`とは別＝景気循環に同期する詐欺の生起・発覚（EventEngineへ接続想定の純ロジック部）
+- [ ] ManiaRules：信念感染モデル＝SIR型伝播でマニア強度を解く（経済/政治/宗教横断）（MNIA-1 #1620・`ManiaState`同梱）。`ReligionRules`(改宗圧)/`PropagandaRules`(世論)とは別＝感染症数理の信念版
+- [ ] DebtDeflationRules：フィッシャーの負債デフレーション＝価格下落→実質債務膨張→強制売却の自己強化ループ（KNDB-4 #1619）。`InflationRules`(通貨劣化)/`FiscalRules`(国債)とは別＝デフレ下の債務スパイラル
+- [ ] FinancialContagionRules：金融伝染＝取付け・暴落の星間波及と防火壁・相関崩壊リスク（KNDB-3 #1615）。`BankRules`(単体取付け)/`ChainFragilityRules`(生産網)とは別＝金融ショックの面的波及
+- [ ] StandardizationRules：規格化の外部性＝共通規格採用度で輸送コスト低減・外交経済インセンティブ（CNTR-3 #1614）。`TradeRules`(交易利得)とは別＝規格採用のネットワーク外部性
+- [ ] LenderOfLastResortRules：最後の貸し手＝Bagehot原則（高金利/優良担保/無制限貸出）とモラルハザードのトレードオフ（KNDB-2 #1613）。`BankRules`(信用創造)とは別＝危機時の中央銀行介入
+- [ ] TransshipmentRules：ハブ星系・積み替え能力＝hubCapacity投資で周辺コスト低減・産出倍率↑（CNTR-2 #1612）。`LogisticsRules`(版図一体化)とは別＝物流ハブの集約効果
+- [ ] TransportCostRules：輸送コスト係数＝回廊コストを連続値化し版図一体化を拡張（CNTR-1 #1611）。`LogisticsRules`(連結成分)とは別＝回廊ごとの連続コスト
+- [ ] CrisisCycleRules：危機サイクル状態機械＝変位→熱狂→恐慌→収縮の弧（MinskyPhase enum同梱）（KNDB-1 #1610）。`ArmsRaceRules`等の螺旋とは別＝ミンスキー型金融循環の相
+- [ ] CeremonialismRules：制度の儀礼性＝機能↓でも威信で存続する役職/省庁の廃止抵抗（VEBL-4 #1603）。`BureaucracyBloatRules`(人数肥大)とは別＝儀礼的威信による存続慣性
+- [ ] SocialProtectionRules：社会保護制度の内生的成長＝市場圧力への自己防衛・ラチェット効果（POLA-5 #1602）。`RedistributionRules`(税の再分配)とは別＝二重運動の保護側ラチェット
+- [ ] OstentationRules：誇示的浪費と正統性＝浪費→正統性↑/過剰で財政圧迫→長期崩壊（VEBL-3 #1601）。`CeremonyRules`(儀礼イベント)/`HonorsRules`(栄典)とは別＝威信のための浪費の両刃
+- [ ] InternationalOrderRules：多極経済秩序の相互支持と連鎖崩壊＝四本柱カスケード（POLA-4 #1599）。`BalanceOfPowerRules`(多極均衡)/`CollectiveSecurityRules`とは別＝経済秩序の柱の相互依存崩壊
+- [ ] CompetitiveDemocracyRules：競争的民主主義と経済置換＝置換ショック→扇動政治家→民主的品質劣化（SCHU-6 #1598）。`DemagogueRules`(扇動家)/`PartyRules`とは別＝シュンペーター型民主主義の経済起点
+- [ ] EmulationRules：金銭的模倣カスケード＝消費規範の下方波及→需要底上げ→安定低下（VEBL-2 #1597）。`MarketRules`(需給)とは別＝地位模倣による消費規範の伝播
+- [ ] FictitiousCommodityRules：擬制商品ストレス＝労働/土地の完全商品化が生む固有の制度リスク（POLA-3 #1596）。`MarketRules`/`LandReformRules`とは別＝擬制商品化の社会ストレス
+- [ ] IntellectualCritiqueRules：知識人階級と正統性侵食＝繁栄→知識人余剰→体制批判の経路（SCHU-5 #1595）。`FreePressRules`(報道)/`PropagandaRules`とは別＝繁栄が生む知識人の批判圧
+- [ ] VeblenGoodsRules：Veblen財と誇示的消費＝地位財の逆需要曲線（StatusGood同梱）（VEBL-1 #1593）。`MarketRules`(通常財需給)とは別＝価格が上がるほど需要が増える地位財

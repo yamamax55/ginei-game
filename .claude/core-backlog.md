@@ -119,6 +119,7 @@
 - [x] Wave50 (2026-06-11)：PsychologicalSiegeMoraleRules(#1419) / MeritRetentionRules(#1422) / CombatFatigueRules(#1403) / KameradschaftRules(#1405) / StalemateRules(#1408) / HomeFrontRules(#1412) / GenerationalWoundRules(#1416)（並列7・項羽と劉邦KORY完結＋レマルク西部戦線RMK完結・50波到達・全テスト一発green）
 - [x] Wave51 (2026-06-11)：ReturneesContagionRules(#1418) / ScorchedEarthStateRules(#1410) / HomelandResistanceRules(#1413) / MassEngagementRules(#1417) / TradeSpaceForTimeRules(#1421) / AllianceDivergenceRules(#1398) / HybridCampaignRules(#1374)（並列7・レマルクRMK完結＋革命戦争WAP完結＋スペイン内戦SPW＋限定戦争ULW着手・全テスト一発green）
 - [x] Wave52 (2026-06-11)：LawfareRules(#1380) / PsyOpRules(#1386) / GreyZoneRules(#1392) / EconomicCoercionRules(#1397) / InsurgencyRules(#1394) / GuerrillaDoctrineRules(#1396) / MobilizationDoctrineRules(#1395)（並列7・限定戦争ULW完結＋スペイン内戦SPW完結＋動員MCN・全テスト一発green）
+- [x] Wave53 (2026-06-11)：MilitaryIndustrialRules(#1389) / ObsolescenceRules(#1385) / TechDiffusionRules(#1377) / BattleRhythmRules(#1376) / TimingDoctrineRules(#1379) / EngagementDistanceRules(#1384) / BattlePerceptionRules(#1387)（並列7・動員MCN完結＋五輪書GRN完結・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -312,13 +313,13 @@
 - [x] InsurgencyRules：占領地反乱組織化＝外部扇動でRebelPressureを増幅（SPW-2 #1394・スペイン内戦、InsurgencyState同梱）。`GovernanceRules`(反乱リスク)/`ResistanceRules`とは別＝外部支援された組織的反乱（Wave52）
 - [x] GuerrillaDoctrineRules：遊撃戦ドクトリン＝交戦回避＋回廊妨害モード（SPW-3 #1396、enum OperationalMode同梱）。`FleetDoctrineRules`/`AmbushRules`とは別＝ゲリラ戦の作戦様式（Wave52）
 - [x] MobilizationDoctrineRules：命令型vs市場型の動員体制＝政体別の動員速度と持久力（MCN-6 #1395・動員）。`MobilizationRules`(動員水準)/`ConscriptionRules`とは別＝政体別の動員ドクトリン（Wave52）
-- [ ] MilitaryIndustrialRules：軍産複合体＝造船利権の省益→過剰建艦（MCN-4 #1389）。`WarIndustryRules`(平和抵抗)/`ShipyardRules`とは別＝造船省益による過剰建艦バイアス
-- [ ] ObsolescenceRules：艦隊陳腐化＝技術世代差→戦闘力ペナルティ（MCN-3 #1385）。`ShipAgingRules`(経年劣化)/`TechTreeRules`とは別＝技術世代遅れによる陳腐化
-- [ ] TechDiffusionRules：軍事技術拡散＝勢力間R&D伝播・技術封鎖（MCN-1 #1377）。`InnovationDiffusionRules`(汎用伝播)/`ResearchRules`とは別＝軍事技術の勢力間拡散と封鎖
-- [ ] BattleRhythmRules：拍子と戦機窓＝乗り/崩れ/後の先機（GRN-1 #1376・五輪書、BattleRhythm型同梱）。`DecisiveBattleWindowRules`/`EscalationRules`とは別＝宮本武蔵の拍子（戦いのリズム）
-- [ ] TimingDoctrineRules：後の先ドクトリン＝反攻型AI補正（GRN-2 #1379、TimingDoctrine同梱）。`FleetDoctrineRules`/`BattleRhythmRules`とは別＝後の先（カウンター）の構え
-- [ ] EngagementDistanceRules：間合いドクトリン＝最適交戦距離×係数（GRN-3 #1384）。`WeaponArc系`/`OperationalAptitudeRules`とは別＝五輪書の間合い（交戦距離の最適化）
-- [ ] BattlePerceptionRules：観の目・見の目＝intelligence→戦場知覚半径（GRN-4 #1387）。`ReconRules`(偵察精度)/`CommunicationsRules`とは別＝五輪書の観見二つの目（戦場知覚）
+- [x] MilitaryIndustrialRules：軍産複合体＝造船利権の省益→過剰建艦（MCN-4 #1389）。`WarIndustryRules`(平和抵抗)/`ShipyardRules`とは別＝造船省益による過剰建艦バイアス（Wave53）
+- [x] ObsolescenceRules：艦隊陳腐化＝技術世代差→戦闘力ペナルティ（MCN-3 #1385）。`ShipAgingRules`(経年劣化)/`TechTreeRules`とは別＝技術世代遅れによる陳腐化（Wave53）
+- [x] TechDiffusionRules：軍事技術拡散＝勢力間R&D伝播・技術封鎖（MCN-1 #1377）。`InnovationDiffusionRules`(汎用伝播)/`ResearchRules`とは別＝軍事技術の勢力間拡散と封鎖（Wave53）
+- [x] BattleRhythmRules：拍子と戦機窓＝乗り/崩れ/後の先機（GRN-1 #1376・五輪書、BattleRhythm型同梱）。`DecisiveBattleWindowRules`/`EscalationRules`とは別＝宮本武蔵の拍子（戦いのリズム）（Wave53）
+- [x] TimingDoctrineRules：後の先ドクトリン＝反攻型AI補正（GRN-2 #1379、TimingDoctrine同梱）。`FleetDoctrineRules`/`BattleRhythmRules`とは別＝後の先（カウンター）の構え（Wave53）
+- [x] EngagementDistanceRules：間合いドクトリン＝最適交戦距離×係数（GRN-3 #1384）。`WeaponArc系`/`OperationalAptitudeRules`とは別＝五輪書の間合い（交戦距離の最適化）（Wave53）
+- [x] BattlePerceptionRules：観の目・見の目＝intelligence→戦場知覚半径（GRN-4 #1387）。`ReconRules`(偵察精度)/`CommunicationsRules`とは別＝五輪書の観見二つの目（戦場知覚）（Wave53）
 - [ ] AtmosphereRules：「空気」組織雰囲気＝集合的沈黙圧力・諫言病理の前段（SHP-1 #1371・失敗の本質、空気型同梱）。`PreferenceFalsificationRules`/`AdvisorCandorRules`とは別＝日本軍型の「空気」支配
 - [ ] OrganizationalLearningRules：組織学習能力＝敗北→能力改善のフィードバック・制度的記憶（SHP-2 #1375）。`InstitutionalMemoryRules`(歴史の教訓)/`VeterancyRules`とは別＝敗北から学べる組織か
 - [ ] InformationDistortionRules：階層的情報歪曲＝悪報の圧縮・認識ギャップ崩壊イベント（SHP-4 #1383）。`AdvisorCandorRules`(佞臣)/`CommunicationsRules`とは別＝階層を上るほど悪報が薄まる

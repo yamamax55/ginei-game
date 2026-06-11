@@ -28,6 +28,12 @@ namespace Ginei
         private Transform[] columns;            // 列の中身（4本）
         private TextMeshProUGUI[] columnHeaders; // 列見出し（件数表示）
 
+        // 詳細ウィンドウ（チップをクリックで開く）
+        private GameObject detailRoot;
+        private TextMeshProUGUI detailTitle;
+        private TextMeshProUGUI detailBody;
+        private Transform detailChoices;
+
         private static readonly string[] ColumnNames = { "未処理", "最小化", "自動処理", "決裁済" };
 
         // ===== 自動生成 =====
@@ -155,6 +161,11 @@ namespace Ginei
             chip.transform.SetParent(parent, false);
             var bg = chip.AddComponent<Image>();
             bg.color = CardColor(d.severity);
+            // クリックで詳細ウィンドウを開く
+            var chipBtn = chip.AddComponent<Button>();
+            chipBtn.targetGraphic = bg;
+            PendingDecision clicked = d;
+            chipBtn.onClick.AddListener(() => OpenDetail(clicked));
             var vlg = chip.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(8, 8, 6, 6);
             vlg.spacing = 2f;
@@ -178,6 +189,134 @@ namespace Ginei
                 case DecisionSeverity.通常: return new Color(0.10f, 0.20f, 0.32f, 0.92f);
                 default: return new Color(0.16f, 0.18f, 0.22f, 0.90f);
             }
+        }
+
+        // ===== 詳細ウィンドウ（チップをクリックで開く） =====
+
+        private void OpenDetail(PendingDecision d)
+        {
+            if (d == null || detailRoot == null) return;
+            detailTitle.text = $"<b>[{d.severity}]</b> {d.title}";
+            detailBody.text = string.IsNullOrEmpty(d.body) ? "（詳細なし）" : d.body;
+
+            for (int i = detailChoices.childCount - 1; i >= 0; i--)
+                Destroy(detailChoices.GetChild(i).gameObject);
+
+            bool resolved = d.status == DecisionStatus.自動解決 || d.status == DecisionStatus.決裁済;
+            if (resolved)
+            {
+                string how = d.status == DecisionStatus.自動解決 ? "自動処理" : "決裁済";
+                AddLabel(detailChoices, $"<color=#9fe0a0>{how}：{ChoiceLabel(d, d.chosenIndex)}</color>", 18f, Color.white);
+            }
+            else
+            {
+                for (int i = 0; i < d.choices.Count; i++)
+                {
+                    int idx = i; PendingDecision dd = d;
+                    AddButton(detailChoices, d.choices[i], () => ResolveFromDetail(dd, idx));
+                }
+            }
+            AddButton(detailChoices, "閉じる", CloseDetail);
+
+            detailRoot.transform.SetAsLastSibling(); // 最前面へ
+            detailRoot.SetActive(true);
+        }
+
+        private void CloseDetail() { if (detailRoot != null) detailRoot.SetActive(false); }
+
+        private void ResolveFromDetail(PendingDecision d, int idx)
+        {
+            if (d == null) return;
+            DecisionDeck.Queue.Resolve(d, idx);
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                $"［裁可］{d.title} → {ChoiceLabel(d, idx)}");
+            CloseDetail();
+            lastSig = ""; RefreshColumns(); // 列を即更新（決裁済へ移動）
+        }
+
+        private static string ChoiceLabel(PendingDecision d, int idx)
+        {
+            if (d == null || d.choices == null || idx < 0 || idx >= d.choices.Count) return "（既定）";
+            return d.choices[idx];
+        }
+
+        private GameObject AddButton(Transform parent, string label, UnityEngine.Events.UnityAction action)
+        {
+            var btnObj = new GameObject("Button");
+            btnObj.transform.SetParent(parent, false);
+            var img = btnObj.AddComponent<Image>();
+            img.color = new Color(0.26f, 0.40f, 0.56f, 1f);
+            var btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = img;
+            if (action != null) btn.onClick.AddListener(action);
+            var le = btnObj.AddComponent<LayoutElement>();
+            le.minHeight = 42f; le.preferredHeight = 42f;
+
+            var txtObj = new GameObject("Text");
+            txtObj.transform.SetParent(btnObj.transform, false);
+            var rt = txtObj.AddComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.sizeDelta = Vector2.zero; rt.anchoredPosition = Vector2.zero;
+            var tmp = txtObj.AddComponent<TextMeshProUGUI>();
+            tmp.text = label; tmp.fontSize = 18f; tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.white; tmp.raycastTarget = false;
+            if (jpFont != null) tmp.font = jpFont;
+            return btnObj;
+        }
+
+        private void BuildDetail()
+        {
+            detailRoot = new GameObject("Detail");
+            detailRoot.transform.SetParent(root.transform, false);
+            var drt = detailRoot.AddComponent<RectTransform>();
+            drt.anchorMin = Vector2.zero; drt.anchorMax = Vector2.one;
+            drt.offsetMin = Vector2.zero; drt.offsetMax = Vector2.zero;
+            var dim = detailRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.6f);
+            var dimBtn = detailRoot.AddComponent<Button>(); // 外側クリックで閉じる
+            dimBtn.targetGraphic = dim;
+            dimBtn.transition = UnityEngine.UI.Selectable.Transition.None; // Ginei.Selectable と区別＋ちらつき防止
+            dimBtn.onClick.AddListener(CloseDetail);
+
+            var frame = new GameObject("DetailFrame");
+            frame.transform.SetParent(detailRoot.transform, false);
+            var frt = frame.AddComponent<RectTransform>();
+            frt.anchorMin = new Vector2(0.5f, 0.5f); frt.anchorMax = new Vector2(0.5f, 0.5f);
+            frt.pivot = new Vector2(0.5f, 0.5f); frt.anchoredPosition = Vector2.zero;
+            frt.sizeDelta = new Vector2(640f, 0f);
+            frame.AddComponent<Image>().color = new Color(0.06f, 0.08f, 0.13f, 0.99f);
+            var fvlg = frame.AddComponent<VerticalLayoutGroup>();
+            fvlg.padding = new RectOffset(24, 24, 20, 20);
+            fvlg.spacing = 12f;
+            fvlg.childControlWidth = true; fvlg.childControlHeight = true;
+            fvlg.childForceExpandWidth = true; fvlg.childForceExpandHeight = false;
+            var fcsf = frame.AddComponent<ContentSizeFitter>();
+            fcsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            detailTitle = MakeDetailLabel(frame.transform, 26f, new Color(1f, 0.85f, 0.4f), 40f);
+            detailBody = MakeDetailLabel(frame.transform, 18f, new Color(0.9f, 0.92f, 0.96f), 60f);
+
+            var cc = new GameObject("Choices");
+            cc.transform.SetParent(frame.transform, false);
+            cc.AddComponent<RectTransform>();
+            var cvlg = cc.AddComponent<VerticalLayoutGroup>();
+            cvlg.spacing = 8f; cvlg.childControlWidth = true; cvlg.childControlHeight = true;
+            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
+            detailChoices = cc.transform;
+
+            detailRoot.SetActive(false);
+        }
+
+        private TextMeshProUGUI MakeDetailLabel(Transform parent, float size, Color color, float minHeight)
+        {
+            var go = new GameObject("Label");
+            go.transform.SetParent(parent, false);
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.fontSize = size; tmp.color = color; tmp.alignment = TextAlignmentOptions.TopLeft;
+            tmp.enableWordWrapping = true; tmp.raycastTarget = false;
+            if (jpFont != null) tmp.font = jpFont;
+            var le = go.AddComponent<LayoutElement>(); le.minHeight = minHeight;
+            return tmp;
         }
 
         // ===== UI 構築 =====
@@ -237,6 +376,7 @@ namespace Ginei
             for (int c = 0; c < 4; c++)
                 columns[c] = MakeColumn(cols.transform, c);
 
+            BuildDetail();
             root.SetActive(false);
         }
 

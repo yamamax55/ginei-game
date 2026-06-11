@@ -2,9 +2,8 @@ name: worldview-epic-backlog
 
 # 世界観・参考作品EPIC化の自動実行（PC非依存・docs/reference-epic-pipeline.md 参照）
 # 周期は実測ベース：1サイクル15〜20分＋CI構築3〜5分 → 30分周期・混雑時刻(:00/:30)回避で :11/:41 発火
+# schedule停止＝並列版 worldview-epic-parallel.yml に一本化（2026-06-11）。手動フォールバックのみ残す
 on:
-  schedule:
-    - cron: '11,41 * * * *'
   workflow_dispatch: {}
 
 # 直列化：前の実行が30分を超えたら次はキューで待つ（並走起票させない）

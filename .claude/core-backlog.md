@@ -124,6 +124,7 @@
 - [x] Wave55 (2026-06-11)：SupplyModeRules(#1366) / CorridorCapacityRules(#1367) / DepotRules(#1363) / LogisticsBurdenRules(#1365) / OutlawOrganizationRules(#1357) / CounterLegitimacyRules(#1358) / CooptionRules(#1359)（並列7・兵站CRV完結＋水滸伝SHZ着手・全テスト一発green）
 - [x] Wave56 (2026-06-11)：MeritSeatingRules(#1362) / IndirectApproachRules(#1339) / DislocationRules(#1344) / FleetInBeingRules(#1348) / InteriorLineRules(#1345) / DecisivePointRules(#1347) / LineOfOperationsRules(#1350)（並列7・水滸伝SHZ完結＋リデルハート間接アプローチLDH＋ジョミニJOM着手・全テスト一発green）
 - [x] Wave57 (2026-06-11)：TurningMovementRules(#1353) / CoalitionFaultlineRules(#1343) / DivideRules(#1346) / MilitaryEngineeringRules(#1352) / ProspectRules(#1833) / JudgmentNoiseRules(#1834) / OverconfidenceBiasRules(#1837)（並列7・ジョミニJOM完結＋ガリア戦記GAL着手＋カーネマン認知バイアスKAHN着手・全テスト一発green）
+- [x] Wave58 (2026-06-11)：FramingRules(#1840) / AvailabilityBiasRules(#1844) / DualProcessRules(#1849) / ShameRules(#1832) / GiriRules(#1835) / GiriNinjoTensionRules(#1838) / HonorRules(#1841)（並列7・カーネマン認知バイアスKAHN完結＋菊と刀の恥罪文化KIKU着手・親修正1=using追加のみ）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -357,13 +358,13 @@
 - [x]（Wave57）ProspectRules：損失回避と参照点＝プロスペクト理論（ProspectState同梱・KAHN-1 #1833）。`NeedsRules`/`MoraleContribution`とは別＝参照点依存の価値関数（損失は利得の約2倍重い）
 - [x]（Wave57）JudgmentNoiseRules：判断ノイズ＝バイアスと直交するランダム散乱（roll決定論・KAHN-2 #1834）。`ReconRules`の推定誤差とは別＝同一条件下の判断のばらつき
 - [x]（Wave57）OverconfidenceBiasRules：過信バイアスと計画錯誤＝AIの系統的過大評価（KAHN-3 #1837）。`OperationPlanRules`とは別＝見積もりの楽観バイアス
-- [ ] FramingRules：フレーミング効果＝情報の枠組みが判断を変える（KAHN-4 #1840）。`PropagandaRules`とは別＝同一事実の提示枠が選好を反転
-- [ ] AvailabilityBiasRules：近接記憶バイアス＝最近の大事件が確率判断を歪める（KAHN-5 #1844）。`GenerationalMemoryRules`とは別＝想起容易性による確率の歪み
-- [ ] DualProcessRules：二重過程＝直感型(System1)vs熟慮型(System2)の提督認知スタイル（KAHN-6 #1849）。`AdmiralData`能力とは別＝速さと系統的誤りのトレードオフ
-- [ ] ShameRules：恥の文化＝可視性依存の社会制御（ShameProfile同梱・KIKU-1 #1832）。`PanoptismRules`(監視)とは別＝恥の内面化（人目がある時だけ効く）
-- [ ] GiriRules：義理・恩の負債構造＝恩の貸借（ObligationDebt同梱・KIKU-2 #1835）。`HonorsRules`(栄典)とは別＝返さねばならない恩の累積
-- [ ] GiriNinjoTensionRules：義理と人情の葛藤エンジン（KIKU-3 #1838）。`PoliticalEthicsRules`(心情/責任)とは別＝義理対人情の板挟み
-- [ ] HonorRules：名誉の毀損と公的回復（HonorState同梱・KIKU-4 #1841）。`ReputationRules`/`HonorsRules`とは別＝恥文化の名誉（毀損は可視・回復は公的儀礼）
+- [x]（Wave58）FramingRules：フレーミング効果＝情報の枠組みが判断を変える（KAHN-4 #1840）。`PropagandaRules`とは別＝同一事実の提示枠が選好を反転
+- [x]（Wave58）AvailabilityBiasRules：近接記憶バイアス＝最近の大事件が確率判断を歪める（KAHN-5 #1844）。`GenerationalMemoryRules`とは別＝想起容易性による確率の歪み
+- [x]（Wave58）DualProcessRules：二重過程＝直感型(System1)vs熟慮型(System2)の提督認知スタイル（KAHN-6 #1849）。`AdmiralData`能力とは別＝速さと系統的誤りのトレードオフ
+- [x]（Wave58）ShameRules：恥の文化＝可視性依存の社会制御（ShameProfile同梱・KIKU-1 #1832）。`PanoptismRules`(監視)とは別＝恥の内面化（人目がある時だけ効く）
+- [x]（Wave58）GiriRules：義理・恩の負債構造＝恩の貸借（ObligationDebt同梱・KIKU-2 #1835）。`HonorsRules`(栄典)とは別＝返さねばならない恩の累積
+- [x]（Wave58）GiriNinjoTensionRules：義理と人情の葛藤エンジン（KIKU-3 #1838）。`PoliticalEthicsRules`(心情/責任)とは別＝義理対人情の板挟み
+- [x]（Wave58）HonorRules：名誉の毀損と公的回復（HonorState同梱・KIKU-4 #1841）。`ReputationRules`/`HonorsRules`とは別＝恥文化の名誉（毀損は可視・回復は公的儀礼）
 - [ ] CrowdContagionRules：群衆化の相転移＝個↔群level-shift・被暗示性↑理性↓（CRWD-1 #1820）。`ManiaRules`(SIR)とは別＝個から群への相転移と集団精神
 - [ ] AssertionRepetitionRules：断言・反復・感染の三段＝反復で被信度累積→感染伝播（CRWD-2 #1821）。`PropagandaRules`とは別＝ル・ボンの観念植え付け
 - [ ] PrestigeCliffRules：指導者の威光と非連続崩壊＝一度の失敗で不可逆瓦解（CRWD-3 #1822）。`Organization`#812/`DynastyRules`とは別レイヤー＝威光の崖

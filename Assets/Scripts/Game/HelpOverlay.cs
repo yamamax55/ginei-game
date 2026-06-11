@@ -299,7 +299,10 @@ namespace Ginei
                 case GameAction.観測オーバーレイ切替:
                 case GameAction.状態インスペクタ切替:
                 case GameAction.軍観測切替:
-                case GameAction.通知ログ切替: return "観測オーバーレイ";
+                case GameAction.通知ログ切替:
+                case GameAction.経済観測切替:
+                case GameAction.決裁ボード切替:
+                case GameAction.人物名鑑切替: return "観測オーバーレイ";
                 case GameAction.ポーズ:
                 case GameAction.倍速等速:
                 case GameAction.倍速2倍:

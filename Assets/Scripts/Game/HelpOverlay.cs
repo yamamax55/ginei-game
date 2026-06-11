@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
@@ -12,6 +13,7 @@ namespace Ginei
     /// 操作ヘルプ・オーバーレイ。Hキーで表示/非表示を切り替える。TimeScale 非依存（ポーズ中も開閉可）。
     /// Battle/Strategy シーンに自動生成（RuntimeInitializeOnLoadMethod）。キーボード操作は <see cref="GameInput"/> から
     /// 現在シーンの有効アクションを自動列挙してカテゴリ別に配置する（#107・新キー追加で自動反映＝手書き更新不要）。
+    /// 見た目はゲーム意匠（暗い宇宙＋金色見出し）に合わせ、ほぼ全画面・2カラムで視認性を確保する。
     /// </summary>
     public class HelpOverlay : MonoBehaviour
     {
@@ -22,35 +24,28 @@ namespace Ginei
         public int canvasSortingOrder = 1100;
 
         [Tooltip("背景ディマーの不透明度（0〜1）")]
-        public float dimAlpha = 0.75f;
+        public float dimAlpha = 0.78f;
 
-        [Tooltip("ヘルプパネルの幅（ピクセル）")]
-        public float panelWidth = 680f;
+        [Tooltip("画面端からのウィンドウ余白（参照解像度ピクセル）。小さいほど全画面に近い")]
+        public float windowMargin = 48f;
 
-        [Tooltip("ヘルプパネルの最大高さ（ピクセル）")]
-        public float panelMaxHeight = 540f;
+        [Tooltip("ウィンドウ背景色")]
+        public Color panelColor = new Color(0.05f, 0.07f, 0.12f, 0.97f);
 
-        [Tooltip("パネル背景色")]
-        public Color panelColor = new Color(0.04f, 0.06f, 0.10f, 0.97f);
-
-        [Tooltip("見出しのフォントサイズ")]
-        public float headerFontSize = 20f;
-
-        [Tooltip("操作項目のフォントサイズ")]
-        public float itemFontSize = 16f;
-
-        [Tooltip("閉じるボタンのフォントサイズ")]
-        public float closeBtnFontSize = 20f;
-
-        [Header("ウィンドウ装飾（Windows風）")]
-        [Tooltip("タイトルバーの色")]
-        public Color titleBarColor = new Color(0.13f, 0.30f, 0.55f, 1f);
+        [Tooltip("見出し・タイトル・装飾線の金色アクセント")]
+        public Color accentColor = new Color(1f, 0.84f, 0.36f, 1f);
 
         [Tooltip("ウィンドウ枠線の色")]
-        public Color borderColor = new Color(0.55f, 0.62f, 0.72f, 1f);
+        public Color borderColor = new Color(0.45f, 0.40f, 0.22f, 0.9f);
 
-        [Tooltip("タイトルバーの高さ（ピクセル）")]
-        public float titleBarHeight = 34f;
+        [Tooltip("タイトルのフォントサイズ")]
+        public float titleFontSize = 28f;
+
+        [Tooltip("見出しのフォントサイズ")]
+        public float headerFontSize = 22f;
+
+        [Tooltip("操作項目のフォントサイズ")]
+        public float itemFontSize = 18f;
 
         // ===== 内部状態 =====
 
@@ -61,30 +56,24 @@ namespace Ginei
         // このヘルプのシーン文脈（Strategy/Battle で出すキー・操作を切り替える）
         private InputContext helpContext = InputContext.会戦;
 
-        // ウィンドウ本体の RectTransform（ドラッグ移動・最小化/最大化のサイズ操作対象）
-        private RectTransform windowRT;
-        // タイトルバー以外のクライアント領域（最小化で隠す）
-        private GameObject clientArea;
-        // 通常時のウィンドウサイズ（最小化/最大化からの復元用）
-        private Vector2 normalSize;
-        private bool maximized;
-        private bool minimized;
-        // 最大化時のサイズ（参照解像度 1920x1080 内に収める）
-        private static readonly Vector2 MaximizedSize = new Vector2(1760f, 980f);
+        // 2カラム配置用：各カラムの Transform と、均等配分のための累積項目数
+        private Transform leftColumn;
+        private Transform rightColumn;
+        private int leftItemCount;
+        private int rightItemCount;
 
         // ===== 自動生成エントリーポイント =====
 
         /// <summary>
-        /// Battle シーンが読み込まれるたびに HelpOverlay を自動生成する。
+        /// Battle/Strategy シーンが読み込まれるたびに HelpOverlay を自動生成する。
         /// RuntimeInitializeOnLoadMethod はアプリ起動時に1回しか呼ばれないため、
-        /// Title→Battle のような実行時のシーン遷移にも対応できるよう sceneLoaded を購読する。
+        /// シーン遷移にも対応できるよう sceneLoaded を購読する。
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded; // 二重購読防止
             SceneManager.sceneLoaded += OnSceneLoaded;
-            // 起動直後に既に Battle なら即生成（Battle シーンを直接再生した場合に対応）
             TryCreate(SceneManager.GetActiveScene());
         }
 
@@ -93,7 +82,7 @@ namespace Ginei
             TryCreate(scene);
         }
 
-        /// <summary>Battle シーンに HelpOverlay が無ければ生成する（重複生成ガード）。</summary>
+        /// <summary>Battle/Strategy シーンに HelpOverlay が無ければ生成する（重複生成ガード）。</summary>
         private static void TryCreate(Scene scene)
         {
             if (scene.name != "Battle" && scene.name != "Strategy") return;
@@ -143,7 +132,7 @@ namespace Ginei
 
         /// <summary>
         /// ヘルプオーバーレイのUI一式をコードで生成する。
-        /// Canvas / ディマー / スクロールパネル / テキストブロック / 閉じるボタン。
+        /// Canvas / 全画面ディマー / 全画面ウィンドウ（ヘッダー＋本文）。
         /// </summary>
         private void BuildUI()
         {
@@ -174,35 +163,31 @@ namespace Ginei
             Image dimImage = panel.AddComponent<Image>();
             dimImage.color = new Color(0f, 0f, 0f, dimAlpha);
 
-            // 中央のヘルプコンテンツフレームを生成
+            // 全画面ウィンドウを生成
             BuildHelpContentPanel(panel.transform);
         }
 
         /// <summary>
-        /// ヘルプウィンドウ（Windows 風）を生成する：枠線つきウィンドウ＋タイトルバー＋クライアント領域。
-        /// タイトルバーをつかんでドラッグ移動でき、[－][□][×] で最小化/最大化/閉じる。
+        /// ヘルプウィンドウ（ゲーム意匠・ほぼ全画面）を生成する：枠線つきウィンドウ＋細いヘッダー＋本文。
         /// </summary>
         private void BuildHelpContentPanel(Transform parent)
         {
-            // ウィンドウ本体（固定サイズ・中央配置・枠線つき）
+            // ウィンドウ本体（画面端から windowMargin の余白・枠線つき・全画面ストレッチ）
             GameObject window = new GameObject("HelpWindow");
             window.transform.SetParent(parent, false);
-            windowRT = window.AddComponent<RectTransform>();
-            windowRT.anchorMin = new Vector2(0.5f, 0.5f);
-            windowRT.anchorMax = new Vector2(0.5f, 0.5f);
-            windowRT.pivot = new Vector2(0.5f, 0.5f);
-            windowRT.anchoredPosition = Vector2.zero;
-            windowRT.sizeDelta = new Vector2(panelWidth, panelMaxHeight);
-            normalSize = windowRT.sizeDelta;
+            RectTransform rt = window.AddComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(windowMargin, windowMargin);
+            rt.offsetMax = new Vector2(-windowMargin, -windowMargin);
 
-            Image windowImg = window.AddComponent<Image>();
-            windowImg.color = panelColor;
-            // ウィンドウ枠線（Windows 風の縁取り）
+            Image bg = window.AddComponent<Image>();
+            bg.color = panelColor;
             Outline border = window.AddComponent<Outline>();
             border.effectColor = borderColor;
             border.effectDistance = new Vector2(2f, -2f);
 
-            // 縦並び：タイトルバー（固定高）＋クライアント領域（残り）
+            // 縦並び：ヘッダー（固定高）＋本文（残り）
             VerticalLayoutGroup vlg = window.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(0, 0, 0, 0);
             vlg.spacing = 0f;
@@ -213,25 +198,36 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             string sceneLabel = helpContext == InputContext.戦略 ? "戦略マップ" : "会戦";
-            BuildTitleBar(window.transform, $"操作ヘルプ ・ {sceneLabel}");
-            BuildClientArea(window.transform);
+            BuildHeader(window.transform, $"操作ヘルプ　・　{sceneLabel}");
+            BuildBody(window.transform);
         }
 
-        /// <summary>タイトルバー（左：キャプション／右：[－][□][×]）を生成する。ドラッグで移動可。</summary>
-        private void BuildTitleBar(Transform parent, string caption)
+        /// <summary>
+        /// 細いヘッダー帯を生成する：左にタイトル（金・太字）／右に小さな×／下端に金色のルール線。
+        /// 高さは帯オブジェクト自身の LayoutElement で固定し、横並びは内側の伸縮子（HLG）で行う
+        /// ＝高さ制御と HLG を別オブジェクトに分けることでヘッダーが肥大化するレイアウト不具合を防ぐ。
+        /// </summary>
+        private void BuildHeader(Transform parent, string title)
         {
-            GameObject bar = new GameObject("TitleBar");
-            bar.transform.SetParent(parent, false);
-            bar.AddComponent<RectTransform>();
-            Image barImg = bar.AddComponent<Image>();
-            barImg.color = titleBarColor;
+            GameObject header = new GameObject("Header");
+            header.transform.SetParent(parent, false);
+            header.AddComponent<RectTransform>();
+            Image hbg = header.AddComponent<Image>();
+            hbg.color = new Color(0.09f, 0.12f, 0.18f, 1f);
+            LayoutElement hle = header.AddComponent<LayoutElement>();
+            hle.minHeight = 60f;
+            hle.preferredHeight = 60f;
 
-            LayoutElement barLE = bar.AddComponent<LayoutElement>();
-            barLE.minHeight = titleBarHeight;
-            barLE.preferredHeight = titleBarHeight;
+            // 内側の伸縮子（ヘッダー帯いっぱいに広げ、ここで横並びを行う）
+            GameObject inner = new GameObject("HeaderInner");
+            inner.transform.SetParent(header.transform, false);
+            RectTransform irt = inner.AddComponent<RectTransform>();
+            irt.anchorMin = Vector2.zero;
+            irt.anchorMax = Vector2.one;
+            irt.offsetMin = new Vector2(28f, 0f);
+            irt.offsetMax = new Vector2(-6f, 0f);
 
-            HorizontalLayoutGroup hlg = bar.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(12, 0, 0, 0);
+            HorizontalLayoutGroup hlg = inner.AddComponent<HorizontalLayoutGroup>();
             hlg.spacing = 0f;
             hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childControlWidth = true;
@@ -239,34 +235,41 @@ namespace Ginei
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = true;
 
-            // タイトルバーをつかんでウィンドウをドラッグ移動（再利用可能な独立コンポーネント）
-            UIWindowDrag drag = bar.AddComponent<UIWindowDrag>();
-            drag.target = windowRT;
+            // タイトル（金・太字・左寄せ・残り幅を占有して×を右端へ）
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(inner.transform, false);
+            TextMeshProUGUI t = titleObj.AddComponent<TextMeshProUGUI>();
+            t.text = title;
+            t.fontSize = titleFontSize;
+            t.color = accentColor;
+            t.fontStyle = FontStyles.Bold;
+            t.alignment = TextAlignmentOptions.Left;
+            t.raycastTarget = false;
+            ApplyJapaneseFont(t);
+            LayoutElement tle = titleObj.AddComponent<LayoutElement>();
+            tle.flexibleWidth = 1f;
 
-            // キャプション（左寄せ・残り幅を占有してボタンを右端へ押しやる）
-            GameObject capObj = new GameObject("Caption");
-            capObj.transform.SetParent(bar.transform, false);
-            TextMeshProUGUI cap = capObj.AddComponent<TextMeshProUGUI>();
-            cap.text = caption;
-            cap.fontSize = headerFontSize;
-            cap.color = Color.white;
-            cap.alignment = TextAlignmentOptions.Left;
-            cap.raycastTarget = false; // バー本体にドラッグを通す
-            ApplyJapaneseFont(cap);
-            LayoutElement capLE = capObj.AddComponent<LayoutElement>();
-            capLE.flexibleWidth = 1f;
+            // 閉じる×（右端・ホバーで赤）
+            BuildCloseGlyph(inner.transform);
 
-            // システムボタン（右）：最小化 / 最大化・復元 / 閉じる
-            BuildSysButton(bar.transform, "－", false, ToggleMinimize);
-            BuildSysButton(bar.transform, "□", false, ToggleMaximize);
-            BuildSysButton(bar.transform, "×", true, () => SetVisible(false));
+            // ヘッダー下端の金色ルール線
+            GameObject rule = new GameObject("Rule");
+            rule.transform.SetParent(header.transform, false);
+            RectTransform rrt = rule.AddComponent<RectTransform>();
+            rrt.anchorMin = new Vector2(0f, 0f);
+            rrt.anchorMax = new Vector2(1f, 0f);
+            rrt.pivot = new Vector2(0.5f, 0f);
+            rrt.sizeDelta = new Vector2(0f, 2f);
+            rrt.anchoredPosition = Vector2.zero;
+            Image ri = rule.AddComponent<Image>();
+            ri.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.55f);
+            ri.raycastTarget = false;
         }
 
-        /// <summary>タイトルバーのシステムボタン1個（ホバーで色変化・閉じるは赤）。</summary>
-        private void BuildSysButton(Transform parent, string glyph, bool isClose,
-            UnityEngine.Events.UnityAction onClick)
+        /// <summary>ヘッダー右端の小さな閉じる×ボタン（ホバーで赤）。</summary>
+        private void BuildCloseGlyph(Transform parent)
         {
-            GameObject b = new GameObject(isClose ? "BtnClose" : "BtnSys");
+            GameObject b = new GameObject("CloseGlyph");
             b.transform.SetParent(parent, false);
             Image img = b.AddComponent<Image>();
             img.color = Color.white;
@@ -274,50 +277,46 @@ namespace Ginei
             Button btn = b.AddComponent<Button>();
             btn.targetGraphic = img;
             ColorBlock cb = btn.colors;
-            cb.normalColor = titleBarColor;
-            cb.highlightedColor = isClose
-                ? new Color(0.86f, 0.15f, 0.18f, 1f)
-                : new Color(0.27f, 0.45f, 0.68f, 1f);
-            cb.pressedColor = isClose
-                ? new Color(0.70f, 0.10f, 0.13f, 1f)
-                : new Color(0.20f, 0.36f, 0.58f, 1f);
+            cb.normalColor = new Color(0.09f, 0.12f, 0.18f, 1f); // ヘッダー背景になじませる
+            cb.highlightedColor = new Color(0.86f, 0.15f, 0.18f, 1f);
+            cb.pressedColor = new Color(0.70f, 0.10f, 0.13f, 1f);
             cb.selectedColor = cb.normalColor;
             cb.fadeDuration = 0.05f;
             btn.colors = cb;
-            btn.onClick.AddListener(onClick);
+            btn.onClick.AddListener(() => SetVisible(false));
 
             LayoutElement le = b.AddComponent<LayoutElement>();
-            le.minWidth = 44f;
-            le.preferredWidth = 44f;
+            le.minWidth = 52f;
+            le.preferredWidth = 52f;
             le.flexibleWidth = 0f;
 
-            GameObject t = new GameObject("Glyph");
-            t.transform.SetParent(b.transform, false);
-            RectTransform trt = t.AddComponent<RectTransform>();
-            trt.anchorMin = Vector2.zero;
-            trt.anchorMax = Vector2.one;
-            trt.sizeDelta = Vector2.zero;
-            trt.anchoredPosition = Vector2.zero;
-            TextMeshProUGUI tmp = t.AddComponent<TextMeshProUGUI>();
-            tmp.text = glyph;
-            tmp.fontSize = headerFontSize;
+            GameObject g = new GameObject("X");
+            g.transform.SetParent(b.transform, false);
+            RectTransform grt = g.AddComponent<RectTransform>();
+            grt.anchorMin = Vector2.zero;
+            grt.anchorMax = Vector2.one;
+            grt.sizeDelta = Vector2.zero;
+            grt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI tmp = g.AddComponent<TextMeshProUGUI>();
+            tmp.text = "×";
+            tmp.fontSize = titleFontSize;
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.raycastTarget = false;
             ApplyJapaneseFont(tmp);
         }
 
-        /// <summary>クライアント領域（操作一覧スクロール＋下部ボタンバー）を生成する。</summary>
-        private void BuildClientArea(Transform parent)
+        /// <summary>本文（操作一覧スクロール＋下部の閉じる案内）を生成する。</summary>
+        private void BuildBody(Transform parent)
         {
-            clientArea = new GameObject("ClientArea");
-            clientArea.transform.SetParent(parent, false);
-            clientArea.AddComponent<RectTransform>();
-            LayoutElement le = clientArea.AddComponent<LayoutElement>();
-            le.flexibleHeight = 1f; // タイトルバー以外の残り領域を占有
+            GameObject body = new GameObject("Body");
+            body.transform.SetParent(parent, false);
+            body.AddComponent<RectTransform>();
+            LayoutElement le = body.AddComponent<LayoutElement>();
+            le.flexibleHeight = 1f; // ヘッダー以外の残り領域を占有
 
-            VerticalLayoutGroup vlg = clientArea.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(16, 16, 12, 12);
+            VerticalLayoutGroup vlg = body.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(28, 28, 18, 14);
             vlg.spacing = 10f;
             vlg.childAlignment = TextAnchor.UpperCenter;
             vlg.childControlWidth = true;
@@ -325,39 +324,29 @@ namespace Ginei
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
-            // スクロールビュー（操作一覧）
-            BuildScrollView(clientArea.transform);
-            // 下部ボタンバー（Windows 風の「閉じる」ボタンを右寄せ）
-            CreateBottomBar(clientArea.transform);
+            BuildScrollView(body.transform);
+            BuildFooter(body.transform);
         }
 
-        /// <summary>最小化：クライアント領域を隠してタイトルバーだけにする（トグル）。</summary>
-        private void ToggleMinimize()
+        /// <summary>下部の閉じる案内（控えめなテキスト＝ゲーム意匠に合わせ白ボタンは置かない）。</summary>
+        private void BuildFooter(Transform parent)
         {
-            minimized = !minimized;
-            if (minimized)
-            {
-                maximized = false;
-                clientArea.SetActive(false);
-                windowRT.sizeDelta = new Vector2(normalSize.x, titleBarHeight);
-            }
-            else
-            {
-                clientArea.SetActive(true);
-                windowRT.sizeDelta = normalSize;
-            }
-        }
-
-        /// <summary>最大化/復元：通常サイズと最大化サイズを切り替える（トグル）。</summary>
-        private void ToggleMaximize()
-        {
-            if (minimized) { minimized = false; clientArea.SetActive(true); }
-            maximized = !maximized;
-            windowRT.sizeDelta = maximized ? MaximizedSize : normalSize;
+            GameObject f = new GameObject("Footer");
+            f.transform.SetParent(parent, false);
+            LayoutElement le = f.AddComponent<LayoutElement>();
+            le.minHeight = 26f;
+            le.preferredHeight = 26f;
+            TextMeshProUGUI t = f.AddComponent<TextMeshProUGUI>();
+            t.text = "［ H ］キー または × で閉じる";
+            t.fontSize = itemFontSize;
+            t.color = new Color(0.6f, 0.65f, 0.72f, 1f);
+            t.alignment = TextAlignmentOptions.Center;
+            t.raycastTarget = false;
+            ApplyJapaneseFont(t);
         }
 
         /// <summary>
-        /// 操作一覧テキストを含むスクロールビューを生成する。
+        /// 操作一覧を含むスクロールビューを生成する。コンテンツは2カラム（横並び）で幅を活かす。
         /// </summary>
         private void BuildScrollView(Transform parent)
         {
@@ -371,7 +360,7 @@ namespace Ginei
             ScrollRect scrollRect = scrollObj.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
-            scrollRect.scrollSensitivity = 30f;
+            scrollRect.scrollSensitivity = 36f;
 
             // Viewport（マスク）
             GameObject viewport = new GameObject("Viewport");
@@ -387,7 +376,7 @@ namespace Ginei
             viewport.AddComponent<RectMask2D>();
             scrollRect.viewport = viewportRT;
 
-            // Content（縦並び・自動伸長）
+            // Content（2カラム横並び・縦に自動伸長）
             GameObject content = new GameObject("Content");
             content.transform.SetParent(viewport.transform, false);
             RectTransform contentRT = content.AddComponent<RectTransform>();
@@ -397,14 +386,14 @@ namespace Ginei
             contentRT.anchoredPosition = Vector2.zero;
             contentRT.sizeDelta = Vector2.zero;
 
-            VerticalLayoutGroup contentVlg = content.AddComponent<VerticalLayoutGroup>();
-            contentVlg.padding = new RectOffset(8, 8, 4, 4);
-            contentVlg.spacing = 4f;
-            contentVlg.childAlignment = TextAnchor.UpperLeft;
-            contentVlg.childControlWidth = true;
-            contentVlg.childControlHeight = true;
-            contentVlg.childForceExpandWidth = true;
-            contentVlg.childForceExpandHeight = false;
+            HorizontalLayoutGroup contentHlg = content.AddComponent<HorizontalLayoutGroup>();
+            contentHlg.padding = new RectOffset(8, 8, 4, 4);
+            contentHlg.spacing = 48f;
+            contentHlg.childAlignment = TextAnchor.UpperLeft;
+            contentHlg.childControlWidth = true;
+            contentHlg.childControlHeight = true;
+            contentHlg.childForceExpandWidth = true;  // 2カラムを等幅に
+            contentHlg.childForceExpandHeight = false;
 
             ContentSizeFitter csf = content.AddComponent<ContentSizeFitter>();
             csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
@@ -412,8 +401,46 @@ namespace Ginei
 
             scrollRect.content = contentRT;
 
-            // 操作一覧を追加
-            PopulateHelpContent(content.transform);
+            // 2カラムを作成し、各セクションを項目数の少ない側へ振り分けて高さを均す
+            leftColumn = CreateColumn(content.transform);
+            rightColumn = CreateColumn(content.transform);
+            leftItemCount = 0;
+            rightItemCount = 0;
+
+            PopulateHelpContent();
+        }
+
+        /// <summary>2カラムの1列（縦並び・等幅）を生成して Transform を返す。</summary>
+        private Transform CreateColumn(Transform parent)
+        {
+            GameObject col = new GameObject("Column");
+            col.transform.SetParent(parent, false);
+            col.AddComponent<RectTransform>();
+            VerticalLayoutGroup vlg = col.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(0, 0, 0, 0);
+            vlg.spacing = 4f;
+            vlg.childAlignment = TextAnchor.UpperLeft;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            LayoutElement le = col.AddComponent<LayoutElement>();
+            le.flexibleWidth = 1f;
+            return col.transform;
+        }
+
+        /// <summary>項目数の少ないカラムを返し、見出し＋項目ぶんの重みを加算する（高さの均し）。</summary>
+        private Transform NextColumn(int itemCount)
+        {
+            // 見出し＋スペーサーの高さぶんを +2 として概算（厳密な高さ計測はしない）
+            int weight = itemCount + 2;
+            if (leftItemCount <= rightItemCount)
+            {
+                leftItemCount += weight;
+                return leftColumn;
+            }
+            rightItemCount += weight;
+            return rightColumn;
         }
 
         // キーボード操作のカテゴリ表示順（#107・自動列挙したアクションをこの順でグループ化）。
@@ -421,31 +448,40 @@ namespace Ginei
             { "システム", "観測オーバーレイ", "時間・ポーズ", "カメラ", "部隊グループ", "会戦", "その他" };
 
         /// <summary>
-        /// 操作一覧を生成する。マウス/メニュー操作はシーン別にハードコード（GameInput 対象外）、
+        /// 操作一覧を2カラムに生成する。マウス/メニュー操作はシーン別にハードコード（GameInput 対象外）、
         /// キーボード操作は <see cref="GameInput.ActionsInContext"/> から現在シーンの有効アクションを
         /// 自動列挙し <see cref="CategoryOf"/> でグループ化する（#107・新キー追加で自動反映）。
         /// </summary>
-        private void PopulateHelpContent(Transform parent)
+        private void PopulateHelpContent()
         {
             // ---- マウス/メニュー操作（シーン別・ハードコード） ----
-            if (helpContext == InputContext.戦略) PopulateStrategyMouse(parent);
-            else PopulateBattleMouse(parent);
+            if (helpContext == InputContext.戦略) PopulateStrategyMouse();
+            else PopulateBattleMouse();
 
             // ---- キーボード操作（GameInput から自動生成・カテゴリ別） ----
             var actions = GameInput.ActionsInContext(helpContext);
             foreach (string cat in CategoryOrder)
             {
-                bool headerAdded = false;
+                var items = new List<(string key, string desc)>();
                 for (int i = 0; i < actions.Count; i++)
                 {
                     GameAction a = actions[i];
                     if (CategoryOf(a) != cat) continue;
                     string keys = GameInput.KeyLabelFull(a);
                     if (string.IsNullOrEmpty(keys)) continue; // 未割当は出さない
-                    if (!headerAdded) { AddGroupHeader(parent, "■ " + cat); headerAdded = true; }
-                    AddItem(parent, keys, GameInput.GetDescription(a));
+                    items.Add((keys, GameInput.GetDescription(a)));
                 }
+                if (items.Count == 0) continue;
+                AddSection("■ " + cat, items.ToArray());
             }
+        }
+
+        /// <summary>見出し＋複数項目を1セクションとして、均し配分で選んだカラムへ追加する。</summary>
+        private void AddSection(string header, (string key, string desc)[] items)
+        {
+            Transform col = NextColumn(items.Length);
+            AddGroupHeader(col, header);
+            foreach (var it in items) AddItem(col, it.key, it.desc);
         }
 
         /// <summary>アクションの表示カテゴリ（HelpOverlay のグループ見出し）。未分類は「その他」。</summary>
@@ -481,64 +517,83 @@ namespace Ginei
         }
 
         /// <summary>会戦シーンのマウス/メニュー操作（ハードコード）。</summary>
-        private void PopulateBattleMouse(Transform parent)
+        private void PopulateBattleMouse()
         {
-            AddGroupHeader(parent, "■ 選択（マウス）");
-            AddItem(parent, "左クリック", "部隊を選択（空白クリックで解除）");
-            AddItem(parent, "右クリック", "コマンドメニューを開く");
-
-            AddGroupHeader(parent, "■ 移動・後退（メニュー→マウス）");
-            AddItem(parent, "メニュー「移動」", "右押下で位置→ドラッグで向き→離して確定（Escで取消）");
-            AddItem(parent, "メニュー「後退」", "向き（射界）を保ったまま下がる");
-
-            AddGroupHeader(parent, "■ 攻撃・目標指定（メニュー→マウス）");
-            AddItem(parent, "メニュー「攻撃」→左ク", "通常攻撃を即時発令");
-            AddItem(parent, "メニュー「攻撃」→右ク", "攻撃種別メニュー（通常/ミサイル）");
-
-            AddGroupHeader(parent, "■ 陣形・編制");
-            AddItem(parent, "メニュー「陣形変更」", "紡錘陣 / 鶴翼陣 / 円陣 / 横陣 / 方陣");
-            AddItem(parent, "O", "編制管理（軍集団 ⊃ 軍団 ⊃ 艦隊）");
-
-            AddGroupHeader(parent, "■ カメラ（マウス）");
-            AddItem(parent, "中ボタンドラッグ", "カメラパン");
-            AddItem(parent, "マウスホイール", "ズームイン / アウト");
-            AddItem(parent, "画面端（設定で有効化）", "カーソルを端に寄せるとパン");
+            AddSection("■ 選択（マウス）", new (string, string)[]
+            {
+                ("左クリック", "部隊を選択（空白クリックで解除）"),
+                ("右クリック", "コマンドメニューを開く"),
+            });
+            AddSection("■ 移動・後退（メニュー→マウス）", new (string, string)[]
+            {
+                ("メニュー「移動」", "右押下で位置→ドラッグで向き→離して確定（Escで取消）"),
+                ("メニュー「後退」", "向き（射界）を保ったまま下がる"),
+            });
+            AddSection("■ 攻撃・目標指定（メニュー→マウス）", new (string, string)[]
+            {
+                ("メニュー「攻撃」→左ク", "通常攻撃を即時発令"),
+                ("メニュー「攻撃」→右ク", "攻撃種別メニュー（通常/ミサイル）"),
+            });
+            AddSection("■ 陣形・編制", new (string, string)[]
+            {
+                ("メニュー「陣形変更」", "紡錘陣 / 鶴翼陣 / 円陣 / 横陣 / 方陣"),
+                ("O", "編制管理（軍集団 ⊃ 軍団 ⊃ 艦隊）"),
+            });
+            AddSection("■ カメラ（マウス）", new (string, string)[]
+            {
+                ("中ボタンドラッグ", "カメラパン"),
+                ("マウスホイール", "ズームイン / アウト"),
+                ("画面端（設定で有効化）", "カーソルを端に寄せるとパン"),
+            });
         }
 
         /// <summary>戦略マップのマウス/キー操作（ハードコード＝GalaxyView の直読み分）。</summary>
-        private void PopulateStrategyMouse(Transform parent)
+        private void PopulateStrategyMouse()
         {
-            AddGroupHeader(parent, "■ 戦略マップ（マウス）");
-            AddItem(parent, "左クリック", "戦略艦隊を選択（Shiftで追加）");
-            AddItem(parent, "右クリック", "星系へ進軍 / 回廊上で停止保持");
-            AddItem(parent, "回廊ダブルクリック", "交戦中の回廊へ潜行（手動指揮）");
-            AddItem(parent, "星系ダブルクリック", "システムビュー（恒星系の閲覧）");
-
-            AddGroupHeader(parent, "■ 戦略マップ（キー）");
-            AddItem(parent, "Space / 1・2・3", "時間の停止 / 速度");
-            AddItem(parent, "I", "星系情報パネル");
-            AddItem(parent, "[ / ]", "税率を下げる / 上げる");
-            AddItem(parent, "B", "艦隊編成（プール配分・提督/副提督/参謀の配属）");
+            AddSection("■ 戦略マップ（マウス）", new (string, string)[]
+            {
+                ("左クリック", "戦略艦隊を選択（Shiftで追加）"),
+                ("右クリック", "星系へ進軍 / 回廊上で停止保持"),
+                ("回廊ダブルクリック", "交戦中の回廊へ潜行（手動指揮）"),
+                ("星系ダブルクリック", "システムビュー（恒星系の閲覧）"),
+            });
+            AddSection("■ 戦略マップ（キー）", new (string, string)[]
+            {
+                ("Space / 1・2・3", "時間の停止 / 速度"),
+                ("I", "星系情報パネル"),
+                ("[ / ]", "税率を下げる / 上げる"),
+                ("B", "艦隊編成（プール配分・提督/副提督/参謀の配属）"),
+            });
         }
 
         // ===== ヘルパー：コンテンツ行生成 =====
 
-        /// <summary>グループ見出し行を生成する（前後にスペーサー付き）。</summary>
+        /// <summary>グループ見出し行を生成する（前にスペーサー付き・左寄せ・金色）。</summary>
         private void AddGroupHeader(Transform parent, string title)
         {
             // 上余白スペーサー
             GameObject spacer = new GameObject("Spacer");
             spacer.transform.SetParent(parent, false);
             LayoutElement spacerLE = spacer.AddComponent<LayoutElement>();
-            spacerLE.minHeight = 6f;
-            spacerLE.preferredHeight = 6f;
+            spacerLE.minHeight = 8f;
+            spacerLE.preferredHeight = 8f;
 
-            // 見出しテキスト
-            CreateTmpLabel(parent, title, headerFontSize,
-                new Color(1f, 0.85f, 0.3f), headerFontSize + 6f);
+            // 見出しテキスト（左寄せ・金色）
+            GameObject go = new GameObject("Header");
+            go.transform.SetParent(parent, false);
+            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = title;
+            tmp.fontSize = headerFontSize;
+            tmp.color = accentColor;
+            tmp.alignment = TextAlignmentOptions.Left;
+            tmp.raycastTarget = false;
+            ApplyJapaneseFont(tmp);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = headerFontSize + 8f;
+            le.preferredHeight = headerFontSize + 8f;
         }
 
-        /// <summary>操作1項目（キー列 + 説明列）の横並び行を生成する。</summary>
+        /// <summary>操作1項目（キー列 + 説明列）の横並び行を生成する。行高は折り返した説明に追従する。</summary>
         private void AddItem(Transform parent, string key, string description)
         {
             // 横並びコンテナ
@@ -559,9 +614,9 @@ namespace Ginei
             hlg.padding = new RectOffset(4, 0, 0, 0);
 
             // 行高は固定せず内容（折り返した説明列）に追従させる。
-            // preferredHeight を固定すると2行以上の説明が行からはみ出し、下の行と重なる（スクロール時バグ）。
+            // preferredHeight を固定すると2行以上の説明が行からはみ出し、下の行と重なる。
             LayoutElement rowLE = row.AddComponent<LayoutElement>();
-            rowLE.minHeight = itemFontSize + 6f;
+            rowLE.minHeight = itemFontSize + 8f;
 
             // キー列（固定幅）
             GameObject keyObj = new GameObject("Key");
@@ -569,13 +624,13 @@ namespace Ginei
             TextMeshProUGUI keyTmp = keyObj.AddComponent<TextMeshProUGUI>();
             keyTmp.text = key;
             keyTmp.fontSize = itemFontSize;
-            keyTmp.color = new Color(0.9f, 0.95f, 1f);
+            keyTmp.color = new Color(0.62f, 0.82f, 1f);
             keyTmp.alignment = TextAlignmentOptions.Left;
             keyTmp.raycastTarget = false;
             ApplyJapaneseFont(keyTmp);
             LayoutElement keyLE = keyObj.AddComponent<LayoutElement>();
-            keyLE.minWidth = 240f;
-            keyLE.preferredWidth = 240f;
+            keyLE.minWidth = 250f;
+            keyLE.preferredWidth = 250f;
             keyLE.flexibleWidth = 0f;
 
             // 区切り文字
@@ -593,13 +648,13 @@ namespace Ginei
             sepLE.preferredWidth = 20f;
             sepLE.flexibleWidth = 0f;
 
-            // 説明列（残り幅を使い切る）
+            // 説明列（残り幅を使い切る・折り返す）
             GameObject descObj = new GameObject("Desc");
             descObj.transform.SetParent(row.transform, false);
             TextMeshProUGUI descTmp = descObj.AddComponent<TextMeshProUGUI>();
             descTmp.text = description;
             descTmp.fontSize = itemFontSize;
-            descTmp.color = new Color(0.85f, 0.85f, 0.85f);
+            descTmp.color = new Color(0.86f, 0.88f, 0.92f);
             descTmp.alignment = TextAlignmentOptions.Left;
             descTmp.raycastTarget = false;
             ApplyJapaneseFont(descTmp);
@@ -608,98 +663,6 @@ namespace Ginei
         }
 
         // ===== ヘルパー：共通 UI 部品 =====
-
-        /// <summary>
-        /// TMP ラベルを生成して parent に追加し、TextMeshProUGUI を返す。
-        /// </summary>
-        private TextMeshProUGUI CreateTmpLabel(Transform parent, string text,
-            float fontSize, Color color, float minHeight)
-        {
-            // ラベル名に使う文字数を制限してオブジェクト名を作る
-            int nameLen = Mathf.Min(text.Length, 12);
-            GameObject go = new GameObject("Label_" + text.Substring(0, nameLen));
-            go.transform.SetParent(parent, false);
-            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.text = text;
-            tmp.fontSize = fontSize;
-            tmp.color = color;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.raycastTarget = false;
-            ApplyJapaneseFont(tmp);
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.minHeight = minHeight;
-            le.preferredHeight = minHeight;
-            return tmp;
-        }
-
-        /// <summary>
-        /// 下部ボタンバーを生成する：右寄せに Windows 風の「閉じる」ボタン（明色＋縁取り＋濃色文字）。
-        /// Hキー / タイトルバーの×と同じく SetVisible(false) を呼ぶ。
-        /// </summary>
-        private void CreateBottomBar(Transform parent)
-        {
-            GameObject bar = new GameObject("ButtonBar");
-            bar.transform.SetParent(parent, false);
-            bar.AddComponent<RectTransform>();
-            LayoutElement barLE = bar.AddComponent<LayoutElement>();
-            barLE.minHeight = 40f;
-            barLE.preferredHeight = 40f;
-
-            HorizontalLayoutGroup hlg = bar.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 8f;
-            hlg.childAlignment = TextAnchor.MiddleRight;
-            hlg.childControlWidth = true;
-            hlg.childControlHeight = true;
-            hlg.childForceExpandWidth = false;
-            hlg.childForceExpandHeight = true;
-
-            // 左スペーサー（ボタンを右端へ押しやる）
-            GameObject spacer = new GameObject("Spacer");
-            spacer.transform.SetParent(bar.transform, false);
-            spacer.AddComponent<RectTransform>();
-            LayoutElement sLE = spacer.AddComponent<LayoutElement>();
-            sLE.flexibleWidth = 1f;
-
-            // 「閉じる」ボタン（Windows 風）
-            GameObject btnObj = new GameObject("CloseButton");
-            btnObj.transform.SetParent(bar.transform, false);
-            Image img = btnObj.AddComponent<Image>();
-            img.color = Color.white;
-            Button btn = btnObj.AddComponent<Button>();
-            btn.targetGraphic = img;
-            ColorBlock cb = btn.colors;
-            cb.normalColor = new Color(0.85f, 0.86f, 0.90f, 1f);
-            cb.highlightedColor = new Color(0.93f, 0.96f, 1f, 1f);
-            cb.pressedColor = new Color(0.72f, 0.78f, 0.88f, 1f);
-            cb.fadeDuration = 0.05f;
-            btn.colors = cb;
-            btn.onClick.AddListener(() => SetVisible(false));
-
-            Outline ol = btnObj.AddComponent<Outline>();
-            ol.effectColor = new Color(0.45f, 0.5f, 0.6f, 1f);
-            ol.effectDistance = new Vector2(1f, -1f);
-
-            LayoutElement le = btnObj.AddComponent<LayoutElement>();
-            le.minWidth = 150f;
-            le.preferredWidth = 150f;
-            le.minHeight = 34f;
-            le.preferredHeight = 34f;
-
-            GameObject txtObj = new GameObject("Text");
-            txtObj.transform.SetParent(btnObj.transform, false);
-            RectTransform txtRT = txtObj.AddComponent<RectTransform>();
-            txtRT.anchorMin = Vector2.zero;
-            txtRT.anchorMax = Vector2.one;
-            txtRT.sizeDelta = Vector2.zero;
-            txtRT.anchoredPosition = Vector2.zero;
-            TextMeshProUGUI tmp = txtObj.AddComponent<TextMeshProUGUI>();
-            tmp.text = "閉じる ( H )";
-            tmp.fontSize = closeBtnFontSize;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = new Color(0.1f, 0.12f, 0.16f, 1f); // 明色ボタン上の濃色文字（Windows 風）
-            tmp.raycastTarget = false;
-            ApplyJapaneseFont(tmp);
-        }
 
         /// <summary>
         /// Resources の "JapaneseFont_TMP" を tmp に適用する（文字化け防止）。

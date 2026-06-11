@@ -51,13 +51,13 @@ namespace Ginei
 
         /// <summary>
         /// 艦隊(#146 番号)を梯団へ編入する。単一所属＝既に別梯団に居れば移す（中身流動）。
-        /// **戦闘艦隊と非戦闘艦隊は混成しない(#883)**＝編入先の既存艦隊と運用区分が違えば拒否（移動もしない）。
+        /// <b>諸兵科連合</b>：戦闘艦隊と非戦闘艦隊を同一梯団に混在できる（#883 混成禁止は撤回・ORBAT-3）。
         /// </summary>
         public static bool AttachFleet(int formationId, int fleetNumber)
         {
             var f = Get(formationId);
             if (f == null || fleetNumber <= 0) return false;
-            if (!CanAttachFleet(formationId, fleetNumber)) return false; // 混成編成は不可
+            if (!CanAttachFleet(formationId, fleetNumber)) return false; // 妥当性（梯団存在・番号>0）
             // 同勢力の他梯団から外して単一所属を保つ
             foreach (var other in formations.Values)
                 if (other.faction == f.faction) other.fleetNumbers.Remove(fleetNumber);
@@ -66,28 +66,13 @@ namespace Ginei
         }
 
         /// <summary>
-        /// その艦隊を梯団へ編入できるか（#883 混成禁止の事前判定）。梯団が既に持つ艦隊と運用区分（戦闘/非戦闘）が
-        /// 揃っていれば true。役割は <see cref="FleetRoster"/> から解決（未登録は戦闘艦扱い＝後方互換）。
+        /// その艦隊を梯団へ編入できるか＝梯団が存在し fleetNumber が正なら true。
+        /// <b>#883 混成禁止は撤回（ORBAT-3）</b>＝諸兵科連合（戦闘＋非戦闘の混在）を許可するため、運用区分では拒否しない。
         /// </summary>
         public static bool CanAttachFleet(int formationId, int fleetNumber)
         {
             var f = Get(formationId);
-            if (f == null || fleetNumber <= 0) return false;
-            ShipRole candidate = ResolveRole(f.faction, fleetNumber);
-            for (int i = 0; i < f.fleetNumbers.Count; i++)
-            {
-                int num = f.fleetNumbers[i];
-                if (num == fleetNumber) continue; // 既に居る自分自身は無視
-                if (!ShipRoleRules.AreCompatible(candidate, ResolveRole(f.faction, num))) return false;
-            }
-            return true;
-        }
-
-        /// <summary>艦隊の運用区分を台帳から解決する（未登録は戦闘艦＝後方互換）。</summary>
-        private static ShipRole ResolveRole(Faction faction, int fleetNumber)
-        {
-            FleetUnitData unit = FleetRoster.GetFleet(faction, fleetNumber);
-            return unit != null ? unit.shipRole : ShipRole.戦闘艦;
+            return f != null && fleetNumber > 0;
         }
 
         public static bool DetachFleet(int formationId, int fleetNumber)

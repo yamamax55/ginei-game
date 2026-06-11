@@ -115,6 +115,7 @@
 - [x] Wave46 (2026-06-11)：AnacyclosisRules(#1442) / MixedConstitutionRules(#1445) / TycheRules(#1448) / UniversalHistoryRules(#1451) / InstitutionalMemoryRules(#1454) / GovernmentPrincipleRules(#1439) / PolityCorruptionRules(#1440)（並列7・ポリュビオス政体循環論POLY完結＋モンテスキュー法の精神MONT着手・親がFearDiminishingReturnsテスト比較修正）
 - [x] Wave47 (2026-06-11)：ClimatePolityFitRules(#1443) / IntermediatePowerRules(#1446) / LegalFitnessRules(#1449) / CommerceModeratesWarRules(#1453) / PropertyOriginRules(#1447) / TrustMandateRules(#1450) / ModernizationProgramRules(#1431)（並列7・モンテスキュー法の精神MONT完結＋ロック統治二論LOCK＋孫子拡張SKUN着手・親がClimatePolityFitテストclamp修正）
 - [x] Wave48 (2026-06-11)：FleetDoctrineRules(#1432) / NationalDeterminationRules(#1433) / SeaControlLeverageRules(#1434) / ForeignAdvisorRules(#1435) / DecisiveBattleWindowRules(#1436) / SovereigntyNormRules(#1428) / KontributionRules(#1420)（並列7・孫子拡張SKUN完結＋三十年戦争TYW着手・全テスト一発green）
+- [x] Wave49 (2026-06-11)：KriegsherrRules(#1424) / WarPurposeDriftRules(#1426) / MultipartyPeaceRules(#1427) / PrestigeRules(#1406) / CapacityRules(#1409) / MetaLegitimacyRules(#1411) / CommitmentRules(#1414)（並列7・三十年戦争TYW完結＋項羽と劉邦KORY着手・全テスト一発green・ティック復旧後の再開Wave）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -277,13 +278,13 @@
 ### Issue連動（第12次補充・2026-06-11／戦争・軍事社会EPIC群の純ロジック子Issue・21件＝3Wave分）
 # 三十年戦争TYW／項羽と劉邦KORY／レマルク西部戦線RMK／革命戦争WAP／スペイン内戦SPW
 - [x] KontributionRules：コントリビューション制＝占領地の組織的抽出・前進圧力・戦争の自己永続（TYW-1 #1420・三十年戦争）。`ForageRules`(現地調達)/`SanctionsRules`とは別＝占領地搾取が戦争を自己永続させる（戦争が戦争を養う）（Wave48）
-- [ ] KriegsherrRules：軍事請負将軍＝将軍が私的融資で軍を所有・財務レバレッジ→政治的要求（TYW-2 #1424）。`MercenaryRules`/`PraetorianRules`とは別＝ヴァレンシュタイン型の私兵を持つ将軍の政治力
-- [ ] WarPurposeDriftRules：開戦理由の腐食＝宗教→権力政治ドリフト・イデオロギー的同盟逆転（TYW-3 #1426）。`WarGoalRules`/`DiplomacyRules`とは別＝戦争目的が当初の大義から権力闘争へ変質する
-- [ ] MultipartyPeaceRules：多極講和の協調問題＝三者以上の包括パッケージ合意・膠着検知（TYW-4 #1427）。`WarGoalRules`(講和受諾)/`CoalitionRules`とは別＝ウェストファリア型の多国間講和の難しさ
-- [ ] PrestigeRules：声望モデル＝陣営の人材磁力（KORY-1 #1406・項羽と劉邦、PrestigeState同梱）。`ReputationRules`(個人の名声)/`Meritocracyの誘引`とは別＝陣営の声望が人材を引き寄せる磁力
-- [ ] CapacityRules：器量＝指導者が才人を活かせる容量（KORY-2 #1409、CapacityTolerance同梱）。`CommandStaffRules`/`AdvisorCandorRules`とは別＝劉邦型の「己より優れた者を使う」器量
-- [ ] MetaLegitimacyRules：大義名分の競合＝外部権威の代弁競合（KORY-3 #1411、MetaAuthority同梱）。`CommandLegitimacyRules`/`WarGoalRules`とは別＝義帝を奉じる型の上位権威の代弁争い
-- [ ] CommitmentRules：背水の陣＝撤退不能コミットで戦闘力最大化・敗北は壊滅（KORY-4 #1414）。`ForcedMarchRules`/`DeterrenceRules`(退路を焼く)とは別＝韓信型の背水の陣（決死の戦闘力）
+- [x] KriegsherrRules：軍事請負将軍＝将軍が私的融資で軍を所有・財務レバレッジ→政治的要求（TYW-2 #1424）。`MercenaryRules`/`PraetorianRules`とは別＝ヴァレンシュタイン型の私兵を持つ将軍の政治力（Wave49）
+- [x] WarPurposeDriftRules：開戦理由の腐食＝宗教→権力政治ドリフト・イデオロギー的同盟逆転（TYW-3 #1426）。`WarGoalRules`/`DiplomacyRules`とは別＝戦争目的が当初の大義から権力闘争へ変質する（Wave49）
+- [x] MultipartyPeaceRules：多極講和の協調問題＝三者以上の包括パッケージ合意・膠着検知（TYW-4 #1427）。`WarGoalRules`(講和受諾)/`CoalitionRules`とは別＝ウェストファリア型の多国間講和の難しさ（Wave49）
+- [x] PrestigeRules：声望モデル＝陣営の人材磁力（KORY-1 #1406・項羽と劉邦、PrestigeState同梱）。`ReputationRules`(個人の名声)/`Meritocracyの誘引`とは別＝陣営の声望が人材を引き寄せる磁力（Wave49）
+- [x] CapacityRules：器量＝指導者が才人を活かせる容量（KORY-2 #1409、CapacityTolerance同梱）。`CommandStaffRules`/`AdvisorCandorRules`とは別＝劉邦型の「己より優れた者を使う」器量（Wave49）
+- [x] MetaLegitimacyRules：大義名分の競合＝外部権威の代弁競合（KORY-3 #1411、MetaAuthority同梱）。`CommandLegitimacyRules`/`WarGoalRules`とは別＝義帝を奉じる型の上位権威の代弁争い（Wave49）
+- [x] CommitmentRules：背水の陣＝撤退不能コミットで戦闘力最大化・敗北は壊滅（KORY-4 #1414）。`ForcedMarchRules`/`DeterrenceRules`(退路を焼く)とは別＝韓信型の背水の陣（決死の戦闘力）（Wave49）
 - [ ] PsychologicalSiegeMoraleRules：四面楚歌＝物理包囲×心理孤立の士気崩壊加速（KORY-5 #1419）。`EncirclementRules`(物理包囲)/`PropagandaRules`とは別＝心理的孤立が士気崩壊を加速する
 - [ ] MeritRetentionRules：功臣処遇ジレンマ＝勝利後の有力功臣の厚遇/転封/粛清の安定化帰結（KORY-6 #1422）。`PurgeRules`/`CompensationRules`とは別＝劉邦型の建国功臣の処遇ジレンマ
 - [ ] CombatFatigueRules：累積戦闘疲弊＝会戦をまたぐ持続的士気劣化（RMK-1 #1403・レマルク西部戦線）。`FleetMorale`/`ReadinessRules`(疲労)とは別＝連戦による持続的な士気の摩耗

@@ -30,6 +30,11 @@
 - [`reference-epic-backlog.md`](./reference-epic-backlog.md) — 候補キュー（思いついたら1行追記、`/worldview-epic 次` が上から処理）。
 - 出荷実例：[`almagest-reference-design.md`](./almagest-reference-design.md)（EPIC #1054・ALM-1〜16）／[`spice-and-wolf-reference-design.md`](./spice-and-wolf-reference-design.md)（EPIC #1071・SAW-1〜9）。
 
+## 自動化（留守中でも実装が前進する）
+- [`auto-implement-workflow.md`](./auto-implement-workflow.md) — **自動実装ワークフロー**（`agent-ready` ラベルの issue を拾い→実装→TestHarness検証→draft PR）。`worldview-epic`（設計＋issue化）の実装版。安全装置・向き不向き・調整ポイントを記載。
+- [`playtest-harness.md`](./playtest-harness.md) — **自動プレイテストharness**（AI対AIで会戦を速回し→不変条件で所見＝バグ/改善点を機械判定→JSONレポート）。Core判定(`PlaytestInvariants`)＋Game殻(`PlaytestRunner`)。GameCI(headless Unity)で無人実行する土台。
+- [`gameci-setup.md`](./gameci-setup.md) — **GameCI セットアップ**（headless Unity を GitHub Actions で動かす）。Personal ライセンスのアクティベーション手順＋`unity-activation`/`unity-test` ワークフロー。Game層のコンパイル＋Unityテストを無人検証する。
+
 ## 開発ログ（dev-log/）
 - [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。
 - [`2026-06-10-time-fleet-notification.md`](./dev-log/2026-06-10-time-fleet-notification.md) — **統一時間 TIME-1〜7（#946/#959）／艦隊編成プール（#148/#884）／通知システム（#964）** を配線。詳細は `CLAUDE.md` の「時間・暦・通知システム」「艦隊編成プール」節。

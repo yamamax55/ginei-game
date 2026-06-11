@@ -1,0 +1,141 @@
+name: auto-implement
+
+# 留守中でも実装が前進する「自動実装」ワークフロー（PC非依存）。
+# agent-ready ラベルの付いた issue を1件拾い、実装→TestHarness検証→draft PR を作る。
+# あなたは帰宅後に draft PR をレビュー/マージするだけ。
+#
+# 安全装置:
+#  - 対象は agent-ready ラベルの issue のみ（＝あなたがラベルで無人OKを選別する）。無ければ何もしない。
+#  - TestHarness（純ロジック EditMode テスト）がグリーンでなければ完成扱いにしない。
+#  - PR は必ず draft（あなたの承認なしに master へ入らない）。
+#  - 1実行=1 issue（並走させない＝コンフリクトを防ぐ）。
+#
+# 注意: 非コア（Game/MonoBehaviour/UI）は headless では検証しきれない。
+#       Game層に触れる PR は本文に「⚠Unity目視検証が必要」を明記させる（レバー1-B=GameCI 導入で将来カバー）。
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: '実装する issue 番号（空なら agent-ready の最古を自動選択）'
+        required: false
+        default: ''
+  schedule:
+    # 4時間ごと :47（worldview cron :3/:23/:43 と衝突回避）。頻度はここで調整。
+    - cron: '47 */4 * * *'
+
+# 直列化：実装中に次を走らせない（PR コンフリクト防止）
+concurrency:
+  group: auto-implement
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+  actions: read
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Select issue
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_ISSUE: ${{ github.event.inputs.issue }}
+        run: |
+          set -euo pipefail
+          # ラベルが無ければ作る（初回でも落ちない）
+          gh label create agent-ready \
+            --description "無人の自動実装ワークフローの対象（仕様明確・テスト可能・低リスク）" \
+            --color "0E8A16" 2>/dev/null || true
+
+          # 手動指定があればそれを使う
+          if [ -n "${INPUT_ISSUE}" ]; then
+            echo "issue=${INPUT_ISSUE}" >> "$GITHUB_OUTPUT"
+            echo "Manually selected #${INPUT_ISSUE}"
+            exit 0
+          fi
+
+          # agent-ready の open issue（番号昇順）から、まだ open PR を持たない最古を選ぶ
+          numbers=$(gh issue list --label agent-ready --state open --limit 100 \
+            --json number --jq '.[].number' | sort -n || true)
+          open_heads=$(gh pr list --state open --limit 100 \
+            --json headRefName --jq '.[].headRefName' || true)
+          for n in $numbers; do
+            if ! echo "$open_heads" | grep -qx "agent/impl-$n"; then
+              echo "issue=$n" >> "$GITHUB_OUTPUT"
+              echo "Selected #$n"
+              exit 0
+            fi
+          done
+          echo "issue=" >> "$GITHUB_OUTPUT"
+          echo "No agent-ready issue available — nothing to do."
+
+      - name: Implement (claude-code-action)
+        if: steps.pick.outputs.issue != ''
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ steps.pick.outputs.issue }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
+          claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep"'
+          prompt: |
+            あなたは銀英伝風戦術艦隊戦（Unity 6.4 / 2D URP / namespace Ginei）のリポジトリで、
+            issue #${{ steps.pick.outputs.issue }} を「1件だけ」実装する自動エージェントです。
+            master をチェックアウト済み。最優先の規範はリポジトリルートの CLAUDE.md です（衝突したら CLAUDE.md が勝つ）。
+
+            手順:
+            1. `gh issue view ${{ steps.pick.outputs.issue }}` で issue 本文・完了条件・親EPIC（あれば）を読む。
+               リンクされた設計書 docs/*-reference-design.md があれば読む。CLAUDE.md の関連節も読む。
+            2. 作業ブランチを切る: `git checkout -b agent/impl-${{ steps.pick.outputs.issue }}`
+            3. issue のスコープ「だけ」を実装する。CLAUDE.md の絶対規約を厳守:
+               - 置き場所で所属が決まる（純ロジック→Assets/Scripts/Core・SO/IO→Data・MonoBehaviour/UI→Game）。
+                 依存方向は Core←Data←Game の一方向（循環厳禁）。
+               - 既存スクリプトを壊さない・additive・指示外を大きく書き換えない。
+               - 固定の子オブジェクト名（SelectionRing/StrengthDisplay/MoraleLabel/WeaponArcLine/FlagshipMarker(Glow)）を変えない。
+               - マジックナンバー禁止（public か const・[Header]/[Tooltip]）。実効値パターン（基準値非破壊）。
+               - 新規の純ロジック（Core/Data）は **EditMode テスト必須**（Assets/Tests/EditMode に追加）。
+                 既存窓口（ShipCombat/ZoneOfControl/FactionRelations/CombatModifiers/GameInput/ContentDatabase 等）へ寄せ、
+                 FindObjectsByType や敵対判定の直書きを増やさない。
+            4. **検証ゲート（必須）**: `dotnet test TestHarness/GineiLogic.Tests.csproj --configuration Release -v normal` を実行。
+               - 純ロジックを足したらテストが**グリーン**になるまで直す。
+               - Game層 enum（Formation/ShipClass 等）や Core を変えたら TestHarness/Stubs/GineiShims.cs を同期する。
+               - 新規 MonoBehaviour は TestHarness/GineiLogic.Tests.csproj の Exclude へ追加（Unity依存はハーネス対象外）。
+            5. 1ファイル1クラス・ファイル名=クラス名。CLAUDE.md の「既存コンポーネント」表に新コンポーネントの1行を追記する
+               （該当する場合のみ）。
+            6. git identity を設定して commit/push:
+               `git config user.name "auto-implement-bot"`
+               `git config user.email "actions@users.noreply.github.com"`
+               変更を add → commit（メッセージ例: `feat: <要約>（#${{ steps.pick.outputs.issue }}）`）→
+               `git push -u origin agent/impl-${{ steps.pick.outputs.issue }}`
+            7. **draft PR を作る**:
+               `gh pr create --draft --base master --head agent/impl-${{ steps.pick.outputs.issue }} \
+                 --title "[auto] <issueの主旨>（#${{ steps.pick.outputs.issue }}）" --body "<下記>"`
+               本文に必ず含める:
+               - `Closes #${{ steps.pick.outputs.issue }}`
+               - 変更点の要約（どのファイルを足した/変えたか）と設計判断。
+               - TestHarness の結果（例: 「dotnet test グリーン（XXXX tests passed）」）。
+               - **Game/MonoBehaviour/UI に触れた場合は本文冒頭に「⚠ Unity目視検証が必要（headless CI 対象外）」を明記**。
+               - レビュー観点チェックリスト（CLAUDE.md 規約・後方互換・テスト）。
+
+            厳守事項:
+            - 仕様が曖昧・大規模リファクタが必要・アーキ規約に触れて自信が持てない場合は、**実装を止めて**
+              issue にコメント（`gh issue comment ${{ steps.pick.outputs.issue }} --body "..."`）で
+              「無人実装には判断が必要」と理由を残し、PR は作らずに正常終了する。憶測で大改修しない。
+            - TestHarness がどうしてもグリーンにできない場合も、現状を draft PR に出しつつ本文へ
+              「⚠ TestHarness RED — 要確認」と明記する（隠さない）。
+            - 1回の実行で 1 issue・1 PR のみ。

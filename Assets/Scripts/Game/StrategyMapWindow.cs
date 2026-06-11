@@ -16,8 +16,8 @@ namespace Ginei
     public class StrategyMapWindow : MonoBehaviour
     {
         [Header("枠の寸法（画面比・0〜1）")]
-        [Tooltip("タイトルバーの高さ（画面高に対する比）")]
-        public float titleBarFrac = 0.05f;
+        [Tooltip("タイトルバーの高さ（画面高に対する比）。時計2段を収めるため少し高め")]
+        public float titleBarFrac = 0.058f;
         [Tooltip("左右マージン（画面幅に対する比）")]
         public float sideFrac = 0.010f;
         [Tooltip("下マージン（画面高に対する比）")]
@@ -34,6 +34,7 @@ namespace Ginei
         private Camera cam;
         private Rect originalRect;
         private bool rectApplied;
+        private TextMeshProUGUI clockLabel; // 上メニューに含める時刻/暦/速度
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -64,6 +65,17 @@ namespace Ginei
         {
             // ビューポートを元へ戻す（カメラが他シーンへ持ち越される場合の保険）
             if (cam != null && rectApplied) cam.rect = originalRect;
+        }
+
+        private void Update()
+        {
+            // 上メニューに時刻を含めたので、速度の +/- もここで受ける（戦略では浮きHUDを出さないため）。
+            TimeDisplay.StepSpeedInput();
+            if (clockLabel != null && TimeDisplay.TryFormatNow(out string text, out Color color))
+            {
+                clockLabel.text = text;
+                clockLabel.color = color;
+            }
         }
 
         /// <summary>カメラのビューポートをタイトルバー＋枠のぶん内側へ詰める。</summary>
@@ -103,7 +115,7 @@ namespace Ginei
             caption.transform.SetParent(bar.transform, false);
             var crt = caption.rectTransform;
             crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one;
-            crt.offsetMin = new Vector2(20f, 0f); crt.offsetMax = new Vector2(-20f, 0f);
+            crt.offsetMin = new Vector2(20f, 0f); crt.offsetMax = new Vector2(-380f, 0f); // 右は時計用に空ける
             caption.text = "≡ 星系マップ ・ 戦略";
             caption.fontSize = 22f;
             caption.fontStyle = FontStyles.Bold;
@@ -111,6 +123,20 @@ namespace Ginei
             caption.alignment = TextAlignmentOptions.Left;
             caption.raycastTarget = false;
             ApplyJapaneseFont(caption);
+
+            // 時刻/二重暦/速度（上メニューに含める＝右寄せ・2段）。整形は TimeDisplay の static を再利用。
+            clockLabel = new GameObject("Clock").AddComponent<TextMeshProUGUI>();
+            clockLabel.transform.SetParent(bar.transform, false);
+            var krt = clockLabel.rectTransform;
+            krt.anchorMin = new Vector2(1f, 0f); krt.anchorMax = new Vector2(1f, 1f);
+            krt.pivot = new Vector2(1f, 0.5f);
+            krt.sizeDelta = new Vector2(360f, 0f);
+            krt.anchoredPosition = new Vector2(-20f, 0f);
+            clockLabel.fontSize = 17f;
+            clockLabel.alignment = TextAlignmentOptions.Right;
+            clockLabel.color = new Color(0.95f, 0.92f, 0.7f);
+            clockLabel.raycastTarget = false;
+            ApplyJapaneseFont(clockLabel);
 
             // タイトルバー下端の金色ルール線
             var rule = AddBar(bar.transform, "Rule", new Vector2(0f, 0f), new Vector2(1f, 0f),

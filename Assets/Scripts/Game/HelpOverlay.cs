@@ -9,9 +9,9 @@ using TMPro;
 namespace Ginei
 {
     /// <summary>
-    /// 操作ヘルプ・オーバーレイ。Hキーで表示/非表示を切り替える。
-    /// TimeScale に依存しないため、ポーズ中でも開閉・閲覧できる。
-    /// Battle シーンにのみ自動生成される（RuntimeInitializeOnLoadMethod）。
+    /// 操作ヘルプ・オーバーレイ。Hキーで表示/非表示を切り替える。TimeScale 非依存（ポーズ中も開閉可）。
+    /// Battle/Strategy シーンに自動生成（RuntimeInitializeOnLoadMethod）。キーボード操作は <see cref="GameInput"/> から
+    /// 現在シーンの有効アクションを自動列挙してカテゴリ別に配置する（#107・新キー追加で自動反映＝手書き更新不要）。
     /// </summary>
     public class HelpOverlay : MonoBehaviour
     {
@@ -48,6 +48,8 @@ namespace Ginei
         private GameObject overlayRoot;
         // 表示/非表示を切り替えるパネル本体（ディマー＋コンテンツ）
         private GameObject panel;
+        // このヘルプのシーン文脈（Strategy/Battle で出すキー・操作を切り替える）
+        private InputContext helpContext = InputContext.会戦;
 
         // ===== 自動生成エントリーポイント =====
 
@@ -73,7 +75,7 @@ namespace Ginei
         /// <summary>Battle シーンに HelpOverlay が無ければ生成する（重複生成ガード）。</summary>
         private static void TryCreate(Scene scene)
         {
-            if (scene.name != "Battle") return;
+            if (scene.name != "Battle" && scene.name != "Strategy") return;
             if (Object.FindAnyObjectByType<HelpOverlay>() != null) return;
 
             GameObject go = new GameObject("HelpOverlay");
@@ -84,6 +86,9 @@ namespace Ginei
 
         private void Awake()
         {
+            // シーンから文脈を決定（このシーンで有効なキー/操作だけをヘルプに出す）
+            helpContext = SceneManager.GetActiveScene().name == "Strategy"
+                ? InputContext.戦略 : InputContext.会戦;
             BuildUI();
             // 初期状態は非表示
             SetVisible(false);
@@ -180,8 +185,9 @@ namespace Ginei
             frameVlg.childForceExpandWidth = true;
             frameVlg.childForceExpandHeight = false;
 
-            // タイトル行
-            CreateTmpLabel(frame.transform, "[ 操作ヘルプ ]  (H キーで閉じる)",
+            // タイトル行（シーン名を出す）
+            string sceneLabel = helpContext == InputContext.戦略 ? "戦略マップ" : "会戦";
+            CreateTmpLabel(frame.transform, $"[ 操作ヘルプ・{sceneLabel} ]  (H キーで閉じる)",
                 headerFontSize + 4f, new Color(1f, 0.9f, 0.4f), 36f);
 
             // スクロールビュー（操作一覧）
@@ -251,78 +257,109 @@ namespace Ginei
             PopulateHelpContent(content.transform);
         }
 
-        // キーボード操作のセクション定義（#107）。
-        // ここに書いた GameAction が HelpOverlay に自動反映される＝新規アクション追加で手書き更新不要。
-        // マウス/クリック操作は GameInput 対象外のため下の PopulateHelpContent 内にハードコードで残す。
-        private static readonly (string header, GameAction[] actions)[] keyboardSections =
-        {
-            ("■ カメラ操作（キー）", new[]
-            {
-                GameAction.カメラ上, GameAction.カメラ下, GameAction.カメラ左, GameAction.カメラ右,
-                GameAction.選択フォーカス,
-            }),
-            ("■ ポーズ・ヘルプ", new[]
-            {
-                GameAction.ポーズ, GameAction.キャンセル, GameAction.ヘルプ切替,
-                GameAction.観測オーバーレイ切替, GameAction.状態インスペクタ切替,
-            }),
-            ("■ 倍速・リスタート・復帰", new[]
-            {
-                GameAction.倍速等速, GameAction.倍速2倍, GameAction.倍速3倍,
-                GameAction.リスタート, GameAction.戦略へ復帰,
-            }),
-            // #83：部隊グループ（Alt＋数字＝選択中なら割り当て・空なら呼び出し）
-            ("■ 部隊グループ（Alt＋数字）", new[]
-            {
-                GameAction.グループ選択1, GameAction.グループ選択2, GameAction.グループ選択3,
-            }),
-        };
+        // キーボード操作のカテゴリ表示順（#107・自動列挙したアクションをこの順でグループ化）。
+        private static readonly string[] CategoryOrder =
+            { "システム", "観測オーバーレイ", "時間・ポーズ", "カメラ", "部隊グループ", "会戦", "その他" };
 
         /// <summary>
-        /// 操作一覧のテキストブロックをすべて生成する。
-        /// マウス/クリック操作はハードコード。キーボード操作は GameInput から自動生成（#107）。
+        /// 操作一覧を生成する。マウス/メニュー操作はシーン別にハードコード（GameInput 対象外）、
+        /// キーボード操作は <see cref="GameInput.ActionsInContext"/> から現在シーンの有効アクションを
+        /// 自動列挙し <see cref="CategoryOf"/> でグループ化する（#107・新キー追加で自動反映）。
         /// </summary>
         private void PopulateHelpContent(Transform parent)
         {
-            // ---- 選択（マウス） ----
-            AddGroupHeader(parent, "■ 選択");
+            // ---- マウス/メニュー操作（シーン別・ハードコード） ----
+            if (helpContext == InputContext.戦略) PopulateStrategyMouse(parent);
+            else PopulateBattleMouse(parent);
+
+            // ---- キーボード操作（GameInput から自動生成・カテゴリ別） ----
+            var actions = GameInput.ActionsInContext(helpContext);
+            foreach (string cat in CategoryOrder)
+            {
+                bool headerAdded = false;
+                for (int i = 0; i < actions.Count; i++)
+                {
+                    GameAction a = actions[i];
+                    if (CategoryOf(a) != cat) continue;
+                    string keys = GameInput.KeyLabelFull(a);
+                    if (string.IsNullOrEmpty(keys)) continue; // 未割当は出さない
+                    if (!headerAdded) { AddGroupHeader(parent, "■ " + cat); headerAdded = true; }
+                    AddItem(parent, keys, GameInput.GetDescription(a));
+                }
+            }
+        }
+
+        /// <summary>アクションの表示カテゴリ（HelpOverlay のグループ見出し）。未分類は「その他」。</summary>
+        private static string CategoryOf(GameAction a)
+        {
+            switch (a)
+            {
+                case GameAction.ヘルプ切替:
+                case GameAction.キャンセル: return "システム";
+                case GameAction.観測オーバーレイ切替:
+                case GameAction.状態インスペクタ切替:
+                case GameAction.軍観測切替:
+                case GameAction.通知ログ切替:
+                case GameAction.経済観測切替:
+                case GameAction.決裁ボード切替:
+                case GameAction.人物名鑑切替: return "観測オーバーレイ";
+                case GameAction.ポーズ:
+                case GameAction.倍速等速:
+                case GameAction.倍速2倍:
+                case GameAction.倍速3倍: return "時間・ポーズ";
+                case GameAction.カメラ上:
+                case GameAction.カメラ下:
+                case GameAction.カメラ左:
+                case GameAction.カメラ右:
+                case GameAction.選択フォーカス: return "カメラ";
+                case GameAction.グループ選択1:
+                case GameAction.グループ選択2:
+                case GameAction.グループ選択3: return "部隊グループ";
+                case GameAction.リスタート:
+                case GameAction.戦略へ復帰: return "会戦";
+                default: return "その他";
+            }
+        }
+
+        /// <summary>会戦シーンのマウス/メニュー操作（ハードコード）。</summary>
+        private void PopulateBattleMouse(Transform parent)
+        {
+            AddGroupHeader(parent, "■ 選択（マウス）");
             AddItem(parent, "左クリック", "部隊を選択（空白クリックで解除）");
             AddItem(parent, "右クリック", "コマンドメニューを開く");
 
-            // ---- 移動・向き指定（マウス主体） ----
-            AddGroupHeader(parent, "■ 移動・向き指定");
-            AddItem(parent, "コマンドメニュー「移動」", "移動先指定モードへ移行");
-            AddItem(parent, "  右クリック押下", "カーソル位置を目標地点として確定");
-            AddItem(parent, "  押したままドラッグ", "向きを指定（ドラッグ方向が前方）");
-            AddItem(parent, "  ボタンを離す", "移動命令を確定");
-            AddItem(parent, "  Esc", "移動先指定をキャンセル");
+            AddGroupHeader(parent, "■ 移動・後退（メニュー→マウス）");
+            AddItem(parent, "メニュー「移動」", "右押下で位置→ドラッグで向き→離して確定（Escで取消）");
+            AddItem(parent, "メニュー「後退」", "向き（射界）を保ったまま下がる");
 
-            // ---- 攻撃・目標指定（マウス主体） ----
-            AddGroupHeader(parent, "■ 攻撃・目標指定");
-            AddItem(parent, "コマンドメニュー「攻撃」", "攻撃目標指定モードへ移行");
-            AddItem(parent, "  左クリック（敵艦隊）", "通常攻撃を即時発令");
-            AddItem(parent, "  右クリック（敵艦隊）", "攻撃種別メニューを開く（通常/ミサイル）");
-            AddItem(parent, "  Esc", "攻撃目標指定をキャンセル");
+            AddGroupHeader(parent, "■ 攻撃・目標指定（メニュー→マウス）");
+            AddItem(parent, "メニュー「攻撃」→左ク", "通常攻撃を即時発令");
+            AddItem(parent, "メニュー「攻撃」→右ク", "攻撃種別メニュー（通常/ミサイル）");
 
-            // ---- 陣形変更 ----
-            AddGroupHeader(parent, "■ 陣形変更");
-            AddItem(parent, "コマンドメニュー「陣形変更」", "紡錘陣 / 鶴翼陣 / 円陣 / 横陣 / 方陣");
+            AddGroupHeader(parent, "■ 陣形・編制");
+            AddItem(parent, "メニュー「陣形変更」", "紡錘陣 / 鶴翼陣 / 円陣 / 横陣 / 方陣");
+            AddItem(parent, "O", "編制管理（軍集団 ⊃ 軍団 ⊃ 艦隊）");
 
-            // ---- カメラ操作（マウス・ハードコード） ----
-            // キー操作は下の keyboardSections ループで自動生成するため、マウス操作のみここに書く。
-            AddGroupHeader(parent, "■ カメラ操作（マウス）");
+            AddGroupHeader(parent, "■ カメラ（マウス）");
             AddItem(parent, "中ボタンドラッグ", "カメラパン");
             AddItem(parent, "マウスホイール", "ズームイン / アウト");
             AddItem(parent, "画面端（設定で有効化）", "カーソルを端に寄せるとパン");
+        }
 
-            // ---- キーボード操作（GameInput から自動生成・#107） ----
-            // keyboardSections 配列にアクションを足すだけでヘルプに反映される。
-            foreach (var (header, actions) in keyboardSections)
-            {
-                AddGroupHeader(parent, header);
-                foreach (var action in actions)
-                    AddItem(parent, GameInput.KeyLabelFull(action), GameInput.GetDescription(action));
-            }
+        /// <summary>戦略マップのマウス/キー操作（ハードコード＝GalaxyView の直読み分）。</summary>
+        private void PopulateStrategyMouse(Transform parent)
+        {
+            AddGroupHeader(parent, "■ 戦略マップ（マウス）");
+            AddItem(parent, "左クリック", "戦略艦隊を選択（Shiftで追加）");
+            AddItem(parent, "右クリック", "星系へ進軍 / 回廊上で停止保持");
+            AddItem(parent, "回廊ダブルクリック", "交戦中の回廊へ潜行（手動指揮）");
+            AddItem(parent, "星系ダブルクリック", "システムビュー（恒星系の閲覧）");
+
+            AddGroupHeader(parent, "■ 戦略マップ（キー）");
+            AddItem(parent, "Space / 1・2・3", "時間の停止 / 速度");
+            AddItem(parent, "I", "星系情報パネル");
+            AddItem(parent, "[ / ]", "税率を下げる / 上げる");
+            AddItem(parent, "B", "艦隊編成（プール配分・提督/副提督/参謀の配属）");
         }
 
         // ===== ヘルパー：コンテンツ行生成 =====

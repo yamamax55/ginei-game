@@ -100,6 +100,7 @@
 - [x] Wave31 (2026-06-11)：StandardizationRules(#1614) / LenderOfLastResortRules(#1613) / TransshipmentRules(#1612) / TransportCostRules(#1611) / CrisisCycleRules(#1610) / CeremonialismRules(#1603) / SocialProtectionRules(#1602)（並列7・レビンソンCNTR＋キンドルバーガーKNDB＋ヴェブレンVEBL＋ポランニーPOLA・親がStandardizationテスト算術修正）
 - [x] Wave32 (2026-06-11)：OstentationRules(#1601) / InternationalOrderRules(#1599) / CompetitiveDemocracyRules(#1598) / EmulationRules(#1597) / FictitiousCommodityRules(#1596) / IntellectualCritiqueRules(#1595) / VeblenGoodsRules(#1593)（並列7・ヴェブレンVEBL完結＋ポランニーPOLA＋シュンペーターSCHU・全テスト一発green）
 - [x] Wave33 (2026-06-11)：CreativeDestructionRules(#1581) / EntrepreneurRules(#1584) / BureaucratizationRules(#1587) / InnovationWaveRules(#1591) / EmpathyRules(#1578) / ImpartialObserverRules(#1582) / MoralStyleRules(#1586)（並列7・シュンペーターSCHU完結＋スミス道徳感情論TMS・親がMoralStyleの正規化/全0分岐2バグ修正）
+- [x] Wave34 (2026-06-11)：CommercialIntegrityRules(#1590) / CarryingCapacityRules(#1574) / MalthusianCheckRules(#1575) / PoorLawRules(#1580) / MoralSproutsRules(#1564) / GovernanceStyleRules(#1568) / MoralForceRules(#1570)（並列7・スミスTMS完結＋マルサスMALT＋孟子MENC・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -139,13 +140,13 @@
 - [x] EmpathyRules：共感評判エンジン＝行動→道徳評価→支持/忠誠/opinion修正子（TMS-1 #1578・スミス道徳感情論）。`ReputationRules`(名声)/`JusticeRules`(正義観)とは別＝共感に基づく道徳評価（Wave33）
 - [x] ImpartialObserverRules：公平な観察者フィルター＝自己欺瞞バイアス→腐敗加速のブレーキ（TMS-2 #1582）。`RegimeRules`(腐敗)とは別＝内なる観察者による自制（Wave33）
 - [x] MoralStyleRules：3徳統治スタイル軸＝慎慮/仁愛/正義→安定度修正子（TMS-3 #1586）。`GovernanceRules`(安定度)/`WangDaoRules`(王道覇道)とは別＝徳の統治スタイル（Wave33）
-- [ ] CommercialIntegrityRules：商業誠実性の信頼基盤＝繰り返し交易→信頼蓄積→opinion修正（TMS-4 #1590）。`TradeRules`(交易利得)/`DiplomacyRules`(opinion)とは別＝商業の信頼蓄積
-- [ ] CarryingCapacityRules：食糧天井関数＝農業産出×人口→FoodStressRatio（MALT-1 #1574・マルサス人口論）。`DemographicsRules`(人口動態)/`ResourceProductionRules`(資源)とは別＝食糧の収容限界
-- [ ] MalthusianCheckRules：マルサスチェック＝FoodStressRatio→出生率↓・死亡率↑の変調係数（MALT-2 #1575）。`DemographicsRules`(VitalRates)とは別＝食糧逼迫の人口抑制
-- [ ] PoorLawRules：貧者救済のパラドックス＝福祉→出生刺激→長期に賃金帳消し（MALT-4 #1580）。`RedistributionRules`(税再分配)/`SocialProtectionRules`(保護ラチェット)とは別＝救済の逆説
-- [ ] MoralSproutsRules：四端モデル＝仁/義/礼/智の住民道徳的感受性（MENC-1 #1564・孟子）。`MoralStyleRules`(統治スタイル)/`GovernanceRules`とは別＝住民の道徳的素地（MoralSprouts同梱）
-- [ ] GovernanceStyleRules：仁政と覇道の時間動態＝王道の長期持続性vs覇道の短期最強（MENC-3 #1568）。`WangDaoRules`(王道覇道の主義ドリフト)とは別＝仁政vs覇道の時間トレードオフ
-- [ ] MoralForceRules：浩然之気＝一貫した善政の積み重ね→道徳的気力蓄積→忠誠/カリスマ係数（MENC-4 #1570）。`FocusRules`(三密集中)/`ReputationRules`とは別＝善政の積み重ねが生む気力（MoralForce同梱）
+- [x] CommercialIntegrityRules：商業誠実性の信頼基盤＝繰り返し交易→信頼蓄積→opinion修正（TMS-4 #1590）。`TradeRules`(交易利得)/`DiplomacyRules`(opinion)とは別＝商業の信頼蓄積（Wave34）
+- [x] CarryingCapacityRules：食糧天井関数＝農業産出×人口→FoodStressRatio（MALT-1 #1574・マルサス人口論）。`DemographicsRules`(人口動態)/`ResourceProductionRules`(資源)とは別＝食糧の収容限界（Wave34）
+- [x] MalthusianCheckRules：マルサスチェック＝FoodStressRatio→出生率↓・死亡率↑の変調係数（MALT-2 #1575）。`DemographicsRules`(VitalRates)とは別＝食糧逼迫の人口抑制（Wave34）
+- [x] PoorLawRules：貧者救済のパラドックス＝福祉→出生刺激→長期に賃金帳消し（MALT-4 #1580）。`RedistributionRules`(税再分配)/`SocialProtectionRules`(保護ラチェット)とは別＝救済の逆説（Wave34）
+- [x] MoralSproutsRules：四端モデル＝仁/義/礼/智の住民道徳的感受性（MENC-1 #1564・孟子）。`MoralStyleRules`(統治スタイル)/`GovernanceRules`とは別＝住民の道徳的素地（MoralSprouts同梱）（Wave34）
+- [x] GovernanceStyleRules：仁政と覇道の時間動態＝王道の長期持続性vs覇道の短期最強（MENC-3 #1568）。`WangDaoRules`(王道覇道の主義ドリフト)とは別＝仁政vs覇道の時間トレードオフ（Wave34）
+- [x] MoralForceRules：浩然之気＝一貫した善政の積み重ね→道徳的気力蓄積→忠誠/カリスマ係数（MENC-4 #1570）。`FocusRules`(三密集中)/`ReputationRules`とは別＝善政の積み重ねが生む気力（MoralForce同梱）（Wave34）
 - [ ] DefenseGuildRules：守城専門集団＝非国家の防衛請負組織（MOZI-1 #1555・墨子）。`MercenaryRules`(傭兵)/`FortressRules`(要塞)とは別＝守城専門の請負ギルド（DefenseGuild同梱）
 - [ ] CompetenceLegitimacyRules：尚賢の正統性直結＝能力→体制正統性の保全倍率（MOZI-4 #1565）。`MeritPromotionRules`(功績昇進)/`PersonRules`とは別＝賢者登用が正統性を保つ
 - [ ] FrugalityDoctrineRules：節用の財政効率＝倹約ドクトリン→産出↑・貴族合意↓（MOZI-5 #1567）。`FiscalRules`(財政)/`RationingRules`(配給)とは別＝倹約の財政効率と貴族の不満

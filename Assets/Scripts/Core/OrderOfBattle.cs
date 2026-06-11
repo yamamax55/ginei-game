@@ -3,19 +3,23 @@ using System.Collections.Generic;
 namespace Ginei
 {
     /// <summary>
-    /// 編制ツリーの台帳（#147・オーダー・オブ・バトル）。軍集団⊃軍団⊃艦隊(#146)の梯団ツリーを束ね、
-    /// 「司令部固定・中身流動」（艦隊/下位梯団の attach/detach）・梯団別の司令配属（階級ゲート #14）・
+    /// 編制ツリーの台帳（#147・オーダー・オブ・バトル）。現実準拠の多段（戦隊⊂分艦隊⊂艦隊⊂軍団⊂軍⊂軍集団⊂宇宙艦隊・ORBAT-1 #1717）の
+    /// 梯団ツリーを束ね、「司令部固定・中身流動」（艦隊/下位梯団の attach/detach）・梯団別の司令配属（階級ゲート #14）・
     /// 配下集計を管理する唯一の窓口。艦隊そのものは #146 <see cref="FleetRoster"/> が持ち、ここは番号で参照する
     /// （別レジストリを作らず #146 を木構造へ拡張する方針）。会戦中の艦在庫 <see cref="FleetRegistry"/> とは別物。
-    /// 司令配属の階級ゲートは #14 既定ラダー（中将7/大将8/元帥10）で判定する。②直轄投資・③任務戦術は後段。
+    /// 司令配属の階級ゲートは #14 既定ラダーで判定する（梯団別の必要 tier は <see cref="RequiredTier"/>）。②直轄投資・③任務戦術は後段。
     /// </summary>
     public static class OrderOfBattle
     {
-        // 梯団別の必要階級 tier（#14 既定ラダー・銀英伝準拠 RANKCMD-4：少将6/中将7/大将8/元帥10）。マジックナンバー禁止＝const に集約。
+        // 梯団別の必要階級 tier（#14 既定ラダー・現実準拠 ORBAT-1 #1717／RANKCMD-4）。マジックナンバー禁止＝const に集約。
+        // ※指揮官階級は >= 判定の下限。規模との対応表の精緻化は ORBAT-2 #1718。
+        public const int SquadronCommanderTier = 4;     // 戦隊司令＝大佐相当（准将未満・分艦隊の下段）
         public const int SubFleetCommanderTier = 6;     // 分艦隊司令＝少将（准将5でも >= 判定で持てる）
         public const int FleetCommanderTier = 7;       // 艦隊司令＝中将
-        public const int CorpsCommanderTier = 8;        // 軍団（艦隊群/方面）司令＝大将
-        public const int ArmyGroupCommanderTier = 10;   // 軍集団（宇宙艦隊）司令＝元帥
+        public const int CorpsCommanderTier = 8;        // 軍団司令＝大将
+        public const int ArmyCommanderTier = 9;         // 軍司令＝上級大将（軍団の上段）
+        public const int ArmyGroupCommanderTier = 10;   // 軍集団＝方面軍司令＝元帥
+        public const int GrandFleetCommanderTier = 10;  // 宇宙艦隊＝総軍司令＝元帥（最上段）
 
         private static readonly Dictionary<int, MilitaryFormation> formations = new Dictionary<int, MilitaryFormation>();
         private static int nextId = 1;
@@ -106,15 +110,18 @@ namespace Ginei
 
         // ===== 司令配属（階級ゲート #14） =====
 
-        /// <summary>梯団種別ごとの必要階級 tier（分艦隊6/艦隊7/軍団8/軍集団10・RANKCMD-4）。</summary>
+        /// <summary>梯団種別ごとの必要階級 tier（戦隊4/分艦隊6/艦隊7/軍団8/軍9/軍集団10/宇宙艦隊10・ORBAT-1 #1717）。</summary>
         public static int RequiredTier(EchelonType echelon)
         {
             switch (echelon)
             {
+                case EchelonType.宇宙艦隊: return GrandFleetCommanderTier;
                 case EchelonType.軍集団: return ArmyGroupCommanderTier;
+                case EchelonType.軍: return ArmyCommanderTier;
                 case EchelonType.軍団: return CorpsCommanderTier;
                 case EchelonType.分艦隊: return SubFleetCommanderTier;
-                default: return FleetCommanderTier;
+                case EchelonType.戦隊: return SquadronCommanderTier;
+                default: return FleetCommanderTier; // 艦隊
             }
         }
 

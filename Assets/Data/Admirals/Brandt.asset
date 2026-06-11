@@ -21,6 +21,8 @@ MonoBehaviour:
   regnalNumber: 3
   epithet: 
   callName: 
+  isProtagonist: 0
+  rankTier: 8
   leadership: 84
   attack: 88
   defense: 82

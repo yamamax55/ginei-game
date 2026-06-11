@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -21,6 +22,10 @@ namespace Ginei
         [Header("デモ")]
         [Tooltip("起動時にサンプル決裁を積む（重大で時間停止／通常が締切で最小化→自動選択 を体感）")]
         public bool spawnDemoDecisions = true;
+
+        [Header("旧イベント抑制（DESK 移行）")]
+        [Tooltip("旧 StrategyEventPanel（中央モーダル）を抑制し決裁デスクへ集約する。DESK 移行中は既定 true。F9 で実行時トグル")]
+        public bool suppressLegacyEventPanel = true;
 
         [Header("外観")]
         public int canvasSortingOrder = 885;       // NotificationFeed(880) より僅かに前・モーダル(900+)より後ろ
@@ -68,11 +73,21 @@ namespace Ginei
             jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             EnsureEventSystem();
             BuildUI();
+            // 新システム（決裁デスク）が判断：移行中は旧イベントモーダルを抑制し右下スタックへ集約
+            StrategyEventPanel.Enabled = !suppressLegacyEventPanel;
             if (spawnDemoDecisions) SpawnDemo();
         }
 
         private void Update()
         {
+            // デバッグ：F9 で旧イベントモーダルの ON/OFF を実行時切替（決裁デスクへ移行中の確認用）
+            if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
+            {
+                StrategyEventPanel.Enabled = !StrategyEventPanel.Enabled;
+                NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
+                    StrategyEventPanel.Enabled ? "旧イベントモーダル：ON" : "旧イベントモーダル：OFF（決裁デスクに集約）");
+            }
+
             // game-時間で締切を進める（クロックがポーズ＝重大停止中は EffectiveDt が0＝凍結＝時間が止まる）
             GameClock clock = StrategySession.Clock;
             float gdt = clock != null ? (float)clock.EffectiveDt(Time.unscaledDeltaTime) : Time.deltaTime;

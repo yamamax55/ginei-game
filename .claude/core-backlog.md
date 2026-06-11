@@ -107,6 +107,7 @@
 - [x] Wave38 (2026-06-11)：PluralityRules(#1532) / TotalitarianRules(#1535) / WarCrimesRules(#1536) / PoliticalEthicsRules(#1528) / PoliticalVocationRules(#1531) / PlebiscitaryRules(#1533) / PopulationMigrationRules(#1566)（並列7・アーレントBNAL完結＋ウェーバーWEBR完結＋孟子MENC完結・全テスト一発green）
 - [x] Wave39 (2026-06-11)：ConquestGovernanceRules(#1139) / FearVsHatredRules(#1140) / AdvisorCandorRules(#1141) / VirtuFortunaRules(#1142) / FrictionRules(#1133) / TrinitarianTensionRules(#1135) / CenterOfGravityRules(#1136)（並列7・マキャヴェッリ君主論MKV完結＋クラウゼヴィッツ戦争論CLZ・全テスト一発green）
 - [x] Wave40 (2026-06-11)：HerrschaftRules(#1525) / StatelessnessRules(#1526) / SuperfluousnessRules(#1524) / ImperialBlowbackRules(#1522) / TerrorPrincipleRules(#1519) / HistoricismTrapRules(#1521) / ToleranceParadoxRules(#1518)（並列7・ウェーバー支配類型＋アーレント全体主義TOTL完結＋ポパー開かれた社会POPR着手・全テスト一発green）
+- [x] Wave41 (2026-06-11)：InstitutionalCorrectionRules(#1517) / PiecemealEngineeringRules(#1514) / OpennessRules(#1511) / PanoptismRules(#1507) / NormalizationRules(#1508) / ExaminationRules(#1509) / MesoiRules(#1495)（並列7・ポパー開かれた社会POPR完結＋フーコー規律PANO完結＋アリストテレスARIS着手・親がPanoptismテストclamp修正）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -204,13 +205,13 @@
 - [x] TerrorPrincipleRules：テロの原理化＝道具だった恐怖が目的に変わり粛清が自己増殖する（TOTL-2 #1519）。`TerrorRules`(テロの劇場性)/`PurgeRules`とは別＝恐怖が手段から目的へ転化（Wave40）
 - [x] HistoricismTrapRules：歴史主義の罠＝必然論イデオロギーが適応拒否を生み脆性を増す（POPR-5 #1521・ポパー開かれた社会）。`DynastyRules`(天命)とは別＝歴史法則信仰が硬直を呼ぶ（Wave40）
 - [x] ToleranceParadoxRules：寛容のパラドックス＝不寛容派の容認が乗っ取りリスクを生む抑制のジレンマ（POPR-4 #1518）。`PluralityRules`/`FreePressRules`とは別＝寛容が自らを滅ぼす逆説（Wave40）
-- [ ] InstitutionalCorrectionRules：誤り蓄積と脆性崩壊＝errorStock臨界→非線形崩壊確率（POPR-3 #1517）。`RegimeRules`(腐敗)/`AsabiyyaRules`とは別＝自己修正できない制度の誤り蓄積
-- [ ] PiecemealEngineeringRules：漸進的改革vs全体改造＝リスク分布の二様・改革モード選択（POPR-2 #1514）。`DynastyRules.Reform`/`LandReformRules`とは別＝漸進改革とユートピア改造のリスク差
-- [ ] OpennessRules：開放度スペクトル＝自己修正能力・誤り蓄積・適応速度（POPR-1 #1511・開かれた社会）。`SpontaneousOrderRules`/`FreePressRules`とは別＝開かれた社会vs閉じた社会の適応力（OpennessState同梱）
-- [ ] PanoptismRules：パノプティコン係数＝監視インフラ密度→事前抑止効果（PANO-1 #1507・フーコー）。`SecurityRules`(秘密警察)/`CensusRules`とは別＝見られている意識による自己規律（SurveillanceState同梱）
-- [ ] NormalizationRules：規律訓練と標準化＝訓練強度→信頼性↑・創発シナジー↓（PANO-2 #1508）。`VeterancyRules`/`DisciplineRules`とは別＝規律権力による標準化のトレードオフ
-- [ ] ExaminationRules：考課制度＝定期記録→昇進反映・反乱予兆検出精度向上（PANO-3 #1509）。`PerformanceReviewRules`(9-box)とは別＝フーコー的試験・記録の権力
-- [ ] MesoiRules：中間層安定化係数＝FiscalClass中間層シェア→政体安定倍率（ARIS-1 #1495・アリストテレス政治学）。`RedistributionRules`/`CoalitionRules`とは別＝中間層が分厚いほど政体が安定
+- [x] InstitutionalCorrectionRules：誤り蓄積と脆性崩壊＝errorStock臨界→非線形崩壊確率（POPR-3 #1517）。`RegimeRules`(腐敗)/`AsabiyyaRules`とは別＝自己修正できない制度の誤り蓄積（Wave41）
+- [x] PiecemealEngineeringRules：漸進的改革vs全体改造＝リスク分布の二様・改革モード選択（POPR-2 #1514）。`DynastyRules.Reform`/`LandReformRules`とは別＝漸進改革とユートピア改造のリスク差（Wave41）
+- [x] OpennessRules：開放度スペクトル＝自己修正能力・誤り蓄積・適応速度（POPR-1 #1511・開かれた社会）。`SpontaneousOrderRules`/`FreePressRules`とは別＝開かれた社会vs閉じた社会の適応力（OpennessState同梱）（Wave41）
+- [x] PanoptismRules：パノプティコン係数＝監視インフラ密度→事前抑止効果（PANO-1 #1507・フーコー）。`SecurityRules`(秘密警察)/`CensusRules`とは別＝見られている意識による自己規律（SurveillanceState同梱）（Wave41）
+- [x] NormalizationRules：規律訓練と標準化＝訓練強度→信頼性↑・創発シナジー↓（PANO-2 #1508）。`VeterancyRules`/`DisciplineRules`とは別＝規律権力による標準化のトレードオフ（Wave41）
+- [x] ExaminationRules：考課制度＝定期記録→昇進反映・反乱予兆検出精度向上（PANO-3 #1509）。`PerformanceReviewRules`(9-box)とは別＝フーコー的試験・記録の権力（Wave41）
+- [x] MesoiRules：中間層安定化係数＝FiscalClass中間層シェア→政体安定倍率（ARIS-1 #1495・アリストテレス政治学）。`RedistributionRules`/`CoalitionRules`とは別＝中間層が分厚いほど政体が安定（Wave41）
 - [ ] CommonGoodOrientationRules：公益-私益政体品質スコア＝累進度・制度制約→腐敗加速係数（ARIS-2 #1499）。`JusticeRules`/`RegimeRules`とは別＝政体が公益志向か私益志向かの品質
 - [ ] ChrematisticsRules：収奪経済志向＝管理型/収奪型の動機区別→腐敗加速の別回路（ARIS-3 #1502）。`MonopolyRules`/`ExtractiveDecay`とは別＝アリストテレスの蓄財術批判
 - [ ] CivicPhiliaRules：市民的信頼と審議崩壊＝不平等・僭主圧力で低下→膠着増幅（ARIS-4 #1503）。`ConsentRules`/`SeparationOfPowersRules`とは別＝市民的友愛（ポリス的信頼）

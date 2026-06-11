@@ -102,6 +102,7 @@
 - [x] Wave33 (2026-06-11)：CreativeDestructionRules(#1581) / EntrepreneurRules(#1584) / BureaucratizationRules(#1587) / InnovationWaveRules(#1591) / EmpathyRules(#1578) / ImpartialObserverRules(#1582) / MoralStyleRules(#1586)（並列7・シュンペーターSCHU完結＋スミス道徳感情論TMS・親がMoralStyleの正規化/全0分岐2バグ修正）
 - [x] Wave34 (2026-06-11)：CommercialIntegrityRules(#1590) / CarryingCapacityRules(#1574) / MalthusianCheckRules(#1575) / PoorLawRules(#1580) / MoralSproutsRules(#1564) / GovernanceStyleRules(#1568) / MoralForceRules(#1570)（並列7・スミスTMS完結＋マルサスMALT＋孟子MENC・全テスト一発green）
 - [x] Wave35 (2026-06-11)：DefenseGuildRules(#1555) / CompetenceLegitimacyRules(#1565) / FrugalityDoctrineRules(#1567) / NonAggressionDoctrineRules(#1560) / WaterDoctrineRules(#1558) / SpontaneousOrderRules(#1556) / EmbeddednessRules(#1588)（並列7・墨子MOZI＋老子LAOZ＋ハイエクHAYK＋ポランニーPOLA完結・全テスト一発green）
+- [x] Wave36 (2026-06-11)：EffectiveDemandRules(#1540) / MultiplierRules(#1542) / AnimalSpiritsRules(#1545) / LiquidityPreferenceRules(#1548) / ThriftParadoxRules(#1552) / PlanningDriftRules(#1541) / CalculationProblemRules(#1544)（並列7・ケインズKEYN完結＋ハイエクHAYK・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -158,13 +159,13 @@
 
 ### Issue連動（第7次補充・2026-06-11／経済学・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
 # ケインズKEYN（#1538）／ハイエクHAYK（#1539）／老子LAOZ（#1543）／アーレントBNAL（#1527）／ウェーバーWEBR／孟子MENC
-- [ ] EffectiveDemandRules：有効需要ギャップ＝需要不足が潜在産出を遊休させる（KEYN-1 #1540・ケインズ一般理論）。`MarketRules`(個別財需給)/`FiscalRules`とは別＝マクロの需要不足とOutputGap
-- [ ] MultiplierRules：財政乗数＝財政支出→所得連鎖の増幅 k=1/(1−c)（KEYN-2 #1542）。`FiscalRules`(国家財政)とは別＝支出の波及増幅
-- [ ] AnimalSpiritsRules：アニマルスピリッツ＝信認崩壊→投資凍結→需要不足の自己強化スパイラル（KEYN-3 #1545）。`StockMarketRules`(株価)/`CrisisCycleRules`とは別＝投資家心理の集合的崩壊
-- [ ] LiquidityPreferenceRules：流動性選好と金利下限＝ZLBで金融政策が無効化し財政のみ有効（KEYN-4 #1548）。`BankRules`/`FiscalRules`とは別＝流動性の罠
-- [ ] ThriftParadoxRules：節約のパラドックス＝全勢力一斉緊縮→需要連鎖崩壊→集合的行為問題（KEYN-5 #1552）。`MultiplierRules`(乗数)とは別＝合成の誤謬
-- [ ] PlanningDriftRules：計画経済ドリフト＝介入累積ラチェット→権威主義圧力（HAYK-1 #1541・ハイエク隷属への道）。`SocialProtectionRules`(保護ラチェット)とは別＝統制の累積が権威主義を呼ぶ
-- [ ] CalculationProblemRules：計算問題と中央計画の効率損失＝価格なき計画→生産性ペナルティ（HAYK-2 #1544）。`MarketRules`(価格発見)とは別＝計画経済の情報問題
+- [x] EffectiveDemandRules：有効需要ギャップ＝需要不足が潜在産出を遊休させる（KEYN-1 #1540・ケインズ一般理論）。`MarketRules`(個別財需給)/`FiscalRules`とは別＝マクロの需要不足とOutputGap（Wave36）
+- [x] MultiplierRules：財政乗数＝財政支出→所得連鎖の増幅 k=1/(1−c)（KEYN-2 #1542）。`FiscalRules`(国家財政)とは別＝支出の波及増幅（Wave36）
+- [x] AnimalSpiritsRules：アニマルスピリッツ＝信認崩壊→投資凍結→需要不足の自己強化スパイラル（KEYN-3 #1545）。`StockMarketRules`(株価)/`CrisisCycleRules`とは別＝投資家心理の集合的崩壊（Wave36）
+- [x] LiquidityPreferenceRules：流動性選好と金利下限＝ZLBで金融政策が無効化し財政のみ有効（KEYN-4 #1548）。`BankRules`/`FiscalRules`とは別＝流動性の罠（Wave36）
+- [x] ThriftParadoxRules：節約のパラドックス＝全勢力一斉緊縮→需要連鎖崩壊→集合的行為問題（KEYN-5 #1552）。`MultiplierRules`(乗数)とは別＝合成の誤謬（Wave36）
+- [x] PlanningDriftRules：計画経済ドリフト＝介入累積ラチェット→権威主義圧力（HAYK-1 #1541・ハイエク隷属への道）。`SocialProtectionRules`(保護ラチェット)とは別＝統制の累積が権威主義を呼ぶ（Wave36）
+- [x] CalculationProblemRules：計算問題と中央計画の効率損失＝価格なき計画→生産性ペナルティ（HAYK-2 #1544）。`MarketRules`(価格発見)とは別＝計画経済の情報問題（Wave36）
 - [ ] AuthoritarianSelectionRules：なぜワルモノが上に立つか＝全体主義体制の指導者選別バイアス（HAYK-3 #1547）。`CoupRules`/`PurgeRules`とは別＝逆淘汰の選別圧
 - [ ] LegalGeneralityRules：法の一般性と恣意的命令＝RuleOfLawIndex→合意撤回・抵抗権連動（HAYK-4 #1549）。`MagnaCartaRules`/`ConstitutionRules`とは別＝法の一般性vs個別命令
 - [ ] EconomicFreedomRules：経済的自由と政治的自由の連動＝経済統制度→協力係数→安定度（HAYK-5 #1553）。`ConsentRules`(協力)/`SpontaneousOrderRules`とは別＝二つの自由の連動

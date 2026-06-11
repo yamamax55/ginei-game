@@ -9,18 +9,20 @@ namespace Ginei
     /// <summary>
     /// 画面左下の通知パネル（#964 NOTIF-2）。<see cref="NotificationCenter"/> を単一ソースに、直近 <see cref="maxRows"/> 件を
     /// <b>枠付き（Windows 風・タイトルバー＋ドラッグ移動 <see cref="UIDragMove"/>）で常時表示</b>する。
-    /// 旧仕様（時間で消えるトースト）と違い、**新着が来たら古いものを押し出すだけで4〜5件は残る**＝見逃さない。
-    /// 生成時に <see cref="NotificationCenter.Recent"/> で直近履歴を seed し、以降の新着は <see cref="NotificationCenter.Since"/>
-    /// で全件反映する（取りこぼさない）。全履歴は N キーの <see cref="NotificationLogOverlay"/> で遡れる。
-    /// Strategy/Battle 両シーンへ自動生成。クリックはタイトルバーのドラッグのみ受ける（行はクリックスルー）。
+    /// <b>枠は最初から maxRows 件ぶんの高さを確保</b>（件数が少なくてもサイズが安定）し、<b>タブ（全般／重要／決裁）で絞り込み</b>できる。
+    /// 旧仕様（時間で消えるトースト）と違い、新着が来たら古いものを押し出すだけで4〜5件は残る＝見逃さない。
+    /// 各行は1行（省略表示）。全文・全履歴は N キーの <see cref="NotificationLogOverlay"/> で遡れる。
+    /// Strategy/Battle 両シーンへ自動生成。クリックはタイトルバー/タブのみ（行はクリックスルー）。
     /// </summary>
     public class NotificationFeed : MonoBehaviour
     {
         [Header("表示")]
-        [Tooltip("常時残す通知の最大件数（超過は古いものから押し出す）")]
+        [Tooltip("常時残す通知の最大件数＝枠が確保する行数")]
         public int maxRows = 5;
         [Tooltip("パネルの幅（ピクセル）")]
         public float panelWidth = 600f;
+        [Tooltip("1行の高さ（ピクセル）。枠は maxRows×この高さを最初から確保する")]
+        public float rowHeight = 26f;
         [Tooltip("画面左下からのマージン（X, Y）。下端で見切れないよう Y は余裕を取る")]
         public Vector2 margin = new Vector2(24f, 40f);
 
@@ -30,11 +32,21 @@ namespace Ginei
         public Color titleBarColor = new Color(0.09f, 0.12f, 0.18f, 1f);
         public Color accentColor = new Color(1f, 0.84f, 0.36f, 1f);
 
+        // タブ定義（ラベルと <see cref="Match"/> のインデックスが対応）。「など」は Match に分岐を足すだけで増やせる。
+        private static readonly string[] TabLabels = { "全般", "重要", "決裁" };
+
+        private const float RowSpacing = 5f;
+        private const float RowPadTop = 8f;
+        private const float RowPadBottom = 10f;
+
         private long lastSeq;
+        private int activeTab;
         private RectTransform window;     // 枠ウィンドウ本体（ドラッグ対象）
-        private Transform rowsParent;     // 通知行の親
+        private Transform rowsParent;     // 通知行の親（固定高）
         private TMP_FontAsset jpFont;
         private readonly List<GameObject> rows = new List<GameObject>();
+        private readonly List<Image> tabBgs = new List<Image>();
+        private readonly List<TextMeshProUGUI> tabTexts = new List<TextMeshProUGUI>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -57,26 +69,63 @@ namespace Ginei
         {
             jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             BuildUI();
-
-            // 直近履歴を seed（パネルを空にしない＝開いた瞬間から4〜5件見える）。
-            // Recent は新しい順で返すため、古い→新しいの順に積む（新着が下＝Since と同じ並び）。
-            var recent = NotificationCenter.Recent(maxRows);
-            for (int i = recent.Count - 1; i >= 0; i--) AddRow(recent[i]);
-            lastSeq = NotificationCenter.LastSeq; // 以降は新着だけ追記
+            UpdateTabVisuals();
+            lastSeq = NotificationCenter.LastSeq; // 以降の新着を検知する基準
+            RebuildRows();                        // 直近履歴でパネルを満たす（開いた瞬間から見える）
         }
 
         private void Update()
         {
-            // 新着を全件追記（古い順）。時間では消さず、件数超過で古いものを押し出す＝4〜5件は常に残る。
+            // 新着が来たら（時間では消さず）行を作り直す＝最新 maxRows 件を常時表示。
             var fresh = NotificationCenter.Since(lastSeq);
-            for (int i = 0; i < fresh.Count; i++)
+            if (fresh.Count == 0) return;
+            lastSeq = fresh[fresh.Count - 1].seq;
+            RebuildRows();
+        }
+
+        // ===== タブ・フィルタ =====
+
+        /// <summary>タブを切り替えて行を再描画する。</summary>
+        private void SetActiveTab(int index)
+        {
+            if (index == activeTab) return;
+            activeTab = index;
+            UpdateTabVisuals();
+            RebuildRows();
+        }
+
+        /// <summary>通知が現在のタブに該当するか。タブ追加は分岐を足すだけ。</summary>
+        private static bool Match(int tab, Notification n)
+        {
+            switch (tab)
             {
-                AddRow(fresh[i]);
-                lastSeq = fresh[i].seq;
+                case 1: // 重要＝注意・警告
+                    return n.severity == NotificationSeverity.注意 || n.severity == NotificationSeverity.警告;
+                case 2: // 決裁＝政治カテゴリ（裁可/諮問/自動処理 等）
+                    return n.category == NotificationCategory.政治;
+                default: // 0=全般
+                    return true;
             }
         }
 
-        /// <summary>通知1件を行として追加し、上限を超えたら最古を押し出す。</summary>
+        // ===== 行の再構築 =====
+
+        /// <summary>現在のタブで直近 maxRows 件を抽出し、古い→新しい順で行を作り直す。</summary>
+        private void RebuildRows()
+        {
+            for (int i = 0; i < rows.Count; i++) if (rows[i] != null) Destroy(rows[i]);
+            rows.Clear();
+
+            // Recent は新しい順。フィルタしながら maxRows 件集め、表示は古い→新しいへ反転。
+            var recent = NotificationCenter.Recent(NotificationCenter.Capacity);
+            var matched = new List<Notification>(maxRows);
+            for (int i = 0; i < recent.Count && matched.Count < maxRows; i++)
+                if (Match(activeTab, recent[i])) matched.Add(recent[i]);
+
+            for (int i = matched.Count - 1; i >= 0; i--) AddRow(matched[i]);
+        }
+
+        /// <summary>通知1件を1行（省略表示・固定高）として追加する。</summary>
         private void AddRow(Notification n)
         {
             var go = new GameObject("Row");
@@ -84,20 +133,31 @@ namespace Ginei
 
             var label = go.AddComponent<TextMeshProUGUI>();
             label.text = $"▸ {n.message}";
-            label.fontSize = 19f;
+            label.fontSize = 18f;
             label.color = SeverityColor(n.severity);
-            label.raycastTarget = false; // クリックスルー
+            label.raycastTarget = false;                       // クリックスルー
             label.alignment = TextAlignmentOptions.Left;
-            label.enableWordWrapping = true;
+            label.enableWordWrapping = false;                  // 1行固定（枠の高さを安定させる）
+            label.overflowMode = TextOverflowModes.Ellipsis;   // 長文は…で省略（全文は N で）
             if (jpFont != null) label.font = jpFont;
+
+            var le = go.AddComponent<LayoutElement>();
+            le.minHeight = rowHeight;
+            le.preferredHeight = rowHeight;
 
             go.transform.SetAsLastSibling(); // 新しいものを下に
             rows.Add(go);
+        }
 
-            while (rows.Count > maxRows)
+        private void UpdateTabVisuals()
+        {
+            for (int i = 0; i < tabBgs.Count; i++)
             {
-                if (rows[0] != null) Destroy(rows[0]);
-                rows.RemoveAt(0);
+                bool active = i == activeTab;
+                if (tabBgs[i] != null)
+                    tabBgs[i].color = active ? accentColor : new Color(0.13f, 0.16f, 0.22f, 1f);
+                if (tabTexts[i] != null)
+                    tabTexts[i].color = active ? new Color(0.08f, 0.09f, 0.12f) : new Color(0.7f, 0.76f, 0.84f);
             }
         }
 
@@ -125,7 +185,7 @@ namespace Ginei
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             canvasObj.AddComponent<GraphicRaycaster>();
 
-            // 枠ウィンドウ（左下・下端から余裕を取って見切れ防止・下端アンカーで上へ伸びる）
+            // 枠ウィンドウ（左下・下端から余裕を取って見切れ防止）。子は固定高なので全体サイズは安定。
             var win = new GameObject("NotificationWindow");
             win.transform.SetParent(canvasObj.transform, false);
             window = win.AddComponent<RectTransform>();
@@ -149,9 +209,10 @@ namespace Ginei
             winVlg.childForceExpandWidth = true;
             winVlg.childForceExpandHeight = false;
             var winFitter = win.AddComponent<ContentSizeFitter>();
-            winFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize; // 内容に応じて上へ伸びる
+            winFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             BuildTitleBar(win.transform);
+            BuildTabBar(win.transform);
             BuildRowsArea(win.transform);
         }
 
@@ -166,8 +227,7 @@ namespace Ginei
             le.minHeight = 30f;
             le.preferredHeight = 30f;
 
-            // つかんでウィンドウを移動（決裁デスクと同じ UIDragMove を再利用）
-            var drag = bar.AddComponent<UIDragMove>();
+            var drag = bar.AddComponent<UIDragMove>(); // 決裁デスクと同じ移動コンポーネントを再利用
             drag.target = window;
 
             var label = new GameObject("Caption").AddComponent<TextMeshProUGUI>();
@@ -179,10 +239,9 @@ namespace Ginei
             label.fontSize = 15f;
             label.color = accentColor;
             label.alignment = TextAlignmentOptions.Left;
-            label.raycastTarget = false; // バー本体にドラッグを通す
+            label.raycastTarget = false;
             if (jpFont != null) label.font = jpFont;
 
-            // タイトルバー下端の金色ルール線
             var rule = new GameObject("Rule");
             rule.transform.SetParent(bar.transform, false);
             var rrt = rule.AddComponent<RectTransform>();
@@ -194,20 +253,78 @@ namespace Ginei
             ri.raycastTarget = false;
         }
 
-        /// <summary>通知行を縦積みする領域（新しいものが下）。</summary>
+        /// <summary>タブバー（全般／重要／決裁…）。押すと該当通知だけに絞る。</summary>
+        private void BuildTabBar(Transform parent)
+        {
+            var bar = new GameObject("TabBar");
+            bar.transform.SetParent(parent, false);
+            bar.AddComponent<RectTransform>();
+            var le = bar.AddComponent<LayoutElement>();
+            le.minHeight = 28f;
+            le.preferredHeight = 28f;
+
+            var hlg = bar.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(6, 6, 4, 2);
+            hlg.spacing = 4f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = true;  // タブを等幅に
+            hlg.childForceExpandHeight = true;
+
+            for (int i = 0; i < TabLabels.Length; i++) BuildTabButton(bar.transform, i, TabLabels[i]);
+        }
+
+        private void BuildTabButton(Transform parent, int index, string text)
+        {
+            var go = new GameObject("Tab_" + text);
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            img.color = new Color(0.13f, 0.16f, 0.22f, 1f);
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            int idx = index;
+            btn.onClick.AddListener(() => SetActiveTab(idx));
+            var le = go.AddComponent<LayoutElement>();
+            le.flexibleWidth = 1f;
+
+            var t = new GameObject("Text").AddComponent<TextMeshProUGUI>();
+            t.transform.SetParent(go.transform, false);
+            var trt = t.rectTransform;
+            trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero; trt.offsetMax = Vector2.zero;
+            t.text = text;
+            t.fontSize = 15f;
+            t.alignment = TextAlignmentOptions.Center;
+            t.color = new Color(0.7f, 0.76f, 0.84f);
+            t.raycastTarget = false;
+            if (jpFont != null) t.font = jpFont;
+
+            tabBgs.Add(img);
+            tabTexts.Add(t);
+        }
+
+        /// <summary>通知行を縦積みする領域（新しいものが下・最初から maxRows 行ぶんの高さを確保）。</summary>
         private void BuildRowsArea(Transform parent)
         {
             var area = new GameObject("Rows");
             area.transform.SetParent(parent, false);
             area.AddComponent<RectTransform>();
+
             var vlg = area.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(12, 12, 8, 10);
-            vlg.spacing = 5f;
-            vlg.childAlignment = TextAnchor.LowerLeft;
+            vlg.padding = new RectOffset(12, 12, (int)RowPadTop, (int)RowPadBottom);
+            vlg.spacing = RowSpacing;
+            vlg.childAlignment = TextAnchor.LowerLeft; // 新しいものが下・空きは上に
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
+
+            // 最初から maxRows 行ぶんの高さを確保（件数が少なくても枠サイズが安定）
+            float reserved = maxRows * rowHeight + (maxRows - 1) * RowSpacing + RowPadTop + RowPadBottom;
+            var le = area.AddComponent<LayoutElement>();
+            le.minHeight = reserved;
+            le.preferredHeight = reserved;
+
             rowsParent = area.transform;
         }
     }

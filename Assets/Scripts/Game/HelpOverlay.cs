@@ -264,6 +264,7 @@ namespace Ginei
             ("■ ポーズ・ヘルプ", new[]
             {
                 GameAction.ポーズ, GameAction.キャンセル, GameAction.ヘルプ切替,
+                GameAction.観測オーバーレイ切替, GameAction.状態インスペクタ切替,
             }),
             ("■ 倍速・リスタート・復帰", new[]
             {

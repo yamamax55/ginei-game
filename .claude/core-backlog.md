@@ -112,6 +112,7 @@
 - [x] Wave43 (2026-06-11)：FactionMultiplicityRules(#1473) / AmbitionCounterRules(#1476) / CompoundRepublicRules(#1481) / ExtendedRepublicRules(#1485) / ExecutiveEnergyRules(#1489) / RepresentativeFilterRules(#1494) / CensorshipRules(#1474)（並列7・フェデラリストFED完結＋ミル自由論MILL着手・全テスト一発green）
 - [x] Wave44 (2026-06-11)：PublicOpinionRules(#1477) / HarmPrincipleRules(#1480) / LibertyCultureRules(#1487) / MajorityTyrannyRules(#1478) / MilitiaLoyaltyRules(#1483) / RinnovazioneRules(#1488) / FounderTrajectoryRules(#1493)（並列7・ミル自由論MILL完結＋トクヴィル多数者の専制＋マキャヴェッリ論考DISC・親が×識別子/Mathf using/HarmPrinciple期待値3件修正）
 - [x] Wave45 (2026-06-11)：GeneralWillRules(#1462) / LawgiverRules(#1464) / PolityScaleRules(#1466) / CivicFaithRules(#1468) / AnarchyCostRules(#1459) / SecurityDilemmaRules(#1461) / CovenantRules(#1463)（並列7・ルソー社会契約論ROUS完結＋ホッブズ・リヴァイアサンLEVI完結・全テスト一発green）
+- [x] Wave46 (2026-06-11)：AnacyclosisRules(#1442) / MixedConstitutionRules(#1445) / TycheRules(#1448) / UniversalHistoryRules(#1451) / InstitutionalMemoryRules(#1454) / GovernmentPrincipleRules(#1439) / PolityCorruptionRules(#1440)（並列7・ポリュビオス政体循環論POLY完結＋モンテスキュー法の精神MONT着手・親がFearDiminishingReturnsテスト比較修正）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -250,13 +251,13 @@
 
 ### Issue連動（第11次補充・2026-06-11／古典政体論・近代化・社会契約EPIC群の純ロジック子Issue・21件＝3Wave分）
 # ポリュビオスPOLY／モンテスキューMONT／ロックLOCK／孫子拡張SKUN（坂の上の雲型近代化）／三十年戦争TYW
-- [ ] AnacyclosisRules：六政体類型と腐落ベクトル＝RegimeForm enum・六形態の循環（POLY-1 #1442・ポリュビオス政体循環論）。`DynastyRules`/`RegimeRules`とは別＝王政→僭主→貴族→寡頭→民主→衆愚の循環（アナキュクローシス）
-- [ ] MixedConstitutionRules：混合政体の安定指数＝三成分混合比→腐落抵抗・シャノン混合度（POLY-2 #1445）。`SeparationOfPowersRules`/`CompoundRepublicRules`とは別＝王政/貴族政/民主政の混合が循環を止める
-- [ ] TycheRules：運命耐性＝制度品質×Tyche係数→EventEngineイベント効果変調（POLY-3 #1448）。`VirtuFortunaRules`(力量と運命)とは別＝制度の質が偶然の打撃を吸収する
-- [ ] UniversalHistoryRules：普遍史の因果波及＝星系間の事件連鎖・距離減衰（POLY-4 #1451）。`DisclosureRules`/`NotificationCenter`とは別＝ポリュビオスの「歴史は連関する」事件の波及
-- [ ] InstitutionalMemoryRules：歴史の教訓＝危機学習→制度知識蓄積・組織学習（POLY-5 #1454）。`GenerationalMemoryRules`(戦争記憶)/`InstitutionalCorrectionRules`とは別＝危機から学んで制度知が蓄積する
-- [ ] GovernmentPrincipleRules：政体の原動力＝徳/名誉/恐怖×原理強度→服従コスト係数（MONT-1 #1439・モンテスキュー法の精神）。`WangDaoRules`/`HerrschaftRules`とは別＝共和政=徳/君主政=名誉/専制=恐怖の駆動原理
-- [ ] PolityCorruptionRules：諸政体の腐化回路＝共和→寡頭・君主→専制・専制→崩壊の型別経路（MONT-2 #1440）。`RegimeRules`(腐敗)/`AnacyclosisRules`とは別＝政体類型ごとの固有の腐敗経路
+- [x] AnacyclosisRules：六政体類型と腐落ベクトル＝RegimeForm enum・六形態の循環（POLY-1 #1442・ポリュビオス政体循環論）。`DynastyRules`/`RegimeRules`とは別＝王政→僭主→貴族→寡頭→民主→衆愚の循環（アナキュクローシス）（Wave46）
+- [x] MixedConstitutionRules：混合政体の安定指数＝三成分混合比→腐落抵抗・シャノン混合度（POLY-2 #1445）。`SeparationOfPowersRules`/`CompoundRepublicRules`とは別＝王政/貴族政/民主政の混合が循環を止める（Wave46）
+- [x] TycheRules：運命耐性＝制度品質×Tyche係数→EventEngineイベント効果変調（POLY-3 #1448）。`VirtuFortunaRules`(力量と運命)とは別＝制度の質が偶然の打撃を吸収する（Wave46）
+- [x] UniversalHistoryRules：普遍史の因果波及＝星系間の事件連鎖・距離減衰（POLY-4 #1451）。`DisclosureRules`/`NotificationCenter`とは別＝ポリュビオスの「歴史は連関する」事件の波及（Wave46）
+- [x] InstitutionalMemoryRules：歴史の教訓＝危機学習→制度知識蓄積・組織学習（POLY-5 #1454）。`GenerationalMemoryRules`(戦争記憶)/`InstitutionalCorrectionRules`とは別＝危機から学んで制度知が蓄積する（Wave46）
+- [x] GovernmentPrincipleRules：政体の原動力＝徳/名誉/恐怖×原理強度→服従コスト係数（MONT-1 #1439・モンテスキュー法の精神）。`WangDaoRules`/`HerrschaftRules`とは別＝共和政=徳/君主政=名誉/専制=恐怖の駆動原理（Wave46）
+- [x] PolityCorruptionRules：諸政体の腐化回路＝共和→寡頭・君主→専制・専制→崩壊の型別経路（MONT-2 #1440）。`RegimeRules`(腐敗)/`AnacyclosisRules`とは別＝政体類型ごとの固有の腐敗経路（Wave46）
 - [ ] ClimatePolityFitRules：風土と政体の相性＝惑星環境×政体原動力→安定度係数（MONT-3 #1443）。`TerrainRules`/`GovernanceRules`とは別＝モンテスキューの風土論（環境が政体適合を左右）
 - [ ] IntermediatePowerRules：中間権力の緩衝強度＝中間団体→専制リスク低下・専制滑落抑制（MONT-4 #1446）。`AssociationRules`/`CompoundRepublicRules`とは別＝モンテスキューの中間団体が君主政を専制から守る
 - [ ] LegalFitnessRules：法の適合性＝風土×思想×産業整合→正統性係数・反乱圧力（MONT-5 #1449）。`LegalGeneralityRules`/`GovernanceRules`とは別＝法がその社会に適合しているか

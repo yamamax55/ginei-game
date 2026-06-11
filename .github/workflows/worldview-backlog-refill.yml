@@ -63,7 +63,7 @@ jobs:
           claude_args: '--allowedTools "Bash,Read,Grep,Glob,WebSearch"'
           prompt: |
             探索軸＝環境変数 AXIS、探索指示＝環境変数 HINT。この軸で「本システム（銀英伝風の星間国家戦略＋思想/歴史/経済/群像シミュ）」の欠落軸に効くネタを最大3件発掘する。
-            手順：(1)重複除外（必須）＝docs/reference-epic-backlog.md の既存行（済/未/吸収）・docs/*-reference-design.md がある題材・gh issue list --state all --label type:epic --limit 100 のタイトル・CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念、と重なるものは選ばない。(2)数合わせをしない＝確信あるものだけ（最大3件・0件可）・分野の偏りを避ける。(3)各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：| 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
+            手順：(1)重複除外（必須）＝docs/reference-epic-backlog.md の既存行（済/未/吸収）・docs/*-reference-design.md がある題材・gh issue list --state all --label type:epic --limit 300 のタイトル（「○○風」等の別表記・旧体系EPICも著者名/作品名で照合する）・CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念、と重なるものは選ばない。(2)数合わせをしない＝確信あるものだけ（最大3件・0件可）・分野の偏りを避ける。(3)各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：| 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
             0件なら lines.txt は作らない。issue起票・他ファイル編集・git操作はしない。著作権：固有名・教義・実在人物の表象は使わず構造のみ（宗教・人物軸は特に「風」モチーフ厳守）。
       - name: Upload axis candidates
         uses: actions/upload-artifact@v4

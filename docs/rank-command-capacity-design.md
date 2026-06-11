@@ -81,8 +81,8 @@
 | # | issue | 主眼 | 接続 |
 |---|---|---|---|
 | **RANKCMD-1** | #1711 | 兵力を人物から分離（`AdmiralData.baseStrength` 非推奨・兵力は `FleetUnitData`/`FleetStrength` が単一の出所） | #146・会戦 |
-| **RANKCMD-2** | #1712 | `CommandCapacityRules`（銀英伝準拠・rankTier→最大指揮兵力/梯団・`CanCommand`/`RequiredTierForStrength`） | `RankSystem`#14 |
-| **RANKCMD-3** | #1713 | 配属ゲートへ反映（`FleetRoster.CanAssign`/`OrderOfBattle` を指揮可能規模で判定＝過大兵力は下位階級が率いれない） | #146/#147 |
+| **RANKCMD-2** ✅ | #1712 | `CommandCapacityRules`（銀英伝準拠・rankTier→最大指揮兵力・`CanCommand`/`RequiredTierForStrength`/`MaxStrengthForTier`） | `RankSystem`#14 |
+| **RANKCMD-3** ✅ | #1713 | 配属ゲートへ反映（`FleetRoster.CanAssign(admiral,unit,…)`／`OrderOfBattle.CanCommand(admiral,formationId)`＋`StrengthUnder` を指揮可能規模で判定＝過大兵力は下位階級が率いれない・`AssignAdmiral`/`AssignCommander` が両ゲート・兵力0は規模0扱いで後方互換・EditMode 済） | #146/#147 |
 | **RANKCMD-4** | #1714 | 銀英伝準拠の編制対応＋分艦隊 echelon（艦隊=中将/大将・元帥=宇宙艦隊。`OrderOfBattle` の段と `RequiredTier` を補正） | #147 |
 
 ### 推奨着手順

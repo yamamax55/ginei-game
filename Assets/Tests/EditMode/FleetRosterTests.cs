@@ -100,6 +100,35 @@ namespace Ginei.Tests
             Assert.IsFalse(FleetRoster.AssignAdmiral(unit, null));
         }
 
+        /// <summary>
+        /// 指揮可能規模ゲート（RANKCMD-3 #1713）：過大兵力の艦隊は階級ゲートを満たしても下位階級では配属不可。
+        /// baseStrength=0（兵力は提督側＝RANKCMD-1 未完）の艦隊は規模0扱い＝従来どおり階級ゲートのみ（後方互換）。
+        /// </summary>
+        [Test]
+        public void AssignAdmiral_CommandCapacityGate()
+        {
+            var unit = FleetRoster.CreateFleet(Faction.帝国, 1);
+            unit.baseStrength = 20000; // 大将の指揮限界(15000)超＝上級大将/元帥級が要る
+
+            // 階級ゲート無し(0)でも、指揮可能規模を超える階級は配属不可
+            Assert.IsFalse(FleetRoster.CanAssign(Admiral(8), unit));   // 大将 cap15000 < 20000
+            Assert.IsFalse(FleetRoster.AssignAdmiral(unit, Admiral(8)));
+            Assert.IsFalse(unit.HasAdmiral);
+
+            // 規模を満たす階級は配属可
+            Assert.IsTrue(FleetRoster.CanAssign(Admiral(9), unit));    // 上級大将 cap30000 >= 20000
+            Assert.IsTrue(FleetRoster.AssignAdmiral(unit, Admiral(9)));
+            Assert.AreEqual(9, unit.assignedAdmiral.rankTier);
+
+            // 規模を満たしても階級ゲート(requiredTier)が優先（両方必要）
+            Assert.IsFalse(FleetRoster.CanAssign(Admiral(9), unit, requiredTier: 10));
+
+            // baseStrength=0 の艦隊は規模0扱い＝准将でも通る（後方互換）
+            var small = FleetRoster.CreateFleet(Faction.帝国, 2);
+            Assert.IsTrue(FleetRoster.CanAssign(Admiral(5), small));
+            Assert.IsTrue(FleetRoster.AssignAdmiral(small, Admiral(5)));
+        }
+
         [Test]
         public void Unassign_And_Reassign()
         {

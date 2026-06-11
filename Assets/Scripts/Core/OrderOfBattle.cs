@@ -120,11 +120,22 @@ namespace Ginei
         public static bool CanCommand(AdmiralData admiral, EchelonType echelon)
             => admiral != null && admiral.rankTier >= RequiredTier(echelon);
 
-        /// <summary>梯団へ司令を配属する。階級ゲートを満たさなければ false（現状維持）。</summary>
+        /// <summary>
+        /// その提督がこの梯団を率いられるか（RANKCMD-3 #1713）。梯団種別の<b>階級ゲート（#14）＋配下兵力が指揮可能規模内</b>の両方。
+        /// 配下兵力＝<see cref="StrengthUnder"/>（台帳の baseStrength 合計）。台帳未登録/兵力0（RANKCMD-1 未完）は規模0扱い＝従来どおり階級ゲートのみ（後方互換）。
+        /// </summary>
+        public static bool CanCommand(AdmiralData admiral, int formationId)
+        {
+            var f = Get(formationId);
+            if (f == null || !CanCommand(admiral, f.echelon)) return false;             // 階級ゲート（#14）
+            return CommandCapacityRules.CanCommand(admiral.rankTier, StrengthUnder(formationId)); // 指揮可能規模（RANKCMD-2）
+        }
+
+        /// <summary>梯団へ司令を配属する。階級ゲートと指揮可能規模（RANKCMD-3）を満たさなければ false（現状維持）。</summary>
         public static bool AssignCommander(int formationId, AdmiralData admiral)
         {
             var f = Get(formationId);
-            if (f == null || !CanCommand(admiral, f.echelon)) return false;
+            if (f == null || !CanCommand(admiral, formationId)) return false;
             f.commander = admiral;
             return true;
         }
@@ -148,6 +159,24 @@ namespace Ginei
 
         /// <summary>その梯団の配下にある艦隊数（再帰）。</summary>
         public static int CountFleetsUnder(int formationId) => AllFleetNumbersUnder(formationId).Count;
+
+        /// <summary>
+        /// その梯団の配下にある全艦隊(#146)の兵力合計（<see cref="FleetUnitData.baseStrength"/> の総和・再帰）。
+        /// 指揮可能規模ゲート（RANKCMD-3 <see cref="CanCommand(AdmiralData,int)"/>）の入力。台帳未登録の番号は0として無視。
+        /// </summary>
+        public static int StrengthUnder(int formationId)
+        {
+            var f = Get(formationId);
+            if (f == null) return 0;
+            int sum = 0;
+            IReadOnlyList<int> nums = AllFleetNumbersUnder(formationId);
+            for (int i = 0; i < nums.Count; i++)
+            {
+                FleetUnitData unit = FleetRoster.GetFleet(f.faction, nums[i]);
+                if (unit != null) sum += unit.baseStrength;
+            }
+            return sum;
+        }
 
         private static void Collect(int formationId, List<int> acc, HashSet<int> visited)
         {

@@ -104,6 +104,7 @@
 - [x] Wave35 (2026-06-11)：DefenseGuildRules(#1555) / CompetenceLegitimacyRules(#1565) / FrugalityDoctrineRules(#1567) / NonAggressionDoctrineRules(#1560) / WaterDoctrineRules(#1558) / SpontaneousOrderRules(#1556) / EmbeddednessRules(#1588)（並列7・墨子MOZI＋老子LAOZ＋ハイエクHAYK＋ポランニーPOLA完結・全テスト一発green）
 - [x] Wave36 (2026-06-11)：EffectiveDemandRules(#1540) / MultiplierRules(#1542) / AnimalSpiritsRules(#1545) / LiquidityPreferenceRules(#1548) / ThriftParadoxRules(#1552) / PlanningDriftRules(#1541) / CalculationProblemRules(#1544)（並列7・ケインズKEYN完結＋ハイエクHAYK・全テスト一発green）
 - [x] Wave37 (2026-06-11)：AuthoritarianSelectionRules(#1547) / LegalGeneralityRules(#1549) / EconomicFreedomRules(#1553) / WuWeiRules(#1546) / ReversalRules(#1550) / ContentmentRules(#1554) / ThoughtlessnessRules(#1530)（並列7・ハイエクHAYK完結＋老子LAOZ完結＋アーレントBNAL着手・親がWuWeiテスト対称性修正）
+- [x] Wave38 (2026-06-11)：PluralityRules(#1532) / TotalitarianRules(#1535) / WarCrimesRules(#1536) / PoliticalEthicsRules(#1528) / PoliticalVocationRules(#1531) / PlebiscitaryRules(#1533) / PopulationMigrationRules(#1566)（並列7・アーレントBNAL完結＋ウェーバーWEBR完結＋孟子MENC完結・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -174,13 +175,13 @@
 - [x] ReversalRules：反者道之動＝汎用逆U字 tipping-point 曲線（LAOZ-2 #1550）。`EscalationRules`(梯子)とは別＝物極まれば反るの汎用曲線（Wave37）
 - [x] ContentmentRules：知足安定＝適正規模ボーナス・版図一体化の正側補完（LAOZ-3 #1554）。`LogisticsRules`(一体化)/`OverextensionRules`(過拡張)とは別＝知足の適正規模（Wave37）
 - [x] ThoughtlessnessRules：悪の凡庸性＝hierarchyDepth×complianceNorm→moralAgencyFactorとAtrocityRisk（BNAL-1 #1530・アーレント）。`AtrocityRules`(虐殺の実行)とは別＝無思考による加担（BanalityState同梱）（Wave37）
-- [ ] PluralityRules：複数性と公的領域＝perspectiveDiversity・IsTotalitarian・ActionCapacity・AtomizationLevel（BNAL-2 #1532）。`FreePressRules`/`PreferenceFalsificationRules`とは別＝複数性の喪失（PoliticalSpace同梱）
-- [ ] TotalitarianRules：全体主義の動態＝atomization・terror・ideologySubstitution・TerrorLoopGain（BNAL-3 #1535）。`SecurityRules`(秘密警察)/`MartialLawRules`とは別＝全体主義の自己強化ループ（TotalitarianPressure同梱）
-- [ ] WarCrimesRules：組織犯罪の責任連鎖＝IndividualCulpability・CanClaimObedience・TrialOutcome（BNAL-4 #1536）。`TribunalRules`(法廷の正統性)/`AtrocityRules`とは別＝指揮系統の個人有責性（AccountabilityChain同梱）
-- [ ] PoliticalEthicsRules：心情倫理vs責任倫理＝政治的意思決定の倫理軸×帰結責任・原則コスト（WEBR-2 #1528・ウェーバー職業としての政治）。`MoralStyleRules`(スミス三徳)/`JusticeRules`とは別＝政治家の倫理類型（PoliticalEthicsType同梱）
-- [ ] PoliticalVocationRules：政治の職業化＝召命型vs生業型×党機械の官僚化・腐敗傾性（WEBR-3 #1531）。`PatronageRules`(猟官)/`PartyRules`とは別＝政治家の召命vs生業（VocationOrientation同梱）
-- [ ] PlebiscitaryRules：ツェーザリズムと人民投票的指導者＝大衆直接動員×LeadershipElectionRulesとの合成（WEBR-4 #1533）。`DemagogueRules`(扇動)/`PlebisciteRules`(住民投票)とは別＝人民投票的指導者民主主義
-- [ ] PopulationMigrationRules：足による投票＝仁政→人口吸引・苛政→人口流出（MENC-2 #1566・孟子）。`MigrationRules`(平時移民の引力)とは別＝仁政の質に応じた星系間人口移動
+- [x] PluralityRules：複数性と公的領域＝perspectiveDiversity・IsTotalitarian・ActionCapacity・AtomizationLevel（BNAL-2 #1532）。`FreePressRules`/`PreferenceFalsificationRules`とは別＝複数性の喪失（PoliticalSpace同梱）（Wave38）
+- [x] TotalitarianRules：全体主義の動態＝atomization・terror・ideologySubstitution・TerrorLoopGain（BNAL-3 #1535）。`SecurityRules`(秘密警察)/`MartialLawRules`とは別＝全体主義の自己強化ループ（TotalitarianPressure同梱）（Wave38）
+- [x] WarCrimesRules：組織犯罪の責任連鎖＝IndividualCulpability・CanClaimObedience・TrialOutcome（BNAL-4 #1536）。`TribunalRules`(法廷の正統性)/`AtrocityRules`とは別＝指揮系統の個人有責性（AccountabilityChain同梱）（Wave38）
+- [x] PoliticalEthicsRules：心情倫理vs責任倫理＝政治的意思決定の倫理軸×帰結責任・原則コスト（WEBR-2 #1528・ウェーバー職業としての政治）。`MoralStyleRules`(スミス三徳)/`JusticeRules`とは別＝政治家の倫理類型（PoliticalEthicsType同梱）（Wave38）
+- [x] PoliticalVocationRules：政治の職業化＝召命型vs生業型×党機械の官僚化・腐敗傾性（WEBR-3 #1531）。`PatronageRules`(猟官)/`PartyRules`とは別＝政治家の召命vs生業（VocationOrientation同梱）（Wave38）
+- [x] PlebiscitaryRules：ツェーザリズムと人民投票的指導者＝大衆直接動員×LeadershipElectionRulesとの合成（WEBR-4 #1533）。`DemagogueRules`(扇動)/`PlebisciteRules`(住民投票)とは別＝人民投票的指導者民主主義（Wave38）
+- [x] PopulationMigrationRules：足による投票＝仁政→人口吸引・苛政→人口流出（MENC-2 #1566・孟子）。`MigrationRules`(平時移民の引力)とは別＝仁政の質に応じた星系間人口移動（Wave38）
 
 ### Issue連動（第8次補充・2026-06-11／マキャヴェッリMKV・クラウゼヴィッツCLZの純ロジック子Issue・7件＝1Wave分）
 # マキャヴェッリ『君主論』MKV（#1139-1142）／クラウゼヴィッツ『戦争論』CLZ（#1133/1135/1136）

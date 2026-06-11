@@ -324,3 +324,26 @@
 - [ ] InformationDistortionRules：階層的情報歪曲＝悪報の圧縮・認識ギャップ崩壊イベント（SHP-4 #1383）。`AdvisorCandorRules`(佞臣)/`CommunicationsRules`とは別＝階層を上るほど悪報が薄まる
 - [ ] EscalationCommitmentRules：エスカレーション・コミットメント＝損切り不能・固執ロック・崩壊解除（SHP-3 #1378）。`EscalationRules`(紛争の梯子)/`CommitmentRules`(背水)とは別＝サンクコストへの固執（インパール型）
 - [ ] OperationalDoctrineRules：作戦ドクトリン＝operation/intelligence能力を戦役効率へ初接続・協調スコア（SHP-5 #1388）。`OperationPlanRules`/`OperationalAptitudeRules`とは別＝未使用のoperation/intelligence能力を戦役効率へ
+
+### Issue連動（第14次補充・2026-06-11／兵站CRV・水滸伝SHZ・ジョミニ/リデルハート/ガリア戦記の純ロジック子Issue・20件＝約3Wave分）
+# 兵站CRV／水滸伝SHZ（非国家武装）／ジョミニJOM／リデルハートLDH（間接アプローチ）／ガリア戦記GAL
+- [ ] CommanderBurdenRules：長期遊撃戦の指揮官消耗＝一時的回復可能な運用疲弊・能力低下（SPW-5 #1400・スペイン内戦）。`ReadinessRules`/`SenescenceRules`とは別＝指揮官個人の運用疲弊（回復可能）
+- [ ] CorridorSabotageRules：回廊サボタージュ＝占領なしで回廊を一時遮断（SPW-1 #1390、CorridorSabotageState同梱）。`BlockadeRules`(面の封鎖)/`MinefieldRules`とは別＝回廊の一時遮断工作
+- [ ] SupplyModeRules：攻勢/防御補給非対称＝侵攻×2.0/保持×1.0/撤退×0.5の消費倍率（CRV-3 #1366）。`SupplyRules`/`LogisticsRules`とは別＝作戦様式別の補給消費倍率
+- [ ] CorridorCapacityRules：回廊補給スループット＝通商/要衝で輸送容量差・超過で補給配分（CRV-4 #1367）。`TransportCostRules`/`TransshipmentRules`とは別＝回廊の輸送容量と配分
+- [ ] DepotRules：前進補給基地＝デポを補給基点として到達限界を延伸（CRV-1 #1363、Depot同梱）。`SupplyRules`/`SeaControlLeverageRules`とは別＝前進デポによる到達限界の延伸
+- [ ] LogisticsBurdenRules：超線形兵站消費＝艦隊規模^1.3×距離^0.7の尾高比スケーリング（CRV-2 #1365）。`MassEngagementRules`/`OverextensionRules`とは別＝兵站消費の超線形スケーリング
+- [ ] OutlawOrganizationRules：非国家武装勢力の組織モデル＝形成閾値/結束源/解体リスク（SHZ-1 #1357・水滸伝、RebelOrg同梱）。`MutinyRules`/`MercenaryRules`とは別＝梁山泊型の義賊組織
+- [ ] CounterLegitimacyRules：対抗的正統性＝腐敗×弾圧→義賊支持の能動的成長（SHZ-2 #1358）。`ConsentRules`/`InsurgencyRules`とは別＝官の腐敗が義賊の正統性を育てる
+- [ ] CooptionRules：招安ジレンマ＝co-option受諾閾値・吸収後cohesionドリフト→解体（SHZ-3 #1359）。`MeritRetentionRules`/`DefectionMomentum系`とは別＝水滸伝の招安（体制への取り込み）
+- [ ] MeritSeatingRules：義侠衆議＝功績型座次＋集団意思決定（SHZ-5 #1362）。`SeniorityRules`(席次の固さ)/`LeadershipElectionRules`とは別＝梁山泊型の功績序列と衆議
+- [ ] IndirectApproachRules：最小予期線スコアリング＝経路の「敵期待外れ度」評価（LDH-1 #1339・リデルハート間接アプローチ）。`GalaxyPathfinder`/`CenterOfGravityRules`とは別＝最も予期されない経路の評価
+- [ ] DislocationRules：心理的瓦解＝複数方向からの脅威による士気崩壊加速（LDH-3 #1344）。`PsychologicalSiegeMoraleRules`(四面楚歌)/`EncirclementRules`とは別＝間接アプローチの心理的瓦解
+- [ ] FleetInBeingRules：分散強要＝攻撃しない存在脅威が敵の機動を縛る（LDH-4 #1348）。`FleetDoctrineRules`(現存艦隊)/`DeterrenceRules`とは別＝艦隊の存在そのものが敵を縛る
+- [ ] InteriorLineRules：内線優位評価＝中央配置→外縁前線への経路コスト比較（JOM-1 #1345・ジョミニ）。`LogisticsRules`/`ChokepointValueRules`とは別＝内線作戦の優位（中央突破）
+- [ ] DecisivePointRules：決勝点識別＝切断点解析→チョークポイントスコア→AI優先目標化（JOM-2 #1347）。`CenterOfGravityRules`(重心)/`ChokepointValueRules`とは別＝ジョミニの決勝点
+- [ ] LineOfOperationsRules：作戦線脆弱性評価＝基地→目標の経路上の敵接触脅威カウント（JOM-3 #1350）。`SupplyRules`/`HomelandResistanceRules`とは別＝作戦線の脆弱性スコア
+- [ ] TurningMovementRules：戦略的迂回機動＝前線迂回経路計算→連絡線脅威スコア（JOM-4 #1353）。`IndirectApproachRules`/`GalaxyPathfinder`とは別＝敵の連絡線を脅かす迂回機動
+- [ ] CoalitionFaultlineRules：部族連合の亀裂モデル＝亀裂スコア→初期忠誠度修正子（GAL-1 #1343・ガリア戦記）。`AllianceDivergenceRules`/`LoyaltyRules`とは別＝部族連合内の亀裂
+- [ ] DivideRules：分割操作＝Divide et Impera＝選択的和解で連合分断（GAL-2 #1346）。`AlienationStratagemRules`(離間)/`DiplomacyRules`とは別＝カエサルの分割統治
+- [ ] MilitaryEngineeringRules：野戦工兵速度＋アレシア型二重包囲＝工兵速度と対内/対外包囲（GAL-4 #1352、ContravallationRules同梱）。`EncirclementRules`/`PlanetSiegeRules`とは別＝ガリア戦記の野戦築城

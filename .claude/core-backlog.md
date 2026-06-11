@@ -118,6 +118,7 @@
 - [x] Wave49 (2026-06-11)：KriegsherrRules(#1424) / WarPurposeDriftRules(#1426) / MultipartyPeaceRules(#1427) / PrestigeRules(#1406) / CapacityRules(#1409) / MetaLegitimacyRules(#1411) / CommitmentRules(#1414)（並列7・三十年戦争TYW完結＋項羽と劉邦KORY着手・全テスト一発green・ティック復旧後の再開Wave）
 - [x] Wave50 (2026-06-11)：PsychologicalSiegeMoraleRules(#1419) / MeritRetentionRules(#1422) / CombatFatigueRules(#1403) / KameradschaftRules(#1405) / StalemateRules(#1408) / HomeFrontRules(#1412) / GenerationalWoundRules(#1416)（並列7・項羽と劉邦KORY完結＋レマルク西部戦線RMK完結・50波到達・全テスト一発green）
 - [x] Wave51 (2026-06-11)：ReturneesContagionRules(#1418) / ScorchedEarthStateRules(#1410) / HomelandResistanceRules(#1413) / MassEngagementRules(#1417) / TradeSpaceForTimeRules(#1421) / AllianceDivergenceRules(#1398) / HybridCampaignRules(#1374)（並列7・レマルクRMK完結＋革命戦争WAP完結＋スペイン内戦SPW＋限定戦争ULW着手・全テスト一発green）
+- [x] Wave52 (2026-06-11)：LawfareRules(#1380) / PsyOpRules(#1386) / GreyZoneRules(#1392) / EconomicCoercionRules(#1397) / InsurgencyRules(#1394) / GuerrillaDoctrineRules(#1396) / MobilizationDoctrineRules(#1395)（並列7・限定戦争ULW完結＋スペイン内戦SPW完結＋動員MCN・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -304,13 +305,13 @@
 ### Issue連動（第13次補充・2026-06-11／限定戦争・五輪書・失敗の本質EPIC群の純ロジック子Issue・21件＝3Wave分）
 # スペイン内戦SPW／限定戦争ULW／動員MCN／五輪書GRN（間合い・拍子）／失敗の本質SHP（空気・組織学習）
 - [x] HybridCampaignRules：複合打撃ドクトリン＝多ドメイン同時発動の相乗効果（ULW-1 #1374・限定戦争）。`OperationPlanRules`/`SunziDoctrineRules`とは別＝ハイブリッド戦の多ドメイン相乗（Wave51）
-- [ ] LawfareRules：法律戦＝条約・国際法を攻撃的に使い相手の行動空間を収縮（ULW-2 #1380）。`DiplomacyRules`/`TreatyRules`とは別＝法を武器にする（lawfare）
-- [ ] PsyOpRules：積極的情報戦・世論戦＝敵国内部合意を蝕む偽情報・心理作戦（ULW-3 #1386）。`PropagandaRules`(自国世論)/`DeceptionRules`とは別＝敵内部を狙う心理作戦
-- [ ] GreyZoneRules：閾値以下・グレーゾーン作戦＝宣戦なき損害・否認可能性モデル（ULW-4 #1392）。`EscalationRules`/`SecurityDilemmaRules`とは別＝戦争未満の曖昧な攻撃
-- [ ] EconomicCoercionRules：経済的強制の梯子＝通商妨害→制裁→金融封鎖の段階統合（ULW-5 #1397）。`SanctionsRules`/`BlockadeRules`とは別＝経済的強制のエスカレーション統合
-- [ ] InsurgencyRules：占領地反乱組織化＝外部扇動でRebelPressureを増幅（SPW-2 #1394・スペイン内戦、InsurgencyState同梱）。`GovernanceRules`(反乱リスク)/`ResistanceRules`とは別＝外部支援された組織的反乱
-- [ ] GuerrillaDoctrineRules：遊撃戦ドクトリン＝交戦回避＋回廊妨害モード（SPW-3 #1396、enum OperationalMode同梱）。`FleetDoctrineRules`/`AmbushRules`とは別＝ゲリラ戦の作戦様式
-- [ ] MobilizationDoctrineRules：命令型vs市場型の動員体制＝政体別の動員速度と持久力（MCN-6 #1395・動員）。`MobilizationRules`(動員水準)/`ConscriptionRules`とは別＝政体別の動員ドクトリン
+- [x] LawfareRules：法律戦＝条約・国際法を攻撃的に使い相手の行動空間を収縮（ULW-2 #1380）。`DiplomacyRules`/`TreatyRules`とは別＝法を武器にする（lawfare）（Wave52）
+- [x] PsyOpRules：積極的情報戦・世論戦＝敵国内部合意を蝕む偽情報・心理作戦（ULW-3 #1386）。`PropagandaRules`(自国世論)/`DeceptionRules`とは別＝敵内部を狙う心理作戦（Wave52）
+- [x] GreyZoneRules：閾値以下・グレーゾーン作戦＝宣戦なき損害・否認可能性モデル（ULW-4 #1392）。`EscalationRules`/`SecurityDilemmaRules`とは別＝戦争未満の曖昧な攻撃（Wave52）
+- [x] EconomicCoercionRules：経済的強制の梯子＝通商妨害→制裁→金融封鎖の段階統合（ULW-5 #1397）。`SanctionsRules`/`BlockadeRules`とは別＝経済的強制のエスカレーション統合（Wave52）
+- [x] InsurgencyRules：占領地反乱組織化＝外部扇動でRebelPressureを増幅（SPW-2 #1394・スペイン内戦、InsurgencyState同梱）。`GovernanceRules`(反乱リスク)/`ResistanceRules`とは別＝外部支援された組織的反乱（Wave52）
+- [x] GuerrillaDoctrineRules：遊撃戦ドクトリン＝交戦回避＋回廊妨害モード（SPW-3 #1396、enum OperationalMode同梱）。`FleetDoctrineRules`/`AmbushRules`とは別＝ゲリラ戦の作戦様式（Wave52）
+- [x] MobilizationDoctrineRules：命令型vs市場型の動員体制＝政体別の動員速度と持久力（MCN-6 #1395・動員）。`MobilizationRules`(動員水準)/`ConscriptionRules`とは別＝政体別の動員ドクトリン（Wave52）
 - [ ] MilitaryIndustrialRules：軍産複合体＝造船利権の省益→過剰建艦（MCN-4 #1389）。`WarIndustryRules`(平和抵抗)/`ShipyardRules`とは別＝造船省益による過剰建艦バイアス
 - [ ] ObsolescenceRules：艦隊陳腐化＝技術世代差→戦闘力ペナルティ（MCN-3 #1385）。`ShipAgingRules`(経年劣化)/`TechTreeRules`とは別＝技術世代遅れによる陳腐化
 - [ ] TechDiffusionRules：軍事技術拡散＝勢力間R&D伝播・技術封鎖（MCN-1 #1377）。`InnovationDiffusionRules`(汎用伝播)/`ResearchRules`とは別＝軍事技術の勢力間拡散と封鎖

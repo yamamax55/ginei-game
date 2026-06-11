@@ -1,22 +1,16 @@
 name: worldview-backlog-refill
-
-# 補充ループ multi-modal発掘（docs/reference-epic-categories.md の各軸を並列に掘る）
-# 6時間ごと・未16冊未満で発動。各軸が互いをblindに発掘＝自分の概念外のネタが入る
 on:
   schedule:
-    - cron: '23 */6 * * *'
+    - cron: '13 */3 * * *'
   workflow_dispatch: {}
-
 concurrency:
   group: worldview-epic
   cancel-in-progress: false
-
 permissions:
   contents: write
   issues: read
   id-token: write
   actions: read
-
 jobs:
   gate:
     runs-on: ubuntu-latest
@@ -29,7 +23,7 @@ jobs:
         with:
           ref: auto/worldview-epics
           fetch-depth: 0
-      - name: Gate (level check) and build axis matrix
+      - name: Gate and build axis matrix
         id: gate
         run: |
           REMAIN=$(grep -c '^| 未 |' docs/reference-epic-backlog.md || echo 0)
@@ -40,24 +34,9 @@ jobs:
             exit 0
           fi
           echo "needed=true" >> "$GITHUB_OUTPUT"
-          MATRIX=$(python3 - <<'PY'
-import json,re
-rows=[]
-for l in open("docs/reference-epic-categories.md",encoding="utf-8"):
-    l=l.rstrip("\n")
-    if not l.startswith("| "): continue
-    if "<!--" in l: continue
-    cells=[c.strip() for c in l.strip().strip("|").split("|")]
-    if len(cells)<2: continue
-    axis,hint=cells[0],cells[1]
-    if axis=="軸" or set(axis)<=set("-: "): continue
-    if not axis: continue
-    rows.append({"axis":axis,"hint":hint})
-print(json.dumps(rows,ensure_ascii=False))
-PY
-)
-          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
-
+          echo 'aW1wb3J0IGpzb24Kcm93cz1bXQpmb3IgbCBpbiBvcGVuKCJkb2NzL3JlZmVyZW5jZS1lcGljLWNhdGVnb3JpZXMubWQiLGVuY29kaW5nPSJ1dGYtOCIpOgogICAgbD1sLnJzdHJpcCgiXG4iKQogICAgaWYgbm90IGwuc3RhcnRzd2l0aCgifCAiKSBvciAiPCEtLSIgaW4gbDogY29udGludWUKICAgIGNlbGxzPVtjLnN0cmlwKCkgZm9yIGMgaW4gbC5zdHJpcCgpLnN0cmlwKCJ8Iikuc3BsaXQoInwiKV0KICAgIGlmIGxlbihjZWxscyk8MjogY29udGludWUKICAgIGF4aXMsaGludD1jZWxsc1swXSxjZWxsc1sxXQogICAgaWYgYXhpcz09Iui7uCIgb3Igc2V0KGF4aXMpPD1zZXQoIi06ICIpIG9yIG5vdCBheGlzOiBjb250aW51ZQogICAgcm93cy5hcHBlbmQoeyJheGlzIjpheGlzLCJoaW50IjpoaW50fSkKcHJpbnQoanNvbi5kdW1wcyhyb3dzLGVuc3VyZV9hc2NpaT1GYWxzZSkp' | base64 -d > /tmp/m.py
+          M=$(python3 /tmp/m.py)
+          echo "matrix=$M" >> "$GITHUB_OUTPUT"
   discover:
     needs: gate
     if: needs.gate.outputs.needed == 'true'
@@ -83,26 +62,15 @@ PY
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
           claude_args: '--allowedTools "Bash,Read,Grep,Glob,WebSearch"'
           prompt: |
-            探索軸＝環境変数 AXIS、探索指示＝環境変数 HINT。
-            この軸で「本システム（銀英伝風の星間国家戦略＋思想/歴史/経済/群像シミュ）」の欠落軸に効くネタを最大3件発掘する。
-            手順：
-            1. 重複除外（必須）。以下と重なるものは選ばない——
-               (a) docs/reference-epic-backlog.md の既存行（済/未/吸収とも）
-               (b) docs/*-reference-design.md が既にある題材
-               (c) `gh issue list --state all --label type:epic --limit 100` のタイトルに登場する題材
-               (d) CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念
-            2. **数合わせをしない**。確信を持って「効く」と言えるものだけ（最大3件・0件でもよい）。分野の偏りを避ける。
-            3. 各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：
-               | 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
-            0件なら /tmp/out/lines.txt は作らない or 空でよい。issue起票・他ファイル編集・git操作はしない。
-            著作権：固有名・教義・実在人物の表象は使わず構造パターンのみ（宗教・人物軸は特に「風」モチーフ厳守）。
+            探索軸＝環境変数 AXIS、探索指示＝環境変数 HINT。この軸で「本システム（銀英伝風の星間国家戦略＋思想/歴史/経済/群像シミュ）」の欠落軸に効くネタを最大3件発掘する。
+            手順：(1)重複除外（必須）＝docs/reference-epic-backlog.md の既存行（済/未/吸収）・docs/*-reference-design.md がある題材・gh issue list --state all --label type:epic --limit 300 のタイトル（「○○風」等の別表記・旧体系EPICも著者名/作品名で照合する）・CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念、と重なるものは選ばない。(2)数合わせをしない＝確信あるものだけ（最大3件・0件可）・分野の偏りを避ける。(3)各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：| 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
+            0件なら lines.txt は作らない。issue起票・他ファイル編集・git操作はしない。著作権：固有名・教義・実在人物の表象は使わず構造のみ（宗教・人物軸は特に「風」モチーフ厳守）。
       - name: Upload axis candidates
         uses: actions/upload-artifact@v4
         with:
           name: discover-${{ strategy.job-index }}
           path: /tmp/out
           if-no-files-found: ignore
-
   integrate:
     needs: discover
     if: always() && needs.discover.result != 'skipped'
@@ -122,40 +90,8 @@ PY
           set -e
           git config user.name "worldview-epic-bot"
           git config user.email "actions@users.noreply.github.com"
-          python3 - <<'PY'
-import glob,re
-p="docs/reference-epic-backlog.md"
-lines=open(p,encoding="utf-8").read().split("\n")
-def key(row):
-    cells=[c.strip() for c in row.strip().strip("|").split("|")]
-    if len(cells)<2: return None
-    name=re.sub(r'^\[[^\]]*\]\s*','',cells[1])
-    return name.strip()
-existing=set()
-for l in lines:
-    if l.startswith("| 未 |") or l.startswith("| 済 |") or l.startswith("| 吸収 |"):
-        k=key(l)
-        if k: existing.add(k)
-newrows=[]
-for f in sorted(glob.glob("/tmp/disc/*/lines.txt")):
-    for l in open(f,encoding="utf-8"):
-        l=l.rstrip("\n")
-        if not l.startswith("| 未 |"): continue
-        k=key(l)
-        if not k or k in existing: continue
-        existing.add(k); newrows.append(l)
-if newrows:
-    out=[]; inserted=False
-    for l in lines:
-        if (not inserted) and l.startswith("<!--"):
-            out.extend(newrows); inserted=True
-        out.append(l)
-    if not inserted: out.extend(newrows)
-    open(p,"w",encoding="utf-8").write("\n".join(out))
-    print(f"added {len(newrows)} candidates")
-else:
-    print("added 0 candidates")
-PY
+          echo 'aW1wb3J0IGdsb2IscmUKcD0iZG9jcy9yZWZlcmVuY2UtZXBpYy1iYWNrbG9nLm1kIgpsaW5lcz1vcGVuKHAsZW5jb2Rpbmc9InV0Zi04IikucmVhZCgpLnNwbGl0KCJcbiIpCmRlZiBrZXkocm93KToKICAgIGNlbGxzPVtjLnN0cmlwKCkgZm9yIGMgaW4gcm93LnN0cmlwKCkuc3RyaXAoInwiKS5zcGxpdCgifCIpXQogICAgaWYgbGVuKGNlbGxzKTwyOiByZXR1cm4gTm9uZQogICAgcmV0dXJuIHJlLnN1YihyJ15cW1teXF1dKlxdXHMqJywnJyxjZWxsc1sxXSkuc3RyaXAoKQpleGlzdGluZz1zZXQoKQpmb3IgbCBpbiBsaW5lczoKICAgIGlmIGwuc3RhcnRzd2l0aCgifCDmnKogfCIpIG9yIGwuc3RhcnRzd2l0aCgifCDmuIggfCIpIG9yIGwuc3RhcnRzd2l0aCgifCDlkLjlj44gfCIpOgogICAgICAgIGs9a2V5KGwpCiAgICAgICAgaWYgazogZXhpc3RpbmcuYWRkKGspCm5ld3Jvd3M9W10KZm9yIGYgaW4gc29ydGVkKGdsb2IuZ2xvYigiL3RtcC9kaXNjLyovbGluZXMudHh0IikpOgogICAgZm9yIGwgaW4gb3BlbihmLGVuY29kaW5nPSJ1dGYtOCIpOgogICAgICAgIGw9bC5yc3RyaXAoIlxuIikKICAgICAgICBpZiBub3QgbC5zdGFydHN3aXRoKCJ8IOacqiB8Iik6IGNvbnRpbnVlCiAgICAgICAgaz1rZXkobCkKICAgICAgICBpZiBub3QgayBvciBrIGluIGV4aXN0aW5nOiBjb250aW51ZQogICAgICAgIGV4aXN0aW5nLmFkZChrKTsgbmV3cm93cy5hcHBlbmQobCkKaWYgbmV3cm93czoKICAgIG91dD1bXTsgaW5zPUZhbHNlCiAgICBmb3IgbCBpbiBsaW5lczoKICAgICAgICBpZiBub3QgaW5zIGFuZCBsLnN0YXJ0c3dpdGgoIjwhLS0iKTogb3V0LmV4dGVuZChuZXdyb3dzKTsgaW5zPVRydWUKICAgICAgICBvdXQuYXBwZW5kKGwpCiAgICBpZiBub3QgaW5zOiBvdXQuZXh0ZW5kKG5ld3Jvd3MpCiAgICBvcGVuKHAsInciLGVuY29kaW5nPSJ1dGYtOCIpLndyaXRlKCJcbiIuam9pbihvdXQpKQogICAgcHJpbnQoImFkZGVkICVkIiVsZW4obmV3cm93cykpCmVsc2U6IHByaW50KCJhZGRlZCAwIik=' | base64 -d > /tmp/refill.py
+          python3 /tmp/refill.py
           git add docs/reference-epic-backlog.md
           if git diff --cached --quiet; then
             echo "no changes"

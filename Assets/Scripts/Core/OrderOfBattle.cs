@@ -11,10 +11,11 @@ namespace Ginei
     /// </summary>
     public static class OrderOfBattle
     {
-        // 梯団別の必要階級 tier（#14 既定ラダー：中将7/大将8/元帥10）。マジックナンバー禁止＝const に集約。
+        // 梯団別の必要階級 tier（#14 既定ラダー・銀英伝準拠 RANKCMD-4：少将6/中将7/大将8/元帥10）。マジックナンバー禁止＝const に集約。
+        public const int SubFleetCommanderTier = 6;     // 分艦隊司令＝少将（准将5でも >= 判定で持てる）
         public const int FleetCommanderTier = 7;       // 艦隊司令＝中将
-        public const int CorpsCommanderTier = 8;        // 軍団司令＝大将
-        public const int ArmyGroupCommanderTier = 10;   // 軍集団司令＝元帥
+        public const int CorpsCommanderTier = 8;        // 軍団（艦隊群/方面）司令＝大将
+        public const int ArmyGroupCommanderTier = 10;   // 軍集団（宇宙艦隊）司令＝元帥
 
         private static readonly Dictionary<int, MilitaryFormation> formations = new Dictionary<int, MilitaryFormation>();
         private static int nextId = 1;
@@ -105,13 +106,14 @@ namespace Ginei
 
         // ===== 司令配属（階級ゲート #14） =====
 
-        /// <summary>梯団種別ごとの必要階級 tier（艦隊7/軍団8/軍集団10）。</summary>
+        /// <summary>梯団種別ごとの必要階級 tier（分艦隊6/艦隊7/軍団8/軍集団10・RANKCMD-4）。</summary>
         public static int RequiredTier(EchelonType echelon)
         {
             switch (echelon)
             {
                 case EchelonType.軍集団: return ArmyGroupCommanderTier;
                 case EchelonType.軍団: return CorpsCommanderTier;
+                case EchelonType.分艦隊: return SubFleetCommanderTier;
                 default: return FleetCommanderTier;
             }
         }

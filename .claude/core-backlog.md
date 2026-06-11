@@ -123,6 +123,7 @@
 - [x] Wave54 (2026-06-11)：AtmosphereRules(#1371) / OrganizationalLearningRules(#1375) / InformationDistortionRules(#1383) / EscalationCommitmentRules(#1378) / OperationalDoctrineRules(#1388) / CommanderBurdenRules(#1400) / CorridorSabotageRules(#1390)（並列7・失敗の本質SHP完結＋スペイン内戦SPW完結＋兵站CRV着手・全テスト一発green）
 - [x] Wave55 (2026-06-11)：SupplyModeRules(#1366) / CorridorCapacityRules(#1367) / DepotRules(#1363) / LogisticsBurdenRules(#1365) / OutlawOrganizationRules(#1357) / CounterLegitimacyRules(#1358) / CooptionRules(#1359)（並列7・兵站CRV完結＋水滸伝SHZ着手・全テスト一発green）
 - [x] Wave56 (2026-06-11)：MeritSeatingRules(#1362) / IndirectApproachRules(#1339) / DislocationRules(#1344) / FleetInBeingRules(#1348) / InteriorLineRules(#1345) / DecisivePointRules(#1347) / LineOfOperationsRules(#1350)（並列7・水滸伝SHZ完結＋リデルハート間接アプローチLDH＋ジョミニJOM着手・全テスト一発green）
+- [x] Wave57 (2026-06-11)：TurningMovementRules(#1353) / CoalitionFaultlineRules(#1343) / DivideRules(#1346) / MilitaryEngineeringRules(#1352) / ProspectRules(#1833) / JudgmentNoiseRules(#1834) / OverconfidenceBiasRules(#1837)（並列7・ジョミニJOM完結＋ガリア戦記GAL着手＋カーネマン認知バイアスKAHN着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -347,15 +348,15 @@
 - [x]（Wave56）InteriorLineRules：内線優位評価＝中央配置→外縁前線への経路コスト比較（JOM-1 #1345・ジョミニ）。`LogisticsRules`/`ChokepointValueRules`とは別＝内線作戦の優位（中央突破）
 - [x]（Wave56）DecisivePointRules：決勝点識別＝切断点解析→チョークポイントスコア→AI優先目標化（JOM-2 #1347）。`CenterOfGravityRules`(重心)/`ChokepointValueRules`とは別＝ジョミニの決勝点
 - [x]（Wave56）LineOfOperationsRules：作戦線脆弱性評価＝基地→目標の経路上の敵接触脅威カウント（JOM-3 #1350）。`SupplyRules`/`HomelandResistanceRules`とは別＝作戦線の脆弱性スコア
-- [ ] TurningMovementRules：戦略的迂回機動＝前線迂回経路計算→連絡線脅威スコア（JOM-4 #1353）。`IndirectApproachRules`/`GalaxyPathfinder`とは別＝敵の連絡線を脅かす迂回機動
-- [ ] CoalitionFaultlineRules：部族連合の亀裂モデル＝亀裂スコア→初期忠誠度修正子（GAL-1 #1343・ガリア戦記）。`AllianceDivergenceRules`/`LoyaltyRules`とは別＝部族連合内の亀裂
-- [ ] DivideRules：分割操作＝Divide et Impera＝選択的和解で連合分断（GAL-2 #1346）。`AlienationStratagemRules`(離間)/`DiplomacyRules`とは別＝カエサルの分割統治
-- [ ] MilitaryEngineeringRules：野戦工兵速度＋アレシア型二重包囲＝工兵速度と対内/対外包囲（GAL-4 #1352、ContravallationRules同梱）。`EncirclementRules`/`PlanetSiegeRules`とは別＝ガリア戦記の野戦築城
+- [x]（Wave57）TurningMovementRules：戦略的迂回機動＝前線迂回経路計算→連絡線脅威スコア（JOM-4 #1353）。`IndirectApproachRules`/`GalaxyPathfinder`とは別＝敵の連絡線を脅かす迂回機動
+- [x]（Wave57）CoalitionFaultlineRules：部族連合の亀裂モデル＝亀裂スコア→初期忠誠度修正子（GAL-1 #1343・ガリア戦記）。`AllianceDivergenceRules`/`LoyaltyRules`とは別＝部族連合内の亀裂
+- [x]（Wave57）DivideRules：分割操作＝Divide et Impera＝選択的和解で連合分断（GAL-2 #1346）。`AlienationStratagemRules`(離間)/`DiplomacyRules`とは別＝カエサルの分割統治
+- [x]（Wave57）MilitaryEngineeringRules：野戦工兵速度＋アレシア型二重包囲＝工兵速度と対内/対外包囲（GAL-4 #1352、ContravallationRules同梱）。`EncirclementRules`/`PlanetSiegeRules`とは別＝ガリア戦記の野戦築城
 
 ### Issue連動（第15次補充・2026-06-11・認知バイアス/恥罪文化/群衆心理/継承引き際/ミーム）
-- [ ] ProspectRules：損失回避と参照点＝プロスペクト理論（ProspectState同梱・KAHN-1 #1833）。`NeedsRules`/`MoraleContribution`とは別＝参照点依存の価値関数（損失は利得の約2倍重い）
-- [ ] JudgmentNoiseRules：判断ノイズ＝バイアスと直交するランダム散乱（roll決定論・KAHN-2 #1834）。`ReconRules`の推定誤差とは別＝同一条件下の判断のばらつき
-- [ ] OverconfidenceBiasRules：過信バイアスと計画錯誤＝AIの系統的過大評価（KAHN-3 #1837）。`OperationPlanRules`とは別＝見積もりの楽観バイアス
+- [x]（Wave57）ProspectRules：損失回避と参照点＝プロスペクト理論（ProspectState同梱・KAHN-1 #1833）。`NeedsRules`/`MoraleContribution`とは別＝参照点依存の価値関数（損失は利得の約2倍重い）
+- [x]（Wave57）JudgmentNoiseRules：判断ノイズ＝バイアスと直交するランダム散乱（roll決定論・KAHN-2 #1834）。`ReconRules`の推定誤差とは別＝同一条件下の判断のばらつき
+- [x]（Wave57）OverconfidenceBiasRules：過信バイアスと計画錯誤＝AIの系統的過大評価（KAHN-3 #1837）。`OperationPlanRules`とは別＝見積もりの楽観バイアス
 - [ ] FramingRules：フレーミング効果＝情報の枠組みが判断を変える（KAHN-4 #1840）。`PropagandaRules`とは別＝同一事実の提示枠が選好を反転
 - [ ] AvailabilityBiasRules：近接記憶バイアス＝最近の大事件が確率判断を歪める（KAHN-5 #1844）。`GenerationalMemoryRules`とは別＝想起容易性による確率の歪み
 - [ ] DualProcessRules：二重過程＝直感型(System1)vs熟慮型(System2)の提督認知スタイル（KAHN-6 #1849）。`AdmiralData`能力とは別＝速さと系統的誤りのトレードオフ

@@ -93,6 +93,22 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void TrimToCapacity_DropsOldestResolved_KeepsActive()
+        {
+            var q = new DecisionQueue();
+            q.capacity = 3;
+            // 解決済みを3件積む（決裁済）
+            for (int i = 1; i <= 3; i++) { var d = Dec(i, DecisionSeverity.通常); q.Enqueue(d); q.Resolve(d, 0); }
+            // 活性を1件積む → 上限超過で古い解決済みが1件落ちる（活性は残る）
+            var active = Dec(99, DecisionSeverity.重要);
+            q.Enqueue(active);
+            Assert.AreEqual(3, q.Count);                 // capacity に収まる
+            Assert.AreEqual(1, q.ActiveCount());          // 活性は保持
+            CollectionAssert.Contains(q.items, active);   // 活性は落とさない
+            Assert.IsFalse(q.items.Exists(x => x.id == 1)); // 最も古い解決済みが落ちた
+        }
+
+        [Test]
         public void PruneResolved_RemovesDone()
         {
             var q = new DecisionQueue();

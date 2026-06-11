@@ -20,6 +20,21 @@ namespace Ginei
         public void Enqueue(PendingDecision d)
         {
             if (d != null) items.Add(d);
+            TrimToCapacity();
+        }
+
+        /// <summary>
+        /// 上限超過分を<b>古い解決済み（決裁済/自動解決）から</b>落とす（活性・最小化は残す）。
+        /// ＝決裁ボード（DESK）の「決裁済」列に最近の履歴を有界に保つ。
+        /// </summary>
+        public void TrimToCapacity()
+        {
+            int over = items.Count - capacity;
+            for (int i = 0; i < items.Count && over > 0;)
+            {
+                if (items[i] != null && IsResolved(items[i])) { items.RemoveAt(i); over--; }
+                else i++;
+            }
         }
 
         private static bool IsResolved(PendingDecision d)

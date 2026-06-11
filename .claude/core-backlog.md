@@ -154,3 +154,27 @@
 - [ ] WaterDoctrineRules：柔弱ドクトリン＝短期劣後・長期士気回復力（LAOZ-4 #1558・老子）。`Moraleの係数算出`/`ResilienceRules`系とは別＝柔よく剛を制す長期回復
 - [ ] SpontaneousOrderRules：自生的秩序の脆弱性＝強制介入→自生的秩序侵食→市場効率低下（HAYK-6 #1556・ハイエク）。`MarketRules`(需給)/`GovernanceRules`とは別＝介入が自生秩序を蝕む
 - [ ] EmbeddednessRules：市場の埋め込み度指標＝自由化で効率↑不安定↑のトレードオフ（POLA-1 #1588・ポランニー、MarketEmbeddedness同梱）。`SocialProtectionRules`(保護ラチェット)/`MarketRules`とは別＝市場の社会への埋め込み度
+
+### Issue連動（第7次補充・2026-06-11／経済学・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
+# ケインズKEYN（#1538）／ハイエクHAYK（#1539）／老子LAOZ（#1543）／アーレントBNAL（#1527）／ウェーバーWEBR／孟子MENC
+- [ ] EffectiveDemandRules：有効需要ギャップ＝需要不足が潜在産出を遊休させる（KEYN-1 #1540・ケインズ一般理論）。`MarketRules`(個別財需給)/`FiscalRules`とは別＝マクロの需要不足とOutputGap
+- [ ] MultiplierRules：財政乗数＝財政支出→所得連鎖の増幅 k=1/(1−c)（KEYN-2 #1542）。`FiscalRules`(国家財政)とは別＝支出の波及増幅
+- [ ] AnimalSpiritsRules：アニマルスピリッツ＝信認崩壊→投資凍結→需要不足の自己強化スパイラル（KEYN-3 #1545）。`StockMarketRules`(株価)/`CrisisCycleRules`とは別＝投資家心理の集合的崩壊
+- [ ] LiquidityPreferenceRules：流動性選好と金利下限＝ZLBで金融政策が無効化し財政のみ有効（KEYN-4 #1548）。`BankRules`/`FiscalRules`とは別＝流動性の罠
+- [ ] ThriftParadoxRules：節約のパラドックス＝全勢力一斉緊縮→需要連鎖崩壊→集合的行為問題（KEYN-5 #1552）。`MultiplierRules`(乗数)とは別＝合成の誤謬
+- [ ] PlanningDriftRules：計画経済ドリフト＝介入累積ラチェット→権威主義圧力（HAYK-1 #1541・ハイエク隷属への道）。`SocialProtectionRules`(保護ラチェット)とは別＝統制の累積が権威主義を呼ぶ
+- [ ] CalculationProblemRules：計算問題と中央計画の効率損失＝価格なき計画→生産性ペナルティ（HAYK-2 #1544）。`MarketRules`(価格発見)とは別＝計画経済の情報問題
+- [ ] AuthoritarianSelectionRules：なぜワルモノが上に立つか＝全体主義体制の指導者選別バイアス（HAYK-3 #1547）。`CoupRules`/`PurgeRules`とは別＝逆淘汰の選別圧
+- [ ] LegalGeneralityRules：法の一般性と恣意的命令＝RuleOfLawIndex→合意撤回・抵抗権連動（HAYK-4 #1549）。`MagnaCartaRules`/`ConstitutionRules`とは別＝法の一般性vs個別命令
+- [ ] EconomicFreedomRules：経済的自由と政治的自由の連動＝経済統制度→協力係数→安定度（HAYK-5 #1553）。`ConsentRules`(協力)/`SpontaneousOrderRules`とは別＝二つの自由の連動
+- [ ] WuWeiRules：無為ガバナンス＝少介入→自然安定・介入過剰の逆U字ペナルティ（LAOZ-1 #1546・老子）。`GovernanceRules`(安定度)とは別＝無為の治の逆U字
+- [ ] ReversalRules：反者道之動＝汎用逆U字 tipping-point 曲線（LAOZ-2 #1550）。`EscalationRules`(梯子)とは別＝物極まれば反るの汎用曲線
+- [ ] ContentmentRules：知足安定＝適正規模ボーナス・版図一体化の正側補完（LAOZ-3 #1554）。`LogisticsRules`(一体化)/`OverextensionRules`(過拡張)とは別＝知足の適正規模
+- [ ] ThoughtlessnessRules：悪の凡庸性＝hierarchyDepth×complianceNorm→moralAgencyFactorとAtrocityRisk（BNAL-1 #1530・アーレント）。`AtrocityRules`(虐殺の実行)とは別＝無思考による加担（BanalityState同梱）
+- [ ] PluralityRules：複数性と公的領域＝perspectiveDiversity・IsTotalitarian・ActionCapacity・AtomizationLevel（BNAL-2 #1532）。`FreePressRules`/`PreferenceFalsificationRules`とは別＝複数性の喪失（PoliticalSpace同梱）
+- [ ] TotalitarianRules：全体主義の動態＝atomization・terror・ideologySubstitution・TerrorLoopGain（BNAL-3 #1535）。`SecurityRules`(秘密警察)/`MartialLawRules`とは別＝全体主義の自己強化ループ（TotalitarianPressure同梱）
+- [ ] WarCrimesRules：組織犯罪の責任連鎖＝IndividualCulpability・CanClaimObedience・TrialOutcome（BNAL-4 #1536）。`TribunalRules`(法廷の正統性)/`AtrocityRules`とは別＝指揮系統の個人有責性（AccountabilityChain同梱）
+- [ ] PoliticalEthicsRules：心情倫理vs責任倫理＝政治的意思決定の倫理軸×帰結責任・原則コスト（WEBR-2 #1528・ウェーバー職業としての政治）。`MoralStyleRules`(スミス三徳)/`JusticeRules`とは別＝政治家の倫理類型（PoliticalEthicsType同梱）
+- [ ] PoliticalVocationRules：政治の職業化＝召命型vs生業型×党機械の官僚化・腐敗傾性（WEBR-3 #1531）。`PatronageRules`(猟官)/`PartyRules`とは別＝政治家の召命vs生業（VocationOrientation同梱）
+- [ ] PlebiscitaryRules：ツェーザリズムと人民投票的指導者＝大衆直接動員×LeadershipElectionRulesとの合成（WEBR-4 #1533）。`DemagogueRules`(扇動)/`PlebisciteRules`(住民投票)とは別＝人民投票的指導者民主主義
+- [ ] PopulationMigrationRules：足による投票＝仁政→人口吸引・苛政→人口流出（MENC-2 #1566・孟子）。`MigrationRules`(平時移民の引力)とは別＝仁政の質に応じた星系間人口移動

@@ -181,3 +181,13 @@
 - [ ] PoliticalVocationRules：政治の職業化＝召命型vs生業型×党機械の官僚化・腐敗傾性（WEBR-3 #1531）。`PatronageRules`(猟官)/`PartyRules`とは別＝政治家の召命vs生業（VocationOrientation同梱）
 - [ ] PlebiscitaryRules：ツェーザリズムと人民投票的指導者＝大衆直接動員×LeadershipElectionRulesとの合成（WEBR-4 #1533）。`DemagogueRules`(扇動)/`PlebisciteRules`(住民投票)とは別＝人民投票的指導者民主主義
 - [ ] PopulationMigrationRules：足による投票＝仁政→人口吸引・苛政→人口流出（MENC-2 #1566・孟子）。`MigrationRules`(平時移民の引力)とは別＝仁政の質に応じた星系間人口移動
+
+### Issue連動（第8次補充・2026-06-11／マキャヴェッリMKV・クラウゼヴィッツCLZの純ロジック子Issue・7件＝1Wave分）
+# マキャヴェッリ『君主論』MKV（#1139-1142）／クラウゼヴィッツ『戦争論』CLZ（#1133/1135/1136）
+- [ ] ConquestGovernanceRules：征服地統治の三様＝旧秩序駆逐/植民/傀儡の3戦略×統合速度・裏切りリスクのトレードオフ（MKV-1 #1139・マキャヴェッリ君主論）。`GovernanceRules`(安定度)/`ColonizationRules`(入植)とは別＝征服地の統治戦略選択
+- [ ] FearVsHatredRules：恐怖と憎悪の回廊＝賢明な強制力（恐れられる）vs残虐な抑圧（憎まれる）の非線形モデル（MKV-2 #1140）。`TerrorRules`(恐怖の媒体増幅)/`MartialLawRules`とは別＝「恐れられても憎まれるな」の境界
+- [ ] AdvisorCandorRules：直言参謀と佞臣＝政治情報の品質→政策の現実乖離度（MKV-3 #1141）。`CounselRules`(献策の採択)/`ImpartialObserverRules`とは別＝諫言の質が政策の現実適合を決める
+- [ ] VirtuFortunaRules：ヴィルトゥーとフォルトゥーナ＝統治者の適応力（virtù）×外的偶然（fortuna）の統治修正子（MKV-4 #1142）。`GrowthRules`(成長)/`SenescenceRules`(衰え)とは別＝力量と運命の相互作用
+- [ ] FrictionRules：作戦摩擦モデル＝命令深度×補給×士気→実行成功確率（CLZ-1 #1133・クラウゼヴィッツ戦争論）。`OperationPlanRules`(計画の質)/`CommunicationsRules`(指揮遅延)とは別＝戦場の摩擦（計画と実行の乖離）
+- [ ] TrinitarianTensionRules：三位一体の緊張＝政府意志×軍事力×民衆支持の崩壊検知（CLZ-3 #1135）。`FactionStateRules`(国家状態合成)/`WarPoliticsRules`とは別＝クラウゼヴィッツの三位一体の均衡破綻
+- [ ] CenterOfGravityRules：重心分析＝銀河グラフ上の重心（CoG）星系/艦隊の同定とAI優先化（CLZ-4 #1136）。`ChokepointValueRules`(要衝価値)/`LogisticsRules`とは別＝戦略重心の同定（叩くべき一点）

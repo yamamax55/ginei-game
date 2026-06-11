@@ -3,9 +3,10 @@ using System.Collections.Generic;
 namespace Ginei
 {
     /// <summary>
-    /// 役割（運用区分）の互換判定の純ロジック（#883・唯一の窓口）。「戦闘艦と非戦闘艦を混成編成にしない」を
-    /// 単一の規則で表す＝戦闘艦同士・非戦闘艦同士は同じ艦隊（梯団 #147）に編成できるが、戦闘×非戦闘の混成は不可。
-    /// #80（戦闘艦の艦種：戦艦/巡航/駆逐）とは直交（あれは戦闘艦の中の種別）。判定は <see cref="OrderOfBattle"/> が読む。test-first。
+    /// 役割（運用区分）の純ロジック。<b>#883「戦闘×非戦闘の混成禁止」は撤回（ORBAT-3）＝諸兵科連合（戦闘＋支援/兵站の混在）は可</b>。
+    /// 以下は編成の<b>同質性を記述する</b>クエリで、編入の禁止ゲートではない（<see cref="OrderOfBattle.CanAttachFleet"/> はもう参照しない）。
+    /// <see cref="IsHomogeneous"/> は「単一兵科か」の検出に使える（戦術単位は単一兵科に偏りがち＝ORBAT-4 の継戦依存判定）。
+    /// #80（戦闘艦の艦種：戦艦/巡航/駆逐）とは直交。test-first。
     /// </summary>
     public static class ShipRoleRules
     {

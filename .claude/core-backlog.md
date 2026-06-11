@@ -105,6 +105,7 @@
 - [x] Wave36 (2026-06-11)：EffectiveDemandRules(#1540) / MultiplierRules(#1542) / AnimalSpiritsRules(#1545) / LiquidityPreferenceRules(#1548) / ThriftParadoxRules(#1552) / PlanningDriftRules(#1541) / CalculationProblemRules(#1544)（並列7・ケインズKEYN完結＋ハイエクHAYK・全テスト一発green）
 - [x] Wave37 (2026-06-11)：AuthoritarianSelectionRules(#1547) / LegalGeneralityRules(#1549) / EconomicFreedomRules(#1553) / WuWeiRules(#1546) / ReversalRules(#1550) / ContentmentRules(#1554) / ThoughtlessnessRules(#1530)（並列7・ハイエクHAYK完結＋老子LAOZ完結＋アーレントBNAL着手・親がWuWeiテスト対称性修正）
 - [x] Wave38 (2026-06-11)：PluralityRules(#1532) / TotalitarianRules(#1535) / WarCrimesRules(#1536) / PoliticalEthicsRules(#1528) / PoliticalVocationRules(#1531) / PlebiscitaryRules(#1533) / PopulationMigrationRules(#1566)（並列7・アーレントBNAL完結＋ウェーバーWEBR完結＋孟子MENC完結・全テスト一発green）
+- [x] Wave39 (2026-06-11)：ConquestGovernanceRules(#1139) / FearVsHatredRules(#1140) / AdvisorCandorRules(#1141) / VirtuFortunaRules(#1142) / FrictionRules(#1133) / TrinitarianTensionRules(#1135) / CenterOfGravityRules(#1136)（並列7・マキャヴェッリ君主論MKV完結＋クラウゼヴィッツ戦争論CLZ・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -185,13 +186,13 @@
 
 ### Issue連動（第8次補充・2026-06-11／マキャヴェッリMKV・クラウゼヴィッツCLZの純ロジック子Issue・7件＝1Wave分）
 # マキャヴェッリ『君主論』MKV（#1139-1142）／クラウゼヴィッツ『戦争論』CLZ（#1133/1135/1136）
-- [ ] ConquestGovernanceRules：征服地統治の三様＝旧秩序駆逐/植民/傀儡の3戦略×統合速度・裏切りリスクのトレードオフ（MKV-1 #1139・マキャヴェッリ君主論）。`GovernanceRules`(安定度)/`ColonizationRules`(入植)とは別＝征服地の統治戦略選択
-- [ ] FearVsHatredRules：恐怖と憎悪の回廊＝賢明な強制力（恐れられる）vs残虐な抑圧（憎まれる）の非線形モデル（MKV-2 #1140）。`TerrorRules`(恐怖の媒体増幅)/`MartialLawRules`とは別＝「恐れられても憎まれるな」の境界
-- [ ] AdvisorCandorRules：直言参謀と佞臣＝政治情報の品質→政策の現実乖離度（MKV-3 #1141）。`CounselRules`(献策の採択)/`ImpartialObserverRules`とは別＝諫言の質が政策の現実適合を決める
-- [ ] VirtuFortunaRules：ヴィルトゥーとフォルトゥーナ＝統治者の適応力（virtù）×外的偶然（fortuna）の統治修正子（MKV-4 #1142）。`GrowthRules`(成長)/`SenescenceRules`(衰え)とは別＝力量と運命の相互作用
-- [ ] FrictionRules：作戦摩擦モデル＝命令深度×補給×士気→実行成功確率（CLZ-1 #1133・クラウゼヴィッツ戦争論）。`OperationPlanRules`(計画の質)/`CommunicationsRules`(指揮遅延)とは別＝戦場の摩擦（計画と実行の乖離）
-- [ ] TrinitarianTensionRules：三位一体の緊張＝政府意志×軍事力×民衆支持の崩壊検知（CLZ-3 #1135）。`FactionStateRules`(国家状態合成)/`WarPoliticsRules`とは別＝クラウゼヴィッツの三位一体の均衡破綻
-- [ ] CenterOfGravityRules：重心分析＝銀河グラフ上の重心（CoG）星系/艦隊の同定とAI優先化（CLZ-4 #1136）。`ChokepointValueRules`(要衝価値)/`LogisticsRules`とは別＝戦略重心の同定（叩くべき一点）
+- [x] ConquestGovernanceRules：征服地統治の三様＝旧秩序駆逐/植民/傀儡の3戦略×統合速度・裏切りリスクのトレードオフ（MKV-1 #1139・マキャヴェッリ君主論）。`GovernanceRules`(安定度)/`ColonizationRules`(入植)とは別＝征服地の統治戦略選択（Wave39）
+- [x] FearVsHatredRules：恐怖と憎悪の回廊＝賢明な強制力（恐れられる）vs残虐な抑圧（憎まれる）の非線形モデル（MKV-2 #1140）。`TerrorRules`(恐怖の媒体増幅)/`MartialLawRules`とは別＝「恐れられても憎まれるな」の境界（Wave39）
+- [x] AdvisorCandorRules：直言参謀と佞臣＝政治情報の品質→政策の現実乖離度（MKV-3 #1141）。`CounselRules`(献策の採択)/`ImpartialObserverRules`とは別＝諫言の質が政策の現実適合を決める（Wave39）
+- [x] VirtuFortunaRules：ヴィルトゥーとフォルトゥーナ＝統治者の適応力（virtù）×外的偶然（fortuna）の統治修正子（MKV-4 #1142）。`GrowthRules`(成長)/`SenescenceRules`(衰え)とは別＝力量と運命の相互作用（Wave39）
+- [x] FrictionRules：作戦摩擦モデル＝命令深度×補給×士気→実行成功確率（CLZ-1 #1133・クラウゼヴィッツ戦争論）。`OperationPlanRules`(計画の質)/`CommunicationsRules`(指揮遅延)とは別＝戦場の摩擦（計画と実行の乖離）（Wave39）
+- [x] TrinitarianTensionRules：三位一体の緊張＝政府意志×軍事力×民衆支持の崩壊検知（CLZ-3 #1135）。`FactionStateRules`(国家状態合成)/`WarPoliticsRules`とは別＝クラウゼヴィッツの三位一体の均衡破綻（Wave39）
+- [x] CenterOfGravityRules：重心分析＝銀河グラフ上の重心（CoG）星系/艦隊の同定とAI優先化（CLZ-4 #1136）。`ChokepointValueRules`(要衝価値)/`LogisticsRules`とは別＝戦略重心の同定（叩くべき一点）（Wave39）
 
 ### Issue連動（第9次補充・2026-06-11／全体主義・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
 # アーレント全体主義TOTL／ポパー開かれた社会POPR／フーコー規律PANO／アリストテレス政治学ARIS／トクヴィルTOCQ／ウェーバーWEBR-1

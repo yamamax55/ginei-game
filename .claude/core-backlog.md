@@ -109,6 +109,7 @@
 - [x] Wave40 (2026-06-11)：HerrschaftRules(#1525) / StatelessnessRules(#1526) / SuperfluousnessRules(#1524) / ImperialBlowbackRules(#1522) / TerrorPrincipleRules(#1519) / HistoricismTrapRules(#1521) / ToleranceParadoxRules(#1518)（並列7・ウェーバー支配類型＋アーレント全体主義TOTL完結＋ポパー開かれた社会POPR着手・全テスト一発green）
 - [x] Wave41 (2026-06-11)：InstitutionalCorrectionRules(#1517) / PiecemealEngineeringRules(#1514) / OpennessRules(#1511) / PanoptismRules(#1507) / NormalizationRules(#1508) / ExaminationRules(#1509) / MesoiRules(#1495)（並列7・ポパー開かれた社会POPR完結＋フーコー規律PANO完結＋アリストテレスARIS着手・親がPanoptismテストclamp修正）
 - [x] Wave42 (2026-06-11)：CommonGoodOrientationRules(#1499) / ChrematisticsRules(#1502) / CivicPhiliaRules(#1503) / TyrantToolkitRules(#1504) / SoftDespotismRules(#1492) / EqualityDriftRules(#1498) / AssociationRules(#1482)（並列7・アリストテレス政治学ARIS完結＋トクヴィルTOCQ完結・3000テスト突破=全3053・一発green）
+- [x] Wave43 (2026-06-11)：FactionMultiplicityRules(#1473) / AmbitionCounterRules(#1476) / CompoundRepublicRules(#1481) / ExtendedRepublicRules(#1485) / ExecutiveEnergyRules(#1489) / RepresentativeFilterRules(#1494) / CensorshipRules(#1474)（並列7・フェデラリストFED完結＋ミル自由論MILL着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -223,13 +224,13 @@
 
 ### Issue連動（第10次補充・2026-06-11／共和制・自由主義・社会契約EPIC群の純ロジック子Issue・21件＝3Wave分）
 # フェデラリストFED／マキャヴェッリ論考DISC／ミル自由論MILL／ルソー社会契約ROUS／ホッブズLEVI／トクヴィルTOCQ-1
-- [ ] FactionMultiplicityRules：派閥増殖安定則＝HHI逆数→多数派暴政リスク低下・会派形成コスト（FED-1 #1473・フェデラリスト）。`CoalitionRules`/`PartyRules`とは別＝派閥が多いほど多数派専制が起きにくい（マディソン）
-- [ ] AmbitionCounterRules：野心相殺設計＝制度ポジションの自己利益→抑制均衡の能動的発動条件（FED-2 #1476）。`SeparationOfPowersRules`/`ImpeachmentRules`とは別＝「野心には野心を対抗させる」設計
-- [ ] CompoundRepublicRules：複合共和制と二層主権＝委譲/保留権限→垂直抑制強度→専制リスク低下（FED-3 #1481）。`FederalismRules`/`ConstitutionRules`とは別＝二層主権の垂直チェック
-- [ ] ExtendedRepublicRules：拡大共和国の安定＝版図規模×派閥多様性→安定補正（FED-4 #1485）。`LogisticsRules`/`PolityScaleRules`とは別＝大共和国ほど派閥が中和し安定（マディソン）
-- [ ] ExecutiveEnergyRules：行政エネルギーと単一執政＝執政の統一→決断速度×クーデター確率低下のトレードオフ（FED-5 #1489）。`CivilianControlRules`/`CoupRules`とは別＝単一執政の決断力（ハミルトン）
-- [ ] RepresentativeFilterRules：代表による派閥濾過＝選挙区規模→濾過強度→派閥的歪み低減（FED-6 #1494）。`PartyRules`/`PlebisciteRules`とは別＝代表制が直接民主の派閥熱を濾す
-- [ ] CensorshipRules：情報自由度と検閲水準＝短期安定vs長期腐敗の非対称（MILL-1 #1474・ミル自由論、InformationEnvironment同梱）。`FreePressRules`(腐敗発見)/`PropagandaRules`とは別＝検閲の短期安定と長期腐敗
+- [x] FactionMultiplicityRules：派閥増殖安定則＝HHI逆数→多数派暴政リスク低下・会派形成コスト（FED-1 #1473・フェデラリスト）。`CoalitionRules`/`PartyRules`とは別＝派閥が多いほど多数派専制が起きにくい（マディソン）（Wave43）
+- [x] AmbitionCounterRules：野心相殺設計＝制度ポジションの自己利益→抑制均衡の能動的発動条件（FED-2 #1476）。`SeparationOfPowersRules`/`ImpeachmentRules`とは別＝「野心には野心を対抗させる」設計（Wave43）
+- [x] CompoundRepublicRules：複合共和制と二層主権＝委譲/保留権限→垂直抑制強度→専制リスク低下（FED-3 #1481）。`FederalismRules`/`ConstitutionRules`とは別＝二層主権の垂直チェック（Wave43）
+- [x] ExtendedRepublicRules：拡大共和国の安定＝版図規模×派閥多様性→安定補正（FED-4 #1485）。`LogisticsRules`/`PolityScaleRules`とは別＝大共和国ほど派閥が中和し安定（マディソン）（Wave43）
+- [x] ExecutiveEnergyRules：行政エネルギーと単一執政＝執政の統一→決断速度×クーデター確率低下のトレードオフ（FED-5 #1489）。`CivilianControlRules`/`CoupRules`とは別＝単一執政の決断力（ハミルトン）（Wave43）
+- [x] RepresentativeFilterRules：代表による派閥濾過＝選挙区規模→濾過強度→派閥的歪み低減（FED-6 #1494）。`PartyRules`/`PlebisciteRules`とは別＝代表制が直接民主の派閥熱を濾す（Wave43）
+- [x] CensorshipRules：情報自由度と検閲水準＝短期安定vs長期腐敗の非対称（MILL-1 #1474・ミル自由論、InformationEnvironment同梱）。`FreePressRules`(腐敗発見)/`PropagandaRules`とは別＝検閲の短期安定と長期腐敗（Wave43）
 - [ ] PublicOpinionRules：世論ダイナミクスと多数派専制＝意見多様度→情報品質係数（MILL-2 #1477、OpinionField同梱）。`PropagandaRules`/`DemagogueRules`とは別＝世論場の多数派専制と情報品質
 - [ ] HarmPrincipleRules：危害原理の形式化＝過剰抑圧の加速コスト・正当性閾値（MILL-3 #1480）。`MartialLawRules`/`JusticeRules`とは別＝「他者への危害のみ規制しうる」ミルの原理
 - [ ] LibertyCultureRules：個性と実験の社会価値＝意見多様度→研究・適応力係数（MILL-5 #1487）。`OpennessRules`/`ResearchRules`とは別＝自由な個性が社会の実験室になる（ミル）

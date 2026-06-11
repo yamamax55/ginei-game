@@ -121,6 +121,7 @@
 - [x] Wave52 (2026-06-11)：LawfareRules(#1380) / PsyOpRules(#1386) / GreyZoneRules(#1392) / EconomicCoercionRules(#1397) / InsurgencyRules(#1394) / GuerrillaDoctrineRules(#1396) / MobilizationDoctrineRules(#1395)（並列7・限定戦争ULW完結＋スペイン内戦SPW完結＋動員MCN・全テスト一発green）
 - [x] Wave53 (2026-06-11)：MilitaryIndustrialRules(#1389) / ObsolescenceRules(#1385) / TechDiffusionRules(#1377) / BattleRhythmRules(#1376) / TimingDoctrineRules(#1379) / EngagementDistanceRules(#1384) / BattlePerceptionRules(#1387)（並列7・動員MCN完結＋五輪書GRN完結・全テスト一発green）
 - [x] Wave54 (2026-06-11)：AtmosphereRules(#1371) / OrganizationalLearningRules(#1375) / InformationDistortionRules(#1383) / EscalationCommitmentRules(#1378) / OperationalDoctrineRules(#1388) / CommanderBurdenRules(#1400) / CorridorSabotageRules(#1390)（並列7・失敗の本質SHP完結＋スペイン内戦SPW完結＋兵站CRV着手・全テスト一発green）
+- [x] Wave55 (2026-06-11)：SupplyModeRules(#1366) / CorridorCapacityRules(#1367) / DepotRules(#1363) / LogisticsBurdenRules(#1365) / OutlawOrganizationRules(#1357) / CounterLegitimacyRules(#1358) / CooptionRules(#1359)（並列7・兵站CRV完結＋水滸伝SHZ着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -331,13 +332,13 @@
 # 兵站CRV／水滸伝SHZ（非国家武装）／ジョミニJOM／リデルハートLDH（間接アプローチ）／ガリア戦記GAL
 - [x] CommanderBurdenRules：長期遊撃戦の指揮官消耗＝一時的回復可能な運用疲弊・能力低下（SPW-5 #1400・スペイン内戦）。`ReadinessRules`/`SenescenceRules`とは別＝指揮官個人の運用疲弊（回復可能）（Wave54）
 - [x] CorridorSabotageRules：回廊サボタージュ＝占領なしで回廊を一時遮断（SPW-1 #1390、CorridorSabotageState同梱）。`BlockadeRules`(面の封鎖)/`MinefieldRules`とは別＝回廊の一時遮断工作（Wave54）
-- [ ] SupplyModeRules：攻勢/防御補給非対称＝侵攻×2.0/保持×1.0/撤退×0.5の消費倍率（CRV-3 #1366）。`SupplyRules`/`LogisticsRules`とは別＝作戦様式別の補給消費倍率
-- [ ] CorridorCapacityRules：回廊補給スループット＝通商/要衝で輸送容量差・超過で補給配分（CRV-4 #1367）。`TransportCostRules`/`TransshipmentRules`とは別＝回廊の輸送容量と配分
-- [ ] DepotRules：前進補給基地＝デポを補給基点として到達限界を延伸（CRV-1 #1363、Depot同梱）。`SupplyRules`/`SeaControlLeverageRules`とは別＝前進デポによる到達限界の延伸
-- [ ] LogisticsBurdenRules：超線形兵站消費＝艦隊規模^1.3×距離^0.7の尾高比スケーリング（CRV-2 #1365）。`MassEngagementRules`/`OverextensionRules`とは別＝兵站消費の超線形スケーリング
-- [ ] OutlawOrganizationRules：非国家武装勢力の組織モデル＝形成閾値/結束源/解体リスク（SHZ-1 #1357・水滸伝、RebelOrg同梱）。`MutinyRules`/`MercenaryRules`とは別＝梁山泊型の義賊組織
-- [ ] CounterLegitimacyRules：対抗的正統性＝腐敗×弾圧→義賊支持の能動的成長（SHZ-2 #1358）。`ConsentRules`/`InsurgencyRules`とは別＝官の腐敗が義賊の正統性を育てる
-- [ ] CooptionRules：招安ジレンマ＝co-option受諾閾値・吸収後cohesionドリフト→解体（SHZ-3 #1359）。`MeritRetentionRules`/`DefectionMomentum系`とは別＝水滸伝の招安（体制への取り込み）
+- [x]（Wave55）SupplyModeRules：攻勢/防御補給非対称＝侵攻×2.0/保持×1.0/撤退×0.5の消費倍率（CRV-3 #1366）。`SupplyRules`/`LogisticsRules`とは別＝作戦様式別の補給消費倍率
+- [x]（Wave55）CorridorCapacityRules：回廊補給スループット＝通商/要衝で輸送容量差・超過で補給配分（CRV-4 #1367）。`TransportCostRules`/`TransshipmentRules`とは別＝回廊の輸送容量と配分
+- [x]（Wave55）DepotRules：前進補給基地＝デポを補給基点として到達限界を延伸（CRV-1 #1363、Depot同梱）。`SupplyRules`/`SeaControlLeverageRules`とは別＝前進デポによる到達限界の延伸
+- [x]（Wave55）LogisticsBurdenRules：超線形兵站消費＝艦隊規模^1.3×距離^0.7の尾高比スケーリング（CRV-2 #1365）。`MassEngagementRules`/`OverextensionRules`とは別＝兵站消費の超線形スケーリング
+- [x]（Wave55）OutlawOrganizationRules：非国家武装勢力の組織モデル＝形成閾値/結束源/解体リスク（SHZ-1 #1357・水滸伝、RebelOrg同梱）。`MutinyRules`/`MercenaryRules`とは別＝梁山泊型の義賊組織
+- [x]（Wave55）CounterLegitimacyRules：対抗的正統性＝腐敗×弾圧→義賊支持の能動的成長（SHZ-2 #1358）。`ConsentRules`/`InsurgencyRules`とは別＝官の腐敗が義賊の正統性を育てる
+- [x]（Wave55）CooptionRules：招安ジレンマ＝co-option受諾閾値・吸収後cohesionドリフト→解体（SHZ-3 #1359）。`MeritRetentionRules`/`DefectionMomentum系`とは別＝水滸伝の招安（体制への取り込み）
 - [ ] MeritSeatingRules：義侠衆議＝功績型座次＋集団意思決定（SHZ-5 #1362）。`SeniorityRules`(席次の固さ)/`LeadershipElectionRules`とは別＝梁山泊型の功績序列と衆議
 - [ ] IndirectApproachRules：最小予期線スコアリング＝経路の「敵期待外れ度」評価（LDH-1 #1339・リデルハート間接アプローチ）。`GalaxyPathfinder`/`CenterOfGravityRules`とは別＝最も予期されない経路の評価
 - [ ] DislocationRules：心理的瓦解＝複数方向からの脅威による士気崩壊加速（LDH-3 #1344）。`PsychologicalSiegeMoraleRules`(四面楚歌)/`EncirclementRules`とは別＝間接アプローチの心理的瓦解

@@ -192,3 +192,27 @@
 - [ ] FrictionRules：作戦摩擦モデル＝命令深度×補給×士気→実行成功確率（CLZ-1 #1133・クラウゼヴィッツ戦争論）。`OperationPlanRules`(計画の質)/`CommunicationsRules`(指揮遅延)とは別＝戦場の摩擦（計画と実行の乖離）
 - [ ] TrinitarianTensionRules：三位一体の緊張＝政府意志×軍事力×民衆支持の崩壊検知（CLZ-3 #1135）。`FactionStateRules`(国家状態合成)/`WarPoliticsRules`とは別＝クラウゼヴィッツの三位一体の均衡破綻
 - [ ] CenterOfGravityRules：重心分析＝銀河グラフ上の重心（CoG）星系/艦隊の同定とAI優先化（CLZ-4 #1136）。`ChokepointValueRules`(要衝価値)/`LogisticsRules`とは別＝戦略重心の同定（叩くべき一点）
+
+### Issue連動（第9次補充・2026-06-11／全体主義・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
+# アーレント全体主義TOTL／ポパー開かれた社会POPR／フーコー規律PANO／アリストテレス政治学ARIS／トクヴィルTOCQ／ウェーバーWEBR-1
+- [ ] HerrschaftRules：支配の三類型＝伝統的/カリスマ的/合法的×安定プロファイル・崩壊モード（WEBR-1 #1525・ウェーバー）。`CivilianControlRules`/`RegimeRules`とは別＝支配の正統性類型（HerrschaftType同梱）
+- [ ] StatelessnessRules：無権利者の創出＝国籍剥奪・法外人口クラス（TOTL-5 #1526・アーレント）。`CitizenshipRules`(市民権の段階)/`RefugeeRules`とは別＝権利を持つ権利の剥奪
+- [ ] SuperfluousnessRules：余剰性＝使い捨て人口が全体主義運動の吸収率を上げる（TOTL-4 #1524）。`DemographicsRules`/`TotalitarianRules`とは別＝余剰人間が運動の燃料になる
+- [ ] ImperialBlowbackRules：帝国主義の還流＝辺境の暴力が国内の急進化へフィードバック（TOTL-3 #1522）。`FrontierRules`/`OverextensionRules`とは別＝植民地暴力の本国還流
+- [ ] TerrorPrincipleRules：テロの原理化＝道具だった恐怖が目的に変わり粛清が自己増殖する（TOTL-2 #1519）。`TerrorRules`(テロの劇場性)/`PurgeRules`とは別＝恐怖が手段から目的へ転化
+- [ ] HistoricismTrapRules：歴史主義の罠＝必然論イデオロギーが適応拒否を生み脆性を増す（POPR-5 #1521・ポパー開かれた社会）。`DynastyRules`(天命)とは別＝歴史法則信仰が硬直を呼ぶ
+- [ ] ToleranceParadoxRules：寛容のパラドックス＝不寛容派の容認が乗っ取りリスクを生む抑制のジレンマ（POPR-4 #1518）。`PluralityRules`/`FreePressRules`とは別＝寛容が自らを滅ぼす逆説
+- [ ] InstitutionalCorrectionRules：誤り蓄積と脆性崩壊＝errorStock臨界→非線形崩壊確率（POPR-3 #1517）。`RegimeRules`(腐敗)/`AsabiyyaRules`とは別＝自己修正できない制度の誤り蓄積
+- [ ] PiecemealEngineeringRules：漸進的改革vs全体改造＝リスク分布の二様・改革モード選択（POPR-2 #1514）。`DynastyRules.Reform`/`LandReformRules`とは別＝漸進改革とユートピア改造のリスク差
+- [ ] OpennessRules：開放度スペクトル＝自己修正能力・誤り蓄積・適応速度（POPR-1 #1511・開かれた社会）。`SpontaneousOrderRules`/`FreePressRules`とは別＝開かれた社会vs閉じた社会の適応力（OpennessState同梱）
+- [ ] PanoptismRules：パノプティコン係数＝監視インフラ密度→事前抑止効果（PANO-1 #1507・フーコー）。`SecurityRules`(秘密警察)/`CensusRules`とは別＝見られている意識による自己規律（SurveillanceState同梱）
+- [ ] NormalizationRules：規律訓練と標準化＝訓練強度→信頼性↑・創発シナジー↓（PANO-2 #1508）。`VeterancyRules`/`DisciplineRules`とは別＝規律権力による標準化のトレードオフ
+- [ ] ExaminationRules：考課制度＝定期記録→昇進反映・反乱予兆検出精度向上（PANO-3 #1509）。`PerformanceReviewRules`(9-box)とは別＝フーコー的試験・記録の権力
+- [ ] MesoiRules：中間層安定化係数＝FiscalClass中間層シェア→政体安定倍率（ARIS-1 #1495・アリストテレス政治学）。`RedistributionRules`/`CoalitionRules`とは別＝中間層が分厚いほど政体が安定
+- [ ] CommonGoodOrientationRules：公益-私益政体品質スコア＝累進度・制度制約→腐敗加速係数（ARIS-2 #1499）。`JusticeRules`/`RegimeRules`とは別＝政体が公益志向か私益志向かの品質
+- [ ] ChrematisticsRules：収奪経済志向＝管理型/収奪型の動機区別→腐敗加速の別回路（ARIS-3 #1502）。`MonopolyRules`/`ExtractiveDecay`とは別＝アリストテレスの蓄財術批判
+- [ ] CivicPhiliaRules：市民的信頼と審議崩壊＝不平等・僭主圧力で低下→膠着増幅（ARIS-4 #1503）。`ConsentRules`/`SeparationOfPowersRules`とは別＝市民的友愛（ポリス的信頼）
+- [ ] TyrantToolkitRules：僭主維持術＝貧困化課税・出る杭排除・大型事業・密告・不信醸成の短長期効果（ARIS-5 #1504）。`SecurityRules`/`PurgeRules`とは別＝アリストテレスの僭主術カタログ
+- [ ] SoftDespotismRules：穏やかな専制＝行政後見国家・暴力なき受動化（TOCQ-4 #1492・トクヴィル）。`CoupRules`(暴力的奪取)とは別＝福祉的後見による自由の去勢（CoupRulesとの対称系）
+- [ ] EqualityDriftRules：平等化の潮流と身分侵食＝民主化圧力が階級/序列に与える長期係数（TOCQ-5 #1498）。`SerfdomRules`/`CitizenshipRules`とは別＝身分制を溶かす平等化の不可逆潮流
+- [ ] AssociationRules：中間団体・市民結社＝国家と個人の間の自発的緩衝体（TOCQ-2 #1482）。`PluralityRules`(複数性)/`LobbyRules`とは別＝トクヴィルの結社が専制を防ぐ（CivicAssociation同梱）

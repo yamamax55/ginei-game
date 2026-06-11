@@ -176,7 +176,7 @@ namespace Ginei
         {
             Province p = e.province;
             int output = Mathf.RoundToInt(GovernanceRules.OutputFactor(p) * 100f);
-            string unrest = GovernanceRules.IsUnrest(p) ? "　⚠反乱リスク" : "";
+            string unrest = GovernanceRules.IsUnrest(p) ? "　▲反乱リスク" : "";
             return $"第{Ordinal(e.index + 1)}惑星\n" +
                    $"住民思想: {p.nativeIdeology}\n" +
                    $"人口: {Mathf.RoundToInt(p.population)}\n" +
@@ -190,7 +190,7 @@ namespace Ginei
             var provinces = new List<Province>(planets.Count);
             foreach (var e in planets) provinces.Add(e.province);
             SystemGovernance g = GovernanceRules.AggregateSystem(provinces);
-            string unrest = g.anyUnrest ? "　⚠反乱の火種あり" : "";
+            string unrest = g.anyUnrest ? "　▲反乱の火種あり" : "";
             aggregateLabel.text = $"星系全体（{g.planetCount}惑星の集約）" +
                 $"　安定度 {Mathf.RoundToInt(g.weightedStability)}%" +
                 $"　人口 {Mathf.RoundToInt(g.totalPopulation)}" +

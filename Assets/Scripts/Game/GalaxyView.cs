@@ -764,7 +764,7 @@ namespace Ginei
 
                 if (fleetRings.TryGetValue(f, out var ring)) ring.enabled = selectedFleets.Contains(f);
                 if (fleetEta.TryGetValue(f, out var eta))
-                    eta.text = f.engaged ? "⚔交戦" : (f.IsMoving ? $"ETA {f.Eta:F1}" : (f.IsOnCorridor ? "保持" : $"{f.strength}"));
+                    eta.text = f.engaged ? "◆交戦" : (f.IsMoving ? $"ETA {f.Eta:F1}" : (f.IsOnCorridor ? "保持" : $"{f.strength}"));
             }
 
             DrawSelectedRoutes();
@@ -825,7 +825,7 @@ namespace Ginei
             {
                 double total = currentAutoResolveSeconds > 0.0 ? currentAutoResolveSeconds : autoResolveDelay;
                 float remain = Mathf.Max(0f, (float)total - engagedElapsed);
-                banner.text = $"⚔ 回廊で交戦中：ダブルクリックで潜行（手動指揮）／放置で自動解決（残り{remain:0.0}）";
+                banner.text = $"◆ 回廊で交戦中：ダブルクリックで潜行（手動指揮）／放置で自動解決（残り{remain:0.0}）";
                 banner.color = combatColor;
                 return;
             }

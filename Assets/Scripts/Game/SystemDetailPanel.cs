@@ -145,7 +145,7 @@ namespace Ginei
             if (stabilityLabel != null)
             {
                 stabilityLabel.text = prov != null
-                    ? $"安定度 {Mathf.RoundToInt(stability)}%{(GovernanceRules.IsUnrest(prov) ? "　⚠反乱リスク" : "")}"
+                    ? $"安定度 {Mathf.RoundToInt(stability)}%{(GovernanceRules.IsUnrest(prov) ? "　▲反乱リスク" : "")}"
                     : "安定度 —（未統治）";
             }
 

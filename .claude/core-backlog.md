@@ -122,6 +122,7 @@
 - [x] Wave53 (2026-06-11)：MilitaryIndustrialRules(#1389) / ObsolescenceRules(#1385) / TechDiffusionRules(#1377) / BattleRhythmRules(#1376) / TimingDoctrineRules(#1379) / EngagementDistanceRules(#1384) / BattlePerceptionRules(#1387)（並列7・動員MCN完結＋五輪書GRN完結・全テスト一発green）
 - [x] Wave54 (2026-06-11)：AtmosphereRules(#1371) / OrganizationalLearningRules(#1375) / InformationDistortionRules(#1383) / EscalationCommitmentRules(#1378) / OperationalDoctrineRules(#1388) / CommanderBurdenRules(#1400) / CorridorSabotageRules(#1390)（並列7・失敗の本質SHP完結＋スペイン内戦SPW完結＋兵站CRV着手・全テスト一発green）
 - [x] Wave55 (2026-06-11)：SupplyModeRules(#1366) / CorridorCapacityRules(#1367) / DepotRules(#1363) / LogisticsBurdenRules(#1365) / OutlawOrganizationRules(#1357) / CounterLegitimacyRules(#1358) / CooptionRules(#1359)（並列7・兵站CRV完結＋水滸伝SHZ着手・全テスト一発green）
+- [x] Wave56 (2026-06-11)：MeritSeatingRules(#1362) / IndirectApproachRules(#1339) / DislocationRules(#1344) / FleetInBeingRules(#1348) / InteriorLineRules(#1345) / DecisivePointRules(#1347) / LineOfOperationsRules(#1350)（並列7・水滸伝SHZ完結＋リデルハート間接アプローチLDH＋ジョミニJOM着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -339,13 +340,13 @@
 - [x]（Wave55）OutlawOrganizationRules：非国家武装勢力の組織モデル＝形成閾値/結束源/解体リスク（SHZ-1 #1357・水滸伝、RebelOrg同梱）。`MutinyRules`/`MercenaryRules`とは別＝梁山泊型の義賊組織
 - [x]（Wave55）CounterLegitimacyRules：対抗的正統性＝腐敗×弾圧→義賊支持の能動的成長（SHZ-2 #1358）。`ConsentRules`/`InsurgencyRules`とは別＝官の腐敗が義賊の正統性を育てる
 - [x]（Wave55）CooptionRules：招安ジレンマ＝co-option受諾閾値・吸収後cohesionドリフト→解体（SHZ-3 #1359）。`MeritRetentionRules`/`DefectionMomentum系`とは別＝水滸伝の招安（体制への取り込み）
-- [ ] MeritSeatingRules：義侠衆議＝功績型座次＋集団意思決定（SHZ-5 #1362）。`SeniorityRules`(席次の固さ)/`LeadershipElectionRules`とは別＝梁山泊型の功績序列と衆議
-- [ ] IndirectApproachRules：最小予期線スコアリング＝経路の「敵期待外れ度」評価（LDH-1 #1339・リデルハート間接アプローチ）。`GalaxyPathfinder`/`CenterOfGravityRules`とは別＝最も予期されない経路の評価
-- [ ] DislocationRules：心理的瓦解＝複数方向からの脅威による士気崩壊加速（LDH-3 #1344）。`PsychologicalSiegeMoraleRules`(四面楚歌)/`EncirclementRules`とは別＝間接アプローチの心理的瓦解
-- [ ] FleetInBeingRules：分散強要＝攻撃しない存在脅威が敵の機動を縛る（LDH-4 #1348）。`FleetDoctrineRules`(現存艦隊)/`DeterrenceRules`とは別＝艦隊の存在そのものが敵を縛る
-- [ ] InteriorLineRules：内線優位評価＝中央配置→外縁前線への経路コスト比較（JOM-1 #1345・ジョミニ）。`LogisticsRules`/`ChokepointValueRules`とは別＝内線作戦の優位（中央突破）
-- [ ] DecisivePointRules：決勝点識別＝切断点解析→チョークポイントスコア→AI優先目標化（JOM-2 #1347）。`CenterOfGravityRules`(重心)/`ChokepointValueRules`とは別＝ジョミニの決勝点
-- [ ] LineOfOperationsRules：作戦線脆弱性評価＝基地→目標の経路上の敵接触脅威カウント（JOM-3 #1350）。`SupplyRules`/`HomelandResistanceRules`とは別＝作戦線の脆弱性スコア
+- [x]（Wave56）MeritSeatingRules：義侠衆議＝功績型座次＋集団意思決定（SHZ-5 #1362）。`SeniorityRules`(席次の固さ)/`LeadershipElectionRules`とは別＝梁山泊型の功績序列と衆議
+- [x]（Wave56）IndirectApproachRules：最小予期線スコアリング＝経路の「敵期待外れ度」評価（LDH-1 #1339・リデルハート間接アプローチ）。`GalaxyPathfinder`/`CenterOfGravityRules`とは別＝最も予期されない経路の評価
+- [x]（Wave56）DislocationRules：心理的瓦解＝複数方向からの脅威による士気崩壊加速（LDH-3 #1344）。`PsychologicalSiegeMoraleRules`(四面楚歌)/`EncirclementRules`とは別＝間接アプローチの心理的瓦解
+- [x]（Wave56）FleetInBeingRules：分散強要＝攻撃しない存在脅威が敵の機動を縛る（LDH-4 #1348）。`FleetDoctrineRules`(現存艦隊)/`DeterrenceRules`とは別＝艦隊の存在そのものが敵を縛る
+- [x]（Wave56）InteriorLineRules：内線優位評価＝中央配置→外縁前線への経路コスト比較（JOM-1 #1345・ジョミニ）。`LogisticsRules`/`ChokepointValueRules`とは別＝内線作戦の優位（中央突破）
+- [x]（Wave56）DecisivePointRules：決勝点識別＝切断点解析→チョークポイントスコア→AI優先目標化（JOM-2 #1347）。`CenterOfGravityRules`(重心)/`ChokepointValueRules`とは別＝ジョミニの決勝点
+- [x]（Wave56）LineOfOperationsRules：作戦線脆弱性評価＝基地→目標の経路上の敵接触脅威カウント（JOM-3 #1350）。`SupplyRules`/`HomelandResistanceRules`とは別＝作戦線の脆弱性スコア
 - [ ] TurningMovementRules：戦略的迂回機動＝前線迂回経路計算→連絡線脅威スコア（JOM-4 #1353）。`IndirectApproachRules`/`GalaxyPathfinder`とは別＝敵の連絡線を脅かす迂回機動
 - [ ] CoalitionFaultlineRules：部族連合の亀裂モデル＝亀裂スコア→初期忠誠度修正子（GAL-1 #1343・ガリア戦記）。`AllianceDivergenceRules`/`LoyaltyRules`とは別＝部族連合内の亀裂
 - [ ] DivideRules：分割操作＝Divide et Impera＝選択的和解で連合分断（GAL-2 #1346）。`AlienationStratagemRules`(離間)/`DiplomacyRules`とは別＝カエサルの分割統治

@@ -185,7 +185,8 @@ namespace Ginei
             if (strength != null)
             {
                 strength.admiralData = entry.admiral;
-                strength.ApplyAdmiralData();          // 名前/兵力/faction(提督由来)/色を反映
+                strength.baseStrength = entry.baseStrength; // RANKCMD-1：兵力は艦隊が持つ（0なら提督側へフォールバック）
+                strength.ApplyAdmiralData();          // 名前/兵力(艦隊基準×統率)/faction(提督由来)/色を反映
 
                 // 勢力を反映：FactionData があればそれを優先（enum も legacyFaction で同期）
                 if (entry.factionData != null)
@@ -216,7 +217,10 @@ namespace Ginei
                     if (unit != null)
                     {
                         unit.factionData = strength.factionData;
+                        // 先に配属（この時点 unit.baseStrength=0＝規模ゲートは素通り＝シナリオ設定は権威）
                         FleetRoster.AssignAdmiral(unit, entry.admiral); // デモは階級ゲート無し
+                        // RANKCMD-1：兵力を台帳へ一本化（以後のパネル再配属は指揮可能規模でゲート＝RANKCMD-3 が実戦で発火）
+                        unit.baseStrength = strength.EffectiveBaseStrength;
                     }
 
                     // 編制ツリー（#147）：軍団・軍集団に編入し、表示用の梯団名を持たせる。
@@ -312,16 +316,17 @@ namespace Ginei
                 ad = ScriptableObject.CreateInstance<AdmiralData>();
                 ad.admiralName = f + "艦隊";
                 ad.faction = f;
-                ad.leadership = 50; // maxStrength ≒ baseStrength（戦略兵力をそのまま反映）
-                ad.baseStrength = Mathf.Max(1, strategicStrength) * BattleHandoff.StrengthScale;
+                ad.leadership = 50; // 統率50＝補正1.0＝基準兵力をそのまま反映
             }
+            // RANKCMD-1：戦略兵力は艦隊側 baseStrength として渡す（人物に固定兵力を持たせない）
             return new ScenarioData.FleetEntry
             {
                 admiral = ad,
                 faction = f,
                 factionData = null,
                 spawnPosition = pos,
-                formation = Formation.紡錘陣
+                formation = Formation.紡錘陣,
+                baseStrength = Mathf.Max(1, strategicStrength) * BattleHandoff.StrengthScale
             };
         }
 
@@ -410,14 +415,15 @@ namespace Ginei
             ad.admiralName = f + "攻城艦隊";
             ad.faction = f;
             ad.leadership = 50;
-            ad.baseStrength = Mathf.Max(1, baseStrength);
+            // RANKCMD-1：兵力は艦隊側 baseStrength として渡す（人物に固定兵力を持たせない）
             return new ScenarioData.FleetEntry
             {
                 admiral = ad,
                 faction = f,
                 factionData = null,
                 spawnPosition = pos,
-                formation = Formation.鶴翼陣
+                formation = Formation.鶴翼陣,
+                baseStrength = Mathf.Max(1, baseStrength)
             };
         }
     }

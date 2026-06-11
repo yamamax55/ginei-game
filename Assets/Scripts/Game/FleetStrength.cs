@@ -24,6 +24,18 @@ namespace Ginei
         [Tooltip("最大兵力")]
         public int maxStrength = 10000;
 
+        [Tooltip("艦隊の基準兵力＝艦艇数の単一の出所（RANKCMD-1 #1711）。0＝提督側 baseStrength へフォールバック（非推奨・後方互換）。" +
+                 "ApplyAdmiralData が統率で補正して maxStrength を決める基準値")]
+        public int baseStrength = 0;
+
+        /// <summary>
+        /// 兵力（艦艇数）の出所（RANKCMD-1）。艦隊側 <see cref="baseStrength"/> を優先し、未設定(0)なら
+        /// 提督の <see cref="AdmiralData.baseStrength"/>（非推奨）へ、提督も無ければ現在の <see cref="maxStrength"/> へフォールバック。
+        /// </summary>
+        public int EffectiveBaseStrength =>
+            baseStrength > 0 ? baseStrength
+            : (admiralData != null ? admiralData.baseStrength : maxStrength);
+
         [Header("陣営設定")]
         public Faction faction;
 
@@ -200,11 +212,10 @@ namespace Ginei
             admiralName = admiralData.EpithetName;
             faction = admiralData.faction;
 
-            // 統率によって兵力上限を決定 (baseStrength を基準に補正)
-            // 例：統率100で baseStrength * 1.5, 統率0で baseStrength * 0.5
-            // 参謀補完を反映した実効統率を使用（基準値は非破壊）
+            // 統率によって兵力上限を決定（基準兵力を補正）。RANKCMD-1：基準兵力は艦隊側（EffectiveBaseStrength）が出所。
+            // 例：統率100で基準*1.5, 統率0で基準*0.5。参謀補完を反映した実効統率を使用（基準値は非破壊）。
             float leadershipBonus = (admiralData.EffectiveLeadership - 50) / 100f; // -0.5 ~ +0.5
-            maxStrength = Mathf.RoundToInt(admiralData.baseStrength * (1.0f + leadershipBonus));
+            maxStrength = Mathf.RoundToInt(EffectiveBaseStrength * (1.0f + leadershipBonus));
             strength = maxStrength;
 
             // 陣営色コンポーネントがあれば色を更新

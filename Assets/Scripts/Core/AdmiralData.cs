@@ -72,7 +72,8 @@ namespace Ginei
         public int intelligence = 80;  // 情報
 
         [Header("艦隊設定")]
-        [Tooltip("この提督が率いる際の基準兵力")]
+        [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
+                 "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]
         public int baseStrength = 10000;
 
         [Header("得意陣形（#104）")]

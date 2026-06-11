@@ -117,6 +117,7 @@
 - [x] Wave48 (2026-06-11)：FleetDoctrineRules(#1432) / NationalDeterminationRules(#1433) / SeaControlLeverageRules(#1434) / ForeignAdvisorRules(#1435) / DecisiveBattleWindowRules(#1436) / SovereigntyNormRules(#1428) / KontributionRules(#1420)（並列7・孫子拡張SKUN完結＋三十年戦争TYW着手・全テスト一発green）
 - [x] Wave49 (2026-06-11)：KriegsherrRules(#1424) / WarPurposeDriftRules(#1426) / MultipartyPeaceRules(#1427) / PrestigeRules(#1406) / CapacityRules(#1409) / MetaLegitimacyRules(#1411) / CommitmentRules(#1414)（並列7・三十年戦争TYW完結＋項羽と劉邦KORY着手・全テスト一発green・ティック復旧後の再開Wave）
 - [x] Wave50 (2026-06-11)：PsychologicalSiegeMoraleRules(#1419) / MeritRetentionRules(#1422) / CombatFatigueRules(#1403) / KameradschaftRules(#1405) / StalemateRules(#1408) / HomeFrontRules(#1412) / GenerationalWoundRules(#1416)（並列7・項羽と劉邦KORY完結＋レマルク西部戦線RMK完結・50波到達・全テスト一発green）
+- [x] Wave51 (2026-06-11)：ReturneesContagionRules(#1418) / ScorchedEarthStateRules(#1410) / HomelandResistanceRules(#1413) / MassEngagementRules(#1417) / TradeSpaceForTimeRules(#1421) / AllianceDivergenceRules(#1398) / HybridCampaignRules(#1374)（並列7・レマルクRMK完結＋革命戦争WAP完結＋スペイン内戦SPW＋限定戦争ULW着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -293,16 +294,16 @@
 - [x] StalemateRules：膠着戦況＝拮抗＝第3の戦闘結果（RMK-3 #1408）。`PursuitRules`/`AutoBattleSim`とは別＝勝敗でない第三の結果（塹壕戦の膠着）（Wave50）
 - [x] HomeFrontRules：前線-後方情報非対称＝プロパガンダ格差と乖離崩壊（RMK-4 #1412）。`PropagandaRules`/`PublicOpinionRules`とは別＝前線の現実と銃後の幻想の乖離（Wave50）
 - [x] GenerationalWoundRules：世代断絶＝失われた世代の指導者欠乏（RMK-5 #1416）。`GenerationalMemoryRules`/`LifecycleRules`とは別＝大量戦死が将来の指導者層を空洞化させる（Wave50）
-- [ ] ReturneesContagionRules：帰還兵の厭戦伝播＝後方の希望の侵食（RMK-6 #1418）。`RefugeeRules`/`HopeRules`とは別＝帰還兵が銃後へ厭戦と幻滅を持ち込む
-- [ ] ScorchedEarthStateRules：焦土作戦の状態＝自領土破壊→敵の現地調達/デポ無効化（WAP-1 #1410・革命戦争）。`ScorchedEarthRules`(損益・既存)とは別＝焦土の進行状態と敵補給の無効化（ScorchedEarthState同梱）
-- [ ] HomelandResistanceRules：侵攻深度×抵抗逓増＝深く入るほど補給コスト増・反乱自動増幅（WAP-2 #1413、InvasionDepthState同梱）。`OverextensionRules`/`Insurgencyの土壌`とは別＝ロシア戦役型の縦深抵抗
-- [ ] MassEngagementRules：大規模会戦の規模限界＝総兵員数→摩擦への乗算拡張（WAP-3 #1417）。`FrictionRules`(作戦摩擦・生成済み)とは別＝大軍ほど摩擦が増す規模の限界
-- [ ] TradeSpaceForTimeRules：戦略的受動撤退ドクトリン＝正規軍が決戦を拒否し攻勢終末点を誘発（WAP-4 #1421）。`CulminatingPointRules`/`PursuitRules`とは別＝空間を時間で買う退却戦略
-- [ ] AllianceDivergenceRules：連合の隠れた目標乖離＝戦後の利益相反スコア（SPW-4 #1398・スペイン内戦、AllianceDivergence同梱）。`BurdenSharingRules`/`PartitionRules`とは別＝連合内の戦後を見据えた目標の食い違い
+- [x] ReturneesContagionRules：帰還兵の厭戦伝播＝後方の希望の侵食（RMK-6 #1418）。`RefugeeRules`/`HopeRules`とは別＝帰還兵が銃後へ厭戦と幻滅を持ち込む（Wave51）
+- [x] ScorchedEarthStateRules：焦土作戦の状態＝自領土破壊→敵の現地調達/デポ無効化（WAP-1 #1410・革命戦争）。`ScorchedEarthRules`(損益・既存)とは別＝焦土の進行状態と敵補給の無効化（ScorchedEarthState同梱）（Wave51）
+- [x] HomelandResistanceRules：侵攻深度×抵抗逓増＝深く入るほど補給コスト増・反乱自動増幅（WAP-2 #1413、InvasionDepthState同梱）。`OverextensionRules`/`Insurgencyの土壌`とは別＝ロシア戦役型の縦深抵抗（Wave51）
+- [x] MassEngagementRules：大規模会戦の規模限界＝総兵員数→摩擦への乗算拡張（WAP-3 #1417）。`FrictionRules`(作戦摩擦・生成済み)とは別＝大軍ほど摩擦が増す規模の限界（Wave51）
+- [x] TradeSpaceForTimeRules：戦略的受動撤退ドクトリン＝正規軍が決戦を拒否し攻勢終末点を誘発（WAP-4 #1421）。`CulminatingPointRules`/`PursuitRules`とは別＝空間を時間で買う退却戦略（Wave51）
+- [x] AllianceDivergenceRules：連合の隠れた目標乖離＝戦後の利益相反スコア（SPW-4 #1398・スペイン内戦、AllianceDivergence同梱）。`BurdenSharingRules`/`PartitionRules`とは別＝連合内の戦後を見据えた目標の食い違い（Wave51）
 
 ### Issue連動（第13次補充・2026-06-11／限定戦争・五輪書・失敗の本質EPIC群の純ロジック子Issue・21件＝3Wave分）
 # スペイン内戦SPW／限定戦争ULW／動員MCN／五輪書GRN（間合い・拍子）／失敗の本質SHP（空気・組織学習）
-- [ ] HybridCampaignRules：複合打撃ドクトリン＝多ドメイン同時発動の相乗効果（ULW-1 #1374・限定戦争）。`OperationPlanRules`/`SunziDoctrineRules`とは別＝ハイブリッド戦の多ドメイン相乗
+- [x] HybridCampaignRules：複合打撃ドクトリン＝多ドメイン同時発動の相乗効果（ULW-1 #1374・限定戦争）。`OperationPlanRules`/`SunziDoctrineRules`とは別＝ハイブリッド戦の多ドメイン相乗（Wave51）
 - [ ] LawfareRules：法律戦＝条約・国際法を攻撃的に使い相手の行動空間を収縮（ULW-2 #1380）。`DiplomacyRules`/`TreatyRules`とは別＝法を武器にする（lawfare）
 - [ ] PsyOpRules：積極的情報戦・世論戦＝敵国内部合意を蝕む偽情報・心理作戦（ULW-3 #1386）。`PropagandaRules`(自国世論)/`DeceptionRules`とは別＝敵内部を狙う心理作戦
 - [ ] GreyZoneRules：閾値以下・グレーゾーン作戦＝宣戦なき損害・否認可能性モデル（ULW-4 #1392）。`EscalationRules`/`SecurityDilemmaRules`とは別＝戦争未満の曖昧な攻撃

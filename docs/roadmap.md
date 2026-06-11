@@ -139,6 +139,7 @@
 - **開示演出**：`DisclosureLedger` の提示UI（秘史 #450 系の入口）
 
 ### 5-2. 設計済み・実装はこれから（中型）
+- **階級準拠の指揮統率（兵力を人物から切り離す）：#1710（EPIC）＋RANKCMD-1〜4（#1711〜#1714）** ＝`AdmiralData.baseStrength`（兵力が人物に紐づく誤り）を正す。設計＝[`rank-command-capacity-design.md`](./rank-command-capacity-design.md)。**兵力＝艦隊が持つ**（`FleetUnitData`#146/`FleetStrength`）／**人物は階級に応じた指揮可能規模**（`CommandCapacityRules`＝銀英伝準拠：准将/少将=分艦隊・中将/大将=一個艦隊(約1.2〜1.5万隻)・上級大将=複数艦隊/方面・元帥=宇宙艦隊総司令）。配属/梯団を指揮可能規模でゲート（過大兵力は下位階級が率いれない）＋分艦隊 echelon を追加し `OrderOfBattle`#147 を銀英伝準拠へ補正。`RankSystem`#14/`FleetUnitData`#146/`OrderOfBattle`#147/`CommandStaffRules`#885 は接続のみ。着手順 RANKCMD-2→1→3→4
 - 内政深化：#110 Pop階級 → #111 安定度（基礎は済）→ #112 統治政策 → #114 占領/解放 → #113 内部勢力 → #115 内政イベント
 - 創発キャンペーン：#117/#120/#121（政体の創発・1惑星スタート）← G-1/G-2
 - 権力の実相：#164 寡頭支配・#166 秘密警察

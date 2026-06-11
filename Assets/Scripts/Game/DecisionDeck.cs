@@ -91,6 +91,10 @@ namespace Ginei
                     StrategyEventPanel.Enabled ? "旧イベントモーダル：ON" : "旧イベントモーダル：OFF（決裁デスクに集約）");
             }
 
+            // デバッグ：F8 で重大決裁を発生（重大＝時間停止の挙動確認用）
+            if (Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
+                SpawnCriticalDemo();
+
             // game-時間で締切を進める（クロックがポーズ＝重大停止中は EffectiveDt が0＝凍結＝時間が止まる）
             GameClock clock = StrategySession.Clock;
             float gdt = clock != null ? (float)clock.EffectiveDt(Time.unscaledDeltaTime) : Time.deltaTime;
@@ -417,15 +421,23 @@ namespace Ginei
                       "隣接する大国を刺激し、外交関係が悪化する恐れがある。");
             treaty.choices.Add("締結する"); treaty.choices.Add("保留する");
 
+            Queue.Enqueue(tax);
+            Queue.Enqueue(treaty);
+            // 重大デモは時間を止め続け操作不能に見えるため既定では積まない。
+            // 「重大＝時間停止」は F8 で随時発生させて確認できる（裁可すると時間が再開）。
+        }
+
+        /// <summary>デバッグ：重大決裁を1件発生させる（F8）。重大が活性な間だけ時間が止まる挙動の確認用。</summary>
+        private void SpawnCriticalDemo()
+        {
             var coup = new PendingDecision(9003, "地方総督のクーデターの兆候", DecisionSeverity.重大,
                 DecisionSource.イベント, "", defaultChoiceIndex: 0,
                 body: "辺境を治める総督が中央への上納を渋り、独自に兵を集めているとの報告。放置すれば離反は確実。" +
                       "鎮圧は兵力を割き、懐柔は中央の威信を損なう。どちらにせよ時間の猶予はない。");
             coup.choices.Add("鎮圧を命じる"); coup.choices.Add("懐柔する");
-
-            Queue.Enqueue(tax);
-            Queue.Enqueue(treaty);
             Queue.Enqueue(coup);
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.警告,
+                "重大決裁が発生＝時間停止（裁可すると再開）");
         }
     }
 }

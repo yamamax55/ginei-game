@@ -56,7 +56,7 @@ namespace Ginei
 
             GameDate date = GameDate.FromSeconds(clock.ElapsedSeconds, StartYear, dateParams);
             string time = GameDate.TimeString(clock.ElapsedSeconds, dateParams.secondsPerDay);
-            string speed = clock.paused ? "⏸ 停止" : $"× {clock.speed:0.#}";
+            string speed = clock.paused ? "■ 停止" : $"× {clock.speed:0.#}";
             // 右上：日付（宇宙暦/帝国暦）＋時刻＋速度（右寄せ・改行で2段）
             label.text = $"{date.ToDualString(dateParams)}\n{time}　{speed}";
             label.color = clock.paused ? new Color(0.8f, 0.8f, 0.85f) : new Color(0.95f, 0.92f, 0.7f);

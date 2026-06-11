@@ -30,6 +30,7 @@ namespace Ginei
 
         // 詳細ウィンドウ（チップをクリックで開く）
         private GameObject detailRoot;
+        private Image detailFrameImage;
         private TextMeshProUGUI detailTitle;
         private TextMeshProUGUI detailBody;
         private Transform detailChoices;
@@ -196,6 +197,11 @@ namespace Ginei
         private void OpenDetail(PendingDecision d)
         {
             if (d == null || detailRoot == null) return;
+            if (detailFrameImage != null) // モーダルの色味を決裁の重要度に合わせる（少し暗く・不透明）
+            {
+                var cc = CardColor(d.severity);
+                detailFrameImage.color = new Color(cc.r * 0.8f, cc.g * 0.8f, cc.b * 0.8f, 0.98f);
+            }
             detailTitle.text = $"<b>[{d.severity}]</b> {d.title}";
             detailBody.text = string.IsNullOrEmpty(d.body) ? "（詳細なし）" : d.body;
 
@@ -284,7 +290,8 @@ namespace Ginei
             frt.anchorMin = new Vector2(0.5f, 0.5f); frt.anchorMax = new Vector2(0.5f, 0.5f);
             frt.pivot = new Vector2(0.5f, 0.5f); frt.anchoredPosition = Vector2.zero;
             frt.sizeDelta = new Vector2(640f, 0f);
-            frame.AddComponent<Image>().color = new Color(0.06f, 0.08f, 0.13f, 0.99f);
+            detailFrameImage = frame.AddComponent<Image>();
+            detailFrameImage.color = new Color(0.06f, 0.08f, 0.13f, 0.99f);
             var fvlg = frame.AddComponent<VerticalLayoutGroup>();
             fvlg.padding = new RectOffset(24, 24, 20, 20);
             fvlg.spacing = 12f;

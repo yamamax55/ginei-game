@@ -120,6 +120,7 @@
 - [x] Wave51 (2026-06-11)：ReturneesContagionRules(#1418) / ScorchedEarthStateRules(#1410) / HomelandResistanceRules(#1413) / MassEngagementRules(#1417) / TradeSpaceForTimeRules(#1421) / AllianceDivergenceRules(#1398) / HybridCampaignRules(#1374)（並列7・レマルクRMK完結＋革命戦争WAP完結＋スペイン内戦SPW＋限定戦争ULW着手・全テスト一発green）
 - [x] Wave52 (2026-06-11)：LawfareRules(#1380) / PsyOpRules(#1386) / GreyZoneRules(#1392) / EconomicCoercionRules(#1397) / InsurgencyRules(#1394) / GuerrillaDoctrineRules(#1396) / MobilizationDoctrineRules(#1395)（並列7・限定戦争ULW完結＋スペイン内戦SPW完結＋動員MCN・全テスト一発green）
 - [x] Wave53 (2026-06-11)：MilitaryIndustrialRules(#1389) / ObsolescenceRules(#1385) / TechDiffusionRules(#1377) / BattleRhythmRules(#1376) / TimingDoctrineRules(#1379) / EngagementDistanceRules(#1384) / BattlePerceptionRules(#1387)（並列7・動員MCN完結＋五輪書GRN完結・全テスト一発green）
+- [x] Wave54 (2026-06-11)：AtmosphereRules(#1371) / OrganizationalLearningRules(#1375) / InformationDistortionRules(#1383) / EscalationCommitmentRules(#1378) / OperationalDoctrineRules(#1388) / CommanderBurdenRules(#1400) / CorridorSabotageRules(#1390)（並列7・失敗の本質SHP完結＋スペイン内戦SPW完結＋兵站CRV着手・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -320,16 +321,16 @@
 - [x] TimingDoctrineRules：後の先ドクトリン＝反攻型AI補正（GRN-2 #1379、TimingDoctrine同梱）。`FleetDoctrineRules`/`BattleRhythmRules`とは別＝後の先（カウンター）の構え（Wave53）
 - [x] EngagementDistanceRules：間合いドクトリン＝最適交戦距離×係数（GRN-3 #1384）。`WeaponArc系`/`OperationalAptitudeRules`とは別＝五輪書の間合い（交戦距離の最適化）（Wave53）
 - [x] BattlePerceptionRules：観の目・見の目＝intelligence→戦場知覚半径（GRN-4 #1387）。`ReconRules`(偵察精度)/`CommunicationsRules`とは別＝五輪書の観見二つの目（戦場知覚）（Wave53）
-- [ ] AtmosphereRules：「空気」組織雰囲気＝集合的沈黙圧力・諫言病理の前段（SHP-1 #1371・失敗の本質、空気型同梱）。`PreferenceFalsificationRules`/`AdvisorCandorRules`とは別＝日本軍型の「空気」支配
-- [ ] OrganizationalLearningRules：組織学習能力＝敗北→能力改善のフィードバック・制度的記憶（SHP-2 #1375）。`InstitutionalMemoryRules`(歴史の教訓)/`VeterancyRules`とは別＝敗北から学べる組織か
-- [ ] InformationDistortionRules：階層的情報歪曲＝悪報の圧縮・認識ギャップ崩壊イベント（SHP-4 #1383）。`AdvisorCandorRules`(佞臣)/`CommunicationsRules`とは別＝階層を上るほど悪報が薄まる
-- [ ] EscalationCommitmentRules：エスカレーション・コミットメント＝損切り不能・固執ロック・崩壊解除（SHP-3 #1378）。`EscalationRules`(紛争の梯子)/`CommitmentRules`(背水)とは別＝サンクコストへの固執（インパール型）
-- [ ] OperationalDoctrineRules：作戦ドクトリン＝operation/intelligence能力を戦役効率へ初接続・協調スコア（SHP-5 #1388）。`OperationPlanRules`/`OperationalAptitudeRules`とは別＝未使用のoperation/intelligence能力を戦役効率へ
+- [x] AtmosphereRules：「空気」組織雰囲気＝集合的沈黙圧力・諫言病理の前段（SHP-1 #1371・失敗の本質、空気型同梱）。`PreferenceFalsificationRules`/`AdvisorCandorRules`とは別＝日本軍型の「空気」支配（Wave54）
+- [x] OrganizationalLearningRules：組織学習能力＝敗北→能力改善のフィードバック・制度的記憶（SHP-2 #1375）。`InstitutionalMemoryRules`(歴史の教訓)/`VeterancyRules`とは別＝敗北から学べる組織か（Wave54）
+- [x] InformationDistortionRules：階層的情報歪曲＝悪報の圧縮・認識ギャップ崩壊イベント（SHP-4 #1383）。`AdvisorCandorRules`(佞臣)/`CommunicationsRules`とは別＝階層を上るほど悪報が薄まる（Wave54）
+- [x] EscalationCommitmentRules：エスカレーション・コミットメント＝損切り不能・固執ロック・崩壊解除（SHP-3 #1378）。`EscalationRules`(紛争の梯子)/`CommitmentRules`(背水)とは別＝サンクコストへの固執（インパール型）（Wave54）
+- [x] OperationalDoctrineRules：作戦ドクトリン＝operation/intelligence能力を戦役効率へ初接続・協調スコア（SHP-5 #1388）。`OperationPlanRules`/`OperationalAptitudeRules`とは別＝未使用のoperation/intelligence能力を戦役効率へ（Wave54）
 
 ### Issue連動（第14次補充・2026-06-11／兵站CRV・水滸伝SHZ・ジョミニ/リデルハート/ガリア戦記の純ロジック子Issue・20件＝約3Wave分）
 # 兵站CRV／水滸伝SHZ（非国家武装）／ジョミニJOM／リデルハートLDH（間接アプローチ）／ガリア戦記GAL
-- [ ] CommanderBurdenRules：長期遊撃戦の指揮官消耗＝一時的回復可能な運用疲弊・能力低下（SPW-5 #1400・スペイン内戦）。`ReadinessRules`/`SenescenceRules`とは別＝指揮官個人の運用疲弊（回復可能）
-- [ ] CorridorSabotageRules：回廊サボタージュ＝占領なしで回廊を一時遮断（SPW-1 #1390、CorridorSabotageState同梱）。`BlockadeRules`(面の封鎖)/`MinefieldRules`とは別＝回廊の一時遮断工作
+- [x] CommanderBurdenRules：長期遊撃戦の指揮官消耗＝一時的回復可能な運用疲弊・能力低下（SPW-5 #1400・スペイン内戦）。`ReadinessRules`/`SenescenceRules`とは別＝指揮官個人の運用疲弊（回復可能）（Wave54）
+- [x] CorridorSabotageRules：回廊サボタージュ＝占領なしで回廊を一時遮断（SPW-1 #1390、CorridorSabotageState同梱）。`BlockadeRules`(面の封鎖)/`MinefieldRules`とは別＝回廊の一時遮断工作（Wave54）
 - [ ] SupplyModeRules：攻勢/防御補給非対称＝侵攻×2.0/保持×1.0/撤退×0.5の消費倍率（CRV-3 #1366）。`SupplyRules`/`LogisticsRules`とは別＝作戦様式別の補給消費倍率
 - [ ] CorridorCapacityRules：回廊補給スループット＝通商/要衝で輸送容量差・超過で補給配分（CRV-4 #1367）。`TransportCostRules`/`TransshipmentRules`とは別＝回廊の輸送容量と配分
 - [ ] DepotRules：前進補給基地＝デポを補給基点として到達限界を延伸（CRV-1 #1363、Depot同梱）。`SupplyRules`/`SeaControlLeverageRules`とは別＝前進デポによる到達限界の延伸

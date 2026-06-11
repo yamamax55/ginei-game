@@ -113,6 +113,7 @@
 - [x] Wave44 (2026-06-11)：PublicOpinionRules(#1477) / HarmPrincipleRules(#1480) / LibertyCultureRules(#1487) / MajorityTyrannyRules(#1478) / MilitiaLoyaltyRules(#1483) / RinnovazioneRules(#1488) / FounderTrajectoryRules(#1493)（並列7・ミル自由論MILL完結＋トクヴィル多数者の専制＋マキャヴェッリ論考DISC・親が×識別子/Mathf using/HarmPrinciple期待値3件修正）
 - [x] Wave45 (2026-06-11)：GeneralWillRules(#1462) / LawgiverRules(#1464) / PolityScaleRules(#1466) / CivicFaithRules(#1468) / AnarchyCostRules(#1459) / SecurityDilemmaRules(#1461) / CovenantRules(#1463)（並列7・ルソー社会契約論ROUS完結＋ホッブズ・リヴァイアサンLEVI完結・全テスト一発green）
 - [x] Wave46 (2026-06-11)：AnacyclosisRules(#1442) / MixedConstitutionRules(#1445) / TycheRules(#1448) / UniversalHistoryRules(#1451) / InstitutionalMemoryRules(#1454) / GovernmentPrincipleRules(#1439) / PolityCorruptionRules(#1440)（並列7・ポリュビオス政体循環論POLY完結＋モンテスキュー法の精神MONT着手・親がFearDiminishingReturnsテスト比較修正）
+- [x] Wave47 (2026-06-11)：ClimatePolityFitRules(#1443) / IntermediatePowerRules(#1446) / LegalFitnessRules(#1449) / CommerceModeratesWarRules(#1453) / PropertyOriginRules(#1447) / TrustMandateRules(#1450) / ModernizationProgramRules(#1431)（並列7・モンテスキュー法の精神MONT完結＋ロック統治二論LOCK＋孫子拡張SKUN着手・親がClimatePolityFitテストclamp修正）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -258,13 +259,13 @@
 - [x] InstitutionalMemoryRules：歴史の教訓＝危機学習→制度知識蓄積・組織学習（POLY-5 #1454）。`GenerationalMemoryRules`(戦争記憶)/`InstitutionalCorrectionRules`とは別＝危機から学んで制度知が蓄積する（Wave46）
 - [x] GovernmentPrincipleRules：政体の原動力＝徳/名誉/恐怖×原理強度→服従コスト係数（MONT-1 #1439・モンテスキュー法の精神）。`WangDaoRules`/`HerrschaftRules`とは別＝共和政=徳/君主政=名誉/専制=恐怖の駆動原理（Wave46）
 - [x] PolityCorruptionRules：諸政体の腐化回路＝共和→寡頭・君主→専制・専制→崩壊の型別経路（MONT-2 #1440）。`RegimeRules`(腐敗)/`AnacyclosisRules`とは別＝政体類型ごとの固有の腐敗経路（Wave46）
-- [ ] ClimatePolityFitRules：風土と政体の相性＝惑星環境×政体原動力→安定度係数（MONT-3 #1443）。`TerrainRules`/`GovernanceRules`とは別＝モンテスキューの風土論（環境が政体適合を左右）
-- [ ] IntermediatePowerRules：中間権力の緩衝強度＝中間団体→専制リスク低下・専制滑落抑制（MONT-4 #1446）。`AssociationRules`/`CompoundRepublicRules`とは別＝モンテスキューの中間団体が君主政を専制から守る
-- [ ] LegalFitnessRules：法の適合性＝風土×思想×産業整合→正統性係数・反乱圧力（MONT-5 #1449）。`LegalGeneralityRules`/`GovernanceRules`とは別＝法がその社会に適合しているか
-- [ ] CommerceModeratesWarRules：通商と温和政治＝交易量→厭戦加速・専制政体は交易抑圧で低下（MONT-6 #1453）。`TradeRules`/`WarGoalRules`とは別＝モンテスキューの「商業は平和を促す（doux commerce）」
-- [ ] PropertyOriginRules：労働財産論と先占権＝コモンズ/請求権の強さ（LOCK-1 #1447・ロック統治二論）。`PropertyRightsRules`(財産保護)/`ColonizationRules`とは別＝ロックの労働が財産を生む先占権
-- [ ] TrustMandateRules：信託解消連鎖＝侵犯蓄積→信託解消→反乱正当化（LOCK-2 #1450）。`ConsentRules`/`CovenantRules`とは別＝ロックの政府は信託で抵抗権が信託違反で発動
-- [ ] ModernizationProgramRules：近代化プログラム＝研究×造船×人材の多面加速・改革連動（SKUN-1 #1431・坂の上の雲型）。`ResearchRules`/`ShipyardRules`とは別＝後発国の富国強兵の多面加速
+- [x] ClimatePolityFitRules：風土と政体の相性＝惑星環境×政体原動力→安定度係数（MONT-3 #1443）。`TerrainRules`/`GovernanceRules`とは別＝モンテスキューの風土論（環境が政体適合を左右）（Wave47）
+- [x] IntermediatePowerRules：中間権力の緩衝強度＝中間団体→専制リスク低下・専制滑落抑制（MONT-4 #1446）。`AssociationRules`/`CompoundRepublicRules`とは別＝モンテスキューの中間団体が君主政を専制から守る（Wave47）
+- [x] LegalFitnessRules：法の適合性＝風土×思想×産業整合→正統性係数・反乱圧力（MONT-5 #1449）。`LegalGeneralityRules`/`GovernanceRules`とは別＝法がその社会に適合しているか（Wave47）
+- [x] CommerceModeratesWarRules：通商と温和政治＝交易量→厭戦加速・専制政体は交易抑圧で低下（MONT-6 #1453）。`TradeRules`/`WarGoalRules`とは別＝モンテスキューの「商業は平和を促す（doux commerce）」（Wave47）
+- [x] PropertyOriginRules：労働財産論と先占権＝コモンズ/請求権の強さ（LOCK-1 #1447・ロック統治二論）。`PropertyRightsRules`(財産保護)/`ColonizationRules`とは別＝ロックの労働が財産を生む先占権（Wave47）
+- [x] TrustMandateRules：信託解消連鎖＝侵犯蓄積→信託解消→反乱正当化（LOCK-2 #1450）。`ConsentRules`/`CovenantRules`とは別＝ロックの政府は信託で抵抗権が信託違反で発動（Wave47）
+- [x] ModernizationProgramRules：近代化プログラム＝研究×造船×人材の多面加速・改革連動（SKUN-1 #1431・坂の上の雲型）。`ResearchRules`/`ShipyardRules`とは別＝後発国の富国強兵の多面加速（Wave47）
 - [ ] FleetDoctrineRules：艦隊ドクトリン選択＝enum{決戦/漸減/通商破壊/現存艦隊}→AI行動重みとドクトリン相性（SKUN-2 #1432）。`SunziDoctrineRules`/`OperationalAptitudeRules`とは別＝海軍ドクトリンの選択と相性
 - [ ] NationalDeterminationRules：国家意志・後発国の底力＝劣位戦力比での戦闘効率補正・士気回復加速（SKUN-3 #1433）。`Moraleの係数`/`RoyalPresenceRules`とは別＝背水の劣勢国の底力
 - [ ] SeaControlLeverageRules：制海権×陸上作戦協調＝制海権保有→隣接惑星攻城・補給ボーナス（SKUN-4 #1434）。`LogisticsRules`/`PlanetSiegeRules`とは別＝制海権が陸上作戦を有利にする

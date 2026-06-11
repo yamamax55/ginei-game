@@ -1,0 +1,168 @@
+name: worldview-epic-parallel
+
+# 並列EPIC化（fan-out/fan-in）: 重い設計・起票は並列・共有ファイル集約のみ直列
+# 設計＝docs/reference-epic-pipeline.md §3。周期 :11/:41（混雑回避）・N=5並列
+on:
+  schedule:
+    - cron: '11,41 * * * *'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '1サイクルの並列数'
+        default: '5'
+
+concurrency:
+  group: worldview-epic
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  id-token: write
+  actions: read
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.out.outputs.matrix }}
+      any: ${{ steps.out.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Select works and assign prefixes
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
+          claude_args: '--allowedTools "Bash,Read,Grep,Glob"'
+          prompt: |
+            docs/reference-epic-backlog.md の表で状態「未」の先頭から最大5件を選ぶ。
+            各作品について：
+            1. `gh issue list --state all --limit 5 --search "in:title <作品名の主要部>"` で既存EPICが無いことを確認（あれば除外）。
+            2. 意味のある3〜4字の英大文字プレフィックスを割り当てる（例 VEN/LEAR/OTH）。docs/roadmap.md と docs/*-reference-design.md を grep し、5件が互いにも既存にも重複しないこと。
+            選んだ結果を /tmp/matrix.json に JSON 配列で書く: [{"work":"<バックログの作品名そのまま>","prefix":"<PFX>"}, ...]。
+            「未」が無い・全て既存ありなら /tmp/matrix.json に [] を書く。issueは起票しない・ファイルは編集しない。
+      - name: Emit matrix
+        id: out
+        run: |
+          if [ ! -s /tmp/matrix.json ]; then echo "any=false" >> "$GITHUB_OUTPUT"; echo "matrix=[]" >> "$GITHUB_OUTPUT"; exit 0; fi
+          M=$(jq -c . /tmp/matrix.json 2>/dev/null || echo "[]")
+          CNT=$(jq -r 'length' /tmp/matrix.json 2>/dev/null || echo 0)
+          if [ "$CNT" -gt 0 ]; then echo "any=true" >> "$GITHUB_OUTPUT"; else echo "any=false" >> "$GITHUB_OUTPUT"; fi
+          echo "matrix=$M" >> "$GITHUB_OUTPUT"
+
+  epicize:
+    needs: select
+    if: needs.select.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      max-parallel: 5
+      fail-fast: false
+      matrix:
+        item: ${{ fromJson(needs.select.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Epicize one work (no shared-file edits)
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORK: ${{ matrix.item.work }}
+          PREFIX: ${{ matrix.item.prefix }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
+          claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"'
+          prompt: |
+            担当作品＝環境変数 WORK、プレフィックス＝環境変数 PREFIX（必ずこの2字種を使う）。
+            docs/reference-epic-pipeline.md と型の実例 docs/spice-and-wolf-reference-design.md を読む。
+            手順（この作品だけ）：
+            1. 調査（WebSearch可）→ CLAUDE.md「テスト基盤」節の既存純ロジックと突き合わせ欠落軸分析。
+            2. 設計書 docs/<slug>-reference-design.md を作成（§0なぜ役立つか/§1視点/§2メカニクス★優先度＋接続先＋不採用表/§3子Issue表＋着手順）。slug は英小文字。
+            3. gh で EPIC 起票（title: "[EPIC][<分野>] <WORK> 参考 — <要約>"・label: type:epic,type:design,area:worldbuilding,area:strategy）。
+            4. 子issue を直列で起票（title: "[<PREFIX>-n] …"・label: type:feature,priority:med,area:strategy・本文＝親EPIC #n／設計書§2参照＋狙い/接続先/完了条件・純ロジック新設の子は完了条件に「EditModeテスト」必須）。
+            5. EPIC 本文へ子issue番号を gh issue edit で反映・設計書§3へ番号反映。
+            ★重要な制約：docs/roadmap.md と docs/reference-epic-backlog.md は絶対に編集しない。git commit も git push もしない。
+            ★成果物の受け渡し：作業後に必ず以下を実行：
+              mkdir -p /tmp/out
+              cp docs/<slug>-reference-design.md /tmp/out/
+            さらに /tmp/out/fragment.json に次のJSONを書く（EPIC番号は実際に起票した番号）：
+              {"prefix":"<PREFIX>","work":"<WORK と完全一致>","epic":<EPIC番号>,
+               "roadmap_line":"  - **<WORK> 参考：#<EPIC>＋<PREFIX>-1〜N（#a〜#b）** ＝<1行要約・接続先・着手順>",
+               "backlog_done":"| 済 | <WORK> | <着眼点1行> | #<EPIC> |"}
+            著作権：固有名・文章・キャラ不使用、構造パターンのみ。重複新設しない（additive）。タイクン化回避。
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.item.prefix }}
+          path: /tmp/out
+          if-no-files-found: warn
+
+  integrate:
+    needs: epicize
+    if: always() && needs.epicize.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/artifacts
+      - name: Integrate fragments (serial, single push)
+        run: |
+          set -e
+          git config user.name "worldview-epic-bot"
+          git config user.email "actions@users.noreply.github.com"
+          ANCHOR="reference-epic-auto-anchor"
+          shopt -s nullglob
+          for d in /tmp/artifacts/result-*; do
+            f="$d/fragment.json"
+            [ -s "$f" ] || continue
+            for md in "$d"/*.md; do cp "$md" docs/; done
+            RLINE=$(jq -r '.roadmap_line' "$f")
+            python3 - "$RLINE" <<'PY'
+import sys
+rline=sys.argv[1]
+p="docs/roadmap.md"
+lines=open(p,encoding="utf-8").read().split("\n")
+for i,l in enumerate(lines):
+    if "reference-epic-auto-anchor" in l:
+        lines.insert(i,rline); break
+open(p,"w",encoding="utf-8").write("\n".join(lines))
+PY
+            WORK=$(jq -r '.work' "$f")
+            BDONE=$(jq -r '.backlog_done' "$f")
+            python3 - "$WORK" "$BDONE" <<'PY'
+import sys
+work,bdone=sys.argv[1],sys.argv[2]
+p="docs/reference-epic-backlog.md"
+lines=open(p,encoding="utf-8").read().split("\n")
+done=False
+for i,l in enumerate(lines):
+    if not done and l.startswith("| 未 |") and work in l:
+        lines[i]=bdone; done=True
+if not done:
+    for i,l in enumerate(lines):
+        if l.startswith("<!--"):
+            lines.insert(i,bdone); done=True; break
+open(p,"w",encoding="utf-8").write("\n".join(lines))
+PY
+          done
+          git add docs/
+          if git diff --cached --quiet; then
+            echo "no changes to integrate"
+          else
+            git commit -m "docs: 並列EPIC化サイクル（自動・集約）— 設計書/roadmap/backlog 反映"
+            git push origin HEAD:auto/worldview-epics
+          fi

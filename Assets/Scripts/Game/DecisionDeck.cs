@@ -33,6 +33,12 @@ namespace Ginei
         public float cardWidth = 380f;
         public int maxVisibleCards = 5;
 
+        [Header("決裁期限")]
+        [Tooltip("残りこの秒数以下になったら期限表示を点滅させる（game-秒）")]
+        public float deadlineWarnSeconds = 8f;
+        [Tooltip("点滅の速さ（1秒あたりの周期数）")]
+        public float deadlineBlinkSpeed = 2f;
+
         /// <summary>共有の決裁キュー（他システムは <see cref="Enqueue"/> で積む）。</summary>
         public static DecisionQueue Queue { get; private set; } = new DecisionQueue();
 
@@ -49,6 +55,17 @@ namespace Ginei
         private bool deskPausedClock;
         private string lastSignature = "";
         private readonly HashSet<int> collapsed = new HashSet<int>(); // 本文を畳んだ決裁id（要約のみ表示）
+        // 期限表示を毎フレーム更新するためのカード参照（Rebuild で作り直す＝期限は signature に含めず再生成しない）
+        private readonly List<CardView> cardViews = new List<CardView>();
+
+        /// <summary>カードの決裁期限を毎フレーム更新するための参照束。</summary>
+        private class CardView
+        {
+            public PendingDecision decision;
+            public TextMeshProUGUI deadlineLabel;
+            public Image cardBg;
+            public Color baseColor;
+        }
 
         // ===== 自動生成 =====
 
@@ -126,6 +143,61 @@ namespace Ginei
 
             // デッキに何も無ければハンドルを隠す
             if (dragHandle != null) dragHandle.SetActive(Queue.Count > 0);
+
+            // 各カードの決裁期限を毎フレーム更新（カウントダウン＋接近で点滅）。
+            // 期限は signature に含めず Rebuild しない＝ラベルだけ直接更新（ドラッグ位置・畳み状態を保つ）。
+            UpdateDeadlines();
+        }
+
+        /// <summary>各カードの決裁期限表示を更新し、残り時間が少ないと赤橙で点滅させる。</summary>
+        private void UpdateDeadlines()
+        {
+            // 点滅位相（unscaledTime ＝ ポーズ中でも滑らかに脈動）
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * deadlineBlinkSpeed * (Mathf.PI * 2f));
+
+            for (int i = 0; i < cardViews.Count; i++)
+            {
+                var v = cardViews[i];
+                if (v == null || v.decision == null || v.deadlineLabel == null) continue;
+                var d = v.decision;
+
+                // 重大＝無期限（時間を止めて人を待つ）＝カウントダウンせず点滅もしない
+                if (d.severity == DecisionSeverity.重大)
+                {
+                    v.deadlineLabel.text = "要決裁（時間停止中）";
+                    v.deadlineLabel.color = new Color(1f, 0.82f, 0.82f);
+                    if (v.cardBg != null) v.cardBg.color = v.baseColor;
+                    continue;
+                }
+
+                float deadline = DecisionTriageRules.DeadlineFor(d.severity);
+                float remaining = Mathf.Max(0f, deadline - d.elapsed);
+                v.deadlineLabel.text = $"決裁期限　残り {Mathf.CeilToInt(remaining)} 秒";
+
+                if (remaining <= deadlineWarnSeconds)
+                {
+                    // 期限間近＝テキストを橙〜赤で点滅＋カード地色をわずかに脈動させて気付かせる
+                    v.deadlineLabel.color = Color.Lerp(
+                        new Color(1f, 0.85f, 0.30f), new Color(1f, 0.25f, 0.25f), pulse);
+                    if (v.cardBg != null)
+                        v.cardBg.color = Color.Lerp(v.baseColor, WarnTint(v.baseColor), pulse * 0.6f);
+                }
+                else
+                {
+                    v.deadlineLabel.color = new Color(0.70f, 0.78f, 0.86f);
+                    if (v.cardBg != null) v.cardBg.color = v.baseColor;
+                }
+            }
+        }
+
+        /// <summary>カード地色を期限警告用に赤寄りへずらした色（点滅の山側）。</summary>
+        private static Color WarnTint(Color baseColor)
+        {
+            return new Color(
+                Mathf.Min(1f, baseColor.r + 0.45f),
+                baseColor.g * 0.5f,
+                baseColor.b * 0.5f,
+                baseColor.a);
         }
 
         // ===== 表示 =====
@@ -144,6 +216,9 @@ namespace Ginei
 
         private void Rebuild()
         {
+            // 期限ラベルの参照を作り直す（破棄されるカードの参照を残さない）
+            cardViews.Clear();
+
             // ドラッグハンドル以外を破棄（ハンドルは位置保持のため残す）
             for (int i = container.childCount - 1; i >= 0; i--)
             {
@@ -238,6 +313,17 @@ namespace Ginei
                 PendingDecision dd = d;
                 AddButton(header.transform, "─", () => Queue.Minimize(dd), small: true, fixedWidth: 34f);
             }
+
+            // --- 決裁期限（本文を畳んでも見えるようカード直属・ヘッダ直下／毎フレーム更新＆接近で点滅） ---
+            var deadlineLabel = AddLabel(card.transform, "", 14f, new Color(0.7f, 0.78f, 0.86f));
+            deadlineLabel.alignment = TextAlignmentOptions.Right;
+            cardViews.Add(new CardView
+            {
+                decision = d,
+                deadlineLabel = deadlineLabel,
+                cardBg = bg,
+                baseColor = bg.color,
+            });
 
             // --- 本文＋選択肢（畳める） ---
             collapsible = new GameObject("Body");

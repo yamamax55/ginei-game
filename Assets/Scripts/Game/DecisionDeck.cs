@@ -257,11 +257,10 @@ namespace Ginei
 
         private void BuildMinimizedBadge(int count)
         {
-            var badge = new GameObject("MinimizedBadge");
-            badge.transform.SetParent(container, false);
-            var le = badge.AddComponent<LayoutElement>();
-            le.preferredWidth = cardWidth;
-            AddButton(badge.transform, $"▾ 保留中の決裁 {count} 件（クリックで展開）", RestoreMinimized, small: true);
+            // ラッパーを噛ませず直接ボタン化（高さ・幅を持つ正しいレイアウト行にする＝重なり防止）
+            var go = AddButton(container, $"▾ 保留中の決裁 {count} 件（クリックで展開）", RestoreMinimized,
+                small: true, fixedWidth: cardWidth);
+            go.name = "MinimizedBadge";
         }
 
         private void RestoreMinimized()
@@ -342,6 +341,9 @@ namespace Ginei
             drag.target = container;
             var hLabel = AddLabel(dragHandle.transform, "≡ 決裁デスク（ドラッグで移動）", 15f, new Color(0.7f, 0.78f, 0.86f));
             hLabel.alignment = TextAlignmentOptions.Center;
+            var hlrt = hLabel.rectTransform; // ラベルをハンドル枠いっぱいに伸ばす（中央表示）
+            hlrt.anchorMin = Vector2.zero; hlrt.anchorMax = Vector2.one;
+            hlrt.offsetMin = Vector2.zero; hlrt.offsetMax = Vector2.zero;
             dragHandle.SetActive(false);
         }
 

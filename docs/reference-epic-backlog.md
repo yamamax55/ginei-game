@@ -26,7 +26,7 @@
 | 未 | ケネディ『大国の興亡』 | 過剰拡張オーバーストレッチ（軍事コミット＞経済力で衰退）・経済力⇔軍事力の転換ラグ | — |
 | 未 | タックマン『八月の砲声』 | 開戦の誤算メカニズム・動員計画の自動性（止められない動員＝後戻り不能点）・外交DIP-3接続 | — |
 | 未 | 『韓非子』 | 法・術・勢の三位（君主の統治技術＝QIN#900系の理論原典・信賞必罰と二柄） | — |
-| 未 | オーウェル『1984年』 | 監視と密告・歴史の改竄（記録省＝史書編纂の支配側操作）・二重思考（秘密警察#166 接続） | — |
+| 済 | オーウェル『1984年』 | 監視と密告・歴史の改竄（記録省＝史書編纂の支配側操作）・二重思考（秘密警察#166 接続） | #1638 |
 | 未 | 『平家物語』 | 盛者必衰の理（栄華の絶頂→転落の物語曲線）・滅びの美学・敗者視点の語り（開示FND-4） | — |
 | 未 | 『水滸伝』 | 在野の豪傑108人（野に人材が湧く）・招安（賊→官軍への登用）・梁山泊（反体制人材プール） | — |
 | 未 | カエサル『ガリア戦記』 | 遠征兵站・現地勢力の分断統治・戦記による自己宣伝（親征#898/3チャネル#908） | — |
@@ -73,14 +73,14 @@
 | 未 | マッカイ『狂気とバブル』 | チューリップ狂・群集の妄想（SAW-5コーナリングの史実版・集団心理相場） | — |
 | 未 | キンドルバーガー『熱狂、恐慌、崩壊』 | バブルの解剖学・最後の貸し手（`BankRules`取付けの体系化） | — |
 | 未 | レビンソン『コンテナ物語』 | 輸送の規格化が経済地理を書き換える（`LogisticsRules`・港湾＝星系の盛衰） | — |
-| 未 | ダイアモンド『銃・病原菌・鉄』 | 地理決定論・大陸軸と技術伝播（手続き銀河G-1#118の生成原理） | — |
-| 未 | ダイアモンド『文明崩壊』 | 環境収奪→崩壊・エリートの自己隔離（Province資源枯渇・崩壊の選択） | — |
-| 未 | ハラリ『サピエンス全史』 | 虚構が大規模協力を作る（正統性＝共有物語・貨幣/宗教/国家の同型性） | — |
-| 未 | ドラッカー『マネジメント』 | 組織の目的・知識労働者・連邦分権（省庁#158/HCM#992の経営理論） | — |
-| 未 | クリステンセン『イノベーションのジレンマ』 | 破壊的技術・優良組織ゆえの失敗（軍の保守性×`ResearchRules`） | — |
-| 未 | ブルックス『人月の神話』 | 人を足すと遅れる・銀の弾丸はない（造船#884/メガプロジェクトPILの工数法則） | — |
-| 未 | ウォーラーステイン『近代世界システム』 | 中核/半周辺/周辺の搾取構造・ヘゲモニー循環（銀河経済の構造論） | — |
-| 未 | ヘロドトス『歴史』 | ペルシア戦争・僭主譚・伝聞と検証の語り（異文化視点の史書） | — |
+| 済 | ダイアモンド『銃・病原菌・鉄』 | 地理決定論・大陸軸と技術伝播（手続き銀河G-1#118の生成原理） | #1644 |
+| 済 | ダイアモンド『文明崩壊』 | 環境収奪→崩壊・エリートの自己隔離（Province資源枯渇・崩壊の選択） | #1652 |
+| 済 | ハラリ『サピエンス全史』 | 虚構が大規模協力を作る（正統性＝共有物語・貨幣/宗教/国家の同型性） | #1660 |
+| 済 | ドラッカー『マネジメント』 | 組織の目的・知識労働者・連邦分権（省庁#158/HCM#992の経営理論） | #1668 |
+| 済 | クリステンセン『イノベーションのジレンマ』 | 破壊的技術・優良組織ゆえの失敗（軍の保守性×`ResearchRules`） | #1677 |
+| 済 | ブルックス『人月の神話』 | 人を足すと遅れる・銀の弾丸はない（造船#884/メガプロジェクトPILの工数法則） | #1686 |
+| 済 | ウォーラーステイン『近代世界システム』 | 中核/半周辺/周辺の搾取構造・ヘゲモニー循環（銀河経済の構造論） | #1693 |
+| 済 | ヘロドトス『歴史』 | ペルシア戦争・僭主譚・伝聞と検証の語り（異文化視点の史書） | #1701 |
 | 未 | 司馬光『資治通鑑』 | 統治の鑑としての編年史・君臣の成敗事例集（イベント素材の宝庫） | — |
 | 未 | ホイジンガ『中世の秋』 | 爛熟と衰退の様式美・騎士道の形骸化（儀礼の空洞化＝制度疲労の文化面） | — |
 | 未 | マアルーフ『アラブが見た十字軍』 | 敵側視点の同一戦争（視点反転の史書＝開示FND-4の両面記述） | — |
@@ -138,6 +138,102 @@
 | 未 | レム『ソラリス』 | 理解不能な他者との接触失敗（コンタクト＝外交の限界・翻訳不能性） | — |
 | 未 | ディック『高い城の男』 | 歴史改変・作中偽史（if歴史＝偽史プロパガンダ・記録の真偽） | — |
 | 未 | ホーガン『星を継ぐもの』 | 科学的推理で秘史を解く（開示エンジンFND-4の理想形＝謎→仮説→検証の連鎖） | — |
+| 未 | シェリング『紛争の戦略』 | 抑止・瀬戸際・コミットメント（あえて退路を断つ）・フォーカルポイント＝DIP-2/3と#586二層遷移に「撃たずに勝つ」交渉動学（三体・暗黒森林の理論原典） | — |
+| 未 | アリソン『決定の本質』 | 政策決定の3モデル（合理的アクター/組織過程/官僚政治）＝決断#502・政府#142に「同じ事実から別決定が出る」多重視点 | — |
+| 未 | タインター『複雑社会の崩壊』 | 複雑性の限界収益逓減→崩壊（官僚肥大が崩壊を呼ぶ）＝省益#158・制度疲労DynastyRulesの経済学的裏打ち（文明崩壊CLPSは環境軸で別） | — |
+| 未 | ブリントン『革命の解剖』 | 革命の段階モデル（財政危機→穏健派→急進化→恐怖政治→テルミドール反動）＝易姓革命#867の時間動学 | — |
+| 未 | グレーバー『負債論』 | 負債は社会関係・徳政令ジュビリー・債務の道徳化＝FiscalRules債務スパイラルに「踏み倒し/恩赦」の政治的出口・階級#110 | — |
+| 未 | バラバシ『新ネットワーク思考』 | スケールフリー網・ハブ脆弱性・優先的選択＝回廊#118/通商破壊#95にハブ星系断絶の連鎖崩壊・士気カスケード伝播 | — |
+| 未 | マクニール『疫病と世界史』 | 疫病を戦略アクター化（征服に随伴し人口を均す・免疫差が征服を決める）＝DemographicsRules×占領のマクロ動学（カミュ=人間面と別） | — |
+| 未 | コーベット『海洋戦略の諸原則』 | 海上統制vs現存艦隊・限定戦争・交通線＝マハン艦隊決戦と対の「制宙権は通すための手段」 | — |
+| 未 | タレブ『反脆弱性』 | 凸性・無秩序から利得・バーベル戦略＝分散版図/冗長指揮班が衝撃で強くなる堅牢性軸・AutonomyRules冗長性 | — |
+| 未 | スミル『エネルギーと文明』 | エネルギースループットが文明規模の天井＝資源L-1#93/経済に「燃料収支が国力上限を決める」（マルサスの動力版） | — |
+| 未 | オストロム『コモンズの統治』 | 共有資源の自治的統治（自治ルールが枯渇を防ぐ・悲劇の回避設計）＝資源L-1#93/governanceに上からでも市場でもない自治レイヤー | — |
+| 未 | ティリー『国家形成と資本』 | 戦争が国家を作る（戦費調達が財政国家と官僚制を鍛える）＝FiscalRules×政府#142×軍の共進化ループ | — |
+| 未 | ノース『暴力と社会秩序』 | 限定アクセス秩序vs開放アクセス秩序（エリートへのレント分配で暴力を抑える）＝政体#117/腐敗に暴力抑止の制度類型 | — |
+| 未 | ブローデル『地中海』 | longue durée（地理=遅い/局面=中/事件=速いの三層時間史観）＝TimeFlowRules/史書HRDTに多層時間 | — |
+| 未 | オルソン『集合行為論』 | フリーライダー・潜在集団・選択的誘因（大集団ほど協力が崩れる）＝静観#820/支持#113の理論原典 | — |
+| 未 | ロジャース『イノベーションの普及』 | 普及Sカーブ・初期採用者・キャズム（技術は社会浸透して初めて力になる）＝ResearchRules/技術伝播GGS×INNOの普及動学 | — |
+| 未 | ギアツ『劇場国家ヌガラ』 | 権力は儀礼の演出（国家は劇場・儀礼が正統性を生む）＝正統性/3チャネル#908・親征#898に「見せる統治」軸 | — |
+| 未 | モース『贈与論』 | 贈与・返礼義務・ポトラッチ（贈与が同盟と従属を編む）＝外交#189/朝貢/LoyaltyRulesの互酬の経済 | — |
+| 未 | ウィーナー『サイバネティクス』 | フィードバック制御・帰還遅延が振動を生む（観測→決定→行動のループ）＝指揮統制/AI決断#502の制御理論 | — |
+| 未 | キーガン『戦争の歴史』 | 戦争は文化の表現（クラウゼヴィッツ的合理だけでない）＝CultureRules#194×戦争に「文化が戦い方を決める」軸 | — |
+| 未 | ヘンリー・メイン『古代法（Ancient Law）』 | 「身分から契約へ（status→contract）」を法的人格の動学に＝`FeudalRules`/`Fief`の身分拘束から`Person`/`ICharacter`が自由に契約・任用・寝返り（`LoyaltyRules`/`Allegiance`#817）を結べる主体へ移行する『法的成熟度』スカラを新Rulesで定義し、政体#117（専制=身分固定／民主=契約自由）に応じて`OfficeRules`の任用や`DiplomacyRules`#189の条約締結可否へ係数で効かせる。 | — |
+| 未 | ハロルド・バーマン『法と革命（Law and Revolution）』 | 法源の複数競合（教会法／王法／封建法／荘園法／商人法／都市法）＝『法の優越』が複数法体系の競合から創発する動学を新`LegalPluralismRules`に。占領星系`Province`で在地慣習法と征服側の制定法が並立・抵触し、`GovernanceRules.integration`の上がり方を法体系の整合度が決める＝法を一本化すれば統合が速いが正統性`Regime`#867を削るトレードオフ。 | — |
+| 未 | ピーター・リーソン『WTF?!（神判=Ordeals 論）』 | 司法手続き＝『神の裁き』を信念依存の分離均衡として＝神判を受ける意思の有無で有罪/無罪を選別する創発メカニズムを新`AdjudicationRules`に。住民の`Religion`#172信仰度が高いほど神判が機能し、信仰が薄れ`ResearchRules`が進むと合理的証拠主義へ不可逆遷移＝裁判コストと冤罪率が変わり`GovernanceRules`安定度と正統性へ波及。 | — |
+| 未 | ハンムラビ法典（成文法の起源・casuistic law） | 成文法の公示＝『石碑に刻んで万人に見せる』情報公開を新`StatuteRules`に＝if-then型条文と同害報復lex talionisを、公示された制定法の存在自体が`GovernanceRules`の予見可能性を上げ安定度収束を速める／恣意的支配（公示なし=君主裁量）は短期は強いが`Regime`腐敗で正統性を蝕む公示↔裁量のトレードオフ。`DisclosureRules`FND-4で『法典断片の発見→開示』を物語化。 | — |
+| 未 | エルナンド・デ・ソト『資本の謎（The Mystery of Capital）』 | 所有権の公式登記＝『眠れる資本（dead capital）』の制度的可視化を新`PropertyTitleRules`に＝`Province`の人口・資産が登記制度の有無で死蔵か担保化かに分岐し、登記が整うほど`BankRules`の信用創造・`FiscalRules`#163の課税ベースが増える。占領直後は旧所有権が無効化され登記再建に時間がかかる＝`GovernanceRules.OnOccupied`の経済停滞を所有権の不確定として裏打ち。 | — |
+| 未 | ジェイムズ・C・スコット『国家のように見る（Seeing Like a State）』 | 「可読性legibility」＝GovernanceRules（#109/#767 Province）に〈国家が空間を簡略化して課税・徴募・統治可能にする＝integrationの正体〉動学を足す。標準化（碁盤目都市・度量衡・姓の統一）がFiscalRules.TaxRevenueとOutputFactorを底上げする一方、過剰なハイモダニズム計画は安定収束を脆くし崩壊リスク（IsUnrest/RebelPressure）を上げる＝高位の標準化決断→徴税力エンジン→画一化の創発的失敗。 | — |
+| 未 | ジェイン・ジェイコブズ『アメリカ大都市の死と生』 | 「用途混在・スモールブロック・街路の目」による創発的秩序＝GovernanceRules（#109/#767）に〈上からのマスタープラン画一化 vs 多様性ゆえの回復力〉の安定度修正子を足す。混在度の高い星系/惑星は安定収束が速く反乱(RebelPressure)に強い／単一機能・大区画の計画都市は効率は出るが脆い＝スコット『国家のように見る』の住民視点の対。 | — |
+| 未 | ルイス・マンフォード『歴史の都市 明日の都市（The City in History）』 | 都市の発展段階（集落→ポリス→メガロポリス→過密崩壊）と「メガマシン（労働を機械化した巨大協働）」＝SystemView（#767 惑星層）/Provinceに〈星系の都市ライフサイクル相〉を足す。都市が発展相にある間はOutputFactorが伸び、過密・肥大（メガロポリス相）で安定度と希望(HopeRules接続)が逓減する内生的盛衰タイマー。 | — |
+| 未 | エドワード・グレイザー『都市は人類最高の発明である（Triumph of the City）』 | 集積の経済（density→生産性・知識スピルオーバー・接触頻度）＝DemographicsRules（#153 Population）/GovernanceRules.OutputFactorに〈人口密度ボーナス〉軸を足す。一定密度を超えた星系は研究(ResearchRules)・産出に逓増ボーナス、過密で混雑コスト（安定度↓）に転じるU字。都市は人を賢くするが密度には最適点がある。 | — |
+| 未 | アンリ・ルフェーヴル『空間の生産』 | 空間は中立な容器でなく社会・政治・経済関係が「生産」する＝SystemView/Provinceに〈支配側の思想が空間表象を作り変える〉軸を足す。占領後GovernanceRules.OnOccupiedでintegrationがリセットされる現状に、『支配勢力の思想に沿って空間が再編される（記念碑・都市改造）とnativeIdeologyが徐々に書き換わる』長期同化チャネルを与え、CultureRules(#194 同化)/ReligionRulesと接続。 | — |
+| 未 | モーリス・アルヴァックス『集合的記憶』 | 集合的記憶＝過去は保存でなく現在の社会的枠組みで再構成される。DisclosureRules/DisclosureLedger(FND-4 #495 秘史開示)に「想起の歪み」動学を足す＝同じ史実(DisclosureEntry)でも勢力ごとの社会的枠組み(FactionState/Regime正統性)で別の意味に再構成され、世代交代(LifecycleRules/Calendar LIFE-1)で記憶が摩耗・上書きされる。 | — |
+| 未 | エリック・ホブズボーム『創られた伝統』 | 伝統の創造＝正統性のため儀礼/記念日/系譜を人工的に捏造し反復で「古来から」に見せる。SuccessionRules/Organization(#812 制度化)とDisclosureRules(#495)を繋ぎ、Regime/FactionState(正統性)が低いとき高位の決断で『伝統創造』レバーを引く→反復回数で正統性が漸増するが、捏造露見(EspionageRules/DisclosureRules)で逆噴射する創発帰結を足す。 | — |
+| 未 | エルネスト・ルナン『国民とは何か』 | 国民＝日々の人民投票(daily plebiscite)＋『組織された忘却』。CultureRules(#194 同化/ナショナリズム)に「能動的忘却」を足す＝建国時の内戦・虐殺・征服(史実DisclosureEntry)を意図的に忘却させることでNationalismFactorが上がり、忘却が破れると分離独立(SeparatismRisk)が再燃する。NationalismFactorを静的係数でなく『何を忘れたか』の動的関数にする。 | — |
+| 未 | フレドリク・バルト『エスニック集団とその境界』 | エスニシティ＝文化内容でなく『境界の維持』が本質。CultureRules(#194 同化/分離)に「境界画定」動学を足す＝同化(内容の共有)が進んでも境界マーカー(言語/儀礼/血統)が強化されると別民族のまま残り、境界の引き直し(政体#117/包摂inclusivenessの操作)で同一文化が分裂/融合する。AssimilationPressureを内容ベースから境界ベースへ精緻化。 | — |
+| 未 | ピエール・ノラ『記憶の場』 | 記憶の場(lieux de mémoire)＝生きた記憶が薄れた時、記念碑/聖地/史跡が記憶を外部化して係留する。集合的記憶(Halbwachs)の物理版＝StarSystem/Planet(惑星#131)に『記憶の場』属性を持たせ、首都喪失や記念地の占領(GovernanceRules占領統合#109)が集合的記憶/Nationalismへ非対称な打撃を与える。記憶の場を巡る象徴的争奪(軍事価値≠記憶価値)を足す。 | — |
+| 未 | ラインハート＆ロゴフ『国家は破綻する――金融危機の800年』 | ソブリン・デフォルトの周期動学をFiscalRules(#163)/FiscalStateのDebtSpiralへ足す＝公的債務累積→『今度は違う』という慢心で危機シグナルを無視→対外/対内デフォルト・債務再編という回避ルートをCampaignRules#1117の暦境界Tickで判定。デフォルトは利払い消滅と引き換えにExchangeRateFactor急落・正統性(Regime)毀損・以後のInterestRateにリスクプレミアム恒久加算（信用の傷痕）。 | — |
+| 未 | ジョン・ブリュア『財政＝軍事国家の衝撃――戦争・カネ・イギリス国家 1688-1783』 | 財政＝軍事国家の成立をFiscalRules(#163)×LogisticsRules(#844)×徴税官僚機構(MinistryRules#158)へ足す＝戦費を国債で前借りし、その償還を支える徴税効率(Province安定度/統合度×MinistryのinstitutionalInterest)が国家の『動員可能戦力の天井』を決める。制度化された財政国家ほど低金利で大借入でき長期戦を戦えるが、徴税網の拡張はliberty毀損＝支持(#113)/合意(Polity)とのトレードオフ。 | — |
+| 未 | アダム・ファーガソン『マネーの崩壊――ワイマールの悪夢と生活破綻』 | ハイパーインフレの社会崩壊スパイラルをFiscalRules(#163)×HopeRules(#852)×Population/DemographicsRules(#153)へ足す＝財政赤字の貨幣化がExchangeRateFactorを非線形に暴落させ、貯蓄層（中間層FiscalClass）の富が蒸発→希望(Community)崩壊→末人/急進政党台頭(NotificationCenter 政治イベント)。経済が物々交換(ResourceStockpile#92)へ退行し、安定化には通貨刷新（新通貨導入）という劇的リセット。 | — |
+| 未 | ルートヴィヒ・フレック『科学的事実の発生と発展』 | 「思考集団(Denkkollektiv)と思考様式」＝事実は共同体の合意で安定化する動学を`ResearchRules`＋`DisclosureRules`/`DisclosureLedger`(FND-4 #495 開示連鎖)へ接続。一研究の完了が即・確定知ではなく、思考集団の検証を経て「事実」化し、様式が変わると過去の事実が再解釈される＝開示済みエントリの様式依存の解釈変化を`Organization`#812(制度化)で重み付け。 | — |
+| 未 | マイケル・ポランニー『個人的知識（暗黙知の次元）』 | 「暗黙知＝語りえぬ技能知」を`Person`/`PersonRules`(#866 適材適所)＋`CareerPipelineRules`(LIFE-5/6/7)へ接続。研究/技術力(`research`/`engineering`)は文書化できず人に宿るため、保持者の死亡(LIFE-2)/亡命/捕虜(`CaptivityRules` LIFE-4)で組織から不可逆に失われる『暗黙知の蒸発』を導入。制度化(`Organization`#812)が低い研究組織ほど人材喪失で技術が退行する創発帰結。 | — |
+| 未 | ヴァネヴァー・ブッシュ『科学 – その果てしなきフロンティア』 | 「政府による基礎研究への公的投資パイプライン」を`FiscalRules`(#163 歳出配分)＋`ResearchRules`＋`MinistryRules`(GOV-5 #158)へ接続。基礎研究は短期リターンがなく市場が供給しないため、勢力が国庫(`FiscalState`)から研究省庁へ予算を配分する高位の決断レバー＝『今期の戦費 vs 数十年後に効く基礎研究』のトレードオフをエンジン化し、創発として長期技術優位を生む。 | — |
+| 未 | デレク・デ・ソーラ・プライス『リトル・サイエンス、ビッグ・サイエンス』 | 「科学の指数的成長と必然的な飽和」を`ResearchRules`＋`DemographicsRules`(LIFE-3)＋スケーラビリティ規律(PERF #1117)へ接続。研究者数・研究費は指数成長するが成果は逓減し、やがて飽和する＝無制限に研究投資を積んでも線形に技術が伸びない『科学のS字天井』を導入。人口オーナス(`OutputFactor`)と連動し、衰退期勢力の研究効率低下を創発させる。 | — |
+| 未 | ブライアン・フェイガン『歴史を変えた気候大変動（The Little Ice Age）』 | 中長期の気候レジーム（寒冷期/温暖期）をCalendarDispatcherの年境界Tickに乗せ、GovernanceRules.EquilibriumStabilityとResourceProductionRules.Produce（特に農業SystemType）へ気候係数を波及させる＝凶作年→安定度低下→反乱・厭戦のドリフトを創発させる気候動学。FiscalRules（歳入減）とDemographicsRules（飢饉死亡率）にも係数で接続。 | — |
+| 未 | ジェイムズ・C・スコット『反穀物の人類史（Against the Grain）』 | 穀物（徴税可能な貯蔵・計量できる作物）が徴税と国家形成を可能にする＝SystemType=農業の余剰をResourceStockpile→FiscalRules.TaxRevenue（課税ベース）へ橋渡しする『可徴税性』の概念を足す。芋・分散作物の星系は産出があっても徴税が薄い＝GovernanceRulesの支配≠即収奪を作物類型で差別化。逃散（FRONT/末人#847の前段）にも接続。 | — |
+| 未 | ドナルド・ウースター『ダスト・ボウル（Dust Bowl）』 | 短期増収を狙う集約農法（過耕作）が土壌資本を食い潰し、数年後に表土流出＝産出崩壊を招く『土壌ストック』をProvinceに隠れ変数として持たせ、ResourceProductionRules.Produceの農業出力に上限劣化を与える。高位の農業政策レバー（増産強行 vs 休閑）→数年遅延の創発的破局＝法家の罠ExtractiveDecay（QIN-5）の農業生態版。 | — |
+| 未 | マッシモ・リヴィ‐バッチ『人口の世界史』 | DemographicsRulesを『多産多死→多産少死（人口爆発）→少産少死』の人口転換ステージへ拡張＝VitalRates（出生率/死亡率）を発展段階・医療・所得(FiscalRules.WelfareCost/StandardOfLiving)に連動させ、人口ボーナス/オーナスを内生的に生成する。占領・近代化(Regime.Reform)が死亡率を先に下げ→数十年の人口爆発→やがてオーナス、という時間差カスケード。 | — |
+| 未 | アンソニー・ケイヴ・ブラウン『ボディガード・オブ・ライズ（Bodyguard of Lies）』 | D-Day欺瞞作戦（フォーティテュード）＝『敵に偽の戦力配置を信じ込ませる』欺瞞動学を新規DeceptionRulesとして追加し、StrategicFleetの盤面に『敵が観測する戦力 ≠ 実戦力』のギャップを作る。FleetAIの索敵・StrategyRules.FindEncountersが読む『敵側の認識マップ』を歪め、EspionageRules#166を『偽情報注入の成功度』として接続。高位の決断＝陽動部隊にリソース→創発帰結＝敵の主力誤配置。 | — |
+| 未 | ロベルタ・ウォルステッター『パール・ハーバー 警告と決定』 | 奇襲が防げなかったのは情報不足でなく『シグナルがノイズに埋もれた』ため＝SignalNoiseRulesを新規追加し、収集された生情報のうち何割が正しく評価され警告に至るかをモデル化。NotificationCenter（NOTIF-1）へ流す前段に『多数の雑音通知の中から真の脅威兆候を拾えるか』の評価レイヤーを噛ませCoreStateInspectorで観測。真珠湾#1232（攻撃側）に対する『受け手の情報処理失敗』側を補完。 | — |
+| 未 | ベン・マッキンタイア『キム・フィルビーを愛した男（A Spy Among Friends）』 | 二重スパイ＝敵の諜報網に潜り込んだ内通者が『信頼の階層』を逆用する動学をCounterIntelRulesとして追加。GovernmentRegistry/役職保持者（GOV-1#142）に『忠誠が偽装された保持者』フラグを持たせ、EspionageRules#166のDetectionRiskを『内部の防諜が裏切り者を炙り出せるか』へ拡張。CaptivityRules#154（捕虜の登用）と対をなす『送り込まれた裏切り者』ルートで長期にわたり機能不全を蝕む。 | — |
+| 未 | トーマス・リッド『アクティブ・メジャーズ（Active Measures）』 | 国家規模の偽情報工作＝敵の国内に偽の分断・偽団体・偽文書を撒き、相手の正統性と合意を内側から削るActiveMeasuresRulesを追加。CampaignState/FactionState（統合層）の正統性・合意・希望へ、外交#189の相手国に対する『長期・低強度の浸透工作』として作用させ、ConsentRules#836・NonviolenceRules#831の敵対版として接続。高位の決断＝工作予算配分→創発帰結＝数年かけて相手国が自壊。 | — |
+| 未 | ニーアル・ファーガソン『マネーの進化史（The Ascent of Money）』 | 海上交易の『リスクのプール化＝海上保険・株式会社・国債』の発明動学を、CommerceRaidingRules（通商破壊#95）/SupplyRules（補給線#94）の上に『航路リスク→保険プレミアム→金融化』として足す。各回廊に通商破壊で生じる損失確率があり、それを勢力が引き受け（保険プール）・分散（株式StockMarketRules.Company）・国家が裏書き（FiscalRules国債）することで危険な前線回廊でも交易が成立する。海賊が増えるとプレミアムが上がり交易が縮む創発帰結。 | — |
+| 未 | ジョセフ・コンラッド『ノストローモ』 | 単一資源（銀鉱＝チョークポイント資源）が地域の政治・忠誠・腐敗をすべて従属させる『資源の支配が人を腐らせる』動学。ResourceProductionRules（資源生産#93）/Province（内政）に『戦略資源の偏在→その星系の支配が勢力の正統性・腐敗Regime.corruption・忠誠FactionLoyaltyRulesを歪める』カップリングを足す＝豊かな資源星系ほど内戦・寝返り・干渉を招く『資源の呪い』。 | — |
+| 未 | アルフレッド・クロスビー『コロンブスの交換（The Columbian Exchange）』 | 交易路の開通そのものが『双方向の生物学的・文化的伝播（病原菌/作物/思想）を運ぶパイプ』である動学。Corridor/SupplyRulesの交易路をReligionRules.ConversionPressure・CultureRules.AssimilationPressure・（疫病）DemographicsRulesの『伝播チャネル』にする＝交易が開くと物資だけでなく思想・文化・疫病が回廊を伝って拡散し、占領せずとも相手の内政(Province.nativeIdeology)を変質させる。 | — |
+| 未 | アーヴィング・ジャニス『集団浅慮（Victims of Groupthink）』 | 凝集性の高い指揮班ほど全会一致を優先し批判的検証が死ぬ動学＝CommandStaffRules（提督+副提督+参謀の3ネームド）に『参謀の同調圧→反対意見の自己検閲』係数を足し、AutonomyRules#544（自律分散）と逆相のリスク（結束が高いほど代替案探索が縮む）を実装。悪魔の代弁者/外部レビューの有無で意思決定品質が変わるレバーを#502決断システムへ接続。 | — |
+| 未 | ノーマン・ディクソン『軍事的無能の心理学』 | 権威主義的パーソナリティ・反知性主義・曖昧さ耐性の低さが将官選抜で再生産される＝SeniorityRules#155（席次主義）/CareerPipelineRules（士官学校パイプライン）に『選抜基準そのものが無能を量産する』負の選抜係数を足し、敵情報の握り潰し（偵察#119報告の無視）・敵の過小評価をAdmiralSkillRules#137の負スキル（硬直性デバフ）として実効値パターンで実装。 | — |
+| 未 | ジェリー・ハーヴェイ『アビリーンのパラドックス』 | 誰も望まない行動に全員が『他人が望んでいる』と誤認して合意してしまう＝合意の管理失敗。FactionState/CampaignRulesの政策決定や、CommandStaffRules内の幕僚合議に『沈黙＝同意の誤読カスケード』を実装し、LoyaltyRules#817のカスケード（寝返り均衡）の平時版＝『反対が言えず全員が破滅行軍へ』という創発的失策イベントを#116 EventEngineへ。 | — |
+| 未 | ロバート・ジャーヴィス『国際政治における認識と誤認』 | 指導者は敵の意図を実際とずれた『予測可能なパターン』で読み誤る＝抑止モデルとスパイラルモデルの取り違え。DiplomacyRules#189のopinion/HostileOverrideに『観測される敵戦力≠認識される脅威』のバイアス層を挟み、自軍の増強が敵に脅威と映り軍拡スパイラル（ResearchRules×建艦#884の相互エスカレーション）を生む創発を実装。行動経済学EPID#1240の対外版。 | — |
+| 未 | リチャード・シムキン『機動戦の理論（Race to the Swift）』 | 縦深作戦＝拘束部隊と機動部隊の機能分業（pinning/manoeuvre）を新OperationalArtRulesに。回廊グラフ上でStrategicFleetを拘束役（engagedで前線固着）と機動役（GalaxyPathfinderで手薄な隣接回廊へ迂回突破）へ分担させ、StrategyRules.BeginEngagements/FindEncountersが『拘束された敵の背後に空いた作戦線』を検出。engaged固着#586を攻撃側の能動レバー（陽動拘束）として初めて使う。 | — |
+| 未 | トリアンダフィロフ／トゥハチェフスキー『縦深作戦理論（Deep Battle）』 | 連続作戦（successive operations）＝突破→第二梯団投入→追撃の波状動学をOrderOfBattle#147と接続。第一梯団が前線回廊を突破（engaged解除）した瞬間に後置の軍団が間髪入れず縦深へ突進する『梯団リレー』をStrategyRulesに。GameClock/TimeFlowRules#TIME-7のテンポ管理で『突破の勢いを切らさず連続投入』を時間圧縮として表現。 | — |
+| 未 | ロバート・レオンハルト『The Art of Maneuver（機動戦の術）』 | 消耗戦vs機動戦＝敵の物理戦力でなく指揮系統・凝集性（critical vulnerability）を狙いsystemを崩す動学をManeuverWarfareRulesに。OrderOfBattle梯団に『部隊間連携(cohesion)』状態量を持たせ、司令部（CommandStaffRules提督/参謀）を突破で寸断すると配下梯団が指揮を失いAutoBattleSim解決前に瓦解（敗走カスケード）。CombatModifiersに『指揮寸断ペナルティ』をModifierStackで足す。 | — |
+| 未 | スティーヴン・ビドル『Military Power（近代システム／force employment）』 | 勝敗は兵力比でなく『戦力の運用法＝分散・遮蔽・抑圧・諸兵科連合の習熟度』で決まる実証モデルをForceEmploymentRulesに。AutoBattleSimと並走し、艦隊の『近代システム習熟度』（陣形運用・遮蔽・連合練度の勢力/提督状態量）が同兵力でも交戦結果を振らす係数をCombatModifiers/AutoBattleSimへ注入。練度はCareerPipelineRules（士官学校）と接続して向上。 | — |
+| 未 | ジュリオ・ドゥーエ『制空（The Command of the Air）』 | 制空権＝面の支配を戦略層の状態変数に。新AirSuperiorityRules（Core）がGalaxyMapの星系/回廊に『制空度0..1』を持たせ、制空を握った側のみStrategyRules進軍・PlanetSiegeRules侵略を許す（Planet.orbitalDefenseの点支配を線/面へ一般化）。さらに戦略爆撃でCampaignState.FactionState.Stability/ShipyardRules.ProductionFactorを減衰させ前線を飛び越え国力を削る。 | — |
+| 未 | ジョン・ワーデン『The Air Campaign／五つの環』 | 敵を同心5環（指導部/システム要点/インフラ/民衆/前線戦力）の入れ子で捉え、内環（指導部＝Regime.legitimacy／要点＝Shipyard・SupplyRules補給源）を狙うinside-out warfareをWarTargetingRules（Core）に。WarGoalRules#192と接続し、どの環を叩くと継戦意志（WarWeariness）や統治が崩れるか創発。既存Rules（Regime/Supply/Shipyard/WarGoal）を『どの環か』で束ねる横断軸。 | — |
+| 未 | ジョン・ボイド『Patterns of Conflict／OODAループ』 | OODA（観測→判断→決定→行動）の回転速度差を意思決定テンポの動学に。新TempoRules（Core）が各勢力の指揮系統（OrderOfBattle梯団深さ／CommandStaffRules参謀充足／FactionState統治体）から『決定サイクル時間』を導出し、相手より速く回す側に主導権ボーナス＝getting inside the loop効果をFleetAI反応・StrategyRules先制に。TimeFlowRules#TIME-7自動スローと相補。 | — |
+| 未 | ウィリアム・ミッチェル『Winged Defense』 | 新兵器（航空＝制宙打撃艦/超兵器）が既存兵科を陳腐化させるドクトリン転換と組織抵抗をDoctrineShiftRules（Core）に。ResearchRules#123の到達と組織の制度疲労Regime.corruption/Organization.institutionalizationを突き合わせ、旧兵科に既得権を持つ梯団の省益的抵抗MinistryRules.SectionalismFrictionで採用が遅延＝『正しい新ドクトリンが組織政治で潰される』創発。 | — |
+| 未 | 毛沢東『遊撃戦論／持久戦論』 | 新InsurgencyRulesに〈三段階の持久戦（遊撃→運動→陣地）〉と〈魚と水＝住民支持を培地にした遊撃兵力の内生的成長〉。GovernanceRules.RebelPressureを『勢力に蓄積する敵対側の動員ストック』へ昇格させ、占領星系Provinceのnativeideology不一致×低integration×低stabilityから反乱兵力が湧き、StrategicFleetRegistryの正規艦隊と非対称（弱者は負けないことで勝つ）に対峙する能動アクター化。 | — |
+| 未 | ダヴィッド・ガルーラ『対反乱（Counterinsurgency Warfare）』 | 新CounterinsurgencyRulesに〈住民こそ重心〉と〈油染み/インクブロット式の段階的平定（清掃→保持→建設）〉。GovernanceRules.OnOccupied後のintegration回復を『軍事制圧だけでは進まず保持駐留＋行政再建の継続投資でのみ上がる』曲線に作り替え、SecurityRules.DissentSuppression#166と相補（弾圧は短期で支持を削る）。占領後Provinceを拠点から滲ませて統合する空間動学。 | — |
+| 未 | ロバート・トンプソン『共産主義反乱の打倒』 | 新PacificationRulesに〈正統性確立を第一目標とする5原則〉と〈戦略村／住民とゲリラの隔離（水を抜く）〉。SupplyRulesの補給遮断(blocked/ZOC)を『反乱兵力の住民からの補給線を断つ隔離オペ』へ転用し、CaptivityRules/Province.populationと連動して支持基盤を物理的に切り離す。RebelPressureの供給源（住民）を遮断すると反乱ストックが枯れる対反乱版『滅びの時計』。 | — |
+| 未 | デイヴィッド・キルカレン『ゲリラの世界（The Accidental Guerrilla）』 | 新GrievanceMobilizationRulesに〈偶発的ゲリラ＝介入・弾圧それ自体が無関係な住民を反乱へ押しやるフィードバック〉。SecurityRules.RepressionSupportPenalty#166・NonviolenceRules.Repress#831を反乱動員に直結させ、過剰な対反乱作戦が短期で制圧しても長期で敵を増やす非単調動学（撃てば撃つほど湧く）をCounterinsurgency/InsurgencyRulesのループに足す。 | — |
+| 未 | マルティン・ファン・クレフェルト『指揮の科学（Command in War）』 | C2の本質＝『情報を増やすより少ない情報で機能する組織設計』。AutonomyRules#544に〈処理すべき情報量＝命令の細かさ×階層深さ〉負荷変数を足し、命令深度が高いほど情報流が詰まりDoctrineFactor劣化、自律分散で流量が下がり機能維持。CommandStaffRules#885の参謀をdirected telescope（信頼する観測者を要点へ送る）として遠隔認識遅延を局所解消するレバーに。NotificationCenterの遅延と結ぶ。 | — |
+| 未 | ヘルムート・フォン・モルトケ『モルトケ軍事論集（命令と訓令）』 | 訓令戦術(Auftragstaktik)の原典＝命令は意図(commander's intent)だけ与え手段は委ねる／独断専行を是とする。AutonomyRules#544のCommandDoctrine{集団依存/自律分散}に理論的根拠を与え〈命令の抽象度〉を高位レバー化＝抽象度が高いほどEmergentSynergyの上振れ、ただしIsFunctional（高能力×高autonomyのみ機能）＝凡庸な提督に委任すると崩れる非対称。FleetAIの独断/突入判断に接続。 | — |
+| 未 | ドイツ国防軍『軍隊指揮（Truppenführung, 1933）』 | 訓令戦術を成文化した野戦教範＝指揮文化(command climate)と平時訓練が委任を機能させる前提。AutonomyRulesのTrustVsCohesionに〈制度化された指揮ドクトリン〉持続変数を足しOrganization#812制度化と結合＝教範化された自律分散文化は提督死亡後も継承（SuccessionRules）。CareerPipelineRules#155卒業組に訓令戦術の素養を刻みIsFunctionalの前提（訓練済みか）を制度から導く。 | — |
+| 未 | パーシャル＆タリー『砕かれた剣（Shattered Sword）』 | ミッドウェーのC2崩壊＝硬直ドクトリンと指揮テンポ崩壊が決定的瞬間に意思決定を麻痺させる。AutonomyRulesの逆相リスクとして〈指揮サイクル(observe→decide→act)の所要時間〉をモデル化し、相反する命令が同時に来ると決断遅延が累積＝GameClock#TIME-1の戦闘時間内で『決断猶予を使い切ると最悪の妥協行動が発火』を#502/#116 EventEngineへ。CommandStaffRules#885参謀で決断テンポ短縮。 | — |
+| 未 | ジェフリー・パーカー『軍事革命 1500-1800』 | 稜堡式要塞(trace italienne)＝難攻不落→攻囲が会戦に代わる→軍規模と兵站が爆発→財政軍事国家を要請、の因果連鎖。要塞戦#76/PlanetSiegeRules×FiscalRules#163（攻囲を支える歳出膨張・債務スパイラル）×Province徴募へ接続し、『要塞技術ResearchRules#123を採ると会戦解決AutoBattleSimより攻囲SiegeArenaが長期化し攻める側は軍拡で財政が傾く』創発をエンジン化。 | — |
+| 未 | トレヴァー・N・デュピュイ『Numbers, Predictions and War』 | 火力の歴史的逓増(殺傷力指数Lethality Index)と質的優位を係数化するQJM/OLIモデル。CombatModifiers#106に『技術世代差→火力倍率』『指揮・訓練→効率係数』をModifierStackで積み、ResearchRules#123の技術進展をAutoBattleSim#TIME-4と会戦ダメージShipCombat.ComputeDamageへ橋渡し。世代の古い艦隊が新技術勢力に火力で押される定量モデル＝Lanchesterに欠ける技術軸を埋める。 | — |
+| 未 | マーレー＆ノックス『The Dynamics of Military Revolution 1300-2050』 | 軍事革命(社会全体を変える地殻変動)とRMA(既存軍が組織・ドクトリンで技術を取り込む適応)を峻別。ResearchRulesの技術ブレークスルーが即戦力にならず、Organization#812制度化と統治体の適応ラグを経て初めて軍事力へ転換する『採用ラグ』を導入。制度化の低い勢力は新技術を持っても使いこなせない創発＝技術と組織適応のラグを軍事革命の文脈で結ぶ。 | — |
+| 未 | カルロ・M・チポラ『大砲と帆船 1400-1700』 | 舷側砲を積んだ帆走軍艦＝火力×機動の複合プラットフォームが遠隔投射と版図拡張を同時に可能にした史実。ResearchRulesの艦載火力/機動技術をLogisticsRules#844（版図一体化）×SupplyRules#94（補給線）へ接続し、『火力射程と航続に勝る勢力ほど遠方の回廊/星系へ戦力を投射し分断された敵版図を各個に叩ける』技術→地政の創発。 | — |
+| 未 | ハーマン・カーン『熱核戦争論／エスカレーション44段階』 | WarGoalRules#192とDiplomacyRules#189の上に新EscalationLadderRules＝抑止を二値の開戦/講和でなく『44段階のはしご』の離散状態機械に（威嚇示威/局地衝突/限定攻撃/全面）。各段で撃たずに上下する選択をAIが取り、相手の段位を読み違えると意図せぬ全面化が創発。GameTheoryRules#388のチキンゲーム利得表を段ごとに切り替える土台＝『軍隊の目的は勝つことから防ぐことへ』を実効値で表す。 | — |
+| 未 | アルバート・ウォルステッター『抑止の繊細な均衡』 | ResearchRules#123×建艦#884×CommerceRaidingRulesにSecondStrikeRulesを新規＝『抑止は保有でなく第二撃の生存性で決まる』を数式化。先制で破壊される脆弱戦力(地上配備)と生存性の高い戦力(分散/秘匿/移動)を区別し、残存反撃力が閾値を割ると抑止が崩れuse-it-or-lose-it先制誘因が発生。CampaignRules#1117暦境界Tickで『生存反撃力』を判定し低い勢力ほど危機時に先に撃つAI＝真珠湾#1232の構造的裏打ち。 | — |
+| 未 | スコット・セーガン『The Limits of Safety（組織事故論）』 | SecurityRules#166/CoupRules#215の指揮統制にCommandSafetyRulesを新規＝抑止戦力は『使う備え(always)』と『誤発射しない備え(never)』のトレードオフ(always/neverジレンマ)を抱える。委任度を上げると先制抗堪性は上がるが誤認・末端暴走・事故の発射確率が上がる。CampaignRules Tickで委任度×正常事故(normal accident)確率を判定し平時に低確率で『指令なき発射』イベント#116を発火＝抑止の安定が組織の信頼性に依存。 | — |
+| 未 | S・L・A・マーシャル『Men Against Fire（発砲しない兵士）』 | 発砲率（交戦中も大半は撃たない）＝CommandStaffRules（提督+副提督+参謀の3ネームド）とFleetMorale敗走に『参加率(participation rate)』動学。兵力strengthは名目で、実効火力比率は指揮の近接（旗艦/配下艦の視認距離）×一次集団の存在で上下。LoyaltyRules.EffectiveStrength#820の戦術版＝『静観しないが撃たない』層をShipCombat.ComputeDamageの出力係数（実効値パターン）としてCombatModifiers#106に足す。 | — |
+| 未 | デーヴ・グロスマン『On Killing（人殺しの心理学）』 | 同類殺害への生得的抵抗とその克服（距離・権威・集団免責・脱感作訓練）＝AdmiralSkillRules#137とFleetMoraleに『殺傷抵抗(killing resistance)』レイヤー。物理距離（WeaponArc.range＝遠距離ビームは抵抗低）と権威の近接（CommandStaffRules指揮班在席）と集団拡散（Squadron配下艦数）で抵抗が下がる。撃った後の心理的反動をFleetMoraleの被弾以外の士気低下源（殺傷ストレス）として時間蓄積し敗走へ寄与。 | — |
+| 未 | シルズ＆ヤノヴィッツ『国防軍の結束と崩壊』 | 兵が戦うのは大義でなく直近の戦友（一次集団primary group）への義務＝Squadron（旗艦+配下艦の一部隊）に『一次集団結束』を持たせ、高い間はFleetMorale低下に抵抗・敗走閾値を下げる。結束の供給源は指揮班の連続性(CommandStaffRules.Succeed)・補充兵の希釈(ShipyardRules.Commission兵力補充)・損耗速度。LoyaltyRules#817の戦術スケール版＝『国は腐っても小隊は最後まで戦う』。 | — |
+| 未 | スタウファー他『The American Soldier』 | 相対的剥奪（relative deprivation）＝士気は絶対状況でなく『所属集団内で公平か』の比較で決まる。GovernanceRules/FactionStateの支持とRetirementRules（停年・アップオアアウト#530）に『相対的剥奪』係数＝昇進が早い部隊では遅滞個人の士気が逆に下がる、過酷でも全員平等な前線は結束が保たれる。MeritRankRules#900の報酬配分が均衡を欠くとIncentiveMoraleBonusが逆噴射する負の動学。 | — |
+| 未 | アルダン・デュ・ピク『Battle Studies（戦闘研究）』 | 戦闘は物理でなく『士気の衝突』であり損害の大半は一方が背を向けた後に集中する＝StrategyRules.ResolveCorridorBattleとAutoBattleSim#TIME-4に『接触では決着せず片方の士気崩壊(rout)が起きて初めて損害が非対称化する』段階モデル。両軍が向き合う間は損害小、FleetMorale.IsRoutedが立った側に損害が雪崩れる（追撃）。BattleAllegianceRules.ShouldWithdraw（静観退き）と接続。 | — |
+| 未 | エリオット・コーエン『Citizens and Soldiers（市民と兵士）』 | 兵員調達『制度メニュー』の比較動学を新RecruitmentSystemRulesに＝普遍兵役/選抜徴兵/くじ引き/志願制/傭兵をenum化し、各制度が(a)動員#158・FleetPool/FleetPoolRulesの供給速度と兵力天井、(b)RetirementRulesの予備役召集規模、(c)DemographicsRules#153の生産年齢人口プールへの食い込み、(d)支持#113/合意(Polity)コストを別係数で決める。『どの制度で軍を建てるか』→平時コストvs戦時即応のトレードオフが創発。 | — |
+| 未 | マーガレット・レヴィ『Consent, Dissent, and Patriotism』 | 徴兵への『条件付き同意(quasi-voluntary compliance)』を新ConscriptionComplianceRulesに＝動員#158/RecruitmentSystemの実効徴募率を、(1)制度の手続き的公平さ(免除の偏り＝FiscalClass#163富裕層の徴兵逃れ)と(2)『他者も応分に従っているか』の互恵認知の関数に。公平度が落ちると徴兵忌避・逃散(末人#847前段)で名目動員と実効動員が乖離＝GovernanceRules安定度/HopeRules#852へ波及。LoyaltyRulesの徴兵・大衆スケール版。 | — |
+| 未 | アンドレアス・ヴィマー『Waves of War』 | 『大衆動員の社会契約』をFactionStateのinclusiveness(収奪0↔包摂1)×CultureRules#194(ナショナリズム/排除)と動員#158へ接続する新MassMobilizationRulesに＝包摂的に市民権を配る国家ほど普遍徴兵が成立し動員天井が高い／収奪的・排除的国家は徴兵抵抗で実効動員が痩せる。包摂が高い勢力は同一人口で多くを動員でき(FleetPool供給↑)、排除された民族は分離独立(SeparatismRisk)・徴兵拒否に転じる創発。 | — |
+| 未 | フラウィウス・ウェゲティウス『軍事論（De Re Militari）』 | 常備軍の練度＝『練兵こそ勝因（少数の精兵＞多数の烏合）』を、FleetMorale(士気)/GrowthRules(経験)とは別軸の〈規律・訓練度〉純ロジック（仮DisciplineRules/Drill）に。訓練投資→練度(0..1)がCombatModifiers.AbilityFactorに積む実効乗数を返し（実効値パターン）、未訓練の徴募兵（ShipyardRules.Commission/FleetPool直後の新造艦）は練度0で弱く時間・平時駐留で収束。DemographicsRules×FiscalRules(維持費)と接続しAutoBattleSim#TIME-4へ供給。 | — |
+| 未 | 呉起『呉子』 | 『励士（士を励ます）』＝賞罰・恩信・将兵一体による戦意マネジメントを、MeritRankRules#900とFleetMoraleの間を埋める純ロジック（仮TroopMotivationRules）に。将の徳・公正な賞罰・休養（疲労）が部隊の戦意係数を決め、CommandStaffRules提督能力と掛けて出撃前の『戦える状態か』を判定。『内を治めてから外に戦う（治内が先）』をGovernanceRules(内政安定度)→動員可能戦意へ波及。 | — |
+| 未 | 黄石公『三略』／太公望『六韜』 | 『将を選ぶ法（選将）』と文武の使い分け＝有能な将の登用・抜擢を国家経営に位置づける。PersonRules(適材適所/正名)・OfficeRules/GovernmentRegistry(任命)・CivilianControlRules(文民統制GOV-4)に〈将才の見極め基準と登用リスク〉純ロジック（仮GeneralSelectionRules）＝評価値≠真値の不確実性・抜擢の支持/結束影響・有能すぎる将の専権リスク(AutonomyRules)を扱い、『君は将を選び選んだら任せる』の委任ドクトリンを数値化。 | — |
+| 未 | 司馬穣苴『司馬法』 | 『戦争の節度（仁本・以戦止戦）』＝交戦規定と勝者の振る舞いを、PlanetSiegeRules・CaptivityRules(捕虜処遇LIFE-4)・GovernanceRules.OnOccupied(占領統合)に〈略奪vs寛恕の選択→統合度/正統性の事後分岐〉純ロジック（仮WarConductRules）に。占領時『城を屠る(短期戦力↑だがnativeideology反発・integration初期値↓・Regime正統性↓)』か『秋毫を犯さず(即時利得なしだが統合が速い)』を高位の決断とし、WarGoalRules.WarWeariness(厭戦)と連動し残虐行為が長期に祟る創発。 | — |
+| 未 | ハンス・デルブリュック『兵法史（Geschichte der Kriegskunst）』 | 戦略を『殲滅戦略Niederwerfungsstrategie／消耗戦略Ermattungsstrategie』の二極で類型化する枠組みを、AutoBattleSim#TIME-4とStrategyRules.ResolveCorridorBattle/ResolveEncountersの上に〈ドクトリン選択レイヤー〉純ロジック（仮DoctrineRules+enum StrategicDoctrine{殲滅,消耗}）に。doctrineが自動解決の損害配分と決着条件を変え（殲滅＝一会戦決着で高リスク高リターン／消耗＝LogisticsRules・SupplyRulesを活かし時間で削る）、『国力が無い側は殲滅を強いられる』創発。 | — |
+| 未 | カール・デーニッツ『10年と20日（Ten Years and Twenty Days）』 | トン数戦＝『敵が新造するより速く沈めれば必ず勝つ』累積消耗をTonnageWarRules（新規）としてCommerceRaidingRules(通商破壊#95)とShipyardRules.Tick(造船#884)の間に。各暦境界(CalendarDispatcher)で『撃沈トン数−新造トン数』収支を積み、累積で敵の補給/兵力プールFleetPool#148を細らせる。SupplyRules.TickFront枯渇と接続し、群狼の集中（散開哨戒→接触で一点に群がる）係数をStrategicFleetの回廊配置へ。U艇生産vs護衛艦の建艦配分→数年遅れの兵站破局。 | — |
+| 未 | クラーク・レイノルズ『The Fast Carriers』 | 空母＝『火力でなく射程と索敵で先制する脆い投射プラットフォーム』をShipClass#80とWeaponArc/FleetWeaponに。新ShipClass『航宙母艦』に『WeaponArc.rangeを越える標準離隔(strikeRange)＋低い自衛火力＋高い被撃沈脆弱性』を持たせ(firepower≠vulnerabilityをdecouple)、CarrierDoctrineRulesで『先に索敵し先に打撃した側が一方的に削る(アウトレンジ)／接近を許すと脆い』非対称を解く。EscortShipの護衛スクリーン#80が空母を覆う前提＝混成禁止#883の戦術的意味づけ。 | — |
+| 未 | モントゴメリー・メイグス『Slide Rules and Submarines』 | 対潜戦＝『探知技術vs隠密技術』の往復軍拡をDetectionRules（新規）としてResearchRules#123とCommerceRaiding/SupplyRules#94/#95に接続＝潜宙艦の『被探知確率』を護衛側探知技術と襲撃側隠密技術の比で決め、研究投資が片側を進めるとトン数戦の交換比が動く。FleetAIの索敵(searchInterval)に『隠密ユニットは探知判定を通らないと接触しない』ゲートを足し群狼の奇襲成立条件を技術で動かす。決定論rollで再現性確保。 | — |
 
 <!-- 追記例： | 未 | 作品名 or テーマ：◯◯ | 着眼点 | — | -->
 <!-- 著作権注意：いずれも構造パターン/メカニクスのみ参考（固有名・文章・キャラ不使用）。既存カバー分はパイプライン Step 2 で不採用に。 -->

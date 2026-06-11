@@ -14,6 +14,8 @@ namespace Ginei
         キャンセル,
         観測オーバーレイ切替,
         状態インスペクタ切替,
+        決裁ボード切替,
+        人物名鑑切替,
         軍観測切替,
         // 会戦
         ポーズ,
@@ -71,6 +73,10 @@ namespace Ginei
             new InputBinding(GameAction.観測オーバーレイ切替, Key.G,    InputContext.共通),
             // 汎用 状態インスペクタ（登録ルートをリフレクションで全ダンプ）。
             new InputBinding(GameAction.状態インスペクタ切替, Key.J,    InputContext.共通),
+            // 決裁ボード（決裁状況を Kanban で管理＝未処理/最小化/自動処理/決裁済）。
+            new InputBinding(GameAction.決裁ボード切替,   Key.K,         InputContext.共通),
+            // 人物名鑑（提督の能力・階級・参謀を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.人物名鑑切替,     Key.P,         InputContext.共通),
             // 軍 編制オブザーバ（艦隊台帳・編制ツリー・艦艇プールを観測＝戦略/会戦で開閉）。
             new InputBinding(GameAction.軍観測切替,       Key.M,         InputContext.共通),
             new InputBinding(GameAction.ポーズ,         Key.Space,     InputContext.会戦),
@@ -215,6 +221,8 @@ namespace Ginei
             { GameAction.キャンセル,     "ポーズメニュー / 各種キャンセル（優先順位あり）" },
             { GameAction.観測オーバーレイ切替, "国家状態オブザーバを開く / 閉じる" },
             { GameAction.状態インスペクタ切替, "汎用 状態インスペクタを開く / 閉じる（登録ルートを全ダンプ）" },
+            { GameAction.決裁ボード切替,   "決裁ボードを開く / 閉じる（未処理/最小化/自動処理/決裁済）" },
+            { GameAction.人物名鑑切替,     "人物名鑑を開く / 閉じる（提督の能力・階級・参謀）" },
             { GameAction.軍観測切替,     "軍 編制オブザーバを開く / 閉じる（艦隊台帳・編制ツリー・艦艇プール）" },
             { GameAction.ポーズ,         "ポーズ / 再開" },
             { GameAction.倍速等速,       "等速（×1）" },

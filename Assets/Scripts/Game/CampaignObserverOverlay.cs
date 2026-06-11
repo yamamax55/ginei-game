@@ -149,7 +149,7 @@ namespace Ginei
 
             string head = collapsing ? "<color=#ff6b6b>" : "<color=#bfe9c0>";
             sb.Append('\n').Append(head).Append("◤ ").Append(s.faction).Append("</color>");
-            if (collapsing) sb.Append("　<color=#ff6b6b>⚠ 崩壊中</color>");
+            if (collapsing) sb.Append("　<color=#ff6b6b>▲ 崩壊中</color>");
             sb.Append('\n');
 
             // 合成（派生値）

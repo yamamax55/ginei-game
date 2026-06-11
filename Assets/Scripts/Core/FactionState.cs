@@ -26,6 +26,9 @@ namespace Ginei
         /// <summary>国庫＝税収の蓄積（S5）。<see cref="CampaignRules.TickEconomy"/> が課税ベース×税率を毎ターン加算。</summary>
         public float treasury = 0f;
 
+        /// <summary>目安箱への信認（箱ごと・MEYASU-2 #1298）。建白が権力者に聞かれるかを左右する“借り物の権威”。解決は <see cref="CredibilityRules"/>。</summary>
+        public BoxCredibility credibility = new BoxCredibility();
+
         public FactionState() { }
 
         public FactionState(Faction faction, float inclusiveness = 0.5f)
@@ -36,6 +39,7 @@ namespace Ginei
             polity = new Polity(0, faction, population: 1000000, rulerForce: 10000);
             organization = new Organization(0, faction);
             community = new Community(0);
+            credibility = new BoxCredibility(faction);
         }
     }
 }

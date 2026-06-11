@@ -116,6 +116,7 @@
 - [x] Wave47 (2026-06-11)：ClimatePolityFitRules(#1443) / IntermediatePowerRules(#1446) / LegalFitnessRules(#1449) / CommerceModeratesWarRules(#1453) / PropertyOriginRules(#1447) / TrustMandateRules(#1450) / ModernizationProgramRules(#1431)（並列7・モンテスキュー法の精神MONT完結＋ロック統治二論LOCK＋孫子拡張SKUN着手・親がClimatePolityFitテストclamp修正）
 - [x] Wave48 (2026-06-11)：FleetDoctrineRules(#1432) / NationalDeterminationRules(#1433) / SeaControlLeverageRules(#1434) / ForeignAdvisorRules(#1435) / DecisiveBattleWindowRules(#1436) / SovereigntyNormRules(#1428) / KontributionRules(#1420)（並列7・孫子拡張SKUN完結＋三十年戦争TYW着手・全テスト一発green）
 - [x] Wave49 (2026-06-11)：KriegsherrRules(#1424) / WarPurposeDriftRules(#1426) / MultipartyPeaceRules(#1427) / PrestigeRules(#1406) / CapacityRules(#1409) / MetaLegitimacyRules(#1411) / CommitmentRules(#1414)（並列7・三十年戦争TYW完結＋項羽と劉邦KORY着手・全テスト一発green・ティック復旧後の再開Wave）
+- [x] Wave50 (2026-06-11)：PsychologicalSiegeMoraleRules(#1419) / MeritRetentionRules(#1422) / CombatFatigueRules(#1403) / KameradschaftRules(#1405) / StalemateRules(#1408) / HomeFrontRules(#1412) / GenerationalWoundRules(#1416)（並列7・項羽と劉邦KORY完結＋レマルク西部戦線RMK完結・50波到達・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -285,13 +286,13 @@
 - [x] CapacityRules：器量＝指導者が才人を活かせる容量（KORY-2 #1409、CapacityTolerance同梱）。`CommandStaffRules`/`AdvisorCandorRules`とは別＝劉邦型の「己より優れた者を使う」器量（Wave49）
 - [x] MetaLegitimacyRules：大義名分の競合＝外部権威の代弁競合（KORY-3 #1411、MetaAuthority同梱）。`CommandLegitimacyRules`/`WarGoalRules`とは別＝義帝を奉じる型の上位権威の代弁争い（Wave49）
 - [x] CommitmentRules：背水の陣＝撤退不能コミットで戦闘力最大化・敗北は壊滅（KORY-4 #1414）。`ForcedMarchRules`/`DeterrenceRules`(退路を焼く)とは別＝韓信型の背水の陣（決死の戦闘力）（Wave49）
-- [ ] PsychologicalSiegeMoraleRules：四面楚歌＝物理包囲×心理孤立の士気崩壊加速（KORY-5 #1419）。`EncirclementRules`(物理包囲)/`PropagandaRules`とは別＝心理的孤立が士気崩壊を加速する
-- [ ] MeritRetentionRules：功臣処遇ジレンマ＝勝利後の有力功臣の厚遇/転封/粛清の安定化帰結（KORY-6 #1422）。`PurgeRules`/`CompensationRules`とは別＝劉邦型の建国功臣の処遇ジレンマ
-- [ ] CombatFatigueRules：累積戦闘疲弊＝会戦をまたぐ持続的士気劣化（RMK-1 #1403・レマルク西部戦線）。`FleetMorale`/`ReadinessRules`(疲労)とは別＝連戦による持続的な士気の摩耗
-- [ ] KameradschaftRules：戦友紐帯＝一次集団の凝集ボーナスと崩壊（RMK-2 #1405）。`FriendshipRules`(個人の盟友)/`FleetMorale`とは別＝小隊レベルの戦友愛が戦闘力を支える
-- [ ] StalemateRules：膠着戦況＝拮抗＝第3の戦闘結果（RMK-3 #1408）。`PursuitRules`/`AutoBattleSim`とは別＝勝敗でない第三の結果（塹壕戦の膠着）
-- [ ] HomeFrontRules：前線-後方情報非対称＝プロパガンダ格差と乖離崩壊（RMK-4 #1412）。`PropagandaRules`/`PublicOpinionRules`とは別＝前線の現実と銃後の幻想の乖離
-- [ ] GenerationalWoundRules：世代断絶＝失われた世代の指導者欠乏（RMK-5 #1416）。`GenerationalMemoryRules`/`LifecycleRules`とは別＝大量戦死が将来の指導者層を空洞化させる
+- [x] PsychologicalSiegeMoraleRules：四面楚歌＝物理包囲×心理孤立の士気崩壊加速（KORY-5 #1419）。`EncirclementRules`(物理包囲)/`PropagandaRules`とは別＝心理的孤立が士気崩壊を加速する（Wave50）
+- [x] MeritRetentionRules：功臣処遇ジレンマ＝勝利後の有力功臣の厚遇/転封/粛清の安定化帰結（KORY-6 #1422）。`PurgeRules`/`CompensationRules`とは別＝劉邦型の建国功臣の処遇ジレンマ（Wave50）
+- [x] CombatFatigueRules：累積戦闘疲弊＝会戦をまたぐ持続的士気劣化（RMK-1 #1403・レマルク西部戦線）。`FleetMorale`/`ReadinessRules`(疲労)とは別＝連戦による持続的な士気の摩耗（Wave50）
+- [x] KameradschaftRules：戦友紐帯＝一次集団の凝集ボーナスと崩壊（RMK-2 #1405）。`FriendshipRules`(個人の盟友)/`FleetMorale`とは別＝小隊レベルの戦友愛が戦闘力を支える（Wave50）
+- [x] StalemateRules：膠着戦況＝拮抗＝第3の戦闘結果（RMK-3 #1408）。`PursuitRules`/`AutoBattleSim`とは別＝勝敗でない第三の結果（塹壕戦の膠着）（Wave50）
+- [x] HomeFrontRules：前線-後方情報非対称＝プロパガンダ格差と乖離崩壊（RMK-4 #1412）。`PropagandaRules`/`PublicOpinionRules`とは別＝前線の現実と銃後の幻想の乖離（Wave50）
+- [x] GenerationalWoundRules：世代断絶＝失われた世代の指導者欠乏（RMK-5 #1416）。`GenerationalMemoryRules`/`LifecycleRules`とは別＝大量戦死が将来の指導者層を空洞化させる（Wave50）
 - [ ] ReturneesContagionRules：帰還兵の厭戦伝播＝後方の希望の侵食（RMK-6 #1418）。`RefugeeRules`/`HopeRules`とは別＝帰還兵が銃後へ厭戦と幻滅を持ち込む
 - [ ] ScorchedEarthStateRules：焦土作戦の状態＝自領土破壊→敵の現地調達/デポ無効化（WAP-1 #1410・革命戦争）。`ScorchedEarthRules`(損益・既存)とは別＝焦土の進行状態と敵補給の無効化（ScorchedEarthState同梱）
 - [ ] HomelandResistanceRules：侵攻深度×抵抗逓増＝深く入るほど補給コスト増・反乱自動増幅（WAP-2 #1413、InvasionDepthState同梱）。`OverextensionRules`/`Insurgencyの土壌`とは別＝ロシア戦役型の縦深抵抗

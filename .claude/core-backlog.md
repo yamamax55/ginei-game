@@ -376,3 +376,22 @@
 - [ ] SuccessionQualityRules：継承の質→次代の安定＝指名スコア×引き際→正統性（HDRN-4 #1806）。`SuccessionWarRules`/`SuccessionRules`とは別＝継承の質が次代を決める
 - [ ] ReignRetrospectiveRules：治世の回顧と総括＝達成度スコア→後継初期正統性（HDRN-5 #1807）。`HistoriographyRules`とは別＝存命中の自己総括
 - [ ] MemeRules：ミーム複製モデル＝fidelity/fecundity/longevity・ミームプール競争・有害ミームの逆選択（Meme同梱・MEME-1 #1843）。`DisclosureRules`/`ReligionRules`とは別＝観念の自己複製
+
+### Issue連動（第16次補充・2026-06-11・海賊/大衆社会/ミーム/服従の解剖学/歴史学）
+- [ ] PlunderRansomRules：略奪・身代金の収奪経済＝撃破でなく奪取＝富の移転・捕虜の身代金（PIRA-2 #1811）。`CommerceRaidingRules`(船団狩り)とは別＝海賊の収奪経済
+- [ ] CoastalRaidRules：沿岸襲撃＝海賊圧→沿岸Provinceの安定度/人口/統合度を削る・内陸は無影響（PIRA-3 #1812）。`GovernanceRules`とは別＝海賊圧の沿岸被害
+- [ ] PirateSuppressionRules：海賊討伐の集団行動問題＝公共財・フリーライダー均衡・覇権単独供給/共同討伐（PIRA-4 #1813）。`CollectiveSecurityRules`とは別＝討伐の公共財性
+- [ ] PirateStateRules：海賊国家化＝拠点固定→徴税・制度化で準勢力へ昇格／制圧で瓦解・放置で恒久化（PIRA-6 #1815）。`OutlawOrganizationRules`(義賊)とは別＝海賊の国家化
+- [ ] CivicVirtueRules：市民的自己要求と大衆化率＝繁栄が腐敗速度を上げる逆説（CivicVirtue同梱・ORTE-1 #1842・オルテガ）。`AsabiyyaRules`/`MesoiRules`とは別＝大衆社会の市民的徳の衰退
+- [ ] PopulismRules：ポピュリズム圧力と統治質の劣化＝大衆化率×不満→反エリート選挙（ORTE-2 #1847）。`DemagogueRules`/`CompetitiveDemocracyRules`とは別＝大衆化が統治質を劣化させる
+- [ ] SupranationalBodyRules：超国家統合体＝連盟形成・共同防衛・脱退リスク（UnionState同梱・ORTE-3 #1852）。`CollectiveSecurityRules`/`CoalitionRules`とは別＝超国家統合の凝集と脱退
+- [ ] SpecializationPenaltyRules：専門化の野蛮＝テクノクラートが汎用政治職に就くと効率損失（ORTE-4 #1857・オルテガ）。`PersonRules`(適材適所)/`CareerPipelineRules`とは別＝専門家の汎用職ペナルティ
+- [ ] NoblesseObligeRules：エリートの責務と役職降格圧力＝義務不履行→腐敗加速・支持低下（ORTE-5 #1860）。`CourtFavorRules`/`MeritPromotionRules`とは別＝エリートの責務
+- [ ] EssRules：進化的安定戦略＝Hawk-Dove・replicator dynamics・勢力ドクトリンの進化的均衡（MEME-2 #1848）。`GameTheoryRules`(利得表)とは別＝ESSの進化動学
+- [ ] IdeologicalRelatednessRules：包括適応度・イデオロギー血縁係数＝Hamilton則 r×B>C と連立安定性（MEME-4 #1859）。`CoalitionRules`/`AsabiyyaRules`とは別＝イデオロギー血縁の連立安定
+- [ ] AuthorityLegitimacyRules：権威の正当性源泉＝制度化度×階級差×資格威信→commandComplianceBonus（MILG-2 #1856・ミルグラム）。`CommandLegitimacyRules`/`HerrschaftRules`とは別＝服従形成の権威源泉
+- [ ] ObedienceProximityRules：近接性・可視性係数＝VisibilityType・遠距離攻撃の心理コスト低下（MILG-3 #1858）。`AtrocityRules`/`ThoughtlessnessRules`とは別＝距離が服従の心理コストを下げる
+- [ ] SolidarityResistanceRules：連帯効果・先行抵抗者＝DefectorSpillover・resistanceTipping・ResolveCascade（MILG-4 #1862）。`NonviolenceRules`/`PreferenceFalsificationRules`とは別＝先行抵抗者が連帯を生む
+- [ ] CausalNarrativeRules：因果の序列化と偶然の事後抹消＝勝者は必然/敗者は不運と語る・偶然比率が高い勝利は正統性が脆い（CARR-4 #1796・E.H.カー）。`HistoriographyRules`とは別＝因果の物語化
+- [ ] HistoricalParadigmRules：進歩史観vs循環史観＝史観が決断係数を変え出来事でドリフト（HistoryView{進歩,循環,衰退}同梱・CARR-5 #1797）。`DynastyRules`/`AnacyclosisRules`とは別＝史観が決断を変える
+- [ ] RetrospectiveJudgmentRules：過去の遡及評価＝現在の価値で故人/英雄を断罪/復権・時代錯誤の評価（CARR-6 #1798）。`HistoriographyRules`/`GenerationalMemoryRules`とは別＝現在から過去を裁く

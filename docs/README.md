@@ -32,6 +32,7 @@
 
 ## 自動化（留守中でも実装が前進する）
 - [`auto-implement-workflow.md`](./auto-implement-workflow.md) — **自動実装ワークフロー**（`agent-ready` ラベルの issue を拾い→実装→TestHarness検証→draft PR）。`worldview-epic`（設計＋issue化）の実装版。安全装置・向き不向き・調整ポイントを記載。
+- [`playtest-harness.md`](./playtest-harness.md) — **自動プレイテストharness**（AI対AIで会戦を速回し→不変条件で所見＝バグ/改善点を機械判定→JSONレポート）。Core判定(`PlaytestInvariants`)＋Game殻(`PlaytestRunner`)。GameCI(headless Unity)で無人実行する土台。
 
 ## 開発ログ（dev-log/）
 - [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。

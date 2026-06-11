@@ -389,16 +389,20 @@ namespace Ginei
 
             HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
             hlg.spacing = 8f;
-            hlg.childAlignment = TextAnchor.MiddleLeft;
-            hlg.childControlWidth = false;
+            // 折り返しで複数行になる説明列に合わせ、キー/区切りは行の先頭（上）へ寄せる。
+            hlg.childAlignment = TextAnchor.UpperLeft;
+            // childControlWidth=true＝HLG が各列幅を配分（key/sep は固定幅・desc は残り幅）。
+            // これで説明列の折り返し幅が確定し、TMP が正しい折り返し高さを報告できる。
+            hlg.childControlWidth = true;
             hlg.childControlHeight = true;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
             hlg.padding = new RectOffset(4, 0, 0, 0);
 
+            // 行高は固定せず内容（折り返した説明列）に追従させる。
+            // preferredHeight を固定すると2行以上の説明が行からはみ出し、下の行と重なる（スクロール時バグ）。
             LayoutElement rowLE = row.AddComponent<LayoutElement>();
             rowLE.minHeight = itemFontSize + 6f;
-            rowLE.preferredHeight = itemFontSize + 6f;
 
             // キー列（固定幅）
             GameObject keyObj = new GameObject("Key");

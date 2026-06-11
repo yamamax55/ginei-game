@@ -79,6 +79,9 @@ namespace Ginei
             [Tooltip("初期陣形")]
             public Formation formation = Formation.横陣;
 
+            [Tooltip("この艦隊の基準兵力＝艦艇数（RANKCMD-1 #1711。兵力は艦隊が持つ）。0＝未指定＝提督側 baseStrength へフォールバック（非推奨・後方互換）")]
+            public int baseStrength = 0;
+
             [Tooltip("艦隊番号（#146。0＝未指定＝従来どおり提督名のみ表示）")]
             public int fleetNumber = 0;
 

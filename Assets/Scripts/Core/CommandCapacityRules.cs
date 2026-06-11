@@ -4,7 +4,7 @@ namespace Ginei
     /// 階級ごとの指揮可能規模（RANKCMD-2 #1712・銀河英雄伝説準拠）。人物が率いられる最大兵力（隻）を階級 tier から定める。
     /// <b>兵力（艦隊数）は艦隊が持ち</b>（<see cref="FleetUnitData"/>/`FleetStrength`・RANKCMD-1）、<b>人物は「どれだけ率いられるか」だけを階級で持つ</b>。
     /// tier は <see cref="RankSystem"/> 既定ラダー（准将5/少将6/中将7/大将8/上級大将9/元帥10）。
-    /// 各所のインライン判定を増やさずここへ集約（<see cref="CombatModifiers"/>#106 と同方針）。梯団種別↔規模の一表化（EchelonType 拡張後）は ORBAT-2 で。
+    /// 各所のインライン判定を増やさずここへ集約（<see cref="CombatModifiers"/>#106 と同方針）。階級→自然な梯団の段は <see cref="EchelonForTier"/>（RANKCMD-4・分艦隊 echelon 追加後）。
     /// 純ロジック・test-first。
     /// </summary>
     public static class CommandCapacityRules
@@ -45,6 +45,19 @@ namespace Ginei
             if (strength <= Cap大将) return 8;
             if (strength <= Cap上級大将) return 9;
             return 10;
+        }
+
+        /// <summary>
+        /// その階級 tier が指揮するのに<b>自然な梯団の段</b>（RANKCMD-4 #1714・銀英伝準拠）。
+        /// 准将/少将＝分艦隊、中将/大将＝艦隊（大将も艦隊司令が自然）、上級大将＝軍団（艦隊群/方面）、元帥＝軍集団（宇宙艦隊）。
+        /// 配属の「下限」は <see cref="OrderOfBattle.RequiredTier"/>（≥判定）で別に効く＝これは「その階級らしい段」を示す目安。
+        /// </summary>
+        public static EchelonType EchelonForTier(int tier)
+        {
+            if (tier <= 6) return EchelonType.分艦隊;   // 准将5/少将6
+            if (tier <= 8) return EchelonType.艦隊;     // 中将7/大将8
+            if (tier == 9) return EchelonType.軍団;     // 上級大将＝艦隊群/方面
+            return EchelonType.軍集団;                  // 元帥10＝宇宙艦隊
         }
     }
 }

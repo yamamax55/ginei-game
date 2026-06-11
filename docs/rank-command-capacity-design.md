@@ -83,7 +83,7 @@
 | **RANKCMD-1** | #1711 | 兵力を人物から分離（`AdmiralData.baseStrength` 非推奨・兵力は `FleetUnitData`/`FleetStrength` が単一の出所） | #146・会戦 |
 | **RANKCMD-2** ✅ | #1712 | `CommandCapacityRules`（銀英伝準拠・rankTier→最大指揮兵力・`CanCommand`/`RequiredTierForStrength`/`MaxStrengthForTier`） | `RankSystem`#14 |
 | **RANKCMD-3** ✅ | #1713 | 配属ゲートへ反映（`FleetRoster.CanAssign(admiral,unit,…)`／`OrderOfBattle.CanCommand(admiral,formationId)`＋`StrengthUnder` を指揮可能規模で判定＝過大兵力は下位階級が率いれない・`AssignAdmiral`/`AssignCommander` が両ゲート・兵力0は規模0扱いで後方互換・EditMode 済） | #146/#147 |
-| **RANKCMD-4** | #1714 | 銀英伝準拠の編制対応＋分艦隊 echelon（艦隊=中将/大将・元帥=宇宙艦隊。`OrderOfBattle` の段と `RequiredTier` を補正） | #147 |
+| **RANKCMD-4** ✅ | #1714 | 銀英伝準拠の編制対応＋分艦隊 echelon（`EchelonType` に分艦隊を追加＝艦隊⊃分艦隊。`RequiredTier(分艦隊)=少将6`／`CommandCapacityRules.EchelonForTier`＝階級→自然な段で大将=艦隊を表現。EditMode 済。※軍団=大将8↔上級大将9 の付け替えは【要・作者判断】で保留＝既存 tier 据え置き・後方互換） | #147 |
 
 ### 推奨着手順
 `RANKCMD-2`（指揮限界の純ロジック＝核・test-first）→ `RANKCMD-1`（兵力の分離）→ `RANKCMD-3`（ゲート反映）→ `RANKCMD-4`（編制段の補正）。

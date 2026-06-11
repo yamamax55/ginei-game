@@ -102,7 +102,8 @@ namespace Ginei
             sb.Append($"  統率 {a.EffectiveLeadership} ／ 攻撃 {a.EffectiveAttack} ／ 防御 {a.EffectiveDefense}");
             sb.Append($" ／ 機動 {a.EffectiveMobility} ／ 運営 {a.EffectiveOperation} ／ 情報 {a.EffectiveIntelligence}\n");
 
-            string extra = $"  兵力 {a.baseStrength}";
+            // RANKCMD-1：人物は固定兵力を持たない。階級から「指揮できる規模」を表示する（CommandCapacityRules）。
+            string extra = $"  指揮可能規模 〜{CommandCapacityRules.MaxStrengthForTier(a.rankTier):#,0}隻";
             if (a.HasStaff) extra += $"　参謀: {a.GetStaffNames()}";
             if (a.hasPreferredFormation) extra += $"　得意陣形: {a.preferredFormation}";
             sb.Append(extra).Append('\n');

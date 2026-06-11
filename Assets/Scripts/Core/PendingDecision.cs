@@ -24,6 +24,8 @@ namespace Ginei
         public string title;
         /// <summary>本文（詳細）。カードを展開した時に表示する。空ならタイトル（要約）のみ。</summary>
         public string body = "";
+        /// <summary>フレーバー画像のキー（Resources/Flavor/{imageKey}）。空なら既定の flavor_default を使う。</summary>
+        public string imageKey = "";
         public DecisionSeverity severity = DecisionSeverity.通常;
         public DecisionSource source = DecisionSource.システム;
 

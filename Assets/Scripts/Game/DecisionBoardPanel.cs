@@ -31,6 +31,8 @@ namespace Ginei
         // 詳細ウィンドウ（チップをクリックで開く）
         private GameObject detailRoot;
         private Image detailFrameImage;
+        private GameObject detailArtHolder;
+        private Image detailArt;
         private TextMeshProUGUI detailTitle;
         private TextMeshProUGUI detailBody;
         private Transform detailChoices;
@@ -202,6 +204,12 @@ namespace Ginei
                 var cc = CardColor(d.severity);
                 detailFrameImage.color = new Color(cc.r * 0.8f, cc.g * 0.8f, cc.b * 0.8f, 0.98f);
             }
+
+            // フレーバー画像（あれば枠つきで表示・無ければ枠ごと隠す）
+            Sprite flavor = LoadFlavor(d);
+            if (detailArt != null) detailArt.sprite = flavor;
+            if (detailArtHolder != null) detailArtHolder.SetActive(flavor != null);
+
             detailTitle.text = $"<b>[{d.severity}]</b> {d.title}";
             detailBody.text = string.IsNullOrEmpty(d.body) ? "（詳細なし）" : d.body;
 
@@ -244,6 +252,13 @@ namespace Ginei
         {
             if (d == null || d.choices == null || idx < 0 || idx >= d.choices.Count) return "（既定）";
             return d.choices[idx];
+        }
+
+        /// <summary>決裁のフレーバー画像を Resources/Flavor から読む（imageKey 指定が無ければ flavor_default）。無ければ null。</summary>
+        private static Sprite LoadFlavor(PendingDecision d)
+        {
+            string key = (d != null && !string.IsNullOrEmpty(d.imageKey)) ? d.imageKey : "flavor_default";
+            return Resources.Load<Sprite>("Flavor/" + key);
         }
 
         private GameObject AddButton(Transform parent, string label, UnityEngine.Events.UnityAction action)
@@ -301,6 +316,30 @@ namespace Ginei
             fcsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             detailTitle = MakeDetailLabel(frame.transform, 26f, new Color(1f, 0.85f, 0.4f), 40f);
+
+            // フレーバー画像（金枠つき）。Resources/Flavor/{imageKey} を読み込み、preserveAspect でレターボックス表示
+            detailArtHolder = new GameObject("Art");
+            detailArtHolder.transform.SetParent(frame.transform, false);
+            var artBorder = detailArtHolder.AddComponent<Image>();
+            artBorder.color = new Color(0.72f, 0.6f, 0.34f, 1f); // 金枠
+            var artLe = detailArtHolder.AddComponent<LayoutElement>();
+            artLe.preferredHeight = 270f; artLe.minHeight = 120f;
+            var inner = new GameObject("Img");
+            inner.transform.SetParent(detailArtHolder.transform, false);
+            var irt = inner.AddComponent<RectTransform>();
+            irt.anchorMin = Vector2.zero; irt.anchorMax = Vector2.one;
+            irt.offsetMin = new Vector2(5f, 5f); irt.offsetMax = new Vector2(-5f, -5f);
+            var innerBg = inner.AddComponent<Image>();
+            innerBg.color = new Color(0.02f, 0.03f, 0.05f, 1f); // 余白（レターボックス）の地色
+            var artGo = new GameObject("Sprite");
+            artGo.transform.SetParent(inner.transform, false);
+            var art = artGo.AddComponent<RectTransform>();
+            art.anchorMin = Vector2.zero; art.anchorMax = Vector2.one;
+            art.offsetMin = Vector2.zero; art.offsetMax = Vector2.zero;
+            detailArt = artGo.AddComponent<Image>();
+            detailArt.preserveAspect = true;
+            detailArt.raycastTarget = false;
+
             detailBody = MakeDetailLabel(frame.transform, 18f, new Color(0.9f, 0.92f, 0.96f), 60f);
 
             var cc = new GameObject("Choices");

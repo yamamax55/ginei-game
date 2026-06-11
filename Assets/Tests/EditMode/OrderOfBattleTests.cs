@@ -303,6 +303,20 @@ namespace Ginei.Tests
             Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(10)));
         }
 
+        /// <summary>分艦隊 echelon（RANKCMD-4 #1714）：必要階級は少将6。准将5は不可・少将6ちょうどで可（境界・銀英伝準拠の最下段）。</summary>
+        [Test]
+        public void AssignCommander_SubFleetEchelon_RequiresMajorGeneral()
+        {
+            Assert.AreEqual(6, OrderOfBattle.RequiredTier(EchelonType.分艦隊));
+            var sub = OrderOfBattle.Create(EchelonType.分艦隊, Faction.同盟);
+            Assert.IsFalse(OrderOfBattle.AssignCommander(sub.id, Admiral(5))); // 准将は不可（6未満）
+            Assert.IsFalse(sub.HasCommander);
+            Assert.IsTrue(OrderOfBattle.AssignCommander(sub.id, Admiral(6)));  // 少将ちょうどで可（>= 判定）
+            Assert.IsTrue(sub.HasCommander);
+            // 分艦隊は最下段＝艦隊(7)を持てる中将も当然持てる
+            Assert.IsTrue(OrderOfBattle.CanCommand(Admiral(7), EchelonType.分艦隊));
+        }
+
         /// <summary>CanCommand は null提督・各echelonの境界で正しく判定する（単調性：高tierほど多くの梯団を持てる）。</summary>
         [Test]
         public void CanCommand_NullAndBoundaries()

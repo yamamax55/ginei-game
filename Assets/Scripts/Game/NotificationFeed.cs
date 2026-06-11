@@ -41,8 +41,12 @@ namespace Ginei
 
         private long lastSeq;
         private int activeTab;
+        private bool collapsed;            // 最小化中（タイトルバーだけに畳む）
         private RectTransform window;     // 枠ウィンドウ本体（ドラッグ対象）
         private Transform rowsParent;     // 通知行の親（固定高）
+        private GameObject tabBarGo;      // タブバー（最小化で隠す）
+        private GameObject rowsAreaGo;    // 行領域（最小化で隠す）
+        private TextMeshProUGUI minimizeGlyph; // 最小化/復元ボタンの字形（－/□）
         private TMP_FontAsset jpFont;
         private readonly List<GameObject> rows = new List<GameObject>();
         private readonly List<Image> tabBgs = new List<Image>();
@@ -234,13 +238,46 @@ namespace Ginei
             label.transform.SetParent(bar.transform, false);
             var lrt = label.rectTransform;
             lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
-            lrt.offsetMin = new Vector2(12f, 0f); lrt.offsetMax = new Vector2(-12f, 0f);
+            lrt.offsetMin = new Vector2(12f, 0f); lrt.offsetMax = new Vector2(-42f, 0f); // 右端は最小化ボタン用に空ける
             label.text = "≡ 通知　（ドラッグで移動／N で履歴）";
             label.fontSize = 15f;
             label.color = accentColor;
             label.alignment = TextAlignmentOptions.Left;
             label.raycastTarget = false;
             if (jpFont != null) label.font = jpFont;
+
+            // 最小化/復元ボタン（右端・タイトルバーだけに畳む）
+            var mb = new GameObject("Minimize");
+            mb.transform.SetParent(bar.transform, false);
+            var mrt = mb.AddComponent<RectTransform>();
+            mrt.anchorMin = new Vector2(1f, 0f); mrt.anchorMax = new Vector2(1f, 1f);
+            mrt.pivot = new Vector2(1f, 0.5f);
+            mrt.sizeDelta = new Vector2(34f, 0f);
+            mrt.anchoredPosition = new Vector2(-3f, 0f);
+            var mImg = mb.AddComponent<Image>();
+            mImg.color = Color.white;
+            var mBtn = mb.AddComponent<Button>();
+            mBtn.targetGraphic = mImg;
+            var cb = mBtn.colors;
+            cb.normalColor = titleBarColor;
+            cb.highlightedColor = new Color(0.27f, 0.45f, 0.68f, 1f);
+            cb.pressedColor = new Color(0.20f, 0.36f, 0.58f, 1f);
+            cb.selectedColor = titleBarColor;
+            cb.fadeDuration = 0.05f;
+            mBtn.colors = cb;
+            mBtn.onClick.AddListener(ToggleMinimize);
+
+            minimizeGlyph = new GameObject("Glyph").AddComponent<TextMeshProUGUI>();
+            minimizeGlyph.transform.SetParent(mb.transform, false);
+            var grt = minimizeGlyph.rectTransform;
+            grt.anchorMin = Vector2.zero; grt.anchorMax = Vector2.one;
+            grt.offsetMin = Vector2.zero; grt.offsetMax = Vector2.zero;
+            minimizeGlyph.text = "－";
+            minimizeGlyph.fontSize = 18f;
+            minimizeGlyph.color = Color.white;
+            minimizeGlyph.alignment = TextAlignmentOptions.Center;
+            minimizeGlyph.raycastTarget = false;
+            if (jpFont != null) minimizeGlyph.font = jpFont;
 
             var rule = new GameObject("Rule");
             rule.transform.SetParent(bar.transform, false);
@@ -272,6 +309,16 @@ namespace Ginei
             hlg.childForceExpandHeight = true;
 
             for (int i = 0; i < TabLabels.Length; i++) BuildTabButton(bar.transform, i, TabLabels[i]);
+            tabBarGo = bar; // 最小化で隠す対象
+        }
+
+        /// <summary>最小化/復元：タブと行を畳んでタイトルバーだけにする（トグル）。</summary>
+        private void ToggleMinimize()
+        {
+            collapsed = !collapsed;
+            if (tabBarGo != null) tabBarGo.SetActive(!collapsed);
+            if (rowsAreaGo != null) rowsAreaGo.SetActive(!collapsed);
+            if (minimizeGlyph != null) minimizeGlyph.text = collapsed ? "□" : "－";
         }
 
         private void BuildTabButton(Transform parent, int index, string text)
@@ -326,6 +373,7 @@ namespace Ginei
             le.preferredHeight = reserved;
 
             rowsParent = area.transform;
+            rowsAreaGo = area; // 最小化で隠す対象
         }
     }
 }

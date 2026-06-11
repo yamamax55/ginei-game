@@ -110,6 +110,7 @@
 - [x] Wave41 (2026-06-11)：InstitutionalCorrectionRules(#1517) / PiecemealEngineeringRules(#1514) / OpennessRules(#1511) / PanoptismRules(#1507) / NormalizationRules(#1508) / ExaminationRules(#1509) / MesoiRules(#1495)（並列7・ポパー開かれた社会POPR完結＋フーコー規律PANO完結＋アリストテレスARIS着手・親がPanoptismテストclamp修正）
 - [x] Wave42 (2026-06-11)：CommonGoodOrientationRules(#1499) / ChrematisticsRules(#1502) / CivicPhiliaRules(#1503) / TyrantToolkitRules(#1504) / SoftDespotismRules(#1492) / EqualityDriftRules(#1498) / AssociationRules(#1482)（並列7・アリストテレス政治学ARIS完結＋トクヴィルTOCQ完結・3000テスト突破=全3053・一発green）
 - [x] Wave43 (2026-06-11)：FactionMultiplicityRules(#1473) / AmbitionCounterRules(#1476) / CompoundRepublicRules(#1481) / ExtendedRepublicRules(#1485) / ExecutiveEnergyRules(#1489) / RepresentativeFilterRules(#1494) / CensorshipRules(#1474)（並列7・フェデラリストFED完結＋ミル自由論MILL着手・全テスト一発green）
+- [x] Wave44 (2026-06-11)：PublicOpinionRules(#1477) / HarmPrincipleRules(#1480) / LibertyCultureRules(#1487) / MajorityTyrannyRules(#1478) / MilitiaLoyaltyRules(#1483) / RinnovazioneRules(#1488) / FounderTrajectoryRules(#1493)（並列7・ミル自由論MILL完結＋トクヴィル多数者の専制＋マキャヴェッリ論考DISC・親が×識別子/Mathf using/HarmPrinciple期待値3件修正）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -231,13 +232,13 @@
 - [x] ExecutiveEnergyRules：行政エネルギーと単一執政＝執政の統一→決断速度×クーデター確率低下のトレードオフ（FED-5 #1489）。`CivilianControlRules`/`CoupRules`とは別＝単一執政の決断力（ハミルトン）（Wave43）
 - [x] RepresentativeFilterRules：代表による派閥濾過＝選挙区規模→濾過強度→派閥的歪み低減（FED-6 #1494）。`PartyRules`/`PlebisciteRules`とは別＝代表制が直接民主の派閥熱を濾す（Wave43）
 - [x] CensorshipRules：情報自由度と検閲水準＝短期安定vs長期腐敗の非対称（MILL-1 #1474・ミル自由論、InformationEnvironment同梱）。`FreePressRules`(腐敗発見)/`PropagandaRules`とは別＝検閲の短期安定と長期腐敗（Wave43）
-- [ ] PublicOpinionRules：世論ダイナミクスと多数派専制＝意見多様度→情報品質係数（MILL-2 #1477、OpinionField同梱）。`PropagandaRules`/`DemagogueRules`とは別＝世論場の多数派専制と情報品質
-- [ ] HarmPrincipleRules：危害原理の形式化＝過剰抑圧の加速コスト・正当性閾値（MILL-3 #1480）。`MartialLawRules`/`JusticeRules`とは別＝「他者への危害のみ規制しうる」ミルの原理
-- [ ] LibertyCultureRules：個性と実験の社会価値＝意見多様度→研究・適応力係数（MILL-5 #1487）。`OpennessRules`/`ResearchRules`とは別＝自由な個性が社会の実験室になる（ミル）
-- [ ] MajorityTyrannyRules：多数者の専制＝社会的同質化圧力・少数意見の封殺（TOCQ-1 #1478・トクヴィル、MinorityOpinion同梱）。`PluralityRules`/`PreferenceFalsificationRules`とは別＝多数派の社会的同調圧力
-- [ ] MilitiaLoyaltyRules：市民軍・志願兵・傭兵の忠誠軸＝徴募源→逆境時の離反確率差（DISC-2 #1483・マキャヴェッリ論考）。`MercenaryRules`/`ConscriptionRules`とは別＝徴募源別の逆境忠誠
-- [ ] RinnovazioneRules：リノヴァツィオーネ＝制度疲弊→刷新ウィンドウ→予防的自己刷新（DISC-3 #1488）。`DynastyRules.Reform`/`InstitutionalCorrectionRules`とは別＝危機前の予防的刷新（マキャヴェッリ「初心に立ち返る」）
-- [ ] FounderTrajectoryRules：建国者の自己廃絶テスト＝制度投資速度vs権力集中速度→共和制軌道or専制固定の評価（DISC-4 #1493）。`SuccessionRules`/`PublicPrivateSeparationRules`とは別＝建国者が制度を残すか権力を握るか
+- [x] PublicOpinionRules：世論ダイナミクスと多数派専制＝意見多様度→情報品質係数（MILL-2 #1477、OpinionField同梱）。`PropagandaRules`/`DemagogueRules`とは別＝世論場の多数派専制と情報品質（Wave44）
+- [x] HarmPrincipleRules：危害原理の形式化＝過剰抑圧の加速コスト・正当性閾値（MILL-3 #1480）。`MartialLawRules`/`JusticeRules`とは別＝「他者への危害のみ規制しうる」ミルの原理（Wave44）
+- [x] LibertyCultureRules：個性と実験の社会価値＝意見多様度→研究・適応力係数（MILL-5 #1487）。`OpennessRules`/`ResearchRules`とは別＝自由な個性が社会の実験室になる（ミル）（Wave44）
+- [x] MajorityTyrannyRules：多数者の専制＝社会的同質化圧力・少数意見の封殺（TOCQ-1 #1478・トクヴィル、MinorityOpinion同梱）。`PluralityRules`/`PreferenceFalsificationRules`とは別＝多数派の社会的同調圧力（Wave44）
+- [x] MilitiaLoyaltyRules：市民軍・志願兵・傭兵の忠誠軸＝徴募源→逆境時の離反確率差（DISC-2 #1483・マキャヴェッリ論考）。`MercenaryRules`/`ConscriptionRules`とは別＝徴募源別の逆境忠誠（Wave44）
+- [x] RinnovazioneRules：リノヴァツィオーネ＝制度疲弊→刷新ウィンドウ→予防的自己刷新（DISC-3 #1488）。`DynastyRules.Reform`/`InstitutionalCorrectionRules`とは別＝危機前の予防的刷新（マキャヴェッリ「初心に立ち返る」）（Wave44）
+- [x] FounderTrajectoryRules：建国者の自己廃絶テスト＝制度投資速度vs権力集中速度→共和制軌道or専制固定の評価（DISC-4 #1493）。`SuccessionRules`/`PublicPrivateSeparationRules`とは別＝建国者が制度を残すか権力を握るか（Wave44）
 - [ ] GeneralWillRules：一般意志汚染指標＝派閥捕獲vs公益統治の合成スコア（ROUS-1 #1462・ルソー社会契約、GeneralWillState同梱）。`CommonGoodOrientationRules`/`LobbyRules`とは別＝一般意志vs特殊意志の汚染
 - [ ] LawgiverRules：立法者パラドックス＝建国の憲法制定権力・一回性の制度初期化（ROUS-2 #1464）。`ConstitutionRules`/`FounderTrajectoryRules`とは別＝ルソーの立法者（制度を作る者は制度の外）
 - [ ] PolityScaleRules：政体規模適合＝版図×人口→政体適合度スコア・ミスマッチペナルティ（ROUS-3 #1466）。`ExtendedRepublicRules`/`OverextensionRules`とは別＝政体には適正規模がある（ルソーは小国を是とした）

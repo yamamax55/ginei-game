@@ -1,0 +1,182 @@
+using System.Collections.Generic;
+using System.Text;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using TMPro;
+
+namespace Ginei
+{
+    /// <summary>
+    /// 人物名鑑オーバーレイ（観測層・read-only）。<b>P キー</b>で開閉し、提督（<see cref="AdmiralData"/>）の
+    /// 能力・階級・参謀・得意陣形を一覧表示する。観測専用＝状態は変えない。`CampaignObserverOverlay`（G）/
+    /// `CoreStateInspector`（J）/決裁ボード（K）と同じ観測層の家族。
+    /// 提督は Assets/Data/Admirals（Resources外）にあり実行時に直接列挙できないため、
+    /// <b>シナリオ（Resources内）が参照する提督</b>を <see cref="ContentDatabase.AllScenarios"/> 経由で集約する。
+    /// Strategy/Battle へ自動生成（`HelpOverlay`/`TimeDisplay` と同型）。
+    /// </summary>
+    public class PersonObserverOverlay : MonoBehaviour
+    {
+        [Header("外観")]
+        public int canvasSortingOrder = 1092;
+        public float dimAlpha = 0.92f;
+        public float bodyFontSize = 18f;
+        [Tooltip("一覧に出す最大人数（超過分は『他N名』と表示）")]
+        public int maxPersons = 30;
+
+        private GameObject root;
+        private TextMeshProUGUI bodyLabel;
+        private TMP_FontAsset jpFont;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void Bootstrap()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            TryCreate(SceneManager.GetActiveScene());
+        }
+
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => TryCreate(scene);
+
+        private static void TryCreate(Scene scene)
+        {
+            if (scene.name != "Strategy" && scene.name != "Battle") return;
+            if (UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>() != null) return;
+            new GameObject("PersonObserverOverlay").AddComponent<PersonObserverOverlay>();
+        }
+
+        private void Awake()
+        {
+            jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
+            BuildUI();
+            SetVisible(false);
+        }
+
+        private void Update()
+        {
+            if (GameInput.WasPressed(GameAction.人物名鑑切替)) Toggle();
+            if (root != null && root.activeSelf && bodyLabel != null)
+                bodyLabel.text = BuildDump();
+        }
+
+        public void Toggle() { SetVisible(root != null && !root.activeSelf); }
+        public void SetVisible(bool v) { if (root != null) root.SetActive(v); }
+
+        // ===== 集約＋整形 =====
+
+        private string BuildDump()
+        {
+            var sb = new StringBuilder(4096);
+            sb.Append("<b>人物名鑑</b>　提督の能力・階級・参謀　(P で閉じる)\n");
+            sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
+
+            var seen = new HashSet<AdmiralData>();
+            var rows = new List<Row>();
+            var scenarios = ContentDatabase.AllScenarios();
+            if (scenarios != null)
+            {
+                for (int i = 0; i < scenarios.Count; i++)
+                {
+                    var sc = scenarios[i];
+                    if (sc == null || sc.fleets == null) continue;
+                    for (int j = 0; j < sc.fleets.Count; j++)
+                    {
+                        var fe = sc.fleets[j];
+                        if (fe == null) continue;
+                        AddAdmiral(fe.admiral, fe.factionData, fe.faction, seen, rows);
+                        if (fe.admiral != null && fe.admiral.staffOfficers != null)
+                            for (int k = 0; k < fe.admiral.staffOfficers.Length; k++)
+                                AddAdmiral(fe.admiral.staffOfficers[k], fe.factionData, fe.faction, seen, rows);
+                    }
+                }
+            }
+
+            if (rows.Count == 0)
+            {
+                sb.Append("\n<color=#ffcc66>人物データがありません。</color>\n");
+                sb.Append("シナリオ（Resources）に提督（AdmiralData）が登録されていません。\n");
+                sb.Append("会戦シナリオを作成すると、その提督がここに一覧表示されます。");
+                return sb.ToString();
+            }
+
+            int shown = Mathf.Min(rows.Count, maxPersons);
+            for (int i = 0; i < shown; i++) AppendPerson(sb, rows[i]);
+            if (rows.Count > shown) sb.Append($"\n<color=#8aa0b0>…他 {rows.Count - shown} 名</color>");
+            sb.Append($"\n\n<color=#8aa0b0>計 {rows.Count} 名</color>");
+            return sb.ToString();
+        }
+
+        private struct Row { public AdmiralData a; public FactionData fd; public Faction f; }
+
+        private static void AddAdmiral(AdmiralData a, FactionData fd, Faction f, HashSet<AdmiralData> seen, List<Row> rows)
+        {
+            if (a == null || !seen.Add(a)) return;
+            rows.Add(new Row { a = a, fd = fd, f = f });
+        }
+
+        private void AppendPerson(StringBuilder sb, Row row)
+        {
+            AdmiralData a = row.a;
+            string rank = RankSystem.ResolveRankNameOrDefault(row.fd, a.rankTier);
+            string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
+            string fac = row.fd != null ? row.fd.factionName : row.f.ToString();
+            string proto = a.isProtagonist ? "　<color=#ffd54a>★主人公</color>" : "";
+
+            sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{a.EpithetName}</color>　<color=#9fb0c0>[{fac}]</color>{proto}\n");
+            sb.Append($"  統率 {a.EffectiveLeadership} ／ 攻撃 {a.EffectiveAttack} ／ 防御 {a.EffectiveDefense}");
+            sb.Append($" ／ 機動 {a.EffectiveMobility} ／ 運営 {a.EffectiveOperation} ／ 情報 {a.EffectiveIntelligence}\n");
+
+            string extra = $"  兵力 {a.baseStrength}";
+            if (a.HasStaff) extra += $"　参謀: {a.GetStaffNames()}";
+            if (a.hasPreferredFormation) extra += $"　得意陣形: {a.preferredFormation}";
+            sb.Append(extra).Append('\n');
+        }
+
+        // ===== UI =====
+
+        private void BuildUI()
+        {
+            var canvasObj = new GameObject("PersonObserverCanvas");
+            canvasObj.transform.SetParent(transform);
+            var canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = canvasSortingOrder;
+            var scaler = canvasObj.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            canvasObj.AddComponent<GraphicRaycaster>();
+
+            root = new GameObject("Root");
+            root.transform.SetParent(canvasObj.transform, false);
+            var rrt = root.AddComponent<RectTransform>();
+            rrt.anchorMin = Vector2.zero; rrt.anchorMax = Vector2.one;
+            rrt.offsetMin = Vector2.zero; rrt.offsetMax = Vector2.zero;
+            root.AddComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, dimAlpha);
+
+            // パネル（画面の大半）
+            var panel = new GameObject("Panel");
+            panel.transform.SetParent(root.transform, false);
+            var prt = panel.AddComponent<RectTransform>();
+            prt.anchorMin = new Vector2(0.06f, 0.06f); prt.anchorMax = new Vector2(0.94f, 0.94f);
+            prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero;
+            panel.AddComponent<Image>().color = new Color(0.05f, 0.07f, 0.11f, 0.96f);
+            panel.AddComponent<RectMask2D>(); // はみ出しはクリップ
+
+            // 本文ラベル（上詰め・余白）
+            var labelGo = new GameObject("Body");
+            labelGo.transform.SetParent(panel.transform, false);
+            var lrt = labelGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = new Vector2(20f, 20f); lrt.offsetMax = new Vector2(-20f, -16f);
+            bodyLabel = labelGo.AddComponent<TextMeshProUGUI>();
+            bodyLabel.fontSize = bodyFontSize;
+            bodyLabel.color = new Color(0.92f, 0.94f, 0.97f);
+            bodyLabel.alignment = TextAlignmentOptions.TopLeft;
+            bodyLabel.enableWordWrapping = true;
+            bodyLabel.raycastTarget = false;
+            if (jpFont != null) bodyLabel.font = jpFont;
+
+            root.SetActive(false);
+        }
+    }
+}

@@ -126,3 +126,28 @@
 - [ ] FictitiousCommodityRules：擬制商品ストレス＝労働/土地の完全商品化が生む固有の制度リスク（POLA-3 #1596）。`MarketRules`/`LandReformRules`とは別＝擬制商品化の社会ストレス
 - [ ] IntellectualCritiqueRules：知識人階級と正統性侵食＝繁栄→知識人余剰→体制批判の経路（SCHU-5 #1595）。`FreePressRules`(報道)/`PropagandaRules`とは別＝繁栄が生む知識人の批判圧
 - [ ] VeblenGoodsRules：Veblen財と誇示的消費＝地位財の逆需要曲線（StatusGood同梱）（VEBL-1 #1593）。`MarketRules`(通常財需給)とは別＝価格が上がるほど需要が増える地位財
+
+### Issue連動（第6次補充・2026-06-11／経済思想・政治哲学EPIC群の純ロジック子Issue・21件＝3Wave分）
+# シュンペーターSCHU（#1579）／スミス道徳感情論TMS（#1576）／マルサス人口論MALT（#1573）
+# 孟子MENC（#1561）／墨子MOZI（#1551）／老子LAOZ（#1543）／ハイエクHAYK（#1539）／ポランニーPOLA（#1585）
+- [ ] CreativeDestructionRules：創造的破壊＝新技術が旧市場を萎縮させる破壊面＋置換ショック（SCHU-1 #1581）。`InnovationDiffusionRules`(技術伝播)/`ResearchRules`(研究)とは別＝新陳代謝の破壊側
+- [ ] EntrepreneurRules：企業家類型と起業活動＝均衡破壊者(イノベーター)vs管理者の人物弁別（SCHU-2 #1584）。`PersonRules`(適材適所)/`FirmRules`(企業)とは別＝起業家精神の弁別
+- [ ] BureaucratizationRules：官僚化とイノベーション死＝成功→制度化→革新力喪失の自壊ループ（SCHU-3 #1587）。`BureaucracyBloatRules`(人数肥大)/`CeremonialismRules`(儀礼性)とは別＝成功が革新を殺す逆説
+- [ ] InnovationWaveRules：革新クラスターと景気波動＝コンドラチェフ型4フェーズ（SCHU-4 #1591）。`CrisisCycleRules`(ミンスキー金融循環)とは別＝技術革新の長期波動
+- [ ] EmpathyRules：共感評判エンジン＝行動→道徳評価→支持/忠誠/opinion修正子（TMS-1 #1578・スミス道徳感情論）。`ReputationRules`(名声)/`JusticeRules`(正義観)とは別＝共感に基づく道徳評価
+- [ ] ImpartialObserverRules：公平な観察者フィルター＝自己欺瞞バイアス→腐敗加速のブレーキ（TMS-2 #1582）。`RegimeRules`(腐敗)とは別＝内なる観察者による自制
+- [ ] MoralStyleRules：3徳統治スタイル軸＝慎慮/仁愛/正義→安定度修正子（TMS-3 #1586）。`GovernanceRules`(安定度)/`WangDaoRules`(王道覇道)とは別＝徳の統治スタイル
+- [ ] CommercialIntegrityRules：商業誠実性の信頼基盤＝繰り返し交易→信頼蓄積→opinion修正（TMS-4 #1590）。`TradeRules`(交易利得)/`DiplomacyRules`(opinion)とは別＝商業の信頼蓄積
+- [ ] CarryingCapacityRules：食糧天井関数＝農業産出×人口→FoodStressRatio（MALT-1 #1574・マルサス人口論）。`DemographicsRules`(人口動態)/`ResourceProductionRules`(資源)とは別＝食糧の収容限界
+- [ ] MalthusianCheckRules：マルサスチェック＝FoodStressRatio→出生率↓・死亡率↑の変調係数（MALT-2 #1575）。`DemographicsRules`(VitalRates)とは別＝食糧逼迫の人口抑制
+- [ ] PoorLawRules：貧者救済のパラドックス＝福祉→出生刺激→長期に賃金帳消し（MALT-4 #1580）。`RedistributionRules`(税再分配)/`SocialProtectionRules`(保護ラチェット)とは別＝救済の逆説
+- [ ] MoralSproutsRules：四端モデル＝仁/義/礼/智の住民道徳的感受性（MENC-1 #1564・孟子）。`MoralStyleRules`(統治スタイル)/`GovernanceRules`とは別＝住民の道徳的素地（MoralSprouts同梱）
+- [ ] GovernanceStyleRules：仁政と覇道の時間動態＝王道の長期持続性vs覇道の短期最強（MENC-3 #1568）。`WangDaoRules`(王道覇道の主義ドリフト)とは別＝仁政vs覇道の時間トレードオフ
+- [ ] MoralForceRules：浩然之気＝一貫した善政の積み重ね→道徳的気力蓄積→忠誠/カリスマ係数（MENC-4 #1570）。`FocusRules`(三密集中)/`ReputationRules`とは別＝善政の積み重ねが生む気力（MoralForce同梱）
+- [ ] DefenseGuildRules：守城専門集団＝非国家の防衛請負組織（MOZI-1 #1555・墨子）。`MercenaryRules`(傭兵)/`FortressRules`(要塞)とは別＝守城専門の請負ギルド（DefenseGuild同梱）
+- [ ] CompetenceLegitimacyRules：尚賢の正統性直結＝能力→体制正統性の保全倍率（MOZI-4 #1565）。`MeritPromotionRules`(功績昇進)/`PersonRules`とは別＝賢者登用が正統性を保つ
+- [ ] FrugalityDoctrineRules：節用の財政効率＝倹約ドクトリン→産出↑・貴族合意↓（MOZI-5 #1567）。`FiscalRules`(財政)/`RationingRules`(配給)とは別＝倹約の財政効率と貴族の不満
+- [ ] NonAggressionDoctrineRules：非攻ドクトリン＝自己拘束→外交信用・攻撃不可のトレードオフ（MOZI-2 #1560）。`DiplomacyRules`(条約)/`DeterrenceRules`とは別＝自己拘束による外交信用
+- [ ] WaterDoctrineRules：柔弱ドクトリン＝短期劣後・長期士気回復力（LAOZ-4 #1558・老子）。`Moraleの係数算出`/`ResilienceRules`系とは別＝柔よく剛を制す長期回復
+- [ ] SpontaneousOrderRules：自生的秩序の脆弱性＝強制介入→自生的秩序侵食→市場効率低下（HAYK-6 #1556・ハイエク）。`MarketRules`(需給)/`GovernanceRules`とは別＝介入が自生秩序を蝕む
+- [ ] EmbeddednessRules：市場の埋め込み度指標＝自由化で効率↑不安定↑のトレードオフ（POLA-1 #1588・ポランニー、MarketEmbeddedness同梱）。`SocialProtectionRules`(保護ラチェット)/`MarketRules`とは別＝市場の社会への埋め込み度

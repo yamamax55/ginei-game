@@ -81,14 +81,28 @@ namespace Ginei
 
         // ===== 提督配属（階級ゲート #14） =====
 
-        /// <summary>その提督を配属できるか（requiredTier 以上の階級が必要。0＝ゲート無し）。</summary>
+        /// <summary>その提督を配属できるか（requiredTier 以上の階級が必要。0＝ゲート無し）。階級ゲート単体（兵力規模は見ない）。</summary>
         public static bool CanAssign(AdmiralData admiral, int requiredTier)
             => admiral != null && admiral.rankTier >= requiredTier;
 
-        /// <summary>空席ユニットへ提督を配属する。階級ゲートを満たさなければ false（配属しない）。</summary>
+        /// <summary>
+        /// その提督がこの艦隊ユニットを率いられるか（RANKCMD-3 #1713）。<b>階級ゲート（#14）＋指揮可能規模</b>の両方を満たす必要がある＝
+        /// 過大な兵力（<see cref="FleetUnitData.baseStrength"/>）の艦隊は下位階級では指揮できない（<see cref="CommandCapacityRules.CanCommand"/>）。
+        /// baseStrength=0（兵力は提督側＝RANKCMD-1 未完）の艦隊は規模0扱い＝従来どおり階級ゲートのみで通る（後方互換）。
+        /// </summary>
+        public static bool CanAssign(AdmiralData admiral, FleetUnitData unit, int requiredTier = 0)
+        {
+            if (admiral == null || unit == null) return false;
+            if (admiral.rankTier < requiredTier) return false;                          // 階級ゲート（#14）
+            return CommandCapacityRules.CanCommand(admiral.rankTier, unit.baseStrength); // 指揮可能規模（RANKCMD-2）
+        }
+
+        /// <summary>
+        /// 空席ユニットへ提督を配属する。階級ゲートと指揮可能規模（RANKCMD-3）を満たさなければ false（配属しない）。
+        /// </summary>
         public static bool AssignAdmiral(FleetUnitData unit, AdmiralData admiral, int requiredTier = 0)
         {
-            if (unit == null || !CanAssign(admiral, requiredTier)) return false;
+            if (!CanAssign(admiral, unit, requiredTier)) return false;
             unit.assignedAdmiral = admiral;
             return true;
         }

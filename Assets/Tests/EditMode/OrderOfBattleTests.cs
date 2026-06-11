@@ -318,6 +318,34 @@ namespace Ginei.Tests
             Assert.IsTrue(OrderOfBattle.CanCommand(Admiral(10), EchelonType.軍集団));
         }
 
+        /// <summary>
+        /// 指揮可能規模ゲート（RANKCMD-3 #1713）：配下兵力（StrengthUnder＝baseStrength 合計）が大きい梯団は、
+        /// 梯団の階級ゲートを満たしても指揮限界を超える階級では司令になれない。兵力0（RANKCMD-1 未完）は規模0扱いで従来どおり。
+        /// </summary>
+        [Test]
+        public void AssignCommander_CommandCapacityGate()
+        {
+            FleetRoster.Clear();
+            var fleet = OrderOfBattle.Create(EchelonType.艦隊, Faction.帝国); // 階級ゲート=中将7
+            var unit = FleetRoster.CreateFleet(Faction.帝国, 1);
+            unit.baseStrength = 50000;                          // 大将(15000)を大きく超える＝元帥級
+            Assert.IsTrue(OrderOfBattle.AttachFleet(fleet.id, 1));
+            Assert.AreEqual(50000, OrderOfBattle.StrengthUnder(fleet.id));
+
+            // 階級ゲート(7)は満たすが指揮可能規模を超える中将/大将は不可
+            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(7))); // 中将 cap12000 < 50000
+            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(8))); // 大将 cap15000 < 50000
+            Assert.IsFalse(fleet.HasCommander);
+            // 元帥は規模も満たす
+            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(10))); // 元帥 cap60000 >= 50000
+
+            // 兵力0の梯団は規模0扱い＝中将でも可（後方互換）
+            var empty = OrderOfBattle.Create(EchelonType.艦隊, Faction.帝国);
+            Assert.AreEqual(0, OrderOfBattle.StrengthUnder(empty.id));
+            Assert.IsTrue(OrderOfBattle.AssignCommander(empty.id, Admiral(7)));
+            FleetRoster.Clear();
+        }
+
         /// <summary>AssignCommander が階級ゲートで失敗しても既存の司令は維持される（現状維持＝置き換えない）。</summary>
         [Test]
         public void AssignCommander_FailedGate_KeepsExistingCommander()

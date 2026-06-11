@@ -350,3 +350,26 @@
 - [ ] CoalitionFaultlineRules：部族連合の亀裂モデル＝亀裂スコア→初期忠誠度修正子（GAL-1 #1343・ガリア戦記）。`AllianceDivergenceRules`/`LoyaltyRules`とは別＝部族連合内の亀裂
 - [ ] DivideRules：分割操作＝Divide et Impera＝選択的和解で連合分断（GAL-2 #1346）。`AlienationStratagemRules`(離間)/`DiplomacyRules`とは別＝カエサルの分割統治
 - [ ] MilitaryEngineeringRules：野戦工兵速度＋アレシア型二重包囲＝工兵速度と対内/対外包囲（GAL-4 #1352、ContravallationRules同梱）。`EncirclementRules`/`PlanetSiegeRules`とは別＝ガリア戦記の野戦築城
+
+### Issue連動（第15次補充・2026-06-11・認知バイアス/恥罪文化/群衆心理/継承引き際/ミーム）
+- [ ] ProspectRules：損失回避と参照点＝プロスペクト理論（ProspectState同梱・KAHN-1 #1833）。`NeedsRules`/`MoraleContribution`とは別＝参照点依存の価値関数（損失は利得の約2倍重い）
+- [ ] JudgmentNoiseRules：判断ノイズ＝バイアスと直交するランダム散乱（roll決定論・KAHN-2 #1834）。`ReconRules`の推定誤差とは別＝同一条件下の判断のばらつき
+- [ ] OverconfidenceBiasRules：過信バイアスと計画錯誤＝AIの系統的過大評価（KAHN-3 #1837）。`OperationPlanRules`とは別＝見積もりの楽観バイアス
+- [ ] FramingRules：フレーミング効果＝情報の枠組みが判断を変える（KAHN-4 #1840）。`PropagandaRules`とは別＝同一事実の提示枠が選好を反転
+- [ ] AvailabilityBiasRules：近接記憶バイアス＝最近の大事件が確率判断を歪める（KAHN-5 #1844）。`GenerationalMemoryRules`とは別＝想起容易性による確率の歪み
+- [ ] DualProcessRules：二重過程＝直感型(System1)vs熟慮型(System2)の提督認知スタイル（KAHN-6 #1849）。`AdmiralData`能力とは別＝速さと系統的誤りのトレードオフ
+- [ ] ShameRules：恥の文化＝可視性依存の社会制御（ShameProfile同梱・KIKU-1 #1832）。`PanoptismRules`(監視)とは別＝恥の内面化（人目がある時だけ効く）
+- [ ] GiriRules：義理・恩の負債構造＝恩の貸借（ObligationDebt同梱・KIKU-2 #1835）。`HonorsRules`(栄典)とは別＝返さねばならない恩の累積
+- [ ] GiriNinjoTensionRules：義理と人情の葛藤エンジン（KIKU-3 #1838）。`PoliticalEthicsRules`(心情/責任)とは別＝義理対人情の板挟み
+- [ ] HonorRules：名誉の毀損と公的回復（HonorState同梱・KIKU-4 #1841）。`ReputationRules`/`HonorsRules`とは別＝恥文化の名誉（毀損は可視・回復は公的儀礼）
+- [ ] CrowdContagionRules：群衆化の相転移＝個↔群level-shift・被暗示性↑理性↓（CRWD-1 #1820）。`ManiaRules`(SIR)とは別＝個から群への相転移と集団精神
+- [ ] AssertionRepetitionRules：断言・反復・感染の三段＝反復で被信度累積→感染伝播（CRWD-2 #1821）。`PropagandaRules`とは別＝ル・ボンの観念植え付け
+- [ ] PrestigeCliffRules：指導者の威光と非連続崩壊＝一度の失敗で不可逆瓦解（CRWD-3 #1822）。`Organization`#812/`DynastyRules`とは別レイヤー＝威光の崖
+- [ ] PanicCascadeRules：恐慌の空間カスケード＝敗走伝染・距離減衰・威光抑制（CRWD-4 #1823）。`PsychologicalSiegeMoraleRules`/`EncirclementRules`とは別＝戦線将棋倒し
+- [ ] CrowdReversalRules：群衆の易変と一斉反転＝歓喜⇔恐慌スイッチ・強度比例の反転確率（CRWD-5 #1824）。`ReversalRules`(逆U字)とは別＝群衆感情の非連続反転
+- [ ] RulerMindsetRules：元首の主観状態＝死の自覚・倦怠・遺産志向（KAHN系でなくHDRN-1 #1803）。`IllnessRules`/`SenescenceRules`とは別＝統治者の心境（Ruler Mindset）
+- [ ] HeirDesignationRules：資質本位の後継指名＝法順位でなく資質スコア・指名養子（HDRN-2 #1804）。`SuccessionLawRules`/`InheritanceRules`とは別＝資質本位の指名
+- [ ] AbdicationRules：生前継承・摂政・引き際＝自発的譲位の過渡期橋渡し（HDRN-3 #1805）。`RegencyRules`/`TermLimitRules`とは別＝計画的退場
+- [ ] SuccessionQualityRules：継承の質→次代の安定＝指名スコア×引き際→正統性（HDRN-4 #1806）。`SuccessionWarRules`/`SuccessionRules`とは別＝継承の質が次代を決める
+- [ ] ReignRetrospectiveRules：治世の回顧と総括＝達成度スコア→後継初期正統性（HDRN-5 #1807）。`HistoriographyRules`とは別＝存命中の自己総括
+- [ ] MemeRules：ミーム複製モデル＝fidelity/fecundity/longevity・ミームプール競争・有害ミームの逆選択（Meme同梱・MEME-1 #1843）。`DisclosureRules`/`ReligionRules`とは別＝観念の自己複製

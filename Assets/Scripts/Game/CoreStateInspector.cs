@@ -84,6 +84,10 @@ namespace Ginei
             { "regime", "王朝" }, { "polity", "統治体" }, { "organization", "組織" }, { "community", "共同体" },
             { "inclusiveness", "統治スタイル 収奪0↔包摂1" }, { "taxRate", "税率" }, { "treasury", "国庫" },
             { "states", "勢力ごとの国家状態" }, { "map", "銀河盤面" },
+            // 目安箱（信認・MEYASU-2 #1298）
+            { "credibility", "目安箱への信認（箱ごと＝借り物の権威）" },
+            { "entries", "箱キー→信認 0..1（触れた箱だけ）" },
+            { "globalDeference", "国家規模の傾聴度（オラクル失墜の指標）" },
             // Regime（王朝＝天命）
             { "legitimacy", "正統性/天命" }, { "corruption", "腐敗/制度疲労" }, { "virtue", "統治の徳（高いほど腐敗が遅い）" },
             // Polity（統治体＝合意）

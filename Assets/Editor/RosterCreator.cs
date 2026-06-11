@@ -37,29 +37,29 @@ namespace Ginei
             // ── 提督ロスター（能力 0-100：統率/攻撃/防御/機動/運営/情報、基準兵力）──
             // 王党派（帝国系）：攻撃・統率に優れる（得意陣形＝攻撃型は紡錘陣／機動型は鶴翼陣／防御型は方陣）
             // 貴族＋異名「疾風」（FullName=ヴァルダー・フォン・アイゼンベルク／頭上=疾風ヴァルダー）
-            AdmiralData walder   = Admiral("Walder", "ヴァルダー", Faction.帝国, 95, 96, 85, 90, 72, 82, 11000, Formation.紡錘陣,
+            AdmiralData walder   = Admiral("Walder", "ヴァルダー", Faction.帝国, 95, 96, 85, 90, 72, 82, 11000, Formation.紡錘陣, 8, // 大将
                 new NameParts { given = "ヴァルダー", particle = "フォン", family = "アイゼンベルク", epithet = "疾風", callName = "ヴァルダー" });
-            AdmiralData greven   = Admiral("Greven", "グレーヴェン", Faction.帝国, 88, 90, 80, 92, 75, 80, 9000, Formation.鶴翼陣);
-            AdmiralData rothstein= Admiral("Rothstein", "ロートシュタイン", Faction.帝国, 86, 85, 88, 80, 78, 82, 9000, Formation.方陣);
+            AdmiralData greven   = Admiral("Greven", "グレーヴェン", Faction.帝国, 88, 90, 80, 92, 75, 80, 9000, Formation.鶴翼陣, 7);  // 中将
+            AdmiralData rothstein= Admiral("Rothstein", "ロートシュタイン", Faction.帝国, 86, 85, 88, 80, 78, 82, 9000, Formation.方陣, 6); // 少将
             // 世数付き君主（FullName=ブラント三世／頭上=ブラント）
-            AdmiralData brandt   = Admiral("Brandt", "ブラント", Faction.帝国, 84, 88, 82, 86, 74, 78, 8500, Formation.紡錘陣,
+            AdmiralData brandt   = Admiral("Brandt", "ブラント", Faction.帝国, 84, 88, 82, 86, 74, 78, 8500, Formation.紡錘陣, 8, // 大将（君主）
                 new NameParts { given = "ブラント", regnal = 3 });
 
             // 民主派（同盟系）：防御・情報に優れ粘る（防御型は円陣／機動型は鶴翼陣）
             // 平民＋異名が短縮名に付く「ミラクル」（FullName=カーター・グリーン／頭上=ミラクルグリーン・前置詞無し＝平民）
-            AdmiralData carter   = Admiral("Carter", "カーター", Faction.同盟, 94, 84, 90, 80, 85, 95, 10500, Formation.円陣,
+            AdmiralData carter   = Admiral("Carter", "カーター", Faction.同盟, 94, 84, 90, 80, 85, 95, 10500, Formation.円陣, 7, // 中将（ミラクル）
                 new NameParts { given = "カーター", family = "グリーン", epithet = "ミラクル", callName = "グリーン" });
-            AdmiralData vega     = Admiral("Vega", "ヴェガ", Faction.同盟, 88, 82, 88, 82, 82, 86, 9000, Formation.円陣);
-            AdmiralData lowell   = Admiral("Lowell", "ロウェル", Faction.同盟, 85, 80, 86, 84, 80, 84, 8500, Formation.方陣);
-            AdmiralData marsh    = Admiral("Marsh", "マーシュ", Faction.同盟, 83, 82, 84, 86, 78, 80, 8500, Formation.鶴翼陣);
+            AdmiralData vega     = Admiral("Vega", "ヴェガ", Faction.同盟, 88, 82, 88, 82, 82, 86, 9000, Formation.円陣, 6);  // 少将
+            AdmiralData lowell   = Admiral("Lowell", "ロウェル", Faction.同盟, 85, 80, 86, 84, 80, 84, 8500, Formation.方陣, 6); // 少将
+            AdmiralData marsh    = Admiral("Marsh", "マーシュ", Faction.同盟, 83, 82, 84, 86, 78, 80, 8500, Formation.鶴翼陣, 5); // 准将
 
             // 共産主義：運営・統率（集団指揮）に優れる＝密集の方陣。enum は暫定で帝国、実体は FactionData。
-            AdmiralData volkov   = Admiral("Volkov", "同志ヴォルコフ", Faction.帝国, 92, 86, 84, 82, 90, 80, 10000, Formation.方陣);
-            AdmiralData raisa    = Admiral("Raisa", "同志ライサ", Faction.帝国, 86, 84, 80, 84, 88, 82, 9000, Formation.方陣);
+            AdmiralData volkov   = Admiral("Volkov", "同志ヴォルコフ", Faction.帝国, 92, 86, 84, 82, 90, 80, 10000, Formation.方陣, 8); // 大将
+            AdmiralData raisa    = Admiral("Raisa", "同志ライサ", Faction.帝国, 86, 84, 80, 84, 88, 82, 9000, Formation.方陣, 7);   // 中将
 
             // 軍閥：玉石混交。機動寄り・能力低め＝鶴翼陣。enum は暫定で同盟。
-            AdmiralData dougal   = Admiral("Dougal", "ドゥーガル", Faction.同盟, 82, 85, 76, 88, 70, 74, 8000, Formation.鶴翼陣);
-            AdmiralData morris   = Admiral("Morris", "モリス", Faction.同盟, 80, 82, 78, 84, 72, 76, 7500, Formation.鶴翼陣);
+            AdmiralData dougal   = Admiral("Dougal", "ドゥーガル", Faction.同盟, 82, 85, 76, 88, 70, 74, 8000, Formation.鶴翼陣, 6); // 少将
+            AdmiralData morris   = Admiral("Morris", "モリス", Faction.同盟, 80, 82, 78, 84, 72, 76, 7500, Formation.鶴翼陣, 5);   // 准将
 
             // ── シナリオ群（勝利条件・兵力差の違い）──
 
@@ -137,11 +137,17 @@ namespace Ginei
 
         private static AdmiralData Admiral(string fileName, string admiralName, Faction faction,
             int leadership, int attack, int defense, int mobility, int operation, int intelligence, int baseStrength,
-            Formation preferred, NameParts names = default)
+            Formation preferred, int rankTier, NameParts names = default)
         {
             string path = $"{AdmiralDir}/{fileName}.asset";
             AdmiralData existing = AssetDatabase.LoadAssetAtPath<AdmiralData>(path);
-            if (existing != null) return existing; // 既存は尊重（上書きしない）
+            if (existing != null)
+            {
+                // 既存の能力等は尊重しつつ、階級(#14)だけは再生成で更新する（指揮可能規模 RANKCMD-1 が階級から出るため）。
+                existing.rankTier = rankTier;
+                EditorUtility.SetDirty(existing);
+                return existing;
+            }
 
             AdmiralData a = ScriptableObject.CreateInstance<AdmiralData>();
             a.admiralName = admiralName;
@@ -155,6 +161,7 @@ namespace Ginei
             a.baseStrength = baseStrength;
             a.hasPreferredFormation = true;   // #104：得意陣形を割り当てる
             a.preferredFormation = preferred;
+            a.rankTier = rankTier;            // #14：階級（指揮可能規模 RANKCMD-1 の出所）
             // #523：構造化姓名（任意）。未指定の要素は空＝admiralName へフォールバック（後方互換）。
             a.givenName     = names.given    ?? "";
             a.middleName    = names.middle   ?? "";

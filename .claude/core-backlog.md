@@ -111,6 +111,7 @@
 - [x] Wave42 (2026-06-11)：CommonGoodOrientationRules(#1499) / ChrematisticsRules(#1502) / CivicPhiliaRules(#1503) / TyrantToolkitRules(#1504) / SoftDespotismRules(#1492) / EqualityDriftRules(#1498) / AssociationRules(#1482)（並列7・アリストテレス政治学ARIS完結＋トクヴィルTOCQ完結・3000テスト突破=全3053・一発green）
 - [x] Wave43 (2026-06-11)：FactionMultiplicityRules(#1473) / AmbitionCounterRules(#1476) / CompoundRepublicRules(#1481) / ExtendedRepublicRules(#1485) / ExecutiveEnergyRules(#1489) / RepresentativeFilterRules(#1494) / CensorshipRules(#1474)（並列7・フェデラリストFED完結＋ミル自由論MILL着手・全テスト一発green）
 - [x] Wave44 (2026-06-11)：PublicOpinionRules(#1477) / HarmPrincipleRules(#1480) / LibertyCultureRules(#1487) / MajorityTyrannyRules(#1478) / MilitiaLoyaltyRules(#1483) / RinnovazioneRules(#1488) / FounderTrajectoryRules(#1493)（並列7・ミル自由論MILL完結＋トクヴィル多数者の専制＋マキャヴェッリ論考DISC・親が×識別子/Mathf using/HarmPrinciple期待値3件修正）
+- [x] Wave45 (2026-06-11)：GeneralWillRules(#1462) / LawgiverRules(#1464) / PolityScaleRules(#1466) / CivicFaithRules(#1468) / AnarchyCostRules(#1459) / SecurityDilemmaRules(#1461) / CovenantRules(#1463)（並列7・ルソー社会契約論ROUS完結＋ホッブズ・リヴァイアサンLEVI完結・全テスト一発green）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -239,13 +240,13 @@
 - [x] MilitiaLoyaltyRules：市民軍・志願兵・傭兵の忠誠軸＝徴募源→逆境時の離反確率差（DISC-2 #1483・マキャヴェッリ論考）。`MercenaryRules`/`ConscriptionRules`とは別＝徴募源別の逆境忠誠（Wave44）
 - [x] RinnovazioneRules：リノヴァツィオーネ＝制度疲弊→刷新ウィンドウ→予防的自己刷新（DISC-3 #1488）。`DynastyRules.Reform`/`InstitutionalCorrectionRules`とは別＝危機前の予防的刷新（マキャヴェッリ「初心に立ち返る」）（Wave44）
 - [x] FounderTrajectoryRules：建国者の自己廃絶テスト＝制度投資速度vs権力集中速度→共和制軌道or専制固定の評価（DISC-4 #1493）。`SuccessionRules`/`PublicPrivateSeparationRules`とは別＝建国者が制度を残すか権力を握るか（Wave44）
-- [ ] GeneralWillRules：一般意志汚染指標＝派閥捕獲vs公益統治の合成スコア（ROUS-1 #1462・ルソー社会契約、GeneralWillState同梱）。`CommonGoodOrientationRules`/`LobbyRules`とは別＝一般意志vs特殊意志の汚染
-- [ ] LawgiverRules：立法者パラドックス＝建国の憲法制定権力・一回性の制度初期化（ROUS-2 #1464）。`ConstitutionRules`/`FounderTrajectoryRules`とは別＝ルソーの立法者（制度を作る者は制度の外）
-- [ ] PolityScaleRules：政体規模適合＝版図×人口→政体適合度スコア・ミスマッチペナルティ（ROUS-3 #1466）。`ExtendedRepublicRules`/`OverextensionRules`とは別＝政体には適正規模がある（ルソーは小国を是とした）
-- [ ] CivicFaithRules：市民宗教＝政府製造の政治的結束信仰・形骸化→崩壊の動学（ROUS-4 #1468、CivicFaith同梱）。`ReligionRules`/`HopeRules`とは別＝ルソーの市民宗教（政治的結束の信仰）
-- [ ] AnarchyCostRules：無政府宙域の自然状態コスト＝崩壊後の宙域コスト・隣接不安定化・再統合インセンティブ（LEVI-1 #1459・ホッブズ、AnarchyState同梱）。`CivilWarRules`/`FrontierRules`とは別＝万人の万人に対する闘争のコスト
-- [ ] SecurityDilemmaRules：安全保障ジレンマ＝防衛目的の建艦が隣接を刺激し螺旋→「誰も望まない戦争」（LEVI-2 #1461・ホッブズ）。`ArmsRaceRules`(リチャードソン量の螺旋)とは別＝防衛動機が生む猜疑の構造
-- [ ] CovenantRules：コヴェナント＝保護契約の閾値＝防衛失敗で服従義務消滅→合意撤回へ転送（LEVI-3 #1463）。`ConsentRules`/`CovenantRules`とは別＝ホッブズの保護と服従の契約（守れない主権者への服従は消える）
+- [x] GeneralWillRules：一般意志汚染指標＝派閥捕獲vs公益統治の合成スコア（ROUS-1 #1462・ルソー社会契約、GeneralWillState同梱）。`CommonGoodOrientationRules`/`LobbyRules`とは別＝一般意志vs特殊意志の汚染（Wave45）
+- [x] LawgiverRules：立法者パラドックス＝建国の憲法制定権力・一回性の制度初期化（ROUS-2 #1464）。`ConstitutionRules`/`FounderTrajectoryRules`とは別＝ルソーの立法者（制度を作る者は制度の外）（Wave45）
+- [x] PolityScaleRules：政体規模適合＝版図×人口→政体適合度スコア・ミスマッチペナルティ（ROUS-3 #1466）。`ExtendedRepublicRules`/`OverextensionRules`とは別＝政体には適正規模がある（ルソーは小国を是とした）（Wave45）
+- [x] CivicFaithRules：市民宗教＝政府製造の政治的結束信仰・形骸化→崩壊の動学（ROUS-4 #1468、CivicFaith同梱）。`ReligionRules`/`HopeRules`とは別＝ルソーの市民宗教（政治的結束の信仰）（Wave45）
+- [x] AnarchyCostRules：無政府宙域の自然状態コスト＝崩壊後の宙域コスト・隣接不安定化・再統合インセンティブ（LEVI-1 #1459・ホッブズ、AnarchyState同梱）。`CivilWarRules`/`FrontierRules`とは別＝万人の万人に対する闘争のコスト（Wave45）
+- [x] SecurityDilemmaRules：安全保障ジレンマ＝防衛目的の建艦が隣接を刺激し螺旋→「誰も望まない戦争」（LEVI-2 #1461・ホッブズ）。`ArmsRaceRules`(リチャードソン量の螺旋)とは別＝防衛動機が生む猜疑の構造（Wave45）
+- [x] CovenantRules：コヴェナント＝保護契約の閾値＝防衛失敗で服従義務消滅→合意撤回へ転送（LEVI-3 #1463）。`ConsentRules`/`CovenantRules`とは別＝ホッブズの保護と服従の契約（守れない主権者への服従は消える）（Wave45）
 
 ### Issue連動（第11次補充・2026-06-11／古典政体論・近代化・社会契約EPIC群の純ロジック子Issue・21件＝3Wave分）
 # ポリュビオスPOLY／モンテスキューMONT／ロックLOCK／孫子拡張SKUN（坂の上の雲型近代化）／三十年戦争TYW

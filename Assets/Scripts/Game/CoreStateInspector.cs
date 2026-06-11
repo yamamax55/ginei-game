@@ -66,6 +66,41 @@ namespace Ginei
             Register("Campaign (CampaignState)", () => StrategySession.Campaign);
             Register("Provinces (星系内政)",      () => StrategySession.Provinces);
             Register("Clock (GameClock)",         () => StrategySession.Clock);
+
+            // 配線済みだが既定ルート（Campaign/Provinces/Clock）から到達できない軍系の static ストアを追加
+            // （#146/#147/#148）。enum キーの台帳なので勢力ごとにスナップショットして辞書で覗かせる（観測のみ＝読むだけ）。
+            Register("FleetPool (艦艇プール #148)", () =>
+            {
+                var d = new Dictionary<string, int>();
+                foreach (Faction f in Enum.GetValues(typeof(Faction)))
+                {
+                    int v = FleetPool.Get(f);
+                    if (v > 0) d[f.ToString()] = v;
+                }
+                return d.Count > 0 ? (object)d : null;
+            });
+            Register("FleetRoster (艦隊台帳 #146)", () =>
+            {
+                var d = new Dictionary<string, object>();
+                foreach (Faction f in Enum.GetValues(typeof(Faction)))
+                {
+                    var fleets = FleetRoster.AllFleets(f);
+                    if (fleets != null && fleets.Count > 0) d[f.ToString()] = fleets;
+                }
+                return d.Count > 0 ? (object)d : null;
+            });
+            Register("OrderOfBattle (編制ツリー #147)", () =>
+            {
+                var d = new Dictionary<string, object>();
+                foreach (Faction f in Enum.GetValues(typeof(Faction)))
+                {
+                    var fms = OrderOfBattle.AllFormations(f);
+                    if (fms != null && fms.Count > 0) d[f.ToString()] = fms;
+                }
+                return d.Count > 0 ? (object)d : null;
+            });
+            // 通知（NOTIF-1）。専用の通知ログ観測（N キー）が読みやすいが、汎用ダンプにも全件を載せる。
+            Register("NotificationCenter (通知ログ)", () => NotificationCenter.All);
         }
 
         // ===== 用語集（フィールド名→日本語説明） =====
@@ -114,6 +149,20 @@ namespace Ginei
             // Province（内政）
             { "nativeIdeology", "住民の思想（占領しても即は変わらない）" }, { "stability", "安定度0..100" },
             { "integration", "占領統合度0..1" },
+            // FleetUnitData（艦隊台帳 #146 / 指揮班 #885）
+            { "fleetNumber", "艦隊番号（勢力内で一意）" }, { "fleetName", "艦隊の固有名" }, { "factionData", "所有勢力データ" },
+            { "shipRole", "運用区分（戦闘/非戦闘）" }, { "assignedAdmiral", "配属提督＝司令" },
+            { "viceCommander", "副提督＝次席指揮官" }, { "chiefOfStaff", "参謀長" }, { "baseStrength", "ユニット既定兵力" },
+            { "formation", "陣形" }, { "meritScore", "功績の累積" }, { "status", "在役状態（現役/解隊/永久欠番）" },
+            // MilitaryFormation（編制ツリー #147）
+            { "echelon", "梯団種別（艦隊/軍団/軍集団）" }, { "commander", "配属司令" },
+            { "parentId", "親梯団ID（0=最上位）" }, { "childFormationIds", "下位梯団ID" }, { "fleetNumbers", "直下の艦隊番号" },
+            // AdmiralData（提督能力＝実効値の出所）
+            { "admiralName", "提督名" }, { "rankTier", "階級の序列（大きいほど上位）" },
+            { "leadership", "統率" }, { "attack", "攻撃" }, { "defense", "防御" }, { "mobility", "機動" },
+            { "operation", "運営" }, { "intelligence", "情報" },
+            // Notification（通知 NOTIF-1）
+            { "seq", "通知の採番（一意）" }, { "category", "通知カテゴリ" }, { "severity", "重要度" }, { "message", "本文" },
         };
 
         /// <summary>名前に対応する日本語説明「（説明）」を返す（末尾の " ▸"＝プロパティ印は無視・無ければ空）。</summary>

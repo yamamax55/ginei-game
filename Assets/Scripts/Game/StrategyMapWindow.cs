@@ -6,35 +6,45 @@ using TMPro;
 namespace Ginei
 {
     /// <summary>
-    /// 戦略（星系）マップを Windows 風のウィンドウに見せるクローム（#UI統一）。
-    /// カメラのビューポート <see cref="Camera.rect"/> を上のタイトルバー＋細い枠のぶん内側へ詰め、
-    /// その周囲に不透明な枠バー＋タイトルバーをスクリーン空間で描く。マップ本体（ワールド描画）には触れない。
-    /// <b>当たり判定は維持される</b>：<see cref="GalaxyView"/> は <see cref="Camera.ScreenToWorldPoint"/> で
-    /// クリックを拾い、これはビューポート rect を尊重するため、ビューポートを詰めても選択/進軍は正しく動く。
-    /// 非描画マージンは不透明な枠バーで覆うため残像（clear されない領域）も出ない。Strategy シーンのみ自動生成。
+    /// 戦略（星系）マップの Windows 風UI（銀英伝の古典UI意匠・#UI統一）。
+    /// ①画面上部の<b>固定コマンドメニューバー</b>（国家ステータス・二重暦/速度・各パネルを開くボタン列）と、
+    /// ②<b>ドラッグで動かせる星系マップ窓</b>から成る。
+    /// <b>整合の要</b>：マップ窓は正規化矩形 <c>mapRect</c>（0〜1・画面全体基準）を唯一の真実とし、
+    /// <see cref="Camera.rect"/> と窓UIのアンカーの<b>両方に同じ mapRect を与える</b>＝両者とも画面全体基準なので
+    /// 解像度・アスペクトに依らず<b>ピクセル一致</b>する（GetWorldCorners/Screen 依存の逆算をしない）。
+    /// タイトルバーのドラッグは mapRect を正規化で平行移動する。<see cref="GalaxyView"/> は <see cref="Camera.ScreenToWorldPoint"/>
+    /// でクリックを拾い、これはビューポート rect を尊重するため窓移動後も選択/進軍が正しく動く。
+    /// 窓の外は<b>背景カメラ</b>が黒でクリアし残像を防ぐ。浮きHUDは <see cref="GalaxyView.HideWorldHud"/> で抑制し上メニューへ集約。Strategy 専用。
     /// </summary>
     public class StrategyMapWindow : MonoBehaviour
     {
-        [Header("枠の寸法（画面比・0〜1）")]
-        [Tooltip("タイトルバーの高さ（画面高に対する比）。時計2段を収めるため少し高め")]
-        public float titleBarFrac = 0.058f;
-        [Tooltip("左右マージン（画面幅に対する比）")]
-        public float sideFrac = 0.010f;
-        [Tooltip("下マージン（画面高に対する比）")]
-        public float bottomFrac = 0.014f;
+        [Header("上部メニューバー")]
+        public float menuBarFrac = 0.088f;
+
+        [Header("マップ窓")]
+        [Tooltip("窓タイトルバーの高さ（ピクセル）")]
+        public float mapTitleHeight = 30f;
 
         [Header("配色（ゲーム意匠）")]
-        [Tooltip("枠バーの色（非描画マージンを覆う）")]
-        public Color frameColor = new Color(0.09f, 0.12f, 0.18f, 1f);
-        [Tooltip("タイトルバーの色")]
-        public Color titleBarColor = new Color(0.11f, 0.15f, 0.22f, 1f);
-        [Tooltip("金色アクセント（タイトル・ルール線）")]
+        public Color menuBarColor = new Color(0.11f, 0.15f, 0.22f, 1f);
+        public Color titleBarColor = new Color(0.13f, 0.18f, 0.26f, 1f);
+        public Color buttonColor = new Color(0.16f, 0.21f, 0.30f, 1f);
         public Color accentColor = new Color(1f, 0.84f, 0.36f, 1f);
+        public Color desktopColor = new Color(0.02f, 0.02f, 0.05f, 1f);
+
+        // マップ窓の正規化矩形（画面全体を 0〜1 とした位置/大きさ）。camera.rect と窓UIの両方に使う＝必ず一致。
+        private Rect mapRect = new Rect(0.02f, 0.03f, 0.96f, 0.84f);
 
         private Camera cam;
+        private Camera bgCam;
         private Rect originalRect;
         private bool rectApplied;
-        private TextMeshProUGUI clockLabel; // 上メニューに含める時刻/暦/速度
+
+        private RectTransform titleBarRT;
+        private RectTransform contentRT;
+        private RectTransform edgeLeft, edgeRight, edgeBottom;
+        private TextMeshProUGUI clockLabel;
+        private TextMeshProUGUI statsLabel;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -48,7 +58,7 @@ namespace Ginei
 
         private static void TryCreate(Scene scene)
         {
-            if (scene.name != "Strategy") return; // 戦略マップ専用
+            if (scene.name != "Strategy") return;
             if (UnityEngine.Object.FindAnyObjectByType<StrategyMapWindow>() != null) return;
             new GameObject("StrategyMapWindow").AddComponent<StrategyMapWindow>();
         }
@@ -57,115 +67,270 @@ namespace Ginei
         {
             cam = Camera.main;
             if (cam == null) cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
-            ApplyViewport();
-            BuildChrome();
+            GalaxyView.HideWorldHud = true;
+            SetupBackgroundCamera();
+            BuildUI();
+            ApplyLayout();
         }
 
         private void OnDestroy()
         {
-            // ビューポートを元へ戻す（カメラが他シーンへ持ち越される場合の保険）
             if (cam != null && rectApplied) cam.rect = originalRect;
+            if (bgCam != null) Destroy(bgCam.gameObject);
+            GalaxyView.HideWorldHud = false;
         }
 
         private void Update()
         {
-            // 上メニューに時刻を含めたので、速度の +/- もここで受ける（戦略では浮きHUDを出さないため）。
             TimeDisplay.StepSpeedInput();
             if (clockLabel != null && TimeDisplay.TryFormatNow(out string text, out Color color))
             {
                 clockLabel.text = text;
                 clockLabel.color = color;
             }
+            UpdateStatsLabel();
         }
 
-        /// <summary>カメラのビューポートをタイトルバー＋枠のぶん内側へ詰める。</summary>
-        private void ApplyViewport()
+        private void LateUpdate() => ApplyLayout();
+
+        // ===== カメラ =====
+
+        private void SetupBackgroundCamera()
         {
             if (cam == null) return;
             originalRect = cam.rect;
-            cam.rect = new Rect(sideFrac, bottomFrac,
-                1f - 2f * sideFrac, 1f - titleBarFrac - bottomFrac);
             rectApplied = true;
+
+            var go = new GameObject("StrategyDesktopCamera");
+            bgCam = go.AddComponent<Camera>();
+            bgCam.orthographic = true;
+            bgCam.depth = cam.depth - 1f;
+            bgCam.clearFlags = CameraClearFlags.SolidColor;
+            bgCam.backgroundColor = desktopColor;
+            bgCam.cullingMask = 0;
+            bgCam.rect = new Rect(0f, 0f, 1f, 1f);
         }
 
-        private void BuildChrome()
+        /// <summary>タイトルバーのドラッグで窓（mapRect）を正規化平行移動する。</summary>
+        private void OnTitleDrag(Vector2 deltaPixels)
+        {
+            float sw = Screen.width > 0 ? Screen.width : 1920f;
+            float sh = Screen.height > 0 ? Screen.height : 1080f;
+            mapRect.x += deltaPixels.x / sw;
+            mapRect.y += deltaPixels.y / sh;
+            ApplyLayout();
+        }
+
+        /// <summary>mapRect を camera.rect と窓UIのアンカーへ反映（両者とも画面全体基準＝一致）。</summary>
+        private void ApplyLayout()
+        {
+            if (cam == null) return;
+            mapRect.width = Mathf.Clamp(mapRect.width, 0.15f, 1f);
+            mapRect.height = Mathf.Clamp(mapRect.height, 0.15f, 1f);
+            mapRect.x = Mathf.Clamp(mapRect.x, 0f, 1f - mapRect.width);
+            mapRect.y = Mathf.Clamp(mapRect.y, 0f, 1f - mapRect.height);
+            cam.rect = mapRect;
+
+            float x0 = mapRect.xMin, x1 = mapRect.xMax, y0 = mapRect.yMin, y1 = mapRect.yMax;
+
+            if (contentRT != null) { Stretch(contentRT, x0, y0, x1, y1); }
+            if (titleBarRT != null)
+            {
+                titleBarRT.anchorMin = new Vector2(x0, y1);
+                titleBarRT.anchorMax = new Vector2(x1, y1);
+                titleBarRT.pivot = new Vector2(0.5f, 0f);
+                titleBarRT.sizeDelta = new Vector2(0f, mapTitleHeight);
+                titleBarRT.anchoredPosition = Vector2.zero;
+            }
+            // 縁取り（細いバー）
+            Edge(edgeLeft, x0, y0, x0, y1, new Vector2(0f, 0.5f), new Vector2(2f, 0f));
+            Edge(edgeRight, x1, y0, x1, y1, new Vector2(1f, 0.5f), new Vector2(2f, 0f));
+            Edge(edgeBottom, x0, y0, x1, y0, new Vector2(0.5f, 0f), new Vector2(0f, 2f));
+        }
+
+        private static void Stretch(RectTransform rt, float x0, float y0, float x1, float y1)
+        {
+            rt.anchorMin = new Vector2(x0, y0);
+            rt.anchorMax = new Vector2(x1, y1);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        private static void Edge(RectTransform rt, float x0, float y0, float x1, float y1, Vector2 pivot, Vector2 sizeDelta)
+        {
+            if (rt == null) return;
+            rt.anchorMin = new Vector2(x0, y0);
+            rt.anchorMax = new Vector2(x1, y1);
+            rt.pivot = pivot;
+            rt.sizeDelta = sizeDelta;
+            rt.anchoredPosition = Vector2.zero;
+        }
+
+        // ===== UI =====
+
+        private void BuildUI()
         {
             var canvasObj = new GameObject("StrategyMapWindowCanvas");
             canvasObj.transform.SetParent(transform);
             var canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 860; // マップの前・各パネル(880+)の後ろ
+            canvas.sortingOrder = 860;
             var scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             canvasObj.AddComponent<GraphicRaycaster>();
             Transform root = canvasObj.transform;
 
-            float mapTop = 1f - titleBarFrac; // マップ領域の上端（タイトルバー下端）
-
-            // --- 非描画マージンを覆う不透明な枠バー（残像防止＋窓枠の見た目）---
-            AddBar(root, "FrameLeft", new Vector2(0f, 0f), new Vector2(sideFrac, mapTop), frameColor);
-            AddBar(root, "FrameRight", new Vector2(1f - sideFrac, 0f), new Vector2(1f, mapTop), frameColor);
-            AddBar(root, "FrameBottom", new Vector2(sideFrac, 0f), new Vector2(1f - sideFrac, bottomFrac), frameColor);
-
-            // --- タイトルバー（上端・全幅）---
-            var bar = AddBar(root, "TitleBar", new Vector2(0f, mapTop), new Vector2(1f, 1f), titleBarColor);
-
-            var caption = new GameObject("Caption").AddComponent<TextMeshProUGUI>();
-            caption.transform.SetParent(bar.transform, false);
-            var crt = caption.rectTransform;
-            crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one;
-            crt.offsetMin = new Vector2(20f, 0f); crt.offsetMax = new Vector2(-380f, 0f); // 右は時計用に空ける
-            caption.text = "≡ 星系マップ ・ 戦略";
-            caption.fontSize = 22f;
-            caption.fontStyle = FontStyles.Bold;
-            caption.color = accentColor;
-            caption.alignment = TextAlignmentOptions.Left;
-            caption.raycastTarget = false;
-            ApplyJapaneseFont(caption);
-
-            // 時刻/二重暦/速度（上メニューに含める＝右寄せ・2段）。整形は TimeDisplay の static を再利用。
-            clockLabel = new GameObject("Clock").AddComponent<TextMeshProUGUI>();
-            clockLabel.transform.SetParent(bar.transform, false);
-            var krt = clockLabel.rectTransform;
-            krt.anchorMin = new Vector2(1f, 0f); krt.anchorMax = new Vector2(1f, 1f);
-            krt.pivot = new Vector2(1f, 0.5f);
-            krt.sizeDelta = new Vector2(360f, 0f);
-            krt.anchoredPosition = new Vector2(-20f, 0f);
-            clockLabel.fontSize = 17f;
-            clockLabel.alignment = TextAlignmentOptions.Right;
-            clockLabel.color = new Color(0.95f, 0.92f, 0.7f);
-            clockLabel.raycastTarget = false;
-            ApplyJapaneseFont(clockLabel);
-
-            // タイトルバー下端の金色ルール線
-            var rule = AddBar(bar.transform, "Rule", new Vector2(0f, 0f), new Vector2(1f, 0f),
-                new Color(accentColor.r, accentColor.g, accentColor.b, 0.6f));
-            var rrt = (RectTransform)rule.transform;
-            rrt.pivot = new Vector2(0.5f, 0f);
-            rrt.sizeDelta = new Vector2(0f, 2f);
+            BuildMenuBar(root);
+            BuildMapWindow(root);
         }
 
-        /// <summary>アンカー(min,max)で配置する不透明バーを生成して返す。</summary>
+        private void BuildMenuBar(Transform root)
+        {
+            var bar = AddBar(root, "MenuBar", new Vector2(0f, 1f - menuBarFrac), new Vector2(1f, 1f), menuBarColor);
+
+            var top = new GameObject("TopRow").AddComponent<RectTransform>();
+            top.transform.SetParent(bar.transform, false);
+            top.anchorMin = new Vector2(0f, 0.48f); top.anchorMax = new Vector2(1f, 1f);
+            top.offsetMin = Vector2.zero; top.offsetMax = Vector2.zero;
+
+            var title = AddText(top, "≡ 戦略", 20f, accentColor, TextAlignmentOptions.Left);
+            title.fontStyle = FontStyles.Bold;
+            SetAnchors(title.rectTransform, new Vector2(0f, 0f), new Vector2(0.20f, 1f), new Vector2(20f, 0f), new Vector2(-8f, 0f));
+
+            statsLabel = AddText(top, "", 16f, new Color(0.85f, 0.9f, 0.7f), TextAlignmentOptions.Center);
+            SetAnchors(statsLabel.rectTransform, new Vector2(0.18f, 0f), new Vector2(0.74f, 1f), Vector2.zero, Vector2.zero);
+
+            clockLabel = AddText(top, "", 16f, new Color(0.95f, 0.92f, 0.7f), TextAlignmentOptions.Right);
+            SetAnchors(clockLabel.rectTransform, new Vector2(0.74f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-20f, 0f));
+
+            var cmd = new GameObject("CommandRow").AddComponent<RectTransform>();
+            cmd.transform.SetParent(bar.transform, false);
+            cmd.anchorMin = new Vector2(0f, 0f); cmd.anchorMax = new Vector2(1f, 0.48f);
+            cmd.offsetMin = new Vector2(16f, 4f); cmd.offsetMax = new Vector2(-16f, -2f);
+            var hlg = cmd.gameObject.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 4f; hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = true; hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = true;
+
+            AddCommand(cmd.transform, "勢力", () => UnityEngine.Object.FindAnyObjectByType<CampaignObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "財政", () => UnityEngine.Object.FindAnyObjectByType<EconomyObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "軍事", () => UnityEngine.Object.FindAnyObjectByType<MilitaryObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "人事", () => UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "解決", () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle());
+            AddCommand(cmd.transform, "情報", () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle());
+            AddCommand(cmd.transform, "通知", () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "ヘルプ", () => UnityEngine.Object.FindAnyObjectByType<HelpOverlay>()?.Toggle());
+
+            var rule = AddBar(bar.transform, "Rule", new Vector2(0f, 0f), new Vector2(1f, 0f),
+                new Color(accentColor.r, accentColor.g, accentColor.b, 0.6f));
+            var rrt = (RectTransform)rule.transform; rrt.pivot = new Vector2(0.5f, 0f); rrt.sizeDelta = new Vector2(0f, 2f);
+        }
+
+        private void BuildMapWindow(Transform root)
+        {
+            // タイトルバー（つかんで移動・mapRect を動かす）
+            var bar = new GameObject("MapTitleBar").AddComponent<RectTransform>();
+            bar.transform.SetParent(root, false);
+            titleBarRT = bar;
+            var tImg = bar.gameObject.AddComponent<Image>();
+            tImg.color = titleBarColor;
+            var drag = bar.gameObject.AddComponent<MapWindowDrag>();
+            drag.onDragDelta = OnTitleDrag;
+            var cap = AddText(bar, "≡ 星系マップ　（ドラッグで移動）", 15f, accentColor, TextAlignmentOptions.Left);
+            SetAnchors(cap.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-12f, 0f));
+
+            // 中身領域（透明＝マップを見せる・クリックを塞がない）。アンカーは ApplyLayout で mapRect に合わせる。
+            contentRT = new GameObject("MapContent").AddComponent<RectTransform>();
+            contentRT.transform.SetParent(root, false);
+
+            // 縁取り（細い金色バー・raycast しない）
+            Color edge = new Color(accentColor.r, accentColor.g, accentColor.b, 0.5f);
+            edgeLeft = MakeEdge(root, edge);
+            edgeRight = MakeEdge(root, edge);
+            edgeBottom = MakeEdge(root, edge);
+        }
+
+        private static RectTransform MakeEdge(Transform parent, Color color)
+        {
+            var go = new GameObject("Edge");
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            var img = go.AddComponent<Image>();
+            img.color = color; img.raycastTarget = false;
+            return rt;
+        }
+
+        private void UpdateStatsLabel()
+        {
+            if (statsLabel == null) return;
+            CampaignState campaign = StrategySession.Campaign;
+            if (campaign == null) { statsLabel.text = ""; return; }
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            FactionState s = CampaignRules.GetState(campaign, pf);
+            if (s == null) { statsLabel.text = ""; return; }
+            float hope = s.community != null ? s.community.hope : 0f;
+            float stab = CampaignRules.EffectiveStability(campaign, pf);
+            statsLabel.text = $"税率 {s.taxRate * 100f:0}%　国庫 {s.treasury:0}　民心 {hope * 100f:0}%　安定度 {stab * 100f:0}%";
+            statsLabel.color = hope < 0.2f ? new Color(1f, 0.55f, 0.45f) : new Color(0.85f, 0.9f, 0.7f);
+        }
+
+        // ===== 部品 =====
+
+        private void AddCommand(Transform parent, string label, System.Action onClick)
+        {
+            var go = new GameObject("Cmd_" + label);
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            img.color = Color.white;
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            var cb = btn.colors;
+            cb.normalColor = buttonColor;
+            cb.highlightedColor = new Color(0.27f, 0.45f, 0.68f, 1f);
+            cb.pressedColor = new Color(0.20f, 0.36f, 0.58f, 1f);
+            cb.selectedColor = buttonColor;
+            cb.fadeDuration = 0.05f;
+            btn.colors = cb;
+            btn.onClick.AddListener(() => onClick());
+            var le = go.AddComponent<LayoutElement>();
+            le.minWidth = 92f; le.preferredWidth = 92f; le.flexibleWidth = 0f;
+
+            var t = AddText(go.transform, label, 16f, new Color(0.92f, 0.95f, 1f), TextAlignmentOptions.Center);
+            SetAnchors(t.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        }
+
         private static Image AddBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Color color)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = anchorMin;
-            rt.anchorMax = anchorMax;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
+            rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
             var img = go.AddComponent<Image>();
             img.color = color;
-            img.raycastTarget = false; // マップのクリックを妨げない
+            img.raycastTarget = false;
             return img;
         }
 
-        private static void ApplyJapaneseFont(TextMeshProUGUI tmp)
+        private static void SetAnchors(RectTransform rt, Vector2 min, Vector2 max, Vector2 offMin, Vector2 offMax)
         {
+            rt.anchorMin = min; rt.anchorMax = max; rt.offsetMin = offMin; rt.offsetMax = offMax;
+        }
+
+        private static TextMeshProUGUI AddText(Transform parent, string text, float size, Color color, TextAlignmentOptions align)
+        {
+            var go = new GameObject("Text");
+            go.transform.SetParent(parent, false);
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = size;
+            tmp.color = color;
+            tmp.alignment = align;
+            tmp.raycastTarget = false;
             TMP_FontAsset ja = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             if (ja != null) tmp.font = ja;
+            return tmp;
         }
     }
 }

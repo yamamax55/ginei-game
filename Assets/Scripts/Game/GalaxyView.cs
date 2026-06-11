@@ -690,10 +690,23 @@ namespace Ginei
             StrategyEventPanel.Show(def.title, def.body, choices);
         }
 
+        /// <summary>
+        /// 浮きHUD（税率行・操作ヒント）を抑制するか。<see cref="StrategyMapWindow"/> が上メニューへ集約する間 true。
+        /// banner（戦況/速度/選択）は動的なため抑制しない。
+        /// </summary>
+        public static bool HideWorldHud = false;
+
         /// <summary>プレイヤー勢力の税率/国庫/民心/安定度を読み取り表示する（S5・毎フレーム）。</summary>
         private void UpdatePolicyLine()
         {
             if (policyLine == null) return;
+            // 上メニューへ集約中は浮き表示を消す（税率行・操作ヒントとも）
+            if (HideWorldHud)
+            {
+                policyLine.text = "";
+                if (helpLine != null) helpLine.text = "";
+                return;
+            }
             FactionState s = PlayerState();
             if (s == null) { policyLine.text = ""; return; }
             float hope = s.community != null ? s.community.hope : 0f;

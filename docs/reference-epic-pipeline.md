@@ -74,7 +74,9 @@ gh issue create --title "[XXX-n] <タイトル>" `
 - **調査（Step 1-2）は作品間で独立＝並列ファンアウト可**（[`parallel-core-fanout.md`](./parallel-core-fanout.md) CCX-1 の方式で複数作品を同時調査）。ただし**起票（Step 4-6）は直列**＝issue 番号・roadmap 行・プレフィックスが競合するため。
 
 ### クラウド自動実行（GitHub Actions・PC非依存）
-- ワークフロー `.github/workflows/worldview-epic.yml`（master）が **30分ごと（UTC :11/:41・混雑時刻回避）** に GitHub ホストランナーで1件処理する。`concurrency` で直列化（重なったら待機）・タイムアウト30分。周期は実測（1サイクル15〜20分＋CI構築3〜5分）に基づく。
+- **並列版 `.github/workflows/worldview-epic-parallel.yml`（master・現行）** が **30分ごと（UTC :11/:41）** に **fan-out/fan-in で N=5 並列**処理する：①`select`（直列1・backlogから5件選定＋プレフィックス割当）②`epicize`（並列5・各作品の設計書＋issue起票・**共有ファイルは触らずartifactで渡す**）③`integrate`（直列1・全fragmentを集約しroadmap/backlogを1push更新）。スループット約4倍（1時間で約10冊）。
+- **競合回避の核**＝重い処理（設計・起票）は並列だが、共有ファイル（roadmap §5-2・backlog）は **integrate だけが書く**。roadmap は `<!-- reference-epic-auto-anchor -->` 直前に機械挿入＝行競合なし。issue採番（GitHub）と設計書（独立ファイル）は元々衝突しない。＝`parallel-core-fanout.md`（CCX-1）の「生成は並列・統合は直列」と同型。
+- 旧 `worldview-epic.yml`（直列1件）は schedule停止・workflow_dispatch のみ（フォールバック）。同じ concurrency group `worldview-epic` で並列版と排他。
 - **状態は専用ブランチ `auto/worldview-epics`** に commit/push して持ち回り（バックログ「済」更新が次回実行に見える）。たまった成果は PR で master へ取り込む。
 - **冪等ガード**：対象選定＝「バックログ先頭から、`gh issue list --search "in:title <作品名> 参考"` で既存EPICが**無い**最初の未行」。既存EPICがあるのに未のままの行は、子issueの不足を補完してから済へ直す（途中失敗からの自動復旧）。
 - 認証：Actions secret `CLAUDE_CODE_OAUTH_TOKEN`（`claude setup-token` で発行）。issue起票/pushは `GITHUB_TOKEN`。

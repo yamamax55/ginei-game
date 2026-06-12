@@ -48,7 +48,7 @@ namespace Ginei.Tests
         {
             Assert.AreEqual(1.2f, LaborWageTickRules.TargetWageIndex(1.0f, 1.0f), 1e-4f);   // 完全雇用×高技能
             Assert.AreEqual(0.8f, LaborWageTickRules.TargetWageIndex(1.0f, 0.0f), 1e-4f);   // 完全雇用×無技能
-            Assert.AreEqual(0.7f, LaborWageTickRules.TargetWageIndex(0.0f, 0.0f), 1e-4f);   // 失業×無技能＝低賃金
+            Assert.AreEqual(0.56f, LaborWageTickRules.TargetWageIndex(0.0f, 0.0f), 1e-4f);  // 失業×無技能＝低賃金 (0.7×0.8)
 
             var p = new Province(3, "", 100f) { systemType = SystemType.工業 };
             p.workforce = new Workforce(new[] { 0.2f, 0.5f, 0.1f, 0.1f, 0.1f, 0f }); // 無職0＝就業率1.0

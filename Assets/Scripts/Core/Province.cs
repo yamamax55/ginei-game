@@ -25,8 +25,14 @@ namespace Ginei
         /// </summary>
         public SystemType systemType = SystemType.居住;
 
-        /// <summary>人口規模（Pop。徴募・産出のスケール）。</summary>
+        /// <summary>人口規模（Pop。徴募・産出のスケール）。<see cref="demographics"/> があればその合計に同期される。</summary>
         public float population = 100f;
+
+        /// <summary>
+        /// 年齢コホート人口（出生・加齢・死亡の器・LIFE-3 #153）。null＝未設定（静的 <see cref="population"/> のみ＝後方互換）。
+        /// 出生死亡の駆動は <see cref="PopulationDynamicsRules"/>（安定度で出生/死亡を増減）。設定すると人口が時間で増減する。
+        /// </summary>
+        public Population demographics = null;
 
         /// <summary>希少資源（戦略資源 #178）の鉱床を持つか。<b>偏在</b>＝大半の惑星は false（鉱床なし＝後方互換）。</summary>
         public bool hasStrategicResource = false;

@@ -184,7 +184,20 @@ namespace Ginei
                    $"統合度: {Mathf.RoundToInt(p.integration * 100f)}%\n" +
                    $"類型: {p.systemType}（産出効率 {output}%）\n" +
                    $"産出/秒: {FormatPlanetResources(p)}" +
+                   FormatPlanetDemographics(p) +
                    FormatPlanetStrategic(p);
+        }
+
+        // 人口動態（出生死亡・LIFE-3 #153）：年齢構成＋局面＋見込み成長率（安定度で出生/死亡が増減）。
+        private static string FormatPlanetDemographics(Province p)
+        {
+            if (p.demographics == null) return "";
+            Population pop = p.demographics;
+            PopulationPhase phase = DemographicsRules.Phase(pop, DemographicsRules.DemographicsParams.Default);
+            float growth = PopulationDynamicsRules.ProjectedAnnualGrowth(p, DemographicsRules.VitalRates.Default);
+            string sign = growth >= 0f ? "+" : "";
+            return $"\n人口動態: 年少 {Mathf.RoundToInt(pop.youth)} / 生産 {Mathf.RoundToInt(pop.working)} / 高齢 {Mathf.RoundToInt(pop.elderly)}" +
+                   $"（{phase}・成長 {sign}{growth * 100f:0.#}%/年）";
         }
 
         // 希少資源の鉱床（#178）。鉱床のある惑星だけ「希少資源: 名（豊富さ%・産出/秒）」を出す。
@@ -320,6 +333,11 @@ namespace Ginei
                 p.strategicResource = (StrategicResourceType)((h >> 11) % 4);
                 p.strategicAbundance = 0.4f + ((h >> 7) % 7) / 10f; // 0.4..1.0
             }
+            // 年齢コホート（出生死亡の器・LIFE-3 #153）＝若い/老いた構成を決定的に振る（成長/衰退が惑星で違う）。
+            float youthShare = 0.18f + ((h >> 9) % 18) / 100f;   // 0.18..0.35
+            float elderShare = 0.08f + ((h >> 13) % 16) / 100f;  // 0.08..0.23
+            float workShare = Mathf.Max(0.3f, 1f - youthShare - elderShare);
+            p.demographics = new Population(pop * youthShare, pop * workShare, pop * elderShare);
             return p;
         }
 

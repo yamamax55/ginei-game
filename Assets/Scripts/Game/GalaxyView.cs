@@ -655,6 +655,14 @@ namespace Ginei
         private void RunAnnualLifecycleTick()
         {
             campaignYear++;
+
+            // 惑星の人口を1年ぶん動かす（出生・死亡・加齢・LIFE-3 #153）。安定度で出生/死亡が増減＝荒れた星系は人口が減る。
+            // Province は StrategySession で永続＝年を跨いで人口が積み上がる。
+            if (provinces != null)
+                foreach (var kv in provinces)
+                    if (kv.Value != null)
+                        PopulationDynamicsRules.TickYear(kv.Value, DemographicsRules.VitalRates.Default);
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);

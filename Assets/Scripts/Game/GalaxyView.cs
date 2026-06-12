@@ -101,6 +101,9 @@ namespace Ginei
         private List<Person> civilians;
         private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
 
+        // 高校（#155-157 の土台）：勢力ごとの中等教育。進学率＝候補の母数、質＝候補の素質を左右する。
+        private List<HighSchool> highSchools;
+
         // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
         // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
         private List<Shipyard> shipyards;
@@ -643,6 +646,22 @@ namespace Ginei
                 new University(schoolId: 4, faction: Faction.同盟, name: "自由惑星同盟大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
                 new University(schoolId: 5, faction: Faction.帝国, name: "帝国工科大学", track: CareerTrack.テクノクラート, capacity: 4, quality: 0.6f),
             };
+
+            // 高校（中等教育の土台）：帝国は選別的（進学率低・質高）、同盟は大衆教育（進学率高）。
+            highSchools = new List<HighSchool>
+            {
+                new HighSchool(schoolId: 10, faction: Faction.帝国, name: "帝国高等学校", enrollmentRate: 0.5f, quality: 0.6f),
+                new HighSchool(schoolId: 11, faction: Faction.同盟, name: "同盟公立高校", enrollmentRate: 0.75f, quality: 0.5f),
+            };
+        }
+
+        /// <summary>その勢力の高校（中等教育）を返す（無ければ null＝教育の制約なし）。</summary>
+        private HighSchool HighSchoolOf(Faction faction)
+        {
+            if (highSchools == null) return null;
+            for (int i = 0; i < highSchools.Count; i++)
+                if (highSchools[i] != null && highSchools[i].faction == faction) return highSchools[i];
+            return null;
         }
 
         /// <summary>
@@ -727,9 +746,14 @@ namespace Ginei
         /// <summary>軍学校＝多段の選抜（幼年学校→士官学校→大学校・#155 細分化）。軍属層から入校し、任官者だけを士官名簿へ。</summary>
         private void RunMilitaryAcademy(Academy a)
         {
-            int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction)), 0, 20);
+            // 高校（中等教育）が候補の母数（進学率）と素質（質）を左右する。
+            HighSchool hs = HighSchoolOf(a.faction);
+            float enroll = hs != null ? HighSchoolRules.EducationFactor(hs.enrollmentRate) : 1f;
+            float eq = hs != null ? HighSchoolRules.EffectiveIntakeQuality(a.quality, hs.quality) : a.quality;
+            int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction) * enroll), 0, 20);
             if (sitters <= 0) return;
-            var results = MilitaryAcademyRules.RunMilitarySession(a, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            var eff = new Academy(a.schoolId, a.faction, a.name, a.capacity, eq);
+            var results = MilitaryAcademyRules.RunMilitarySession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += results.Count;
 
             int 退校 = 0, 幼 = 0, 士 = 0, 参 = 0;
@@ -804,9 +828,13 @@ namespace Ginei
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
         private void RunImperialExam(University u)
         {
-            int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction)), 0, 40);
+            HighSchool hs = HighSchoolOf(u.faction);
+            float enroll = hs != null ? HighSchoolRules.EducationFactor(hs.enrollmentRate) : 1f;
+            float eq = hs != null ? HighSchoolRules.EffectiveIntakeQuality(u.quality, hs.quality) : u.quality;
+            int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction) * enroll), 0, 40);
             if (sitters <= 0) return;
-            var results = ImperialExamRules.RunExamSession(u, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
+            var results = ImperialExamRules.RunExamSession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += results.Count;
 
             int 生員 = 0, 挙人 = 0, 貢士 = 0, 進士 = 0;
@@ -834,9 +862,13 @@ namespace Ginei
         /// <summary>テクノクラート大学の卒業（技術者を文民ロスターへ・#157）。</summary>
         private void RunTechnocratGraduation(University u)
         {
-            int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction));
+            HighSchool hs = HighSchoolOf(u.faction);
+            float enroll = hs != null ? HighSchoolRules.EducationFactor(hs.enrollmentRate) : 1f;
+            float eq = hs != null ? HighSchoolRules.EffectiveIntakeQuality(u.quality, hs.quality) : u.quality;
+            int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll);
             if (intake <= 0) return;
-            var grads = UniversityRules.GraduateCohort(u, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
+            var grads = UniversityRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += grads.Count;
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,

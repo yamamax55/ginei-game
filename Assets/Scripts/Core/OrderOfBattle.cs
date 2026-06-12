@@ -11,16 +11,6 @@ namespace Ginei
     /// </summary>
     public static class OrderOfBattle
     {
-        // 梯団別の必要階級 tier（#14 既定ラダー・現実準拠 ORBAT-1 #1717／RANKCMD-4）。マジックナンバー禁止＝const に集約。
-        // ※指揮官階級は >= 判定の下限。規模との対応表の精緻化は ORBAT-2 #1718。
-        public const int SquadronCommanderTier = 4;     // 戦隊司令＝大佐相当（准将未満・分艦隊の下段）
-        public const int SubFleetCommanderTier = 6;     // 分艦隊司令＝少将（准将5でも >= 判定で持てる）
-        public const int FleetCommanderTier = 7;       // 艦隊司令＝中将
-        public const int CorpsCommanderTier = 8;        // 軍団司令＝大将
-        public const int ArmyCommanderTier = 9;         // 軍司令＝上級大将（軍団の上段）
-        public const int ArmyGroupCommanderTier = 10;   // 軍集団＝方面軍司令＝元帥
-        public const int GrandFleetCommanderTier = 10;  // 宇宙艦隊＝総軍司令＝元帥（最上段）
-
         private static readonly Dictionary<int, MilitaryFormation> formations = new Dictionary<int, MilitaryFormation>();
         private static int nextId = 1;
 
@@ -110,20 +100,11 @@ namespace Ginei
 
         // ===== 司令配属（階級ゲート #14） =====
 
-        /// <summary>梯団種別ごとの必要階級 tier（戦隊4/分艦隊6/艦隊7/軍団8/軍9/軍集団10/宇宙艦隊10・ORBAT-1 #1717）。</summary>
-        public static int RequiredTier(EchelonType echelon)
-        {
-            switch (echelon)
-            {
-                case EchelonType.宇宙艦隊: return GrandFleetCommanderTier;
-                case EchelonType.軍集団: return ArmyGroupCommanderTier;
-                case EchelonType.軍: return ArmyCommanderTier;
-                case EchelonType.軍団: return CorpsCommanderTier;
-                case EchelonType.分艦隊: return SubFleetCommanderTier;
-                case EchelonType.戦隊: return SquadronCommanderTier;
-                default: return FleetCommanderTier; // 艦隊
-            }
-        }
+        /// <summary>
+        /// 梯団種別ごとの必要階級 tier（戦隊4/分艦隊6/艦隊7/軍団8/軍9/軍集団10/宇宙艦隊10・ORBAT-1 #1717）。
+        /// 出所は <see cref="CommandCapacityRules.CommanderTierFor"/>（ORBAT-2 #1718 の一表＝二重定義しない）。
+        /// </summary>
+        public static int RequiredTier(EchelonType echelon) => CommandCapacityRules.CommanderTierFor(echelon);
 
         /// <summary>その提督がこの梯団を指揮できる階級か（rankTier ≥ 必要tier）。</summary>
         public static bool CanCommand(AdmiralData admiral, EchelonType echelon)

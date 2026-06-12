@@ -175,8 +175,12 @@ namespace Ginei
             int requiredTier = OrderOfBattle.RequiredTier(node.echelon);
             int under = OrderOfBattle.CountFleetsUnder(node.id);
 
+            // ORBAT-2 規模／ORBAT-4 戦略・作戦・戦術区分（観測表示）
+            EchelonProfile prof = CommandCapacityRules.ProfileFor(node.echelon);
+            UnitEchelonClass orgClass = OrgClassRules.ClassOf(node.echelon);
             sb.Append(indent).Append("<color=#c9b3ff>[").Append(node.echelon).Append("]</color> ")
               .Append(node.DisplayName);
+            sb.Append("　<color=#7f93a6>").Append(orgClass).Append("単位 ").Append(prof.ScaleText).Append("</color>");
             sb.Append("　司令: ").Append(CommanderLabel(node.commander, null, requiredTier));
             sb.Append("　<color=#8aa0b0>配下艦隊 ").Append(under).Append("</color>\n");
 
@@ -225,7 +229,7 @@ namespace Ginei
                 // 指揮官（提督）
                 if (u.assignedAdmiral != null)
                 {
-                    int req = OrderOfBattle.FleetCommanderTier; // 艦隊司令の参考ゲート（中将7）
+                    int req = OrderOfBattle.RequiredTier(EchelonType.艦隊); // 艦隊司令の参考ゲート（中将7・ORBAT-2 一表）
                     sb.Append("       司令: ").Append(CommanderLabel(u.assignedAdmiral, u.factionData, req)).Append('\n');
                     // 指揮班込みの実効能力（CMD-3＝副提督/参謀の補佐）
                     sb.Append("       <color=#9fb0c0>実効</color> 統率 ").Append(CommandStaffRules.EffectiveLeadership(u, prm))

@@ -64,5 +64,44 @@ namespace Ginei.Tests
             Assert.AreEqual(EchelonType.軍集団, CommandCapacityRules.EchelonForTier(11)); // 10超も最上段
             Assert.AreEqual(EchelonType.分艦隊, CommandCapacityRules.EchelonForTier(0));  // 准将未満は最下段
         }
+
+        // ===== ORBAT-2 #1718：梯団↔指揮官階級↔規模の一表 =====
+
+        /// <summary>
+        /// ORBAT-2：ProfileFor が各梯団の標準指揮官階級と規模レンジを返す。指揮官 tier は OrderOfBattle.RequiredTier と一致
+        /// （一表＝二重定義しない）。規模レンジの下限は段が上がるほど単調非減少。宇宙艦隊は上限なし。
+        /// </summary>
+        [Test]
+        public void ProfileFor_EchelonTable_ORBAT2()
+        {
+            var order = new[]
+            {
+                EchelonType.戦隊, EchelonType.分艦隊, EchelonType.艦隊,
+                EchelonType.軍団, EchelonType.軍, EchelonType.軍集団, EchelonType.宇宙艦隊
+            };
+            var expectedTiers = new[] { 4, 6, 7, 8, 9, 10, 10 };
+
+            for (int i = 0; i < order.Length; i++)
+            {
+                var p = CommandCapacityRules.ProfileFor(order[i]);
+                Assert.AreEqual(order[i], p.echelon);
+                Assert.AreEqual(expectedTiers[i], p.commanderTier, $"{order[i]} の指揮官tier");
+                // 一表＝RequiredTier の出所
+                Assert.AreEqual(p.commanderTier, CommandCapacityRules.CommanderTierFor(order[i]));
+                Assert.AreEqual(p.commanderTier, OrderOfBattle.RequiredTier(order[i]));
+                Assert.LessOrEqual(p.minShips, p.maxShips);
+                if (i > 0)
+                    Assert.LessOrEqual(CommandCapacityRules.ProfileFor(order[i - 1]).minShips, p.minShips,
+                        $"{order[i - 1]}→{order[i]} で規模下限が下がってはならない");
+            }
+
+            // 艦隊＝基幹単位 1.2〜1.5万隻（銀英伝準拠）／宇宙艦隊は上限なし
+            var fleet = CommandCapacityRules.ProfileFor(EchelonType.艦隊);
+            Assert.AreEqual(12000, fleet.minShips);
+            Assert.AreEqual(15000, fleet.maxShips);
+            Assert.IsTrue(fleet.Contains(13000));
+            Assert.IsFalse(fleet.Contains(20000));
+            Assert.AreEqual(int.MaxValue, CommandCapacityRules.ProfileFor(EchelonType.宇宙艦隊).maxShips);
+        }
     }
 }

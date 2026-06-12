@@ -15,6 +15,7 @@ namespace Ginei
         public const float HireSpeed = 0.3f;              // 雇用が労働需要へ寄る速さ（0..1/tick）
         public const float MinWage = 0.1f;                // 賃金率の下限（ゼロ除算防止）
         public const float MaxLaborSwing = 0.5f;          // 1tickの雇用目標の増減上限（±割合）
+        public const float StateLayoffResistance = 0.5f;  // 国有企業の縮小（解雇）を緩める係数＝雇用を守る社会的役割
 
         /// <summary>資本集約度（1+資本×係数）＝1人あたり産出の底上げ。</summary>
         public static float CapitalFactor(Enterprise e)
@@ -66,6 +67,9 @@ namespace Ginei
             if (profit > 0f) e.capital = Mathf.Max(0f, e.capital + profit * ReinvestRate * dt); // 蓄積
 
             float demand = LaborDemand(e, price);
+            // 国有企業は雇用を守る＝縮小（解雇）を緩める（完全雇用の社会的役割・私有は収益性のまま）。
+            if (e.ownership == Ownership.国有 && demand < e.employees)
+                demand = Mathf.Lerp(e.employees, demand, 1f - StateLayoffResistance);
             float maxEmployees = e.employees + Mathf.Max(0f, availableLabor); // 採用は供給上限まで
             float target = Mathf.Min(demand, maxEmployees);
             e.employees = Mathf.Max(0f, Mathf.Lerp(e.employees, target, Mathf.Clamp01(HireSpeed * dt)));

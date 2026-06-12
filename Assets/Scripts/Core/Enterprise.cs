@@ -18,6 +18,9 @@ namespace Ginei
         /// <summary>産業（何を作るか・<see cref="SystemType"/>＝工業/農業/鉱業/居住）。</summary>
         public SystemType sector = SystemType.工業;
 
+        /// <summary>所有形態（私有＝資本家／国有＝国家）。利潤の行き先と雇用の振る舞いが変わる（<see cref="PropertyRules"/>）。既定=私有。</summary>
+        public Ownership ownership = Ownership.私有;
+
         /// <summary>雇用（POP工員から雇った人数・#110）。</summary>
         public float employees = 100f;
 
@@ -33,7 +36,7 @@ namespace Ginei
         public Enterprise() { }
 
         public Enterprise(Faction faction, SystemType sector, float employees, float capital = 1000f,
-            float productivity = 1f, float wageRate = 1f, string name = "企業")
+            float productivity = 1f, float wageRate = 1f, string name = "企業", Ownership ownership = Ownership.私有)
         {
             this.faction = faction;
             this.sector = sector;
@@ -42,6 +45,7 @@ namespace Ginei
             this.productivity = Mathf.Max(0f, productivity);
             this.wageRate = Mathf.Max(0f, wageRate);
             this.name = string.IsNullOrEmpty(name) ? "企業" : name;
+            this.ownership = ownership;
         }
     }
 }

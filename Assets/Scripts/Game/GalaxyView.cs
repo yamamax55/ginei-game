@@ -1999,6 +1999,9 @@ namespace Ginei
             if (kb.digit7Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.宣戦布告);
             if (kb.digit8Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.講和);
             if (kb.digit9Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.同盟);
+
+            // ミッションコマンド（任務戦術）：C＝マウス直下の敵対星系へ攻略任務を下す（参謀本部が必要兵力を見積もり自動動員）。
+            if (kb.cKey.wasPressedThisFrame) IssueMissionAtMouse();
         }
 
         /// <summary>対立勢力（プレイヤー以外の最初のデモ勢力）へ外交コマンドを発令。発令不可なら通知。</summary>
@@ -2011,6 +2014,94 @@ namespace Ginei
             if (rival == player) return; // 対立勢力なし
             if (!IssuePlayerDiplomacy(rival, action))
                 NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{action} は今は発令できません（{rival} との現状態）");
+        }
+
+        /// <summary>
+        /// ミッションコマンド（任務戦術）：マウス直下の敵対星系へ「攻略せよ」と任務を下す。
+        /// 参謀本部（自勢力の最有能指揮官の文才）が必要兵力を見積もり、遊休艦隊から必要十分を自動動員して進軍させる。
+        /// 必要規模は参謀本部の実力で可変＝有能なら無駄なく軍団/軍集団を、無能なら過小動員のまま発動する。
+        /// </summary>
+        private void IssueMissionAtMouse()
+        {
+            if (cam == null || map == null || reg == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+
+            Vector2 w = WorldMouse();
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > 1.2f) return;
+            StarSystem s = map.GetSystem(sysId);
+            if (s == null) return;
+
+            // 自国/友軍星系には攻略任務を出さない（敵対星系のみ）。
+            bool hostileTarget = FactionRelations.IsHostile(null, player, s.ownerData, s.owner);
+            if (!hostileTarget)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.情報,
+                    $"{s.systemName} は攻略対象外（自国/友軍）");
+                return;
+            }
+
+            // 敵戦力＝目標星系に在席する敵対艦隊の合計。防衛惑星があれば攻者三倍の対象（defended）。
+            float enemyStrength = 0f;
+            var here = reg.FleetsAt(sysId);
+            if (here != null)
+                for (int i = 0; i < here.Count; i++)
+                {
+                    StrategicFleet g = here[i];
+                    if (g != null && FactionRelations.IsHostile(null, player, null, g.faction)) enemyStrength += g.strength;
+                }
+            bool defended = s.planet != null && !s.planet.Captured;
+
+            // 参謀本部の実力（0..1）＝自勢力の最有能指揮官の文才（運営/情報）。
+            float staff = StaffCompetence(player);
+
+            // 動員候補＝自勢力の遊休（停泊中・非交戦）艦隊。
+            var avail = new List<MissionForce>();
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || f.faction != player) continue;
+                if (f.IsOnCorridor || f.engaged) continue;          // 移動中/交戦中は動員しない
+                if (f.currentSystemId == sysId) continue;            // 既に目標星系に居る艦は除く
+                avail.Add(new MissionForce(f.id, f.strength));
+            }
+
+            MissionPlan plan = MissionCommandRules.PlanMission(
+                sysId, MissionType.星系攻略, player, enemyStrength, defended, staff, avail);
+
+            if (plan.fleetIds.Count == 0)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
+                    $"{s.systemName} 攻略任務：動員可能な遊休艦隊がありません");
+                return;
+            }
+
+            // 動員した艦隊を目標星系へ進軍させる（どう動くかは各艦の経路探索に委ねる＝任務戦術）。
+            for (int i = 0; i < plan.fleetIds.Count; i++)
+            {
+                StrategicFleet f = reg.GetFleet(plan.fleetIds[i]);
+                if (f != null) f.WarpTo(map, sysId);
+            }
+
+            string scale = plan.echelon.ToString();
+            string note = plan.feasible ? "" : "（兵力不足のまま発動＝参謀本部の見積もり過小）";
+            NotificationCenter.Push(NotificationCategory.占領,
+                plan.feasible ? NotificationSeverity.情報 : NotificationSeverity.注意,
+                $"任務：{s.systemName} 攻略。{scale}を動員（{plan.fleetIds.Count}隊・兵力{plan.committedStrength:0}/{plan.requiredStrength:0}）{note}");
+        }
+
+        /// <summary>参謀本部の実力（0..1）＝その勢力の最有能指揮官の文才（運営/情報の平均）を正規化。指揮官不在は中庸0.5。</summary>
+        private float StaffCompetence(Faction faction)
+        {
+            if (commanders == null) return 0.5f;
+            float best = -1f;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.faction != faction || c.IsDeceased) continue;
+                if (c.CivilAptitude > best) best = c.CivilAptitude;
+            }
+            return best < 0f ? 0.5f : Mathf.Clamp01(best / 100f);
         }
 
         private void HandleMouse()

@@ -928,6 +928,9 @@ namespace Ginei
             // 代表生産チェーン（VCHAIN-6・#2091）：森林→木材→建材→住宅 を惑星ごとに年次で流し、住宅充足で生活水準を補正。
             RunSupplyChainTick();
 
+            // 汎用BOM（BOM-6・#2098）：消費財（食品/衣類）をレシピで生産し、需要充足で生活水準を補正。
+            RunBomConsumerTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1251,6 +1254,71 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"住宅不足の星系 {shortageCount}（木材・建材の供給不足）");
             if (depletionCount > 0)
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"森林の過伐採 {depletionCount} 星系（再生が追いつかない）");
+        }
+
+        // --- 汎用BOM消費財（食品/衣類・BOM・#2098 デモ配線） ---
+        private readonly System.Collections.Generic.Dictionary<int, CommodityStock> bomStocks
+            = new System.Collections.Generic.Dictionary<int, CommodityStock>();
+        private bool bomSeeded;
+        private int grainId, fiberId, clothId, foodId, clothingId;
+        private Recipe foodRecipe, clothRecipe, clothingRecipe;
+
+        /// <summary>品目カタログとレシピを冪等 seed（食品←穀物、布←繊維、衣類←布）。</summary>
+        private void EnsureBomContent()
+        {
+            if (bomSeeded) return;
+            grainId = CommodityCatalog.Register("穀物", CommodityCategory.原材料).id;
+            fiberId = CommodityCatalog.Register("繊維", CommodityCategory.原材料).id;
+            clothId = CommodityCatalog.Register("布", CommodityCategory.中間財).id;
+            foodId = CommodityCatalog.Register("食品", CommodityCategory.消費財).id;
+            clothingId = CommodityCatalog.Register("衣類", CommodityCategory.消費財).id;
+            foodRecipe = RecipeBook.Register(new Recipe(foodId).AddInput(grainId, 1f));        // 食品←穀物×1
+            clothRecipe = RecipeBook.Register(new Recipe(clothId).AddInput(fiberId, 2f));       // 布←繊維×2
+            clothingRecipe = RecipeBook.Register(new Recipe(clothingId).AddInput(clothId, 2f)); // 衣類←布×2
+            bomSeeded = true;
+        }
+
+        /// <summary>惑星ごとに原材料を供給→食品/衣類をレシピ生産→消費財需要を消費し、不足で生活水準を補正（BOM-6）。</summary>
+        private void RunBomConsumerTick()
+        {
+            if (provinces == null) return;
+            EnsureBomContent();
+            int foodShort = 0, clothingShort = 0;
+            foreach (var kv in provinces)
+            {
+                Province prov = kv.Value;
+                if (prov == null) continue;
+                if (!bomStocks.TryGetValue(kv.Key, out var cs) || cs == null)
+                {
+                    cs = new CommodityStock();
+                    bomStocks[kv.Key] = cs;
+                }
+                float pop = prov.population;
+                float outFactor = GovernanceRules.OutputFactor(prov);
+                // 原材料の供給（人口×安定度比例＝荒れた惑星は産まない）。
+                cs.Add(grainId, pop * 1.5f * outFactor);
+                cs.Add(fiberId, pop * 0.6f * outFactor);
+                // レシピ生産（上流→下流）：食品←穀物、布←繊維、衣類←布。
+                BomTickRules.Produce(cs, foodRecipe, pop * 1.0f);     // 食品需要ぶん
+                BomTickRules.Produce(cs, clothRecipe, pop * 0.4f);    // 衣類2着あたり布…の素
+                BomTickRules.Produce(cs, clothingRecipe, pop * 0.2f); // 衣類需要ぶん
+                // 消費財需要の充足（食品は全員・衣類は控えめ）。
+                float foodDemand = ConsumerDemandRules.Demand(pop, 1.0f);
+                float clothingDemand = ConsumerDemandRules.Demand(pop, 0.2f);
+                float foodFulfill = ConsumerDemandRules.Fulfillment(cs.Get(foodId), foodDemand);
+                float clothingFulfill = ConsumerDemandRules.Fulfillment(cs.Get(clothingId), clothingDemand);
+                ConsumerDemandRules.Consume(cs, foodId, foodDemand);
+                ConsumerDemandRules.Consume(cs, clothingId, clothingDemand);
+                // 消費財の充足で生活水準#181 を補正（食品優先＝最小律）。
+                float consumerFactor = ConsumerDemandRules.LivingStandardFactor(UnityEngine.Mathf.Min(foodFulfill, clothingFulfill), 0.6f);
+                prov.livingStandard *= consumerFactor;
+                if (foodFulfill < 0.8f) foodShort++;
+                if (clothingFulfill < 0.8f) clothingShort++;
+            }
+            if (foodShort > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"食料不足の星系 {foodShort}（穀物・食品の供給不足）");
+            if (clothingShort > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"衣類不足の星系 {clothingShort}（繊維・布の供給不足）");
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

@@ -1425,11 +1425,14 @@ namespace Ginei
             var dp = DiplomacyRules.DiplomacyParams.Default;
             var ai = DiplomacyAiRules.DiploAiParams.Default;
             var wp = WarGoalRules.WarGoalParams.Default;
+            // プレイヤー勢力の外交はプレイヤーが操作する（AIに乗っ取らせない・#2119 操作化）。
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
 
             for (int i = 0; i < DemoFactions.Length; i++)
                 for (int j = i + 1; j < DemoFactions.Length; j++)
                 {
                     Faction fa = DemoFactions[i], fb = DemoFactions[j];
+                    if (fa == player || fb == player) continue; // プレイヤー絡みのペアはAI判断しない
                     string a = fa.ToString(), b = fb.ToString();
                     // 国力＝所有惑星の人口合計、思想親和＝デモは異勢力で険悪、国境接触ありとみなす。
                     float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
@@ -1451,6 +1454,23 @@ namespace Ginei
 
             // 失効した条約を整理（status系は平時へ）。
             TreatyManagementRules.ExpireDue(state, campaignYear);
+        }
+
+        /// <summary>
+        /// プレイヤー勢力の外交コマンドを発令（UI/キーから呼ぶ・#2119 操作化の入口）。
+        /// 検証/適用は <see cref="DiplomacyCommandRules"/> へ委譲。成功で外交カテゴリへ通知し true。
+        /// </summary>
+        public bool IssuePlayerDiplomacy(Faction target, DiplomaticAction action)
+        {
+            var state = DiplomacySession.State;
+            if (state == null) return false;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            if (target == player) return false;
+            string a = player.ToString(), b = target.ToString();
+            bool ok = DiplomacyCommandRules.Issue(state, a, b, action, DiplomacyRules.DiplomacyParams.Default);
+            if (ok)
+                NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} → {b}：{action} を発令");
+            return ok;
         }
 
         /// <summary>勢力の国力 proxy＝所有星系の人口合計。</summary>

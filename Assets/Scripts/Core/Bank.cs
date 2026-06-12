@@ -36,6 +36,9 @@ namespace Ginei
         [Tooltip("借入（中央銀行/市場からの調達＝負債）")]
         public float borrowings = 0f;
 
+        [Tooltip("業態（都市銀行/地方銀行/信用金庫。既定=都市銀行で従来挙動・BTYP #2010）")]
+        public BankType bankType = BankType.都市銀行;
+
         public Bank() { }
 
         public Bank(float deposits, float loans, float reserveRatio = 0.1f, float confidence = 1f)

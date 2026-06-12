@@ -184,7 +184,9 @@ namespace Ginei
         /// <param name="targetTf">被弾側の Transform（向きで側背面判定）</param>
         /// <param name="flankMultiplier">真後ろでの最大倍率</param>
         /// <param name="isFlank">側背面ヒットだったか</param>
-        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor = 1f)
+        /// <param name="formationAttackFactor">陣形の攻撃倍率（#72）</param>
+        /// <param name="lanchesterFactor">局所火力集中倍率（ランチェスター二乗則・一定範囲内の火力差）</param>
+        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor = 1f, float lanchesterFactor = 1f)
         {
             // 提督の攻撃力補正（攻撃50で1.0倍, 100で1.5倍, 0で0.5倍）
             // 参謀補完を反映した実効攻撃を使用（基準値は非破壊）
@@ -200,7 +202,29 @@ namespace Ginei
             float multiplier = CombatModifiers.FlankFactor(dot, flankMultiplier, out isFlank);
 
             // 陣形の戦術特性（#72）：攻撃側陣形の火力倍率を乗算（横陣=最大火力／円陣=火力低 等）。
-            return Mathf.RoundToInt(baseDamage * attackBonus * moraleFactor * multiplier * Mathf.Max(0f, formationAttackFactor));
+            // ランチェスター（会戦ダメージ）：一定範囲内の局所火力差で1発の重みを増減（集中＝二乗で効く）。
+            return Mathf.RoundToInt(baseDamage * attackBonus * moraleFactor * multiplier
+                * Mathf.Max(0f, formationAttackFactor) * Mathf.Max(0f, lanchesterFactor));
+        }
+
+        /// <summary>
+        /// pos を中心に range 内の旗艦の火力（兵力）を味方/敵に分けて集計する（ランチェスター集中倍率の入力）。
+        /// 味方＝自分に敵対しない側（自軍含む）／敵＝敵対する側。<see cref="FleetRegistry.AllFlagships"/> を走査（個艦単位ではなく旗艦＝部隊単位で集計＝終盤ラグ回避）。
+        /// </summary>
+        public static void LocalFirepower(Vector3 pos, FactionData myData, Faction myLegacy, float range, out float friendly, out float enemy)
+        {
+            friendly = 0f; enemy = 0f;
+            float r2 = range * range;
+            IReadOnlyList<FleetStrength> flags = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flags.Count; i++)
+            {
+                FleetStrength f = flags[i];
+                if (f == null || !f.IsAlive) continue;
+                if (((Vector2)(f.transform.position - pos)).sqrMagnitude > r2) continue;
+                float power = Mathf.Max(0, f.strength);
+                if (FactionRelations.IsHostile(myData, myLegacy, f)) enemy += power;
+                else friendly += power;
+            }
         }
 
         /// <summary>

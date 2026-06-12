@@ -142,9 +142,11 @@ namespace Ginei
 
             bool isFlank;
             float fAtk = FormationTraitRules.AttackFactor(parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣);
+            // ランチェスター集中倍率は旗艦が部隊単位で算出した値を流用（配下艦ごとに再計算しない＝終盤ラグ回避）。
+            float lanchester = flagshipWeapon != null ? flagshipWeapon.LanchesterFactor : 1f;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 flagship != null ? flagship.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank, fAtk);
+                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank, fAtk, lanchester);
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

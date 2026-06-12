@@ -31,6 +31,18 @@ namespace Ginei
         [Tooltip("手動攻撃目標を追尾する際、射程のこの割合まで接近したら停止して交戦する")]
         public float pursuitStopRatio = 0.9f;
 
+        [Header("ランチェスター集中効果（会戦ダメージ）")]
+        [Tooltip("一定範囲内の局所火力差でダメージを増減する（ランチェスター二乗則）")]
+        public bool enableLanchester = true;
+        [Tooltip("局所火力を集計する半径（この範囲内の味方/敵旗艦の火力差で1発の重みが変わる）")]
+        public float lanchesterRange = 10f;
+        [Tooltip("局所火力集中倍率を再計算する間隔（秒・間引き）")]
+        public float lanchesterUpdateInterval = 0.4f;
+
+        /// <summary>直近に算出した局所火力集中倍率（部隊単位でキャッシュ＝配下艦も流用・終盤ラグ回避）。</summary>
+        public float LanchesterFactor { get; private set; } = 1f;
+        private float nextLanchesterTime;
+
         [Header("演出設定")]
         public float beamWidth = 0.2f;
         public float beamDuration = 0.1f;
@@ -100,6 +112,9 @@ namespace Ginei
                 IsInCombat = false;
                 return;
             }
+
+            // ランチェスター集中倍率を間引きで再計算し部隊単位でキャッシュ（配下艦も流用＝終盤ラグ回避）。
+            UpdateLanchesterFactor();
 
             // 交戦状態の判定
             // 1. 直近 fireInterval 秒以内に発砲したか
@@ -275,6 +290,23 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 一定範囲内の局所火力差からランチェスター集中倍率を間引きで再計算し、部隊単位でキャッシュする。
+        /// 配下艦（EscortShip）はこの旗艦の値を流用するので、計算は旗艦1回／間隔ぶんに抑えられる（終盤ラグ回避）。
+        /// </summary>
+        private void UpdateLanchesterFactor()
+        {
+            if (!enableLanchester) { LanchesterFactor = 1f; return; }
+            if (Time.time < nextLanchesterTime) return;
+            nextLanchesterTime = Time.time + Mathf.Max(0.05f, lanchesterUpdateInterval);
+
+            ShipCombat.LocalFirepower(transform.position,
+                myStrength != null ? myStrength.factionData : null,
+                myStrength != null ? myStrength.faction : Faction.帝国,
+                lanchesterRange, out float friendly, out float enemy);
+            LanchesterFactor = LanchesterRules.ConcentrationFactor(friendly, enemy);
+        }
+
+        /// <summary>
         /// 指定した個艦に攻撃を実行し、ダメージを計算します。
         /// </summary>
         private void PerformAttack(IShipTarget target)
@@ -296,13 +328,13 @@ namespace Ginei
             }
             shotBeamColor = firedMissile ? missileBeamColor : beamColor;
 
-            // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72 を集約ヘルパーで算出）
+            // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;
             Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);
             float fAtk = FormationTraitRules.AttackFactor(mySquadron != null ? mySquadron.currentFormation : Formation.紡錘陣);
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk);
+                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk, LanchesterFactor);
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

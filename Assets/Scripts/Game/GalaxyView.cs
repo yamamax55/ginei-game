@@ -874,8 +874,14 @@ namespace Ginei
                     EducationSignalOf(sys != null ? sys.owner : Faction.帝国, out enroll, out qual);
                     PopLaborTickRules.TickYear(kv.Value, enroll, qual, EducationLevel.高等, PopLaborTickRules.DefaultLearnRate);
 
-                    // 労働市場を1年ぶん（POPLAB-2/3 配線）：安定度#109 連動の需要へ職業配分が収束＝不安定で失業↑・回復で就業↓。
-                    LaborMarketTickRules.TickYear(kv.Value, LaborMarketTickRules.DefaultFlowRate);
+                    // 労働市場を1年ぶん（POPLAB-2/3/6 + SKILL-5 配線）：安定度#109 連動の需要へ職業配分が収束＝不安定で失業↑。
+                    // 戦時（前線星系）は生産労働→軍属（総力戦#96）。技能が高い大衆ほど速く再配置（リスキリング#2034）。
+                    float overall = PopLaborTickRules.OverallSkill(kv.Value);
+                    float flow = LaborMarketTickRules.ReskillingFlowRate(LaborMarketTickRules.DefaultFlowRate, overall);
+                    float mob = (sys != null && HasHostileFleetAt(sys)) ? LaborMarketTickRules.WarMobilizationRate : 0f;
+                    LaborMarketTickRules.TickYear(kv.Value, mob, flow);
+                    // 賃金を1年ぶん（POPLAB-4 配線）：労働逼迫（就業率）×技能で賃金指数が動く。
+                    LaborWageTickRules.TickYear(kv.Value, LaborWageTickRules.DefaultAdjustRate);
                 }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。

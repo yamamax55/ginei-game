@@ -46,6 +46,12 @@ namespace Ginei
         /// </summary>
         public SkillStock skills = null;
 
+        /// <summary>
+        /// 労働賃金指数（POPLAB-4・#1969・既定1.0）。労働逼迫（就業率）×技能（#2034）で年々調整（<see cref="LaborWageTickRules.TickYear"/>）。
+        /// 高い＝人手不足/高技能で高給。生活水準#181/支持#113 の係数（実効値パターン・基準非破壊）。
+        /// </summary>
+        public float wageIndex = 1f;
+
         /// <summary>希少資源（戦略資源 #178）の鉱床を持つか。<b>偏在</b>＝大半の惑星は false（鉱床なし＝後方互換）。</summary>
         public bool hasStrategicResource = false;
 

@@ -204,7 +204,7 @@ namespace Ginei
                    $"/官{Pct(w, Occupation.官吏)}/兵{Pct(w, Occupation.軍属)}/無職{Pct(w, Occupation.無職)}" +
                    $"\n就業率 {emp}%・徴募源 {rec}人（軍属）" +
                    FormatJsoc(w) +
-                   $"\n労働技能 {Mathf.RoundToInt(skill * 100f)}%・労働生産性 {prod:F2}（適所度{Mathf.RoundToInt(align * 100f)}%）";
+                   $"\n労働技能 {Mathf.RoundToInt(skill * 100f)}%・賃金 {p.wageIndex:F2}x・労働生産性 {prod:F2}（適所度{Mathf.RoundToInt(align * 100f)}%）";
         }
 
         private static int Pct(Workforce w, Occupation o) => Mathf.RoundToInt(w.Share(o) * 100f);

@@ -33,6 +33,11 @@ namespace Ginei
         public const float MinCoordinable = 15000f;      // ≒ 一個艦隊（CommandCapacityRules.Cap大将）
         public const float MaxCoordinable = 90000f;      // ≒ 軍集団（CommandCapacityRules.Ships軍集団Max）
 
+        // 兵力の集中（孫子の兵法＝戦力の逐次投入をしない）。発動に要る集中率（必要兵力比）。
+        // 無能な参謀本部は僅かな兵力で逐次投入し各個撃破される。有能な参謀本部は必要兵力を集中して決戦に臨む。
+        public const float MinConcentration = 0.3f;      // 無能＝必要の3割で発動（逐次投入＝penny-packet）
+        public const float MaxConcentration = 1.0f;      // 有能＝必要兵力を集中してから発動（決戦的集中）
+
         /// <summary>任務種別×防衛有無に応じた必要兵力比（攻者三倍の原則）。</summary>
         public static float ForceRatio(MissionType type, bool defended)
         {
@@ -67,6 +72,35 @@ namespace Ginei
             float comp = Mathf.Clamp01(staffCompetence);
             float span = Mathf.Lerp(MinCoordinable, MaxCoordinable, comp);
             return span * Mathf.Max(0f, circumstanceFactor);
+        }
+
+        /// <summary>
+        /// 発動に要る兵力集中率（孫子＝戦力の逐次投入をしない）。0..1。有能な参謀本部ほど高い＝必要兵力を集中してから決戦に臨む。
+        /// 無能ほど低い＝僅かな兵力で逐次投入し各個撃破される。
+        /// </summary>
+        public static float ConcentrationThreshold(float staffCompetence)
+            => Mathf.Lerp(MinConcentration, MaxConcentration, Mathf.Clamp01(staffCompetence));
+
+        /// <summary>
+        /// 勢力攻略の目標選定（避実撃虚＝敵の虚を撃つ）。到達可能な敵星系のうち最も攻めやすい（守備兵力最小・無防備優先）一つを選ぶ。
+        /// 兵力を分散させず一点に集中するための「決戦の正面」決定。到達可能な候補が無ければ -1。
+        /// </summary>
+        public static int SelectCampaignTarget(IReadOnlyList<CampaignTarget> enemySystems)
+        {
+            if (enemySystems == null) return -1;
+            int bestId = -1;
+            float bestStrength = float.MaxValue;
+            bool bestDefended = true;
+            for (int i = 0; i < enemySystems.Count; i++)
+            {
+                CampaignTarget t = enemySystems[i];
+                if (!t.reachable) continue;
+                bool better = t.enemyStrength < bestStrength
+                    || (t.enemyStrength == bestStrength && !t.defended && bestDefended)
+                    || (t.enemyStrength == bestStrength && t.defended == bestDefended && (bestId < 0 || t.systemId < bestId));
+                if (better) { bestId = t.systemId; bestStrength = t.enemyStrength; bestDefended = t.defended; }
+            }
+            return bestId;
         }
 
         /// <summary>動員規模に対応する梯団（艦隊⊂軍団⊂軍⊂軍集団⊂宇宙艦隊）。境界は <see cref="CommandCapacityRules"/> 準拠。</summary>
@@ -115,6 +149,13 @@ namespace Ginei
 
             plan.feasible = plan.committedStrength >= plan.requiredStrength;
             plan.echelon = RecommendEchelon(plan.committedStrength);
+
+            // 兵力の集中（孫子＝戦力の逐次投入をしない）：集中率に達してはじめて発動する。
+            // 有能な参謀本部は閾値が高い＝必要兵力を集めるまで待つ（逐次投入しない）。
+            // 集められなければ「集中待機」（launched=false）＝penny-packet を避ける。
+            plan.concentrationThreshold = ConcentrationThreshold(staffCompetence);
+            plan.launched = plan.committedStrength >= plan.requiredStrength * plan.concentrationThreshold;
+            plan.piecemeal = plan.launched && plan.committedStrength < plan.requiredStrength;
             return plan;
         }
     }

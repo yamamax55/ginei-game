@@ -65,6 +65,9 @@ namespace Ginei.Tests
             Assert.Contains(1, plan.fleetIds);
             Assert.Contains(2, plan.fleetIds);
             Assert.AreEqual(EchelonType.軍団, plan.echelon); // 複数艦隊を束ねた軍団
+            // 有能＝必要兵力を集中して決戦的に発動・逐次投入ではない。
+            Assert.IsTrue(plan.launched);
+            Assert.IsFalse(plan.piecemeal);
         }
 
         [Test]
@@ -81,6 +84,49 @@ namespace Ginei.Tests
             Assert.IsFalse(plan.feasible);                        // 必要兵力に届かない＝リスク
             Assert.AreEqual(1, plan.fleetIds.Count);
             Assert.AreEqual(EchelonType.艦隊, plan.echelon);
+            // 無能＝僅かな兵力で逐次投入（集中閾値0.3＝45000×0.3=13500 を満たし発動するが過小）。
+            Assert.IsTrue(plan.launched);
+            Assert.IsTrue(plan.piecemeal);
+        }
+
+        [Test]
+        public void ConcentrationThreshold_GoodStaffConcentrates()
+        {
+            Assert.AreEqual(0.3f, MissionCommandRules.ConcentrationThreshold(0f), 1e-4f);  // 無能＝3割で逐次投入
+            Assert.AreEqual(1.0f, MissionCommandRules.ConcentrationThreshold(1f), 1e-4f);  // 有能＝必要兵力を集中
+            Assert.AreEqual(0.65f, MissionCommandRules.ConcentrationThreshold(0.5f), 1e-4f);
+        }
+
+        [Test]
+        public void PlanMission_GoodStaffHolds_AvoidsPiecemeal()
+        {
+            // 有能(comp=1)：必要=30000・集中閾値=1.0。遊休が一個艦隊(15000)しか無いと…
+            // 逐次投入せず「集中待機」（launched=false）＝孫子の兵力の集中。
+            var avail = new List<MissionForce> { new MissionForce(1, 15000) };
+            var plan = MissionCommandRules.PlanMission(7, MissionType.星系攻略, Faction.帝国, 10000f, true, 1f, avail);
+            Assert.AreEqual(30000f, plan.requiredStrength, 1f);
+            Assert.AreEqual(15000f, plan.committedStrength, 1f);
+            Assert.IsFalse(plan.launched);  // 集中するまで発動しない（逐次投入回避）
+            Assert.IsFalse(plan.piecemeal);
+            Assert.IsFalse(plan.feasible);
+        }
+
+        [Test]
+        public void SelectCampaignTarget_AttacksWeaknessReachable()
+        {
+            // 避実撃虚：到達可能な敵星系のうち守備最小・無防備優先を選ぶ。
+            var targets = new List<CampaignTarget>
+            {
+                new CampaignTarget(1, 30000f, true, true),   // 堅い
+                new CampaignTarget(2, 8000f, true, true),    // 弱いが防衛あり
+                new CampaignTarget(3, 8000f, false, true),   // 弱く無防備＝最良
+                new CampaignTarget(4, 1000f, false, false),  // 最弱だが到達不能＝除外
+            };
+            Assert.AreEqual(3, MissionCommandRules.SelectCampaignTarget(targets));
+            // 到達可能候補なし → -1
+            var none = new List<CampaignTarget> { new CampaignTarget(9, 1f, false, false) };
+            Assert.AreEqual(-1, MissionCommandRules.SelectCampaignTarget(none));
+            Assert.AreEqual(-1, MissionCommandRules.SelectCampaignTarget(null));
         }
 
         [Test]
@@ -89,6 +135,7 @@ namespace Ginei.Tests
             var plan = MissionCommandRules.PlanMission(7, MissionType.星系攻略, Faction.同盟, 10000f, true, 1f, null);
             Assert.AreEqual(0f, plan.committedStrength, 1e-4f);
             Assert.IsFalse(plan.feasible);
+            Assert.IsFalse(plan.launched);
             Assert.AreEqual(0, plan.fleetIds.Count);
         }
     }

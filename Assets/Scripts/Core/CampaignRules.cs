@@ -59,6 +59,30 @@ namespace Ginei
             TickEconomy(c, secondsPerDay);
         }
 
+        /// <summary>
+        /// 予算の時間進行（国家予算の基盤）：各勢力の歳出総額（<see cref="BudgetRules.Total"/>）を国庫から引く＝
+        /// 歳入（<see cref="TickEconomy"/>）の対＝歳出。国庫は赤字（マイナス＝国債相当）を許容し、過剰歳出が可視化される。
+        /// budget が空（既定）なら歳出0＝無変化（後方互換）。null/dt&lt;=0 は無効。
+        /// </summary>
+        public static void TickBudget(CampaignState c, float dt)
+        {
+            if (c == null || dt <= 0f) return;
+            for (int i = 0; i < c.states.Count; i++)
+            {
+                FactionState s = c.states[i];
+                if (s == null || s.budget == null) continue;
+                s.treasury -= BudgetRules.Total(s.budget) * dt;
+            }
+        }
+
+        /// <summary>予算を <b>1 game-day ぶん</b>進める（TIME-6＝暦の日境界で1回）。連続版 <see cref="TickBudget"/> を
+        /// 1日の秒数で積分した量と一致（離散化しても暦比で同じ帰結）。secondsPerDay&lt;=0 は無効。</summary>
+        public static void TickBudgetDay(CampaignState c, float secondsPerDay)
+        {
+            if (secondsPerDay <= 0f) return;
+            TickBudget(c, secondsPerDay);
+        }
+
         /// <summary>盤面に1星系以上を所有する勢力それぞれに FactionState を用意する（無ければ追加）。</summary>
         public static void EnsureStates(CampaignState c)
         {

@@ -813,7 +813,8 @@ namespace Ginei
         private void RunDailyCampaignTick()
         {
             float secondsPerDay = (float)policyCalendar.Params.secondsPerDay;
-            CampaignRules.TickEconomyDay(StrategySession.Campaign, secondsPerDay);
+            CampaignRules.TickEconomyDay(StrategySession.Campaign, secondsPerDay); // 歳入＝税収を国庫へ
+            CampaignRules.TickBudgetDay(StrategySession.Campaign, secondsPerDay); // 歳出＝予算総額を国庫から（国家予算の基盤）
             TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
             RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる

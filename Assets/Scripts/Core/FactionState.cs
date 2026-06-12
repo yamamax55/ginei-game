@@ -26,6 +26,10 @@ namespace Ginei
         /// <summary>国庫＝税収の蓄積（S5）。<see cref="CampaignRules.TickEconomy"/> が課税ベース×税率を毎ターン加算。</summary>
         public float treasury = 0f;
 
+        /// <summary>国家予算＝歳出の分野配分（国家予算の基盤）。<see cref="CampaignRules.TickBudget"/> が歳出総額を国庫から引く。
+        /// 既定は空＝歳出0（後方互換）。treasury/taxRate と同じく在席のセッション状態（セーブ非対象＝復元時は既定で再構築）。</summary>
+        public NationalBudget budget = new NationalBudget();
+
         /// <summary>目安箱への信認（箱ごと・MEYASU-2 #1298）。建白が権力者に聞かれるかを左右する“借り物の権威”。解決は <see cref="CredibilityRules"/>。</summary>
         public BoxCredibility credibility = new BoxCredibility();
 

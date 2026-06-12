@@ -377,5 +377,73 @@ namespace Ginei.Tests
             CampaignRules.TickEconomyDay(null, 60f); // null 安全
             Assert.AreEqual(t, s.treasury, 1e-5f);
         }
+
+        // ───────── 国家予算の基盤：歳出（TickBudget）─────────
+
+        [Test]
+        public void TickBudget_DeductsBudgetTotalFromTreasury()
+        {
+            var c = OneFaction(out var s);
+            s.treasury = 500f;
+            s.budget = new NationalBudget(military: 40f, shipbuilding: 20f, administration: 15f,
+                                          welfare: 15f, research: 6f, diplomacy: 4f); // 合計100
+            CampaignRules.TickBudget(c, 1f);
+            Assert.AreEqual(400f, s.treasury, 1e-4f); // 500−100
+        }
+
+        [Test]
+        public void TickBudget_OverspendingDrivesTreasuryNegative()
+        {
+            var c = OneFaction(out var s);
+            s.treasury = 50f;
+            s.budget = new NationalBudget(military: 100f, shipbuilding: 0f, administration: 0f,
+                                          welfare: 0f, research: 0f, diplomacy: 0f);
+            CampaignRules.TickBudget(c, 1f);
+            Assert.Less(s.treasury, 0f); // 国庫超過＝赤字（国債相当）が可視化される
+            Assert.AreEqual(-50f, s.treasury, 1e-4f);
+        }
+
+        [Test]
+        public void TickBudget_EmptyOrNullBudget_NoChange_BackwardCompatible()
+        {
+            var c = OneFaction(out var s);
+            s.treasury = 100f;
+            // 既定＝空予算（歳出0）
+            CampaignRules.TickBudget(c, 5f);
+            Assert.AreEqual(100f, s.treasury, 1e-5f);
+            // budget が null でも安全
+            s.budget = null;
+            Assert.DoesNotThrow(() => CampaignRules.TickBudget(c, 5f));
+            Assert.AreEqual(100f, s.treasury, 1e-5f);
+        }
+
+        [Test]
+        public void TickBudgetDay_EqualsContinuousOverOneDay()
+        {
+            const float spd = 60f;
+            var cDay = OneFaction(out var sDay);
+            var cCont = OneFaction(out var sCont);
+            sDay.treasury = sCont.treasury = 1000f;
+            sDay.budget = new NationalBudget(10f, 0f, 0f, 0f, 0f, 0f);
+            sCont.budget = new NationalBudget(10f, 0f, 0f, 0f, 0f, 0f);
+            CampaignRules.TickBudgetDay(cDay, spd);
+            CampaignRules.TickBudget(cCont, spd);
+            Assert.AreEqual(sCont.treasury, sDay.treasury, 1e-4f);
+            Assert.AreEqual(400f, sDay.treasury, 1e-3f); // 1000 − 10×60
+        }
+
+        [Test]
+        public void TickBudget_NullAndNonPositiveDt_Safe()
+        {
+            var c = OneFaction(out var s);
+            s.treasury = 100f;
+            s.budget = new NationalBudget(10f, 0f, 0f, 0f, 0f, 0f);
+            CampaignRules.TickBudget(null, 1f);   // null 安全
+            CampaignRules.TickBudget(c, 0f);      // dt=0 無変化
+            CampaignRules.TickBudget(c, -1f);     // 負 dt 無変化
+            CampaignRules.TickBudgetDay(c, 0f);   // 日次0 無変化
+            CampaignRules.TickBudgetDay(null, 60f);
+            Assert.AreEqual(100f, s.treasury, 1e-5f);
+        }
     }
 }

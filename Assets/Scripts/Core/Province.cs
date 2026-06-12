@@ -40,6 +40,12 @@ namespace Ginei
         /// </summary>
         public Workforce workforce = null;
 
+        /// <summary>
+        /// POP の労働技能ストック（職業別の集約熟練度・#2034 SKILL-1・null＝未形成＝後方互換）。
+        /// 教育（#155-157）→OJT で年々形成（<see cref="PopLaborTickRules.TickYear"/>）。生産性#93・賃金#1969・徴募#96 の質に効く。
+        /// </summary>
+        public SkillStock skills = null;
+
         /// <summary>希少資源（戦略資源 #178）の鉱床を持つか。<b>偏在</b>＝大半の惑星は false（鉱床なし＝後方互換）。</summary>
         public bool hasStrategicResource = false;
 

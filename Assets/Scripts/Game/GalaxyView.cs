@@ -840,6 +840,16 @@ namespace Ginei
         /// 暦の年境界ごとに人物を1年ぶん老衰判定する（TIME-6 #952・LIFE-2 #152）。死亡した提督はHUDで告知する。
         /// 純ロジックは <see cref="AnnualLifecycleRules"/> に委譲（乱数は決定論のため roll を渡す）。継承は後段。
         /// </summary>
+        // 勢力の教育シグナル（高校の普及率×質）＝POP労働技能の上限（#2034 SKILL-3）に使う。未設定は既定。
+        private void EducationSignalOf(Faction f, out float enrollment, out float quality)
+        {
+            enrollment = 0.7f; quality = 0.55f; // 既定
+            if (highSchools != null)
+                for (int i = 0; i < highSchools.Count; i++)
+                    if (highSchools[i] != null && highSchools[i].faction == f)
+                    { enrollment = highSchools[i].enrollmentRate; quality = highSchools[i].quality; return; }
+        }
+
         private void RunAnnualLifecycleTick()
         {
             campaignYear++;
@@ -858,6 +868,11 @@ namespace Ginei
                     var rates = new DemographicsRules.VitalRates(
                         baseRates.birthRate * fert, baseRates.youthAging, baseRates.workAging, baseRates.elderMortality);
                     PopulationDynamicsRules.TickYear(kv.Value, rates);
+
+                    // POP の労働技能を1年ぶん形成（教育→OJT・#2034 配線）。教育の普及/質で上限が決まり、年々熟練が積み上がる。
+                    float enroll, qual;
+                    EducationSignalOf(sys != null ? sys.owner : Faction.帝国, out enroll, out qual);
+                    PopLaborTickRules.TickYear(kv.Value, enroll, qual, EducationLevel.高等, PopLaborTickRules.DefaultLearnRate);
                 }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。

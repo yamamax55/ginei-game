@@ -196,14 +196,15 @@ namespace Ginei
             float empRate = OccupationRules.EmploymentRate(p);
             int emp = Mathf.RoundToInt(empRate * 100f);
             int rec = Mathf.RoundToInt(OccupationRules.RecruitablePool(p));
-            // 労働生産性（POPLAB-5・#2026）＝適所度#110×技能（標準0.5）×就業率→産出#93。
+            // 労働生産性（POPLAB-5・#2026）＝適所度#110×技能（#2034 で年々形成）×就業率→産出#93。
             float align = OccupationRules.AlignmentFactor(p);
-            float prod = LaborProductivityRules.ProductivityFactor(align, 0.5f, empRate);
+            float skill = (p.skills != null) ? p.skills.WeightedAverage(w) : 0.5f;
+            float prod = LaborProductivityRules.ProductivityFactor(align, skill, empRate);
             return $"\n職業: 農{Pct(w, Occupation.農民)}/工{Pct(w, Occupation.工員)}/鉱{Pct(w, Occupation.鉱員)}" +
                    $"/官{Pct(w, Occupation.官吏)}/兵{Pct(w, Occupation.軍属)}/無職{Pct(w, Occupation.無職)}" +
                    $"\n就業率 {emp}%・徴募源 {rec}人（軍属）" +
                    FormatJsoc(w) +
-                   $"\n労働生産性 {prod:F2}（適所度{Mathf.RoundToInt(align * 100f)}%）";
+                   $"\n労働技能 {Mathf.RoundToInt(skill * 100f)}%・労働生産性 {prod:F2}（適所度{Mathf.RoundToInt(align * 100f)}%）";
         }
 
         private static int Pct(Workforce w, Occupation o) => Mathf.RoundToInt(w.Share(o) * 100f);

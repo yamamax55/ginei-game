@@ -816,6 +816,25 @@ namespace Ginei
             CampaignRules.TickEconomyDay(StrategySession.Campaign, secondsPerDay);
             TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
+            RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
+        }
+
+        // 軍の補給を1日ぶん（MILSUP-6・#2049 配線）：補給源（自勢力領）から切れた前線艦隊は補給が枯れて損耗する。
+        // 現在/出発星系が自勢力領なら補給線が通る＝補給。敵に後背を取られる/前線で孤立すると干上がる（兵糧攻め）。
+        private void RunMilitarySupplyTick()
+        {
+            if (reg == null || reg.fleets == null || map == null) return;
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || f.strength <= 0) continue;
+                StarSystem sys = map.GetSystem(f.currentSystemId);
+                bool supplied = sys != null && sys.owner == f.faction; // 後背が自勢力領＝補給線が通る
+                int lost = MilitarySupplyTickRules.TickFleet(f, supplied);
+                if (lost > 0)
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                        $"{f.faction} 第{f.id}艦隊 補給途絶で損耗（-{lost}・補給{Mathf.RoundToInt(f.supply * 100f)}%）");
+            }
         }
 
         /// <summary>

@@ -935,6 +935,18 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
             }
 
+            // 人物の財産を1年ぶん（PFIN-6・#2056 配線）：俸給#1969 から特性で貯金/投資/浪費し財産が増減。
+            // デモ：id で財産行動特性を割り振る。投資型は変動（暴落リスク#185）・浪費型は貯まらない・貯金型は堅実。
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.deathYear != 0) continue;
+                c.financialTrait = (FinancialTrait)(System.Math.Abs(c.id) % 3); // 0貯金/1投資/2浪費
+                float salary = 50f + c.rankTier * 50f; // 俸給 proxy（階級#14 比例・WAGE#1969）
+                float ret = 0.05f + (c.financialTrait == FinancialTrait.投資 ? (UnityEngine.Random.value - 0.5f) * 0.6f : 0f); // 投資は±変動
+                PersonFinanceTickRules.TickYear(c, salary, ret);
+            }
+
             // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
             if (academies != null && commanders.Count < OfficerRosterCap)
                 for (int i = 0; i < academies.Count; i++)

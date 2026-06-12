@@ -33,6 +33,12 @@ namespace Ginei
         /// <summary>君主・国家元首か（人物の職分＝君主。POP 職業分類#110 に載らない apex ゆえ別管理＝<see cref="PersonVocation"/>。継承#152/易姓革命で替わる）。既定 false＝後方互換。</summary>
         public bool isSovereign;
 
+        /// <summary>財産行動の特性（PFIN-1・#2056・既定=貯金＝堅実・後方互換）。貯金/投資/浪費で可処分所得の使い方が変わる。</summary>
+        public FinancialTrait financialTrait = FinancialTrait.貯金;
+
+        /// <summary>個人の財産（PFIN-4・#2056・既定0）。俸給#1969 から特性に応じて貯金/投資で積み上がる（<see cref="PersonFinanceTickRules.TickYear"/>）。</summary>
+        public float wealth = 0f;
+
         // --- 人物ライフサイクル（LIFE-1/2/4 #151/#152/#154） ---
         public int birthYear;                                   // 生年（0=未設定＝加齢しない）
         public int deathYear;                                   // 没年（0=存命）

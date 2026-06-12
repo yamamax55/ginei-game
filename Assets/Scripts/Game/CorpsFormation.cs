@@ -50,32 +50,67 @@ namespace Ginei
 
         /// <summary>
         /// 指定艦隊が属する軍団（corpsName が無ければ付近の同勢力）の艦隊を集結させ、指定陣形を組む。
-        /// 軍団長＝集結対象のうち最上位階級。前線には出さず後方中央に置く。
+        /// 軍団長＝集結対象のうち最上位階級。前線には出さず後方中央に置く。敗走中の艦隊は含めない。
         /// </summary>
         public void FormCorps(FleetStrength anchorMember, Formation form)
         {
-            if (anchorMember == null || !anchorMember.IsAlive) return;
+            if (!IsEligible(anchorMember)) return;
+            BuildAndApply(GatherCorps(anchorMember), form, anchorMember);
+        }
+
+        /// <summary>
+        /// プレイヤーが選択した艦隊だけで軍団陣形を組む（どの隷下艦隊を含めるか選択可能）。敗走中・退却・非戦闘艦は除外。
+        /// 1隊だけ選択時はその軍団を自動集結（従来の利便）。
+        /// </summary>
+        public void FormCorpsFromSelection(List<FleetStrength> selected, Formation form)
+        {
+            if (selected == null) return;
+            var eligible = new List<FleetStrength>();
+            for (int i = 0; i < selected.Count; i++)
+                if (IsEligible(selected[i])) eligible.Add(selected[i]);
+            if (eligible.Count == 0) return;
+            if (eligible.Count == 1) { FormCorps(eligible[0], form); return; }
+            BuildAndApply(eligible, form, eligible[0]);
+        }
+
+        /// <summary>軍団長を選び、隷下艦隊を能力見立てで前後に並べて陣形を組む共通処理。</summary>
+        private void BuildAndApply(List<FleetStrength> members, Formation form, FleetStrength prefer)
+        {
+            if (members == null || members.Count == 0) return;
             formation = form;
 
-            var members = GatherCorps(anchorMember);
-            if (members.Count == 0) return;
+            // 軍団長＝最上位階級（同位は prefer を優先）。以後はその勢力に絞る。
+            commander = SelectCommander(members, prefer);
+            if (commander == null) return;
 
-            // 軍団長＝最上位階級（同位は anchorMember を優先）。前線に出さないため陣形後方へ。
-            commander = SelectCommander(members, anchorMember);
             combat.Clear();
             for (int i = 0; i < members.Count; i++)
-                if (members[i] != commander) combat.Add(members[i]);
+            {
+                FleetStrength f = members[i];
+                if (f == null || f == commander) continue;
+                if (f.faction != commander.faction) continue; // 他勢力は混ぜない
+                combat.Add(f);
+            }
 
-            // 隊列順：すでに前方（敵方向）にいる艦隊を前列に（現実的な初期割付）。
             facingDeg = ComputeFacing(commander);
-            SortCombatByForwardness();
+            // 軍団長が隷下提督の能力（戦闘力・功名心・士気）を見立てて前後を決める（見極め精度は軍団長の能力次第）。
+            OrderCombatByDeployment();
 
             active = true;
             nextRotateTime = Time.time + rotationInterval;
             ApplyFormation();
 
             NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
-                $"{CorpsLabel(anchorMember)}：{form} を形成（{members.Count}隊・軍団長は後方）");
+                $"{CorpsLabel(commander)}：{form} を形成（{combat.Count + 1}隊・軍団長は後方）");
+        }
+
+        /// <summary>軍団陣形に含められる艦隊か＝生存（退却していない）・戦闘艦・敗走中でない。</summary>
+        private static bool IsEligible(FleetStrength f)
+        {
+            if (f == null || !f.IsAlive || !f.IsCombatant) return false;
+            FleetMorale mo = f.GetComponent<FleetMorale>();
+            if (mo != null && mo.IsRouted) return false; // 敗走中は含めない
+            return true;
         }
 
         /// <summary>方陣の前列部隊を後方へローテーションする（前線部隊の消耗を分散・現実的な交代）。</summary>
@@ -154,7 +189,7 @@ namespace Ginei
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
-                if (fs == null || !fs.IsAlive || !fs.IsCombatant) continue;
+                if (!IsEligible(fs)) continue;        // 敗走中・退却・非戦闘艦は含めない
                 if (fs.faction != anchor.faction) continue;
                 // 同軍団があればそれで絞る。無ければ集結範囲内の同勢力を臨時軍団とみなす。
                 if (!string.IsNullOrEmpty(corps))
@@ -185,23 +220,57 @@ namespace Ginei
         private static int TierOf(FleetStrength fs)
             => (fs != null && fs.admiralData != null) ? fs.admiralData.rankTier : 0;
 
-        /// <summary>すでに敵方向(前方)にいる艦隊ほど前列に来るよう隊列順を整える（現実的な初期割付）。</summary>
-        private void SortCombatByForwardness()
+        /// <summary>
+        /// 軍団長が隷下提督の能力を見立てて隊列（前→後）を決める。戦闘力・功名心・士気を加重し、
+        /// 見極めの精度は軍団長の能力（統率＋情報）に依る＝有能なら強兵・功名の士・高士気を前へ、無能なら誤配置。
+        /// </summary>
+        private void OrderCombatByDeployment()
         {
-            Vector2 fwd = DirFromAngle(facingDeg);
-            Vector2 anchor = commander != null ? (Vector2)commander.transform.position : Vector2.zero;
-            combat.Sort((a, b) =>
+            if (combat.Count == 0) return;
+
+            var cands = new List<DeploymentCandidate>(combat.Count);
+            for (int i = 0; i < combat.Count; i++)
             {
-                float pa = Vector2.Dot((Vector2)a.transform.position - anchor, fwd);
-                float pb = Vector2.Dot((Vector2)b.transform.position - anchor, fwd);
-                return pb.CompareTo(pa); // 前方(大)ほど先頭(前列)
-            });
+                FleetStrength f = combat[i];
+                AdmiralData ad = f.admiralData;
+                float combatApt = ad != null ? (ad.EffectiveAttack + ad.EffectiveDefense + ad.EffectiveLeadership) / 3f : 50f;
+                float merit = ad != null ? ad.ambition : 50f;
+                FleetMorale mo = f.GetComponent<FleetMorale>();
+                float morale = mo != null ? mo.GetMoraleFactor() : 1f;
+                cands.Add(new DeploymentCandidate(f.GetInstanceID(), combatApt, merit, morale));
+            }
+
+            float skill = CommanderSkill(commander);
+            int[] order = CorpsDeploymentRules.OrderFrontToBack(cands, skill, Roll);
+
+            var byId = new Dictionary<int, FleetStrength>(combat.Count);
+            for (int i = 0; i < combat.Count; i++) byId[combat[i].GetInstanceID()] = combat[i];
+            var sorted = new List<FleetStrength>(combat.Count);
+            for (int i = 0; i < order.Length; i++)
+                if (byId.TryGetValue(order[i], out FleetStrength f)) sorted.Add(f);
+            combat.Clear(); combat.AddRange(sorted);
+        }
+
+        /// <summary>軍団長の見極め能力（0..1）＝実効統率と実効情報の平均を正規化。提督不在は中庸0.5。</summary>
+        private static float CommanderSkill(FleetStrength cmd)
+        {
+            AdmiralData ad = cmd != null ? cmd.admiralData : null;
+            if (ad == null) return 0.5f;
+            return Mathf.Clamp01((ad.EffectiveLeadership + ad.EffectiveIntelligence) / 200f);
+        }
+
+        /// <summary>id から決定論的な当て推量(0..1)を作る（無能な軍団長の見立てに使う）。</summary>
+        private static float Roll(int id)
+        {
+            float s = Mathf.Sin(id * 12.9898f + 78.233f) * 43758.5453f;
+            return Mathf.Abs(s - Mathf.Floor(s));
         }
 
         private void PruneDead()
         {
+            // 死亡・退却・敗走した艦隊は隊列から外す（敗走中は陣形に含めない）。
             for (int i = combat.Count - 1; i >= 0; i--)
-                if (combat[i] == null || !combat[i].IsAlive) combat.RemoveAt(i);
+                if (!IsEligible(combat[i])) combat.RemoveAt(i);
         }
 
         /// <summary>軍団前方＝最寄りの敵旗艦方向。敵がいなければ軍団長の現在の向き。返り値は Z 角(度・+Y を基準)。</summary>

@@ -76,6 +76,10 @@ namespace Ginei
         [Range(0, 100)]
         public int humility = 50;      // 部下への態度（謙虚さ）
 
+        [Tooltip("功名心（手柄を求める気持ち 0..100・既定50）。高い提督は軍団陣形で前線を志願しやすい（史実＝功を焦る武将）。CorpsDeploymentRules が参照")]
+        [Range(0, 100)]
+        public int ambition = 50;      // 功名心（前線志願）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

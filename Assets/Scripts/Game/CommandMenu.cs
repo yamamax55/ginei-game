@@ -391,12 +391,18 @@ namespace Ginei
         {
             if (corpsFormationMode)
             {
-                // 軍団陣形：選択中の艦隊が属する軍団を集結させ指定陣形を組む（軍団長は後方）。
-                if (commander != null && commander.SelectedFleets.Count > 0)
+                // 軍団陣形：選択中の艦隊（どの隷下艦隊を含めるか＝プレイヤーの選択）で陣形を組む。
+                // 1隊だけ選択ならその軍団を自動集結。敗走中の艦隊は CorpsFormation 側で除外。
+                if (commander != null && CorpsFormation.Instance != null && commander.SelectedFleets.Count > 0)
                 {
-                    FleetStrength fs = commander.SelectedFleets[0].GetComponent<FleetStrength>();
-                    if (fs != null && CorpsFormation.Instance != null)
-                        CorpsFormation.Instance.FormCorps(fs, (Formation)formationIdx);
+                    var members = new List<FleetStrength>(commander.SelectedFleets.Count);
+                    for (int i = 0; i < commander.SelectedFleets.Count; i++)
+                    {
+                        FleetStrength fs = commander.SelectedFleets[i] != null
+                            ? commander.SelectedFleets[i].GetComponent<FleetStrength>() : null;
+                        if (fs != null) members.Add(fs);
+                    }
+                    CorpsFormation.Instance.FormCorpsFromSelection(members, (Formation)formationIdx);
                 }
                 corpsFormationMode = false;
                 CloseMenu();

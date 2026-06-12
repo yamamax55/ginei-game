@@ -184,7 +184,7 @@ namespace Ginei
         /// <param name="targetTf">被弾側の Transform（向きで側背面判定）</param>
         /// <param name="flankMultiplier">真後ろでの最大倍率</param>
         /// <param name="isFlank">側背面ヒットだったか</param>
-        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank)
+        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor = 1f)
         {
             // 提督の攻撃力補正（攻撃50で1.0倍, 100で1.5倍, 0で0.5倍）
             // 参謀補完を反映した実効攻撃を使用（基準値は非破壊）
@@ -199,7 +199,8 @@ namespace Ginei
             float dot = Vector2.Dot(targetTf.up, toAttacker);
             float multiplier = CombatModifiers.FlankFactor(dot, flankMultiplier, out isFlank);
 
-            return Mathf.RoundToInt(baseDamage * attackBonus * moraleFactor * multiplier);
+            // 陣形の戦術特性（#72）：攻撃側陣形の火力倍率を乗算（横陣=最大火力／円陣=火力低 等）。
+            return Mathf.RoundToInt(baseDamage * attackBonus * moraleFactor * multiplier * Mathf.Max(0f, formationAttackFactor));
         }
 
         /// <summary>

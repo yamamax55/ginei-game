@@ -247,6 +247,10 @@ namespace Ginei
                 finalDamage = Mathf.RoundToInt(finalDamage * (1f - Mathf.Clamp(preferredFormationDamageReduction, 0f, 0.9f)));
             }
 
+            // 陣形の戦術特性（#72）：防御側陣形の被ダメージ倍率（円陣/方陣=堅い＜1／横陣/鶴翼=脆い＞1）。
+            if (squadron != null)
+                finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, FormationTraitRules.DamageTakenFactor(squadron.currentFormation)));
+
             strength -= finalDamage;
             
             if (moraleComponent != null)

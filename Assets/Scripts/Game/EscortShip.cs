@@ -141,9 +141,10 @@ namespace Ginei
             int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier));
 
             bool isFlank;
+            float fAtk = FormationTraitRules.AttackFactor(parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣);
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 flagship != null ? flagship.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank);
+                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank, fAtk);
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

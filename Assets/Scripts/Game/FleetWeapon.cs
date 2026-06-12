@@ -296,11 +296,13 @@ namespace Ginei
             }
             shotBeamColor = firedMissile ? missileBeamColor : beamColor;
 
-            // ダメージ計算（提督攻撃・士気・側背面を集約ヘルパーで算出）
+            // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72 を集約ヘルパーで算出）
             bool isFlank;
+            Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);
+            float fAtk = FormationTraitRules.AttackFactor(mySquadron != null ? mySquadron.currentFormation : Formation.紡錘陣);
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank);
+                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk);
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

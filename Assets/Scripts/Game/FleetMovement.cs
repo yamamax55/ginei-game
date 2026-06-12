@@ -276,6 +276,10 @@ namespace Ginei
                 m.Mul(Mathf.Max(0.1f, preferredFormationMobilityBonus));
             }
 
+            // 陣形の戦術特性（#72）：陣形ごとの機動倍率（紡錘=機動高／方陣/円陣=鈍重）。
+            if (squadron != null)
+                m.Mul(Mathf.Max(0.1f, FormationTraitRules.MobilityFactor(squadron.currentFormation)));
+
             // 減速ペナルティを2系統で算出して合算（下限つき）：
             //  ・混雑(GetCongestionFactor)＝全陣営対象の物理的密集
             //  ・ZOC(GetZocFactor)＝敵対部隊の支配領域（敵の素通り・離脱の妨害）

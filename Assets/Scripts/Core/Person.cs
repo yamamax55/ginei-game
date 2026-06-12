@@ -40,6 +40,7 @@ namespace Ginei
         public int graduationYear; // 卒業年/合格年（学閥=同期の判定）
         public int schoolId;       // 卒業/合格制度のID（学閥=同窓の判定）
         public int examRank;       // 登用試験の合格順位（文官版ハンモック。LIFE-6）
+        public ExamDegree examDegree = ExamDegree.無資格; // 科挙の最高功名（生員/挙人/貢士/進士。LIFE-6 細分化・ImperialExamRules）
 
         // 専門能力（テクノクラート LIFE-7・既存の戦闘/政治能力とは別軸）
         public int research;     // 研究

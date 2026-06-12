@@ -778,14 +778,51 @@ namespace Ginei
             {
                 University u = universities[i];
                 if (u == null) continue;
-                int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction));
-                if (intake <= 0) continue;
-                var grads = UniversityRules.GraduateCohort(u, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
-                nextPersonId += grads.Count;
-                civilians.AddRange(grads);
-                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
-                    $"{u.faction} {u.name} {grads.Count}名 卒業（{u.track}）");
+                if (u.track == CareerTrack.科挙) RunImperialExam(u);
+                else RunTechnocratGraduation(u);
             }
+        }
+
+        /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
+        private void RunImperialExam(University u)
+        {
+            int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction)), 0, 40);
+            if (sitters <= 0) return;
+            var results = ImperialExamRules.RunExamSession(u, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += results.Count;
+
+            int 生員 = 0, 挙人 = 0, 貢士 = 0, 進士 = 0;
+            Person 状元 = null;
+            for (int k = 0; k < results.Count; k++)
+            {
+                Person p = results[k];
+                switch (p.examDegree)
+                {
+                    case ExamDegree.生員: 生員++; break;
+                    case ExamDegree.挙人: 挙人++; break;
+                    case ExamDegree.貢士: 貢士++; break;
+                    case ExamDegree.進士:
+                        進士++;
+                        if (p.examRank == 1) 状元 = p;
+                        civilians.Add(p); // 進士のみ高官として登用（科挙の狭き門）
+                        break;
+                }
+            }
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{u.faction} {u.name} 科挙 受験{sitters}：進士{進士}/貢士{貢士}/挙人{挙人}/生員{生員}"
+                + (状元 != null ? $"（状元 tier{状元.rankTier}）" : ""));
+        }
+
+        /// <summary>テクノクラート大学の卒業（技術者を文民ロスターへ・#157）。</summary>
+        private void RunTechnocratGraduation(University u)
+        {
+            int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction));
+            if (intake <= 0) return;
+            var grads = UniversityRules.GraduateCohort(u, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{u.faction} {u.name} {grads.Count}名 卒業（{u.track}）");
         }
 
         /// <summary>

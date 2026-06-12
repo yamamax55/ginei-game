@@ -1189,6 +1189,20 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
                         $"{fac} 行政物資が不足（充足 {(int)(result.overall * 100)}%）＝統治逼迫で安定度低下");
                 }
+
+                // 企業の投入制約つき生産（FIRMPROD-6・#2084）：工員#110 から計画産出を見積り、国庫を投入に実産出を解く。
+                // 原材料（物資）/エネルギー（燃料）が足りないと工場が遊休＝減産。実産出ぶんの投入を消費する。
+                float industryWorkers = 0f;
+                for (int i = 0; i < owned.Count; i++) industryWorkers += OccupationRules.Workers(owned[i], Occupation.工員);
+                if (industryWorkers > 0f)
+                {
+                    float planned = industryWorkers; // 計画産出 proxy（労働×生産性=1）
+                    var pr = EnterpriseProductionTickRules.Produce(planned, stock.Get(ResourceType.物資), stock.Get(ResourceType.燃料), float.MaxValue);
+                    EnterpriseProductionTickRules.Consume(stock, pr.realizedOutput);
+                    if (pr.inputConstrained && pr.utilization < 0.999f)
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                            $"{fac} 工業が{pr.binding}不足で減産（稼働 {(int)(pr.utilization * 100)}%）");
+                }
             }
         }
 

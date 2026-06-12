@@ -101,10 +101,13 @@ namespace Ginei
         private List<Person> civilians;
         private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
 
-        // 小学校/中学校/高校（#155-157 の土台）：勢力ごとの初等〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
+        // 幼稚園/小学校/中学校/高校（#155-157 の土台）：勢力ごとの就学前〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
+        private List<Kindergarten> kindergartens;
         private List<ElementarySchool> elementarySchools;
         private List<HighSchool> highSchools;
         private List<MiddleSchool> middleSchools;
+        // 保育園（#153/#110）：教育でなく保育＝労働参加↑・出生率↑（POP の出生/労働に効く）。
+        private List<Nursery> nurseries;
         private List<TechnicalCollege> colleges; // 高専（中学校→高専の実務技術者路・#157）
         private List<JuniorCollege> juniorColleges; // 短大（高校卒後2年・行政中堅・#156）
         private List<VocationalSchool> vocationalSchools; // 専門学校（高校卒後2年・実務specialist・#157）
@@ -670,6 +673,18 @@ namespace Ginei
                 new ElementarySchool(schoolId: 20, faction: Faction.帝国, name: "帝国国民学校", enrollmentRate: 0.9f, quality: 0.55f),
                 new ElementarySchool(schoolId: 21, faction: Faction.同盟, name: "同盟公立小学校", enrollmentRate: 0.99f, quality: 0.5f),
             };
+            // 幼稚園（就学前教育＝教育チェーンの最下根）。
+            kindergartens = new List<Kindergarten>
+            {
+                new Kindergarten(schoolId: 22, faction: Faction.帝国, name: "帝国幼稚園", enrollmentRate: 0.6f, quality: 0.55f),
+                new Kindergarten(schoolId: 23, faction: Faction.同盟, name: "同盟幼稚園", enrollmentRate: 0.8f, quality: 0.5f),
+            };
+            // 保育園（保育＝労働参加↑/出生率↑・教育とは別軸）。同盟は福祉手厚く整備率高め。
+            nurseries = new List<Nursery>
+            {
+                new Nursery(schoolId: 24, faction: Faction.帝国, name: "帝国保育所", coverage: 0.4f),
+                new Nursery(schoolId: 25, faction: Faction.同盟, name: "同盟公立保育園", coverage: 0.7f),
+            };
             // 高専（中学校→高専の実務技術者路・高校を経ない別ルート・#157）。
             colleges = new List<TechnicalCollege>
             {
@@ -716,6 +731,35 @@ namespace Ginei
             return null;
         }
 
+        /// <summary>その勢力の幼稚園（就学前教育）を返す（無ければ null）。</summary>
+        private Kindergarten KindergartenOf(Faction faction)
+        {
+            if (kindergartens == null) return null;
+            for (int i = 0; i < kindergartens.Count; i++)
+                if (kindergartens[i] != null && kindergartens[i].faction == faction) return kindergartens[i];
+            return null;
+        }
+
+        /// <summary>その勢力の保育園の出生率倍率（無ければ1.0）。</summary>
+        private float NurseryFertilityOf(Faction faction)
+        {
+            if (nurseries == null) return 1f;
+            for (int i = 0; i < nurseries.Count; i++)
+                if (nurseries[i] != null && nurseries[i].faction == faction)
+                    return NurseryRules.FertilityFactor(nurseries[i].coverage);
+            return 1f;
+        }
+
+        /// <summary>その勢力の保育園の労働参加倍率（無ければ1.0）＝候補/徴募プールに掛ける。</summary>
+        private float NurseryLaborOf(Faction faction)
+        {
+            if (nurseries == null) return 1f;
+            for (int i = 0; i < nurseries.Count; i++)
+                if (nurseries[i] != null && nurseries[i].faction == faction)
+                    return NurseryRules.LaborParticipationFactor(nurseries[i].coverage);
+            return 1f;
+        }
+
         /// <summary>
         /// 教育チェーン（中学校→高校）を解決し、上級学校の候補母数倍率（進学率の複利）と実効教育質（質の段階的上乗せ）を返す。
         /// 学校が無い段は素通り（倍率1・据え置き＝後方互換）。
@@ -752,6 +796,13 @@ namespace Ginei
             {
                 enrollFactor *= ElementarySchoolRules.EducationFactor(es.enrollmentRate);
                 effectiveQuality = ElementarySchoolRules.EffectiveIntakeQuality(effectiveQuality, es.quality);
+            }
+            // 幼稚園（就学前教育の最下根）も常にチェーンに入る。
+            Kindergarten kg = KindergartenOf(faction);
+            if (kg != null)
+            {
+                enrollFactor *= KindergartenRules.EducationFactor(kg.enrollmentRate);
+                effectiveQuality = KindergartenRules.EffectiveIntakeQuality(effectiveQuality, kg.quality);
             }
         }
 
@@ -797,8 +848,16 @@ namespace Ginei
             // Province は StrategySession で永続＝年を跨いで人口が積み上がる。
             if (provinces != null)
                 foreach (var kv in provinces)
-                    if (kv.Value != null)
-                        PopulationDynamicsRules.TickYear(kv.Value, DemographicsRules.VitalRates.Default);
+                {
+                    if (kv.Value == null) continue;
+                    // 保育園（保育）が整うと出生率が上がる＝所有勢力の整備率で出生率を底上げ。
+                    StarSystem sys = map != null ? map.GetSystem(kv.Key) : null;
+                    float fert = sys != null ? NurseryFertilityOf(sys.owner) : 1f;
+                    var baseRates = DemographicsRules.VitalRates.Default;
+                    var rates = new DemographicsRules.VitalRates(
+                        baseRates.birthRate * fert, baseRates.youthAging, baseRates.workAging, baseRates.elderMortality);
+                    PopulationDynamicsRules.TickYear(kv.Value, rates);
+                }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。
             // 勢力をまたぐ流れ＝亡命（難民）。総量保存・StrategySession 永続で年を跨いで効く。
@@ -876,7 +935,7 @@ namespace Ginei
             foreach (var s in map.systems)
                 if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
                     pool += OccupationRules.RecruitablePool(prov);
-            return pool;
+            return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
         }
 
         /// <summary>その勢力の文民候補（官吏層 #110）＝所有星系の Province を合算（大学の輩出数の素・#156/#157）。</summary>
@@ -887,7 +946,7 @@ namespace Ginei
             foreach (var s in map.systems)
                 if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
                     pool += OccupationRules.Workers(prov, Occupation.官吏);
-            return pool;
+            return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
         }
 
         /// <summary>
@@ -966,7 +1025,7 @@ namespace Ginei
             foreach (var s in map.systems)
                 if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
                     pool += OccupationRules.Workers(prov, Occupation.工員);
-            return pool;
+            return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
         }
 
         /// <summary>高専＝中学校から直接入る実務技術者路（高校を経ない・#157）。工員層から入学し技術者を文民ロスターへ。</summary>

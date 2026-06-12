@@ -949,6 +949,32 @@ namespace Ginei
                     string dest = heir != null ? $"{heir.name} が相続" : "国家へ没収";
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{d.name} の資産（{estate.Count}件）→ {dest}");
                 }
+
+                // 金融資産の相続（NFIN-6・#2070）：故人の保有持分を最高位の相続人へ、不在なら国家へ。
+                var fin = FinancialHoldingRegistry.OwnedByPerson(d.id);
+                if (fin.Count > 0)
+                {
+                    Person heir = FindHeir(d);
+                    for (int e = 0; e < fin.Count; e++)
+                    {
+                        if (heir != null) { fin[e].ownerKind = AssetOwnerKind.人物; fin[e].ownerPersonId = heir.id; }
+                        else { fin[e].ownerKind = AssetOwnerKind.国家; fin[e].ownerFaction = d.faction; }
+                    }
+                }
+
+                // 不動産の細分化（NFIN-5/6・#2070＝分地相続）：故人の権利証を複数の相続人へ等分＝惑星の持分が細かく分かれる。
+                var deeds = PropertyDeedRegistry.OwnedByPerson(d.id);
+                if (deeds.Count > 0)
+                {
+                    var heirs = FindHeirs(d, 3); // 上位3名で分割（細分化傾向）
+                    for (int e = 0; e < deeds.Count; e++)
+                    {
+                        if (heirs.Count > 0) PropertyFragmentationRules.FragmentOnInheritance(deeds[e], heirs);
+                        else { deeds[e].ownerKind = AssetOwnerKind.国家; deeds[e].ownerFaction = d.faction; } // 相続人不在は国家へ（細分化せず）
+                    }
+                    if (heirs.Count > 1)
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{d.name} の所領が {heirs.Count} 人へ分割相続（細分化）");
+                }
             }
 
             // 人物の財産を1年ぶん（PFIN-6・#2056 配線）：俸給#1969 から特性で貯金/投資/浪費し財産が増減。
@@ -971,6 +997,17 @@ namespace Ginei
                 float fInc = NamedAssetEffectRules.FactionAnnualIncome(DemoFactions[f]);
                 if (fInc != 0f)
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 国有資産収益 {fInc:0}");
+            }
+
+            // ネームド金融資産・不動産（NFIN-6・#2070 配線）：株式/債券/投資信託の配当・惑星所有権の地代→財産、紙くず化。
+            SeedFinancialAssets();                                  // デモ金融/不動産シード（冪等）
+            MaybeCrashAStock();                                     // 紙くず化デモ（暴落#185）
+            NamedFinancialTickRules.TickYear(ResolveCommander);    // 配当/地代→所有者 wealth#2056
+            for (int f = 0; f < DemoFactions.Length; f++)          // 国家の金融/不動産収益（デモはログ）
+            {
+                float fInc = NamedFinancialTickRules.FactionAnnualIncome(DemoFactions[f]);
+                if (fInc != 0f)
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 金融/地代収益 {fInc:0}");
             }
 
             // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
@@ -1038,6 +1075,73 @@ namespace Ginei
                     NamedAssetRegistry.Register(flagship);
                 }
             namedAssetsSeeded = true;
+        }
+
+        // --- ネームド金融資産・不動産（NFIN・#2070 デモ配線） ---
+        private bool financialAssetsSeeded;
+
+        /// <summary>相続人を最大 max 名（同勢力の存命司令を階級降順・本人除く）。細分化相続の分割先。</summary>
+        private System.Collections.Generic.List<int> FindHeirs(Person d, int max)
+        {
+            var result = new System.Collections.Generic.List<int>();
+            if (commanders == null || d == null) return result;
+            var pool = new System.Collections.Generic.List<Person>();
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.id == d.id || c.deathYear != 0 || c.faction != d.faction) continue;
+                pool.Add(c);
+            }
+            pool.Sort((a, b) => b.rankTier.CompareTo(a.rankTier)); // 階級降順
+            for (int i = 0; i < pool.Count && i < max; i++) result.Add(pool[i].id);
+            return result;
+        }
+
+        /// <summary>デモ金融/不動産シード（冪等）：各勢力に国有株式・首都惑星の deed、各司令に少数の株式・地所（NFIN-6）。</summary>
+        private void SeedFinancialAssets()
+        {
+            if (financialAssetsSeeded || FinancialHoldingRegistry.All.Count > 0 || PropertyDeedRegistry.All.Count > 0)
+            { financialAssetsSeeded = true; return; }
+
+            int underlying = 1;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                // 国有の株式（配当）と債券（クーポン）。
+                FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.株式, $"{DemoFactions[f]}重工")
+                { ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f], underlyingId = underlying++, units = 1000f, unitPrice = 10f, incomePerUnit = 0.5f, bookCost = 10000f });
+                FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.債券, $"{DemoFactions[f]}国債")
+                { ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f], underlyingId = underlying++, units = 500f, unitPrice = 100f, incomePerUnit = 3f, bookCost = 50000f });
+            }
+            // 各司令に少数の株式（配当）と、首都星系（id=0 を仮の本拠）に地所（地代）。
+            if (commanders != null)
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null) continue;
+                    FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.投資信託, "銀河ファンド")
+                    { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, underlyingId = underlying, units = 50f, unitPrice = 12f, incomePerUnit = 0.4f, bookCost = 600f });
+                    var deed = new PropertyDeed(0, c.faction == Faction.同盟 ? 1 : 0, 0.2f, 3000f)
+                    { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, rentRate = 0.04f };
+                    PropertyDeedRegistry.Register(deed);
+                }
+            financialAssetsSeeded = true;
+        }
+
+        /// <summary>紙くず化デモ（NFIN-6・暴落#185）：低確率で1銘柄を時価0へ（同銘柄の全保有が紙くずに）。</summary>
+        private void MaybeCrashAStock()
+        {
+            var stocks = FinancialHoldingRegistry.HoldingsOfInstrument(FinancialInstrument.株式);
+            if (stocks.Count == 0 || UnityEngine.Random.value > 0.05f) return;
+            int victim = stocks[UnityEngine.Random.Range(0, stocks.Count)].underlyingId;
+            var affected = FinancialHoldingRegistry.HoldingsOfUnderlying(victim);
+            string banner = null;
+            for (int i = 0; i < affected.Count; i++)
+            {
+                FinancialAssetRules.MarkToMarket(affected[i], 0f, 0f); // 紙くず化
+                banner = affected[i].underlyingName;
+            }
+            if (banner != null)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{banner} 株が暴落＝紙くずに（保有 {affected.Count} 件が無価値化）");
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

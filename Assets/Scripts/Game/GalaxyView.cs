@@ -925,6 +925,9 @@ namespace Ginei
                 }
             }
 
+            // 代表生産チェーン（VCHAIN-6・#2091）：森林→木材→建材→住宅 を惑星ごとに年次で流し、住宅充足で生活水準を補正。
+            RunSupplyChainTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1204,6 +1207,50 @@ namespace Ginei
                             $"{fac} 工業が{pr.binding}不足で減産（稼働 {(int)(pr.utilization * 100)}%）");
                 }
             }
+        }
+
+        // --- 代表生産チェーン（森林→木材→建材→住宅・VCHAIN・#2091 デモ配線） ---
+        private readonly System.Collections.Generic.Dictionary<int, ChainStock> chainStocks
+            = new System.Collections.Generic.Dictionary<int, ChainStock>();
+
+        /// <summary>類型ごとの森林初期量（居住/農業は森が多く、工業/鉱業は少ない）。</summary>
+        private static float SeedForest(SystemType t)
+        {
+            switch (t)
+            {
+                case SystemType.農業: return 1000f;
+                case SystemType.居住: return 800f;
+                case SystemType.鉱業: return 200f;
+                default: return 300f; // 工業
+            }
+        }
+
+        /// <summary>惑星ごとに森林→木材→建材→住宅 を年次で流し、住宅充足で生活水準を補正（VCHAIN-6）。</summary>
+        private void RunSupplyChainTick()
+        {
+            if (provinces == null) return;
+            var p = SupplyChainParams.Default;
+            int shortageCount = 0, depletionCount = 0;
+            foreach (var kv in provinces)
+            {
+                Province prov = kv.Value;
+                if (prov == null) continue;
+                if (!chainStocks.TryGetValue(kv.Key, out var cs) || cs == null)
+                {
+                    // 初期住宅は需要の8割（最初から住んでいる）。
+                    cs = new ChainStock(SeedForest(prov.systemType), 0f, 0f, prov.population * p.perCapitaHousing * 0.8f);
+                    chainStocks[kv.Key] = cs;
+                }
+                var r = SupplyChainTickRules.TickYear(cs, prov.population, p);
+                // 住宅充足で生活水準#181 を補正（不足は頭打ち＝#2042 がその年に設定した値へ乗算）。
+                prov.livingStandard *= HousingDemandRules.LivingStandardFactor(r.occupancy, 0.7f);
+                if (r.occupancy < 0.8f) shortageCount++;
+                if (r.overharvest) depletionCount++;
+            }
+            if (shortageCount > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"住宅不足の星系 {shortageCount}（木材・建材の供給不足）");
+            if (depletionCount > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"森林の過伐採 {depletionCount} 星系（再生が追いつかない）");
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -46,5 +47,30 @@ namespace Ginei
             into.Add(ResourceType.弾薬, Rate(type, ResourceType.弾薬) * f * dt);
             into.Add(ResourceType.燃料, Rate(type, ResourceType.燃料) * f * dt);
         }
+
+        // ===== 惑星単位の産出（#767 ハイブリッド＝惑星が産出の単一の真実・星系はその集約）=====
+
+        /// <summary>
+        /// <b>惑星</b>（<see cref="Province"/>）単位の産出を備蓄へ加える。類型は <see cref="Province.systemType"/>、
+        /// 効率は <see cref="GovernanceRules.OutputFactor"/>（安定度比例＝支配≠即産出）。各惑星が自分の地味で資源を出す。
+        /// </summary>
+        public static void ProduceFromProvince(ResourceStockpile into, Province planet, float dt)
+        {
+            if (into == null || planet == null || dt <= 0f) return;
+            Produce(into, planet.systemType, GovernanceRules.OutputFactor(planet), dt);
+        }
+
+        /// <summary>星系（惑星群）の産出を備蓄へ加える＝各惑星が自分の類型×統治で産出し合算（#767 集約・星系＝惑星の集約ビュー）。</summary>
+        public static void ProduceFromSystem(ResourceStockpile into, IReadOnlyList<Province> planets, float dt)
+        {
+            if (into == null || planets == null || dt <= 0f) return;
+            for (int i = 0; i < planets.Count; i++) ProduceFromProvince(into, planets[i], dt);
+        }
+
+        /// <summary>
+        /// その惑星の資源の<b>実効産出率</b>（/戦略秒＝類型率×安定度比例の産出倍率）。表示・見積り用（備蓄を変えない）。
+        /// </summary>
+        public static float ProvinceRate(Province planet, ResourceType res)
+            => planet == null ? 0f : Rate(planet.systemType, res) * GovernanceRules.OutputFactor(planet);
     }
 }

@@ -49,6 +49,58 @@ namespace Ginei.Tests
             Assert.AreEqual(ResourceProductionRules.MiningFuel * 0.5f, mine.fuel, 1e-4f);
         }
 
+        // ===== 惑星単位の産出（#767 ハイブリッド：惑星が産出の単一の真実・星系は集約）=====
+
+        [Test]
+        public void Production_FromProvince_UsesPlanetTypeAndStability()
+        {
+            var s = new ResourceStockpile();
+            // 安定度MAX＝OutputFactor 1.0 → 鉱業惑星は燃料率そのまま、他資源は0
+            var mine = new Province(1, "民主", 100f) { systemType = SystemType.鉱業, stability = GovernanceRules.MaxStability };
+            ResourceProductionRules.ProduceFromProvince(s, mine, 1f);
+            Assert.AreEqual(ResourceProductionRules.MiningFuel, s.fuel, 1e-3f);
+            Assert.AreEqual(0f, s.supplies, 1e-4f);
+            // ProvinceRate は備蓄を変えず実効率を返す（表示用）
+            Assert.AreEqual(ResourceProductionRules.MiningFuel, ResourceProductionRules.ProvinceRate(mine, ResourceType.燃料), 1e-3f);
+        }
+
+        [Test]
+        public void Production_LowStabilityPlanet_ProducesLess()
+        {
+            // 安定度0でも MinOutputFactor で最低限は出る（支配≠即産出＝完全停止はしない）
+            var s = new ResourceStockpile();
+            var farm = new Province(2, "専制", 100f) { systemType = SystemType.農業, stability = 0f };
+            ResourceProductionRules.ProduceFromProvince(s, farm, 1f);
+            Assert.AreEqual(ResourceProductionRules.AgricultureSupplies * GovernanceRules.MinOutputFactor, s.supplies, 1e-3f);
+        }
+
+        [Test]
+        public void Production_FromSystem_AggregatesPlanets()
+        {
+            // 星系＝惑星の集約：工業惑星＋農業惑星（ともに安定度MAX）の産出を合算
+            var s = new ResourceStockpile();
+            var planets = new List<Province>
+            {
+                new Province(3, "民主", 100f) { systemType = SystemType.工業, stability = GovernanceRules.MaxStability },
+                new Province(3, "民主", 100f) { systemType = SystemType.農業, stability = GovernanceRules.MaxStability },
+            };
+            ResourceProductionRules.ProduceFromSystem(s, planets, 1f);
+            Assert.AreEqual(ResourceProductionRules.IndustrySupplies + ResourceProductionRules.AgricultureSupplies, s.supplies, 1e-3f);
+            Assert.AreEqual(ResourceProductionRules.IndustryAmmo, s.ammo, 1e-3f);
+        }
+
+        [Test]
+        public void Production_DefaultProvince_IsHabitation()
+        {
+            // 既定の Province は居住類型＝少量物資のみ（後方互換）
+            var s = new ResourceStockpile();
+            var p = new Province(4, "民主", 100f) { stability = GovernanceRules.MaxStability };
+            Assert.AreEqual(SystemType.居住, p.systemType);
+            ResourceProductionRules.ProduceFromProvince(s, p, 1f);
+            Assert.AreEqual(ResourceProductionRules.HabitationSupplies, s.supplies, 1e-3f);
+            Assert.AreEqual(0f, s.fuel, 1e-4f);
+        }
+
         // ===== L-2 補給線 =====
 
         private static GalaxyMap LineMap(params Faction[] owners)

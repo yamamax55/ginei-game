@@ -19,6 +19,12 @@ namespace Ginei
         /// <summary>住民の思想傾向（FactionData.ideology 文字列）。占領しても即は変わらない＝不安定の源。</summary>
         public string nativeIdeology = "";
 
+        /// <summary>
+        /// 経済類型（工業/農業/鉱業/居住）。<b>この惑星が産出する資源</b>を決める（#93 L-1 を惑星層へ・#767 ハイブリッド）。
+        /// 産出は <see cref="ResourceProductionRules"/> が類型×安定度比例で解決。既定=居住（少量物資＝後方互換）。
+        /// </summary>
+        public SystemType systemType = SystemType.居住;
+
         /// <summary>人口規模（Pop。徴募・産出のスケール）。</summary>
         public float population = 100f;
 

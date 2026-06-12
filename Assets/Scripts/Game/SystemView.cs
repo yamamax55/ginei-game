@@ -182,7 +182,21 @@ namespace Ginei
                    $"人口: {Mathf.RoundToInt(p.population)}\n" +
                    $"安定度: {Mathf.RoundToInt(p.stability)}%{unrest}\n" +
                    $"統合度: {Mathf.RoundToInt(p.integration * 100f)}%\n" +
-                   $"産出: {output}%";
+                   $"類型: {p.systemType}（産出効率 {output}%）\n" +
+                   $"産出/秒: {FormatPlanetResources(p)}";
+        }
+
+        // 惑星の実効産出（類型×安定度比例）を「物資/弾薬/燃料」で表す（#93 を惑星層へ・0は省く）。
+        private static string FormatPlanetResources(Province p)
+        {
+            float sup = ResourceProductionRules.ProvinceRate(p, ResourceType.物資);
+            float amm = ResourceProductionRules.ProvinceRate(p, ResourceType.弾薬);
+            float fue = ResourceProductionRules.ProvinceRate(p, ResourceType.燃料);
+            var parts = new List<string>(3);
+            if (sup > 0f) parts.Add($"物資 {sup:0.#}");
+            if (amm > 0f) parts.Add($"弾薬 {amm:0.#}");
+            if (fue > 0f) parts.Add($"燃料 {fue:0.#}");
+            return parts.Count > 0 ? string.Join(" / ", parts) : "なし";
         }
 
         private void UpdateAggregate()
@@ -191,10 +205,21 @@ namespace Ginei
             foreach (var e in planets) provinces.Add(e.province);
             SystemGovernance g = GovernanceRules.AggregateSystem(provinces);
             string unrest = g.anyUnrest ? "　▲反乱の火種あり" : "";
+
+            // 星系の資源産出＝各惑星の実効産出を合算（#767 集約・惑星が産出の真実）
+            float sup = 0f, amm = 0f, fue = 0f;
+            foreach (var e in planets)
+            {
+                sup += ResourceProductionRules.ProvinceRate(e.province, ResourceType.物資);
+                amm += ResourceProductionRules.ProvinceRate(e.province, ResourceType.弾薬);
+                fue += ResourceProductionRules.ProvinceRate(e.province, ResourceType.燃料);
+            }
+
             aggregateLabel.text = $"星系全体（{g.planetCount}惑星の集約）" +
                 $"　安定度 {Mathf.RoundToInt(g.weightedStability)}%" +
                 $"　人口 {Mathf.RoundToInt(g.totalPopulation)}" +
-                $"　支配思想 {g.dominantIdeology}{unrest}";
+                $"　支配思想 {g.dominantIdeology}{unrest}\n" +
+                $"資源産出/秒　物資 {sup:0.#} / 弾薬 {amm:0.#} / 燃料 {fue:0.#}";
         }
 
         private void BuildOrbitRing(float radius, int index)
@@ -262,6 +287,7 @@ namespace Ginei
             var p = new Province(systemId, nat, pop);
             p.stability = 22f + (h % 68);                 // 22..90（一部は反乱域に近い）
             p.integration = 0.5f + ((h >> 3) % 6) / 10f;  // 0.5..1.0
+            p.systemType = (SystemType)((h >> 5) % 4);    // 工業/農業/鉱業/居住＝惑星が産出する資源（#93 を惑星層へ）
             return p;
         }
 

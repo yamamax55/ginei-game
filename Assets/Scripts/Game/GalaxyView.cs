@@ -663,6 +663,21 @@ namespace Ginei
                     if (kv.Value != null)
                         PopulationDynamicsRules.TickYear(kv.Value, DemographicsRules.VitalRates.Default);
 
+            // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。
+            // 勢力をまたぐ流れ＝亡命（難民）。総量保存・StrategySession 永続で年を跨いで効く。
+            if (map != null && provinces != null)
+            {
+                var migParams = PopulationMigrationRules.MigrationParams.Default;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || !provinces.TryGetValue(s.id, out var from) || from == null) continue;
+                    System.Collections.Generic.List<int> neighbors = map.Neighbors(s.id);
+                    for (int i = 0; i < neighbors.Count; i++)
+                        if (provinces.TryGetValue(neighbors[i], out var to) && to != null)
+                            PopulationMigrationRules.TickPair(from, to, migParams, 1f);
+                }
+            }
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);

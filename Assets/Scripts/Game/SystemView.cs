@@ -196,8 +196,10 @@ namespace Ginei
             PopulationPhase phase = DemographicsRules.Phase(pop, DemographicsRules.DemographicsParams.Default);
             float growth = PopulationDynamicsRules.ProjectedAnnualGrowth(p, DemographicsRules.VitalRates.Default);
             string sign = growth >= 0f ? "+" : "";
+            int attract = Mathf.RoundToInt(PopulationMigrationRules.Attractiveness(p) * 100f);
             return $"\n人口動態: 年少 {Mathf.RoundToInt(pop.youth)} / 生産 {Mathf.RoundToInt(pop.working)} / 高齢 {Mathf.RoundToInt(pop.elderly)}" +
-                   $"（{phase}・成長 {sign}{growth * 100f:0.#}%/年）";
+                   $"（{phase}・成長 {sign}{growth * 100f:0.#}%/年）" +
+                   $"\n定住魅力: {attract}%（高いほど移民が集まり、低いと流出）";
         }
 
         // 希少資源の鉱床（#178）。鉱床のある惑星だけ「希少資源: 名（豊富さ%・産出/秒）」を出す。

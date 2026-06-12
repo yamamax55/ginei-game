@@ -68,6 +68,7 @@
 - **`AnnualLifecycleRules`(Core)**：暦の年境界で人物ロスターを1年ぶん老衰判定し死亡者を返す（`LifecycleRules` 委譲・決定論 roll）。`GalaxyView` の onYear で提督が老いて死ぬ。
 - **`FleetOrganizationPanel`(Game)**：Strategy シーンに **B キー**で開閉（ポーズ）。勢力プール（総/割当/残）＋艦隊一覧。各艦隊で艦艇数±／司令・副提督・参謀を階級ゲート(○×)付きで配属。`OrderOfBattlePanel`(Battle・梯団管理)の姉妹。
 - **`GalaxyView` のデモ配線**：星系ごとの造船所（全勢力＝AIも建艦）を暦の日次で Tick→プール供給、会戦の戦力喪失を `ResolveEncountersWithAttrition` でプール損耗へ。
+- **自動編成（`FleetAutoOrganizeRules`・Core純ロジック）**：勢力の総プール＋標準艦隊規模＋司令候補（`CommanderSlot`＝id/階級tier）から艦隊編成案（`FleetPlan`＝兵力＋司令id）を一括生成。`RecommendFleetCount`(=ceil(プール/規模))／`AllocateStrength`(均等配分・余りは先頭へ)／`AssignCommanders`(大艦隊へ上位階級を貪欲割付・**過大兵力は下位階級を付けない**＝`CommandCapacityRules.CanCommand` 委譲・適任なしは空席-1)／`AutoOrganize`(一括)。手動の `FleetOrganizationPanel`(Bキー) の自動化版＝UI/ボタンはこの窓口を呼ぶだけ（数値は `CommandCapacityRules` へ委譲・二重実装しない）。test-first。
 
 ## データ / 列挙 / ScriptableObject
 - `Faction.cs`：`enum Faction { 帝国, 同盟 }`（旧式・後方互換用）。陣営の置き場所は `FleetStrength.faction`。

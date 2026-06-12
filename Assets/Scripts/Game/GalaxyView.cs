@@ -101,7 +101,8 @@ namespace Ginei
         private List<Person> civilians;
         private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
 
-        // 高校/中学校（#155-157 の土台）：勢力ごとの中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
+        // 小学校/中学校/高校（#155-157 の土台）：勢力ごとの初等〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
+        private List<ElementarySchool> elementarySchools;
         private List<HighSchool> highSchools;
         private List<MiddleSchool> middleSchools;
         private List<TechnicalCollege> colleges; // 高専（中学校→高専の実務技術者路・#157）
@@ -663,6 +664,12 @@ namespace Ginei
                 new MiddleSchool(schoolId: 12, faction: Faction.帝国, name: "帝国中等学校", enrollmentRate: 0.8f, quality: 0.55f),
                 new MiddleSchool(schoolId: 13, faction: Faction.同盟, name: "同盟公立中学校", enrollmentRate: 0.95f, quality: 0.5f),
             };
+            // 小学校（初等教育の根）：ほぼ全員（義務教育）。就学率が教育チェーンの根を成す。
+            elementarySchools = new List<ElementarySchool>
+            {
+                new ElementarySchool(schoolId: 20, faction: Faction.帝国, name: "帝国国民学校", enrollmentRate: 0.9f, quality: 0.55f),
+                new ElementarySchool(schoolId: 21, faction: Faction.同盟, name: "同盟公立小学校", enrollmentRate: 0.99f, quality: 0.5f),
+            };
             // 高専（中学校→高専の実務技術者路・高校を経ない別ルート・#157）。
             colleges = new List<TechnicalCollege>
             {
@@ -700,6 +707,15 @@ namespace Ginei
             return null;
         }
 
+        /// <summary>その勢力の小学校（初等教育）を返す（無ければ null）。</summary>
+        private ElementarySchool ElementarySchoolOf(Faction faction)
+        {
+            if (elementarySchools == null) return null;
+            for (int i = 0; i < elementarySchools.Count; i++)
+                if (elementarySchools[i] != null && elementarySchools[i].faction == faction) return elementarySchools[i];
+            return null;
+        }
+
         /// <summary>
         /// 教育チェーン（中学校→高校）を解決し、上級学校の候補母数倍率（進学率の複利）と実効教育質（質の段階的上乗せ）を返す。
         /// 学校が無い段は素通り（倍率1・据え置き＝後方互換）。
@@ -729,6 +745,13 @@ namespace Ginei
             {
                 enrollFactor *= MiddleSchoolRules.EducationFactor(ms.enrollmentRate);
                 effectiveQuality = MiddleSchoolRules.EffectiveIntakeQuality(effectiveQuality, ms.quality);
+            }
+            // 小学校（初等教育の根）は学術路/実務路を問わず常にチェーンに入る。
+            ElementarySchool es = ElementarySchoolOf(faction);
+            if (es != null)
+            {
+                enrollFactor *= ElementarySchoolRules.EducationFactor(es.enrollmentRate);
+                effectiveQuality = ElementarySchoolRules.EffectiveIntakeQuality(effectiveQuality, es.quality);
             }
         }
 

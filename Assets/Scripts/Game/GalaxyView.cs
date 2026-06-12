@@ -1010,6 +1010,9 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 金融/地代収益 {fInc:0}");
             }
 
+            // 国家・惑星の行政物資消費（STATEDEM-6・#2077 配線）：産出を行政・インフラが消費し、不足で統治が逼迫＝安定度低下。
+            RunStateConsumptionTick();
+
             // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
             if (academies != null && commanders.Count < OfficerRosterCap)
                 for (int i = 0; i < academies.Count; i++)
@@ -1142,6 +1145,51 @@ namespace Ginei
             }
             if (banner != null)
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{banner} 株が暴落＝紙くずに（保有 {affected.Count} 件が無価値化）");
+        }
+
+        // --- 国家・惑星の行政物資消費（STATEDEM・#2077 デモ配線） ---
+        private readonly System.Collections.Generic.Dictionary<Faction, ResourceStockpile> stateStockpiles
+            = new System.Collections.Generic.Dictionary<Faction, ResourceStockpile>();
+
+        /// <summary>国家ごとに所有惑星から産出→行政・インフラが消費→不足で統治逼迫＝安定度低下（STATEDEM-6）。</summary>
+        private void RunStateConsumptionTick()
+        {
+            if (map == null || provinces == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var owned = new System.Collections.Generic.List<Province>();
+                int systemCount = 0;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || s.owner != fac) continue;
+                    systemCount++;
+                    if (provinces.TryGetValue(s.id, out var prov) && prov != null) owned.Add(prov);
+                }
+                if (systemCount == 0) continue;
+
+                // 国庫（資源備蓄）を冪等生成。
+                if (!stateStockpiles.TryGetValue(fac, out var stock) || stock == null)
+                {
+                    stock = new ResourceStockpile(200f, 0f, 100f);
+                    stateStockpiles[fac] = stock;
+                }
+                // 年次産出（所有惑星の類型×統治で物資/燃料を産む）。
+                for (int i = 0; i < owned.Count; i++)
+                    ResourceProductionRules.ProduceFromProvince(stock, owned[i], 1f);
+
+                // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
+                var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);
+                if (result.overall < 0.999f)
+                {
+                    // 行政物資不足＝統治が回らず安定度低下（緩やかに削る＝GovernanceRules 収束と競合させない）。
+                    float penalty = StateConsumptionEffectRules.StabilityPenalty(result.overall) * 0.1f;
+                    for (int i = 0; i < owned.Count; i++)
+                        owned[i].stability = UnityEngine.Mathf.Max(0f, owned[i].stability - penalty);
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{fac} 行政物資が不足（充足 {(int)(result.overall * 100)}%）＝統治逼迫で安定度低下");
+                }
+            }
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

@@ -119,6 +119,10 @@ namespace Ginei
             { "regime", "王朝" }, { "polity", "統治体" }, { "organization", "組織" }, { "community", "共同体" },
             { "inclusiveness", "統治スタイル 収奪0↔包摂1" }, { "taxRate", "税率" }, { "treasury", "国庫" },
             { "states", "勢力ごとの国家状態" }, { "map", "銀河盤面" },
+            // NationalBudget（国家予算＝歳出の分野配分）
+            { "budget", "国家予算（歳出の分野配分）" }, { "military", "軍事費（艦隊維持・即応）" },
+            { "shipbuilding", "建艦費（造船供給）" }, { "administration", "内政費（統治・安定）" },
+            { "welfare", "社会保障費（希望）" }, { "research", "研究費" }, { "diplomacy", "外交費" },
             // 目安箱（信認・MEYASU-2 #1298）
             { "credibility", "目安箱への信認（箱ごと＝借り物の権威）" },
             { "entries", "箱キー→信認 0..1（触れた箱だけ）" },

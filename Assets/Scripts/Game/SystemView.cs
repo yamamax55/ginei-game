@@ -218,7 +218,27 @@ namespace Ginei
                 sb.Append(OccupationClassificationRules.JsocCode(c)).Append(c.ToString()).Append(pct);
                 any = true;
             }
-            return any ? sb.ToString() : "";
+            if (!any) return "";
+            // 中分類（JSOC 73群）＝最多POP職業の代表中分類を1件添える（参照辞書からの照会）。
+            Occupation dom = DominantOccupation(w);
+            int mid = JsocMiddleClassification.RepresentativeMiddle(dom);
+            if (mid > 0)
+                sb.Append("\n中分類: ").Append(JsocMiddleClassification.FormatCode(mid))
+                  .Append(JsocMiddleClassification.Name(mid));
+            return sb.ToString();
+        }
+
+        // 最多シェアの POP 職業（無職を除く）。中分類の代表照会に使う。
+        private static Occupation DominantOccupation(Workforce w)
+        {
+            Occupation best = Occupation.農民;
+            float bestShare = -1f;
+            for (int i = 0; i < Workforce.Count; i++)
+            {
+                if (i == (int)Occupation.無職) continue;
+                if (w.shares[i] > bestShare) { bestShare = w.shares[i]; best = (Occupation)i; }
+            }
+            return best;
         }
 
         // 人口動態（出生死亡・LIFE-3 #153）：年齢構成＋局面＋見込み成長率（安定度で出生/死亡が増減）。

@@ -3,20 +3,14 @@ using System.Collections.Generic;
 namespace Ginei
 {
     /// <summary>
-    /// 編制ツリーの台帳（#147・オーダー・オブ・バトル）。軍集団⊃軍団⊃艦隊(#146)の梯団ツリーを束ね、
-    /// 「司令部固定・中身流動」（艦隊/下位梯団の attach/detach）・梯団別の司令配属（階級ゲート #14）・
+    /// 編制ツリーの台帳（#147・オーダー・オブ・バトル）。現実準拠の多段（戦隊⊂分艦隊⊂艦隊⊂軍団⊂軍⊂軍集団⊂宇宙艦隊・ORBAT-1 #1717）の
+    /// 梯団ツリーを束ね、「司令部固定・中身流動」（艦隊/下位梯団の attach/detach）・梯団別の司令配属（階級ゲート #14）・
     /// 配下集計を管理する唯一の窓口。艦隊そのものは #146 <see cref="FleetRoster"/> が持ち、ここは番号で参照する
     /// （別レジストリを作らず #146 を木構造へ拡張する方針）。会戦中の艦在庫 <see cref="FleetRegistry"/> とは別物。
-    /// 司令配属の階級ゲートは #14 既定ラダー（中将7/大将8/元帥10）で判定する。②直轄投資・③任務戦術は後段。
+    /// 司令配属の階級ゲートは #14 既定ラダーで判定する（梯団別の必要 tier は <see cref="RequiredTier"/>）。②直轄投資・③任務戦術は後段。
     /// </summary>
     public static class OrderOfBattle
     {
-        // 梯団別の必要階級 tier（#14 既定ラダー・銀英伝準拠 RANKCMD-4：少将6/中将7/大将8/元帥10）。マジックナンバー禁止＝const に集約。
-        public const int SubFleetCommanderTier = 6;     // 分艦隊司令＝少将（准将5でも >= 判定で持てる）
-        public const int FleetCommanderTier = 7;       // 艦隊司令＝中将
-        public const int CorpsCommanderTier = 8;        // 軍団（艦隊群/方面）司令＝大将
-        public const int ArmyGroupCommanderTier = 10;   // 軍集団（宇宙艦隊）司令＝元帥
-
         private static readonly Dictionary<int, MilitaryFormation> formations = new Dictionary<int, MilitaryFormation>();
         private static int nextId = 1;
 
@@ -106,17 +100,11 @@ namespace Ginei
 
         // ===== 司令配属（階級ゲート #14） =====
 
-        /// <summary>梯団種別ごとの必要階級 tier（分艦隊6/艦隊7/軍団8/軍集団10・RANKCMD-4）。</summary>
-        public static int RequiredTier(EchelonType echelon)
-        {
-            switch (echelon)
-            {
-                case EchelonType.軍集団: return ArmyGroupCommanderTier;
-                case EchelonType.軍団: return CorpsCommanderTier;
-                case EchelonType.分艦隊: return SubFleetCommanderTier;
-                default: return FleetCommanderTier;
-            }
-        }
+        /// <summary>
+        /// 梯団種別ごとの必要階級 tier（戦隊4/分艦隊6/艦隊7/軍団8/軍9/軍集団10/宇宙艦隊10・ORBAT-1 #1717）。
+        /// 出所は <see cref="CommandCapacityRules.CommanderTierFor"/>（ORBAT-2 #1718 の一表＝二重定義しない）。
+        /// </summary>
+        public static int RequiredTier(EchelonType echelon) => CommandCapacityRules.CommanderTierFor(echelon);
 
         /// <summary>その提督がこの梯団を指揮できる階級か（rankTier ≥ 必要tier）。</summary>
         public static bool CanCommand(AdmiralData admiral, EchelonType echelon)

@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Ginei
 {
     /// <summary>
@@ -17,6 +19,9 @@ namespace Ginei
         /// <summary>高齢人口（65+・従属）。</summary>
         public float elderly;
 
+        /// <summary>女性の割合（0..1・マクロな男女比。既定0.5＝均衡）。男性割合は 1-femaleShare。解決は <see cref="SexRules"/>。</summary>
+        public float femaleShare = SexRules.BalancedFemaleShare;
+
         public Population() { }
 
         public Population(float youth, float working, float elderly)
@@ -31,5 +36,11 @@ namespace Ginei
 
         /// <summary>従属人口（年少＋高齢）。</summary>
         public float Dependents => youth + elderly;
+
+        /// <summary>女性の総数（総人口×女性割合）。</summary>
+        public float Females => Total * Mathf.Clamp01(femaleShare);
+
+        /// <summary>男性の総数（総人口×男性割合）。</summary>
+        public float Males => Total * (1f - Mathf.Clamp01(femaleShare));
     }
 }

@@ -59,5 +59,47 @@ namespace Ginei
             if (tier == 9) return EchelonType.軍団;     // 上級大将＝艦隊群/方面
             return EchelonType.軍集団;                  // 元帥10＝宇宙艦隊
         }
+
+        // ===== ORBAT-2 #1718：梯団↔指揮官階級↔規模（隻）の一表 =====
+        // 現実準拠（軍隊の編制）の宇宙艦隊系。各梯団の「標準指揮官階級 tier」と「規模レンジ（隻）」をここで一元定義し、
+        // <see cref="OrderOfBattle.RequiredTier"/> の出所にする（二重定義しない）。指揮官 tier は >= ゲートの下限。
+        // ※実際の配属ゲートは配下兵力（StrengthUnder）で RANKCMD-3 が別途効く＝この規模は「その段らしい目安」。
+
+        // 標準指揮官階級 tier（#14 既定ラダー・段が上がるほど単調非減少）
+        public const int Tier戦隊 = 4;     // 大佐相当
+        public const int Tier分艦隊 = 6;   // 少将
+        public const int Tier艦隊 = 7;     // 中将
+        public const int Tier軍団 = 8;     // 大将
+        public const int Tier軍 = 9;       // 上級大将
+        public const int Tier軍集団 = 10;  // 元帥（＝方面軍）
+        public const int Tier宇宙艦隊 = 10; // 元帥（＝総軍・最上段）
+
+        // 規模レンジ（隻・目安）。艦隊＝基幹単位 1.2〜1.5万隻に合わせて上下を現実準拠で配する。
+        public const int Ships戦隊Min = 300, Ships戦隊Max = 1500;
+        public const int Ships分艦隊Min = 1500, Ships分艦隊Max = 6000;
+        public const int Ships艦隊Min = 12000, Ships艦隊Max = 15000;
+        public const int Ships軍団Min = 24000, Ships軍団Max = 45000;   // 2〜3艦隊
+        public const int Ships軍Min = 24000, Ships軍Max = 60000;       // 2〜4艦隊
+        public const int Ships軍集団Min = 60000, Ships軍集団Max = 90000; // 数個艦隊
+        public const int Ships宇宙艦隊Min = 90000;                      // 全軍（上限なし）
+
+        /// <summary>その梯団の標準プロファイル（指揮官階級 tier ＋規模レンジ）。ORBAT-2 #1718 の一表。</summary>
+        public static EchelonProfile ProfileFor(EchelonType echelon)
+        {
+            switch (echelon)
+            {
+                case EchelonType.戦隊:    return new EchelonProfile(echelon, Tier戦隊, Ships戦隊Min, Ships戦隊Max);
+                case EchelonType.分艦隊:  return new EchelonProfile(echelon, Tier分艦隊, Ships分艦隊Min, Ships分艦隊Max);
+                case EchelonType.艦隊:    return new EchelonProfile(echelon, Tier艦隊, Ships艦隊Min, Ships艦隊Max);
+                case EchelonType.軍団:    return new EchelonProfile(echelon, Tier軍団, Ships軍団Min, Ships軍団Max);
+                case EchelonType.軍:      return new EchelonProfile(echelon, Tier軍, Ships軍Min, Ships軍Max);
+                case EchelonType.軍集団:  return new EchelonProfile(echelon, Tier軍集団, Ships軍集団Min, Ships軍集団Max);
+                case EchelonType.宇宙艦隊: return new EchelonProfile(echelon, Tier宇宙艦隊, Ships宇宙艦隊Min, int.MaxValue);
+                default:                  return new EchelonProfile(EchelonType.艦隊, Tier艦隊, Ships艦隊Min, Ships艦隊Max);
+            }
+        }
+
+        /// <summary>その梯団の標準指揮官階級 tier（<see cref="OrderOfBattle.RequiredTier"/> の出所）。</summary>
+        public static int CommanderTierFor(EchelonType echelon) => ProfileFor(echelon).commanderTier;
     }
 }

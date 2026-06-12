@@ -182,7 +182,120 @@ namespace Ginei
                    $"人口: {Mathf.RoundToInt(p.population)}\n" +
                    $"安定度: {Mathf.RoundToInt(p.stability)}%{unrest}\n" +
                    $"統合度: {Mathf.RoundToInt(p.integration * 100f)}%\n" +
-                   $"産出: {output}%";
+                   $"類型: {p.systemType}（産出効率 {output}%）\n" +
+                   $"産出/秒: {FormatPlanetResources(p)}" +
+                   FormatPlanetDemographics(p) +
+                   FormatPlanetOccupation(p) +
+                   FormatPlanetConsumption(p) +
+                   FormatPlanetStrategic(p);
+        }
+
+        // POP の要求物資・生活水準（#2042）：充足から導く生活水準＋飢餓（必需不足）。
+        private static string FormatPlanetConsumption(Province p)
+        {
+            int ls = Mathf.RoundToInt(p.livingStandard * 100f);
+            int fam = Mathf.RoundToInt(p.foodShortage * 100f);
+            return $"\n生活水準 {ls}%" + (fam > 0 ? $"・飢餓 {fam}%" : "");
+        }
+
+        // POP の職業構成（#110 職業）：就労シェア＋就業率＋徴募源（軍属）。
+        private static string FormatPlanetOccupation(Province p)
+        {
+            Workforce w = p.workforce ?? OccupationRules.Default(p.systemType);
+            float empRate = OccupationRules.EmploymentRate(p);
+            int emp = Mathf.RoundToInt(empRate * 100f);
+            int rec = Mathf.RoundToInt(OccupationRules.RecruitablePool(p));
+            // 労働生産性（POPLAB-5・#2026）＝適所度#110×技能（#2034 で年々形成）×就業率→産出#93。
+            float align = OccupationRules.AlignmentFactor(p);
+            float skill = (p.skills != null) ? p.skills.WeightedAverage(w) : 0.5f;
+            float prod = LaborProductivityRules.ProductivityFactor(align, skill, empRate);
+            return $"\n職業: 農{Pct(w, Occupation.農民)}/工{Pct(w, Occupation.工員)}/鉱{Pct(w, Occupation.鉱員)}" +
+                   $"/官{Pct(w, Occupation.官吏)}/兵{Pct(w, Occupation.軍属)}/無職{Pct(w, Occupation.無職)}" +
+                   $"\n就業率 {emp}%・徴募源 {rec}人（軍属）" +
+                   FormatJsoc(w) +
+                   $"\n労働技能 {Mathf.RoundToInt(skill * 100f)}%・賃金 {p.wageIndex:F2}x・労働生産性 {prod:F2}（適所度{Mathf.RoundToInt(align * 100f)}%）";
+        }
+
+        private static int Pct(Workforce w, Occupation o) => Mathf.RoundToInt(w.Share(o) * 100f);
+
+        // JSOC 大分類（日本標準職業分類を参考・#110）：少数6種を標準分類へ写像して非ゼロ群を記号付きで表示。
+        private static string FormatJsoc(Workforce w)
+        {
+            OccupationProfile prof = OccupationClassificationRules.Classify(w);
+            var sb = new System.Text.StringBuilder("\nJSOC大分類: ");
+            bool any = false;
+            for (int i = 0; i < OccupationProfile.Count; i++)
+            {
+                var c = (OccupationCategory)i;
+                int pct = Mathf.RoundToInt(prof.Share(c) * 100f);
+                if (pct <= 0) continue;
+                if (any) sb.Append('/');
+                sb.Append(OccupationClassificationRules.JsocCode(c)).Append(c.ToString()).Append(pct);
+                any = true;
+            }
+            if (!any) return "";
+            // 中分類（JSOC 73群）＝最多POP職業の代表中分類を1件添える（参照辞書からの照会）。
+            Occupation dom = DominantOccupation(w);
+            int mid = JsocMiddleClassification.RepresentativeMiddle(dom);
+            if (mid > 0)
+                sb.Append("\n中分類: ").Append(JsocMiddleClassification.FormatCode(mid))
+                  .Append(JsocMiddleClassification.Name(mid));
+            // 小分類（JSOC 参考・curate）＝最多POP職業の代表小分類を添える。
+            string minor = JsocMinorClassification.RepresentativeMinor(dom);
+            if (!string.IsNullOrEmpty(minor))
+                sb.Append("\n小分類: ").Append(minor).Append(JsocMinorClassification.Name(minor));
+            return sb.ToString();
+        }
+
+        // 最多シェアの POP 職業（無職を除く）。中分類の代表照会に使う。
+        private static Occupation DominantOccupation(Workforce w)
+        {
+            Occupation best = Occupation.農民;
+            float bestShare = -1f;
+            for (int i = 0; i < Workforce.Count; i++)
+            {
+                if (i == (int)Occupation.無職) continue;
+                if (w.shares[i] > bestShare) { bestShare = w.shares[i]; best = (Occupation)i; }
+            }
+            return best;
+        }
+
+        // 人口動態（出生死亡・LIFE-3 #153）：年齢構成＋局面＋見込み成長率（安定度で出生/死亡が増減）。
+        private static string FormatPlanetDemographics(Province p)
+        {
+            if (p.demographics == null) return "";
+            Population pop = p.demographics;
+            PopulationPhase phase = DemographicsRules.Phase(pop, DemographicsRules.DemographicsParams.Default);
+            float growth = PopulationDynamicsRules.ProjectedAnnualGrowth(p, DemographicsRules.VitalRates.Default);
+            string sign = growth >= 0f ? "+" : "";
+            int attract = Mathf.RoundToInt(PopulationMigrationRules.Attractiveness(p) * 100f);
+            int femalePct = Mathf.RoundToInt(pop.femaleShare * 100f);
+            return $"\n人口動態: 年少 {Mathf.RoundToInt(pop.youth)} / 生産 {Mathf.RoundToInt(pop.working)} / 高齢 {Mathf.RoundToInt(pop.elderly)}" +
+                   $"（{phase}・成長 {sign}{growth * 100f:0.#}%/年）" +
+                   $"\n男女比: 男{100 - femalePct} : 女{femalePct}" +
+                   $"\n定住魅力: {attract}%（高いほど移民が集まり、低いと流出）";
+        }
+
+        // 希少資源の鉱床（#178）。鉱床のある惑星だけ「希少資源: 名（豊富さ%・産出/秒）」を出す。
+        private static string FormatPlanetStrategic(Province p)
+        {
+            if (!p.hasStrategicResource) return "";
+            StrategicResourceInfo info = StrategicResourceRules.Info(p.strategicResource);
+            float rate = StrategicResourceRules.ProvinceRate(p);
+            return $"\n<希少資源> {info.displayName}（豊富さ {Mathf.RoundToInt(p.strategicAbundance * 100f)}%・産出/秒 {rate:0.##}）";
+        }
+
+        // 惑星の実効産出（類型×安定度比例）を「物資/弾薬/燃料」で表す（#93 を惑星層へ・0は省く）。
+        private static string FormatPlanetResources(Province p)
+        {
+            float sup = ResourceProductionRules.ProvinceRate(p, ResourceType.物資);
+            float amm = ResourceProductionRules.ProvinceRate(p, ResourceType.弾薬);
+            float fue = ResourceProductionRules.ProvinceRate(p, ResourceType.燃料);
+            var parts = new List<string>(3);
+            if (sup > 0f) parts.Add($"物資 {sup:0.#}");
+            if (amm > 0f) parts.Add($"弾薬 {amm:0.#}");
+            if (fue > 0f) parts.Add($"燃料 {fue:0.#}");
+            return parts.Count > 0 ? string.Join(" / ", parts) : "なし";
         }
 
         private void UpdateAggregate()
@@ -191,10 +304,36 @@ namespace Ginei
             foreach (var e in planets) provinces.Add(e.province);
             SystemGovernance g = GovernanceRules.AggregateSystem(provinces);
             string unrest = g.anyUnrest ? "　▲反乱の火種あり" : "";
+
+            // 星系の資源産出＝各惑星の実効産出を合算（#767 集約・惑星が産出の真実）
+            float sup = 0f, amm = 0f, fue = 0f;
+            foreach (var e in planets)
+            {
+                sup += ResourceProductionRules.ProvinceRate(e.province, ResourceType.物資);
+                amm += ResourceProductionRules.ProvinceRate(e.province, ResourceType.弾薬);
+                fue += ResourceProductionRules.ProvinceRate(e.province, ResourceType.燃料);
+            }
+
+            // 希少資源（#178・偏在）：星系内の鉱床の産出を種類別に合算
+            var stratParts = new List<string>();
+            foreach (var t in StrategicResourceRules.All)
+            {
+                float r = 0f;
+                foreach (var e in planets)
+                    if (e.province.hasStrategicResource && e.province.strategicResource == t)
+                        r += StrategicResourceRules.ProvinceRate(e.province);
+                if (r > 0f) stratParts.Add($"{StrategicResourceRules.Info(t).displayName} {r:0.##}");
+            }
+            string stratLine = stratParts.Count > 0
+                ? "\n希少資源/秒　" + string.Join(" / ", stratParts)
+                : "\n希少資源：なし（偏在＝この星系には鉱床なし）";
+
             aggregateLabel.text = $"星系全体（{g.planetCount}惑星の集約）" +
                 $"　安定度 {Mathf.RoundToInt(g.weightedStability)}%" +
                 $"　人口 {Mathf.RoundToInt(g.totalPopulation)}" +
-                $"　支配思想 {g.dominantIdeology}{unrest}";
+                $"　支配思想 {g.dominantIdeology}{unrest}\n" +
+                $"資源産出/秒　物資 {sup:0.#} / 弾薬 {amm:0.#} / 燃料 {fue:0.#}" +
+                stratLine;
         }
 
         private void BuildOrbitRing(float radius, int index)
@@ -262,6 +401,22 @@ namespace Ginei
             var p = new Province(systemId, nat, pop);
             p.stability = 22f + (h % 68);                 // 22..90（一部は反乱域に近い）
             p.integration = 0.5f + ((h >> 3) % 6) / 10f;  // 0.5..1.0
+            p.systemType = (SystemType)((h >> 5) % 4);    // 工業/農業/鉱業/居住＝惑星が産出する資源（#93 を惑星層へ）
+            // 希少資源の鉱床（#178・偏在＝約1/3の惑星のみ・地理＝決定的）。大半は鉱床なし＝争奪の的が限られる。
+            if (h % 3 == 1)
+            {
+                p.hasStrategicResource = true;
+                p.strategicResource = (StrategicResourceType)((h >> 11) % 4);
+                p.strategicAbundance = 0.4f + ((h >> 7) % 7) / 10f; // 0.4..1.0
+            }
+            // 年齢コホート（出生死亡の器・LIFE-3 #153）＝若い/老いた構成を決定的に振る（成長/衰退が惑星で違う）。
+            float youthShare = 0.18f + ((h >> 9) % 18) / 100f;   // 0.18..0.35
+            float elderShare = 0.08f + ((h >> 13) % 16) / 100f;  // 0.08..0.23
+            float workShare = Mathf.Max(0.3f, 1f - youthShare - elderShare);
+            p.demographics = new Population(pop * youthShare, pop * workShare, pop * elderShare);
+            p.demographics.femaleShare = 0.48f + ((h >> 17) % 5) / 100f; // 男女比 0.48..0.52（ほぼ均衡・決定的）
+            // 職業構成（生産年齢の就労先・#110 職業）＝惑星の類型でバイアス（工業惑星は工員が多い等）。
+            p.workforce = OccupationRules.Default(p.systemType);
             return p;
         }
 

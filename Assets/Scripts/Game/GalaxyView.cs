@@ -873,6 +873,9 @@ namespace Ginei
                     float enroll, qual;
                     EducationSignalOf(sys != null ? sys.owner : Faction.帝国, out enroll, out qual);
                     PopLaborTickRules.TickYear(kv.Value, enroll, qual, EducationLevel.高等, PopLaborTickRules.DefaultLearnRate);
+
+                    // 労働市場を1年ぶん（POPLAB-2/3 配線）：安定度#109 連動の需要へ職業配分が収束＝不安定で失業↑・回復で就業↓。
+                    LaborMarketTickRules.TickYear(kv.Value, LaborMarketTickRules.DefaultFlowRate);
                 }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。

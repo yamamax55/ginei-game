@@ -937,6 +937,9 @@ namespace Ginei
             // 外交（DIPLO-6・#2119）：勢力ペアの関係をドリフトし、AIが宣戦/講和/同盟を決める。
             RunDiplomacyTick();
 
+            // 法の支配と法と秩序（LAW-6・#2126）：勢力の法の支配＋惑星の治安を解き、安定へ反映・抑圧を通知。
+            RunLawTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1459,6 +1462,39 @@ namespace Ginei
                 if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
                     pop += prov.population;
             return pop;
+        }
+
+        // --- 法の支配と法と秩序（LAW・#2126 配線） ---
+        /// <summary>勢力の法の支配（デモ法体系）＋惑星の治安（犯罪→秩序）を年次で解き、安定へ反映・抑圧を通知。</summary>
+        private void RunLawTick()
+        {
+            if (map == null || provinces == null) return;
+            var cp = CrimeRules.CrimeParams.Default;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                // デモ法体系：同盟＝法の支配（権力も法に従う）／帝国＝法治どまり（権力制約が低い）。
+                LegalSystem legal = fac == Faction.同盟
+                    ? new LegalSystem(0.7f, 0.7f, 0.7f, 0.7f)
+                    : new LegalSystem(0.7f, 0.4f, 0.25f, 0.6f);
+                float rol = RuleOfLawRules.RuleOfLawIndex(legal);
+                const float enforcement = 0.6f; // デモ警察力
+                int repressed = 0;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || s.owner != fac) continue;
+                    if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                    float unemployment = UnityEngine.Mathf.Clamp01(OccupationRules.UnemploymentPressure(prov));
+                    float poverty = UnityEngine.Mathf.Clamp01(1f - prov.livingStandard);
+                    var r = LawTickRules.TickProvince(rol, unemployment, poverty, 0.3f, enforcement, cp);
+                    // 秩序で安定度を緩やかに補正（GovernanceRules 収束と競合させない）。
+                    prov.stability = UnityEngine.Mathf.Clamp(prov.stability + r.stabilityDelta * 0.1f, 0f, 100f);
+                    if (r.repression > 0.4f) repressed++;
+                }
+                if (RuleOfLawRules.IsRuleByLawOnly(legal) && repressed > 0)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                        $"{fac} 法治体制で取締りが抑圧化（{repressed} 星系）＝正統性を蝕む");
+            }
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

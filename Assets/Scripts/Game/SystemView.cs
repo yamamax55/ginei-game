@@ -197,10 +197,29 @@ namespace Ginei
             int rec = Mathf.RoundToInt(OccupationRules.RecruitablePool(p));
             return $"\n職業: 農{Pct(w, Occupation.農民)}/工{Pct(w, Occupation.工員)}/鉱{Pct(w, Occupation.鉱員)}" +
                    $"/官{Pct(w, Occupation.官吏)}/兵{Pct(w, Occupation.軍属)}/無職{Pct(w, Occupation.無職)}" +
-                   $"\n就業率 {emp}%・徴募源 {rec}人（軍属）";
+                   $"\n就業率 {emp}%・徴募源 {rec}人（軍属）" +
+                   FormatJsoc(w);
         }
 
         private static int Pct(Workforce w, Occupation o) => Mathf.RoundToInt(w.Share(o) * 100f);
+
+        // JSOC 大分類（日本標準職業分類を参考・#110）：少数6種を標準分類へ写像して非ゼロ群を記号付きで表示。
+        private static string FormatJsoc(Workforce w)
+        {
+            OccupationProfile prof = OccupationClassificationRules.Classify(w);
+            var sb = new System.Text.StringBuilder("\nJSOC大分類: ");
+            bool any = false;
+            for (int i = 0; i < OccupationProfile.Count; i++)
+            {
+                var c = (OccupationCategory)i;
+                int pct = Mathf.RoundToInt(prof.Share(c) * 100f);
+                if (pct <= 0) continue;
+                if (any) sb.Append('/');
+                sb.Append(OccupationClassificationRules.JsocCode(c)).Append(c.ToString()).Append(pct);
+                any = true;
+            }
+            return any ? sb.ToString() : "";
+        }
 
         // 人口動態（出生死亡・LIFE-3 #153）：年齢構成＋局面＋見込み成長率（安定度で出生/死亡が増減）。
         private static string FormatPlanetDemographics(Province p)

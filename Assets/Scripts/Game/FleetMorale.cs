@@ -14,16 +14,22 @@ namespace Ginei
         public float maxMorale = 100f;
 
         [Tooltip("非交戦時の自然回復速度 (ポイント/秒)")]
-        public float recoveryRate = 0.5f;
+        public float recoveryRate = 0.7f;
 
         [Tooltip("交戦中の自然低下速度 (ポイント/秒)")]
-        public float combatDrainRate = 0.2f;
+        public float combatDrainRate = 0.1f;
 
         [Tooltip("ダメージ100あたりの士気低下量")]
-        public float damageDrainFactor = 0.1f;
+        public float damageDrainFactor = 0.05f;
 
         [Tooltip("敗走から回復を始めるまでの『交戦が無い』継続時間（秒）")]
-        public float routedRecoveryDelay = 5f;
+        public float routedRecoveryDelay = 4f;
+
+        [Tooltip("交戦の自然低下が下げ止まる士気の床（最大士気に対する割合）＝交戦だけでは敗走しない・崩れるのは被弾のみ #会戦改善")]
+        public float combatMoraleFloor = 0.2f;
+
+        [Tooltip("1回の被弾で減る士気の上限（最大士気に対する割合）＝一撃で即敗走させない #会戦改善")]
+        public float maxSingleHitMoraleFraction = 0.1f;
 
         public bool IsRouted => morale <= 0;
 
@@ -134,8 +140,10 @@ namespace Ginei
 
             if (inCombat)
             {
-                // 交戦中による低下
-                ChangeMorale(-combatDrainRate * Time.deltaTime);
+                // 交戦中による低下。ただし床（combatMoraleFloor）までで止まる＝交戦だけでは敗走しない（崩れるのは被弾のみ）。
+                float floor = maxMorale * Mathf.Clamp01(combatMoraleFloor);
+                if (morale > floor)
+                    morale = Mathf.Max(floor, morale - combatDrainRate * Time.deltaTime);
             }
             else
             {
@@ -150,6 +158,9 @@ namespace Ginei
         public void OnTakeDamage(int damageAmount)
         {
             float drain = damageAmount * damageDrainFactor;
+            // 一撃で即敗走させない＝1回の被弾で減る士気を上限でクランプ（#会戦改善）。
+            float cap = maxMorale * Mathf.Clamp01(maxSingleHitMoraleFraction);
+            if (cap > 0f) drain = Mathf.Min(drain, cap);
             ChangeMorale(-drain);
         }
 

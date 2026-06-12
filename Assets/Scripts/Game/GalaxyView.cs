@@ -1286,25 +1286,30 @@ namespace Ginei
         {
             if (provinces == null) return;
             EnsureBomContent();
+            // Phase 1: 原材料供給（人口×安定度比例＝荒れた惑星は産まない）。
+            foreach (var kv in provinces)
+            {
+                Province prov = kv.Value;
+                if (prov == null) continue;
+                if (!bomStocks.TryGetValue(kv.Key, out var cs) || cs == null) { cs = new CommodityStock(); bomStocks[kv.Key] = cs; }
+                float outFactor = GovernanceRules.OutputFactor(prov);
+                cs.Add(grainId, prov.population * 1.5f * outFactor);
+                cs.Add(fiberId, prov.population * 0.6f * outFactor);
+            }
+            // Phase 2: 域内物流（DIST-6・#2112）＝余剰の穀物を不足惑星へ回廊で配送（通商破壊で分断）。生産の前に回す。
+            RunRegionalDistributionTick();
+            // Phase 3: レシピ生産＋消費財需要の充足。
             int foodShort = 0, clothingShort = 0;
             foreach (var kv in provinces)
             {
                 Province prov = kv.Value;
                 if (prov == null) continue;
-                if (!bomStocks.TryGetValue(kv.Key, out var cs) || cs == null)
-                {
-                    cs = new CommodityStock();
-                    bomStocks[kv.Key] = cs;
-                }
+                if (!bomStocks.TryGetValue(kv.Key, out var cs) || cs == null) continue;
                 float pop = prov.population;
-                float outFactor = GovernanceRules.OutputFactor(prov);
-                // 原材料の供給（人口×安定度比例＝荒れた惑星は産まない）。
-                cs.Add(grainId, pop * 1.5f * outFactor);
-                cs.Add(fiberId, pop * 0.6f * outFactor);
                 // レシピ生産（上流→下流）：食品←穀物、布←繊維、衣類←布。
-                BomTickRules.Produce(cs, foodRecipe, pop * 1.0f);     // 食品需要ぶん
-                BomTickRules.Produce(cs, clothRecipe, pop * 0.4f);    // 衣類2着あたり布…の素
-                BomTickRules.Produce(cs, clothingRecipe, pop * 0.2f); // 衣類需要ぶん
+                BomTickRules.Produce(cs, foodRecipe, pop * 1.0f);
+                BomTickRules.Produce(cs, clothRecipe, pop * 0.4f);
+                BomTickRules.Produce(cs, clothingRecipe, pop * 0.2f);
                 // 消費財需要の充足（食品は全員・衣類は控えめ）。
                 float foodDemand = ConsumerDemandRules.Demand(pop, 1.0f);
                 float clothingDemand = ConsumerDemandRules.Demand(pop, 0.2f);
@@ -1312,7 +1317,6 @@ namespace Ginei
                 float clothingFulfill = ConsumerDemandRules.Fulfillment(cs.Get(clothingId), clothingDemand);
                 ConsumerDemandRules.Consume(cs, foodId, foodDemand);
                 ConsumerDemandRules.Consume(cs, clothingId, clothingDemand);
-                // 消費財の充足で生活水準#181 を補正（食品優先＝最小律）。
                 float consumerFactor = ConsumerDemandRules.LivingStandardFactor(UnityEngine.Mathf.Min(foodFulfill, clothingFulfill), 0.6f);
                 prov.livingStandard *= consumerFactor;
                 if (foodFulfill < 0.8f) foodShort++;
@@ -1362,6 +1366,42 @@ namespace Ginei
                     string name = crit != null ? crit.name : "原材料";
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
                         $"{fac} SCM計画：{name}が逼迫（消費財の充足見込み {(int)(plan.serviceLevel * 100)}%）");
+                }
+            }
+        }
+
+        // --- 勢力内供給配分（域内物流・DIST・#2112 配線） ---
+        private const float DistributionLoss = 0.05f; // 回廊輸送ロス
+
+        /// <summary>勢力ごとに連結領域内で穀物を再配分＝余剰の穀倉惑星が不足惑星を養う（通商破壊で分断・封鎖惑星は孤立）。</summary>
+        private void RunRegionalDistributionTick()
+        {
+            if (map == null || provinces == null) return;
+            // 通商破壊#95：敵艦が在席する星系は中継不能＝領域を分断する。
+            var blocked = new System.Collections.Generic.HashSet<int>();
+            foreach (var s in map.systems)
+                if (s != null && HasHostileFleetAt(s)) blocked.Add(s.id);
+
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var components = RegionReachabilityRules.Components(map, fac, blocked);
+                for (int ci = 0; ci < components.Count; ci++)
+                {
+                    var ids = new System.Collections.Generic.List<int>();
+                    foreach (var id in components[ci])
+                        if (provinces.TryGetValue(id, out var pv) && pv != null && bomStocks.TryGetValue(id, out var st) && st != null)
+                            ids.Add(id);
+                    if (ids.Count < 2) continue; // 2惑星以上ないと配分の意味がない
+
+                    var stocks = new CommodityStock[ids.Count];
+                    var grainDemand = new float[ids.Count];
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        stocks[i] = bomStocks[ids[i]];
+                        grainDemand[i] = provinces[ids[i]].population * 1.0f; // 食品の素＝穀物の地元需要
+                    }
+                    RegionalDistributionTickRules.Distribute(stocks, grainId, grainDemand, float.MaxValue, DistributionLoss);
                 }
             }
         }

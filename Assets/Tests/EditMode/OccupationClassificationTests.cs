@@ -21,38 +21,7 @@ namespace Ginei.Tests
             Assert.AreEqual(OccupationCategory.無職,     OccupationClassificationRules.MajorGroupOf(Occupation.無職));
         }
 
-        // --- 人物 → JSOC 大分類 ---
-        [Test]
-        public void Person_Politician_IsManagerial()
-        {
-            var p = new Person(1, "議員", Faction.同盟, PersonRole.文民) { isPolitician = true };
-            Assert.AreEqual(OccupationCategory.管理, OccupationClassificationRules.MajorGroupOf(p));
-        }
-
-        [Test]
-        public void Person_Military_IsSecurity()
-        {
-            var p = new Person(2, "提督", Faction.帝国, PersonRole.軍人) { leadership = 80 };
-            Assert.AreEqual(OccupationCategory.保安, OccupationClassificationRules.MajorGroupOf(p)); // 自衛官＝階級に依らず保安
-        }
-
-        [Test]
-        public void Person_CivilTechnocrat_IsProfessional()
-        {
-            // 技術才（研究/技術/計画/生産）が文才（運営/情報）以上＝専門技術
-            var p = new Person(3, "技術士官", Faction.同盟, PersonRole.文民)
-            { research = 80, engineering = 80, planning = 60, production = 60, operation = 20, intelligence = 20 };
-            Assert.AreEqual(OccupationCategory.専門技術, OccupationClassificationRules.MajorGroupOf(p));
-        }
-
-        [Test]
-        public void Person_CivilAdministrator_IsClerical()
-        {
-            // 文才が技術才より高い文民＝事務
-            var p = new Person(4, "行政官", Faction.同盟, PersonRole.文民)
-            { operation = 70, intelligence = 70, research = 10, engineering = 10, planning = 10, production = 10 };
-            Assert.AreEqual(OccupationCategory.事務, OccupationClassificationRules.MajorGroupOf(p));
-        }
+        // ※人物（ネームド）の職業は POP 分類とは別管理（PersonVocationRules）＝ここでは扱わない（君主など JSOC 外の地位を持つため）。
 
         // --- 惑星類型別の既定構成（合計1・基幹群） ---
         [Test]

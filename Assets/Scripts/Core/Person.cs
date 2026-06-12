@@ -30,6 +30,9 @@ namespace Ginei
         /// <summary>政治家か（政党・選挙で出世＝政治任用役職の資格・GOV-6 #159）。文民の一職種。</summary>
         public bool isPolitician;
 
+        /// <summary>君主・国家元首か（人物の職分＝君主。POP 職業分類#110 に載らない apex ゆえ別管理＝<see cref="PersonVocation"/>。継承#152/易姓革命で替わる）。既定 false＝後方互換。</summary>
+        public bool isSovereign;
+
         // --- 人物ライフサイクル（LIFE-1/2/4 #151/#152/#154） ---
         public int birthYear;                                   // 生年（0=未設定＝加齢しない）
         public int deathYear;                                   // 没年（0=存命）

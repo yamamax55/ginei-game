@@ -4,9 +4,11 @@ namespace Ginei
 {
     /// <summary>
     /// 職業の標準分類ロジック（<b>日本標準職業分類 JSOC の大分類を参考</b>・#110 職業版の標準化・純ロジック・唯一の窓口）。
-    /// POP の少数6種（<see cref="Occupation"/>）と人物（<see cref="Person"/>）の双方を JSOC 大分類（<see cref="OccupationCategory"/>）へ写像し、
+    /// <b>POP の少数6種（<see cref="Occupation"/>）</b>を JSOC 大分類（<see cref="OccupationCategory"/>）へ写像し、
     /// 惑星類型（<see cref="SystemType"/>）ごとの標準構成を返す。既存の <see cref="OccupationRules"/>（ゲーム駆動の6種・#96/#93）は不変＝
-    /// これは<b>その上に被せる標準分類ビュー</b>（集約・観測層の思想／タイクン回避＝大分類どまり）。test-first。
+    /// これは<b>その上に被せる標準分類ビュー</b>（集約・観測層の思想／タイクン回避＝大分類どまり）。
+    /// <b>ネームド人物（<see cref="Person"/>）の職業はここでは扱わない</b>＝君主など JSOC に載らない地位を持つため別管理（<see cref="PersonVocationRules"/>／<see cref="PersonVocation"/>）。
+    /// POP→ネームド昇格の経路も人物側（<see cref="PersonVocationRules.PromotionVocation"/>）が持つ。test-first。
     /// </summary>
     public static class OccupationClassificationRules
     {
@@ -46,21 +48,6 @@ namespace Ginei
                 case Occupation.軍属: return OccupationCategory.保安;
                 default:             return OccupationCategory.無職;
             }
-        }
-
-        /// <summary>
-        /// 人物 → JSOC 大分類。政治家＝管理（議員・大臣）／軍人＝保安（自衛官は階級に依らず保安職業）／
-        /// 文民は技術才が文才以上で専門技術（技術者・研究者）、それ以外は事務（一般事務官）。
-        /// </summary>
-        public static OccupationCategory MajorGroupOf(Person p)
-        {
-            if (p == null) return OccupationCategory.無職;
-            if (p.isPolitician) return OccupationCategory.管理;
-            if (p.role == PersonRole.軍人) return OccupationCategory.保安;
-            // 文民
-            if (p.TechnicalAptitude > 0f && p.TechnicalAptitude >= p.CivilAptitude)
-                return OccupationCategory.専門技術;
-            return OccupationCategory.事務;
         }
 
         /// <summary>惑星類型に応じた JSOC 大分類の既定構成（合計1）。三次産業惑星（居住）は管理・専門・事務・販売・サービスへ広がる。</summary>

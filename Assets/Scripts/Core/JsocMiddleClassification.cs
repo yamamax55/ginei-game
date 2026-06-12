@@ -188,17 +188,6 @@ namespace Ginei
             }
         }
 
-        /// <summary>
-        /// 人物（<see cref="Person"/>）→ 代表的な中分類コード（大分類は <see cref="OccupationClassificationRules.MajorGroupOf(Person)"/> と一致）。
-        /// 政治家→01管理的公務員／軍人→43自衛官／文民は技術才≥文才で11その他の技術者・他は25一般事務従事者／null→0。
-        /// </summary>
-        public static int RepresentativeMiddle(Person p)
-        {
-            if (p == null) return 0;
-            if (p.isPolitician) return 1;                 // 01 管理的公務員
-            if (p.role == PersonRole.軍人) return 43;     // 43 自衛官
-            if (p.TechnicalAptitude > 0f && p.TechnicalAptitude >= p.CivilAptitude) return 11; // 11 その他の技術者
-            return 25;                                    // 25 一般事務従事者
-        }
+        // ※ネームド人物（Person）は POP 職業分類に押し込まず別管理（PersonVocationRules）。中分類の人物オーバーロードは持たない。
     }
 }

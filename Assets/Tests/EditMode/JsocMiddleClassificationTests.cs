@@ -99,26 +99,6 @@ namespace Ginei.Tests
             Assert.AreEqual(43, JsocMiddleClassification.RepresentativeMiddle(Occupation.軍属));
         }
 
-        [Test]
-        public void RepresentativeMiddle_Person_MatchesMajor()
-        {
-            var politician = new Person(1, "議員", Faction.同盟, PersonRole.文民) { isPolitician = true };
-            var admiral = new Person(2, "提督", Faction.帝国, PersonRole.軍人) { leadership = 80 };
-            var technocrat = new Person(3, "技術士官", Faction.同盟, PersonRole.文民)
-            { research = 80, engineering = 80, planning = 60, production = 60, operation = 20, intelligence = 20 };
-            var clerk = new Person(4, "行政官", Faction.同盟, PersonRole.文民)
-            { operation = 70, intelligence = 70 };
-
-            foreach (var p in new[] { politician, admiral, technocrat, clerk })
-            {
-                int code = JsocMiddleClassification.RepresentativeMiddle(p);
-                Assert.AreEqual(OccupationClassificationRules.MajorGroupOf(p), JsocMiddleClassification.MajorOf(code),
-                    $"{p.name} の代表中分類{code}の親大分類が大分類写像と不一致");
-            }
-            Assert.AreEqual(1,  JsocMiddleClassification.RepresentativeMiddle(politician)); // 01 管理的公務員
-            Assert.AreEqual(43, JsocMiddleClassification.RepresentativeMiddle(admiral));    // 43 自衛官
-            Assert.AreEqual(11, JsocMiddleClassification.RepresentativeMiddle(technocrat)); // 11 その他の技術者
-            Assert.AreEqual(25, JsocMiddleClassification.RepresentativeMiddle(clerk));      // 25 一般事務従事者
-        }
+        // ※ネームド人物の中分類は POP 分類に押し込まず別管理（PersonVocationRules）＝人物オーバーロードは持たない。
     }
 }

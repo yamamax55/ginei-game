@@ -1994,6 +1994,23 @@ namespace Ginei
                 if (kb.digit3Key.wasPressedThisFrame) { clock.SetSpeed(2f); clock.Resume(); }
             }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
+
+            // 外交コマンド（#2119 操作化）：対立勢力へ 7=宣戦 / 8=講和 / 9=同盟。自勢力の外交はプレイヤーが握る。
+            if (kb.digit7Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.宣戦布告);
+            if (kb.digit8Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.講和);
+            if (kb.digit9Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.同盟);
+        }
+
+        /// <summary>対立勢力（プレイヤー以外の最初のデモ勢力）へ外交コマンドを発令。発令不可なら通知。</summary>
+        private void IssueDiplomacyToRival(DiplomaticAction action)
+        {
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            Faction rival = player;
+            for (int i = 0; i < DemoFactions.Length; i++)
+                if (DemoFactions[i] != player) { rival = DemoFactions[i]; break; }
+            if (rival == player) return; // 対立勢力なし
+            if (!IssuePlayerDiplomacy(rival, action))
+                NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{action} は今は発令できません（{rival} との現状態）");
         }
 
         private void HandleMouse()

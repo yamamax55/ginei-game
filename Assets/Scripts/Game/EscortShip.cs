@@ -45,6 +45,12 @@ namespace Ginei
         private Squadron parentSquadron;
         private bool isDead = false;
 
+        // 散り散りに逃散中か（旗艦撃墜で主君を見捨てて逃げる）。逃散中は戦闘除外＋一定方向へ退避し時間で消滅。
+        private bool scattering = false;
+        private Vector2 scatterDir;
+        private const float ScatterSpeed = 4f;
+        private const float ScatterLifetime = 4f;
+
         // 攻撃クールダウン
         private float nextFireTime;
 
@@ -57,10 +63,15 @@ namespace Ginei
         public Squadron ParentSquadron => parentSquadron;
 
         // IShipTarget 実装。旗艦が退却したら部隊ごと戦闘除外（標的にならない）。
+        // ただし捨てがまり中は配下艦が殿として戦い続けるので、旗艦退却中でも生存（標的）扱いにする。
         public Transform Transform => transform;
         public Faction Faction => flagship != null ? flagship.faction : Faction.帝国;
         public FactionData FactionData => flagship != null ? flagship.factionData : null;
-        public bool IsAlive => !isDead && shipCount > 0 && (flagship == null || !flagship.IsRetreating);
+        public bool IsAlive => !isDead && !scattering && shipCount > 0
+            && (flagship == null || !flagship.IsRetreating || (parentSquadron != null && parentSquadron.SutegamariActive));
+
+        /// <summary>旗艦の状態に依らず、この配下艦自体が生存しているか（敗走解決の頭数判定用）。</summary>
+        public bool IsLiving => !isDead && !scattering && shipCount > 0;
 
         private void Awake()
         {
@@ -98,6 +109,13 @@ namespace Ginei
 
         private void Update()
         {
+            // 逃散中（旗艦撃墜で散り散り）：一定方向へ退避し続け、時間経過で消滅する（発砲しない）。
+            if (scattering)
+            {
+                transform.position += (Vector3)(scatterDir * ScatterSpeed * Time.deltaTime);
+                return;
+            }
+
             // 攻撃に必要な旗艦情報が無ければ撃たない
             if (flagshipWeapon == null || flagshipArc == null) return;
 
@@ -107,8 +125,10 @@ namespace Ginei
             // 静観（#817）の配下艦も発砲しない（旗艦の旗幟に従う）
             if (flagship != null && !flagship.IsFighting) return;
 
-            // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止
-            if (flagship != null && flagship.IsRetreating)
+            // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止。
+            // ただし捨てがまり（殿）中は配下艦が踏みとどまって戦い続ける＝ここでは停止しない。
+            bool sutegamari = parentSquadron != null && parentSquadron.SutegamariActive;
+            if (flagship != null && flagship.IsRetreating && !sutegamari)
             {
                 FleetRegistry.Unregister(this);
                 enabled = false;
@@ -181,6 +201,22 @@ namespace Ginei
             // 旗艦の配下艦リストからも自分を外す（陣形計算の対象から除外）
             if (parentSquadron != null) parentSquadron.RemoveMember(transform);
             Destroy(gameObject);
+        }
+
+        /// <summary>
+        /// 散り散りに逃散する（旗艦撃墜時・主君を見捨てて逃げる＝捨てがまりが立たなかった）。
+        /// 旗艦の破棄に道連れにされないよう切り離し、戦闘から外れて一定方向へ退避し、時間経過で消滅する。
+        /// </summary>
+        public void Scatter()
+        {
+            if (isDead || scattering) return;
+            scattering = true;
+            FleetRegistry.Unregister(this);        // 標的・索敵から外す（逃げ散る）
+            transform.SetParent(null, true);        // 旗艦本体の破棄から切り離す
+            float ang = Random.Range(0f, Mathf.PI * 2f);
+            scatterDir = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)); // 散り散り＝てんでに逃げる
+            enabled = true;                         // 退避移動のため Update を回す
+            Destroy(gameObject, ScatterLifetime);   // しばらく逃げてから消える
         }
 
         // ---- ビーム演出（FleetWeapon と同等。配下艦は自前の LineRenderer を持つ）----

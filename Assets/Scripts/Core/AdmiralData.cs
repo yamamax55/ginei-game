@@ -71,6 +71,11 @@ namespace Ginei
         [Tooltip("索敵・回避等に影響（将来用）")]
         public int intelligence = 80;  // 情報
 
+        [Tooltip("部下への態度（謙虚さ 0..100・既定50＝中庸）。高い＝部下を尊重し信望厚い／低い＝尊大。" +
+                 "統率と併せ、敗走時に配下艦が島津の捨てがまり（殿）で旗艦を守るか散り散りに逃げるかを決める（SutegamariRules）")]
+        [Range(0, 100)]
+        public int humility = 50;      // 部下への態度（謙虚さ）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

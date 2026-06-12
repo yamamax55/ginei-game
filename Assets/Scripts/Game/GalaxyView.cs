@@ -893,6 +893,20 @@ namespace Ginei
             RunUniversityTick();
         }
 
+        // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。
+        private const float ImperialFemaleShare = 0.08f;
+        private const float AllianceFemaleShare = 0.35f;
+
+        /// <summary>新任人材に性別を割り当てる（所有勢力の政策男女比・決定論 roll）。性的指向は別軸の検討項目（未実装）。</summary>
+        private void AssignSexes(System.Collections.Generic.List<Person> people, Faction faction)
+        {
+            if (people == null) return;
+            float fshare = faction == Faction.同盟 ? AllianceFemaleShare : ImperialFemaleShare;
+            for (int i = 0; i < people.Count; i++)
+                if (people[i] != null)
+                    people[i].sex = UnityEngine.Random.value < fshare ? Sex.女性 : Sex.男性;
+        }
+
         /// <summary>軍学校＝多段の選抜（幼年学校→士官学校→大学校・#155 細分化）。軍属層から入校し、任官者だけを士官名簿へ。</summary>
         private void RunMilitaryAcademy(Academy a)
         {
@@ -903,6 +917,7 @@ namespace Ginei
             var eff = new Academy(a.schoolId, a.faction, a.name, a.capacity, eq);
             var results = MilitaryAcademyRules.RunMilitarySession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += results.Count;
+            AssignSexes(results, a.faction);
 
             int 退校 = 0, 幼 = 0, 士 = 0, 参 = 0;
             Person 首席 = null;
@@ -994,6 +1009,7 @@ namespace Ginei
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
             var results = ImperialExamRules.RunExamSession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += results.Count;
+            AssignSexes(results, u.faction);
 
             int 生員 = 0, 挙人 = 0, 貢士 = 0, 進士 = 0;
             Person 状元 = null;
@@ -1038,6 +1054,7 @@ namespace Ginei
             var eff = new TechnicalCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
             var grads = TechnicalCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += grads.Count;
+            AssignSexes(grads, c.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{c.faction} {c.name} {grads.Count}名 卒業（技術者）");
@@ -1052,6 +1069,7 @@ namespace Ginei
             var eff = new JuniorCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
             var grads = JuniorCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += grads.Count;
+            AssignSexes(grads, c.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{c.faction} {c.name} {grads.Count}名 卒業（行政中堅）");
@@ -1066,6 +1084,7 @@ namespace Ginei
             var eff = new VocationalSchool(s.schoolId, s.faction, s.name, s.capacity, eq);
             var grads = VocationalSchoolRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += grads.Count;
+            AssignSexes(grads, s.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{s.faction} {s.name} {grads.Count}名 卒業（実務）");
@@ -1080,6 +1099,7 @@ namespace Ginei
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
             var grads = UniversityRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
             nextPersonId += grads.Count;
+            AssignSexes(grads, u.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{u.faction} {u.name} {grads.Count}名 卒業（{u.track}）");

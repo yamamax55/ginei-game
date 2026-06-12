@@ -25,6 +25,7 @@ namespace Ginei
         public Faction faction;
         public PersonRole role = PersonRole.軍人;
         public int rankTier; // 階級（#14・序列）
+        public Sex sex = Sex.男性; // 性別（既定=男性＝後方互換）。性的指向は別軸の検討項目（未実装）
 
         /// <summary>政治家か（政党・選挙で出世＝政治任用役職の資格・GOV-6 #159）。文民の一職種。</summary>
         public bool isPolitician;

@@ -211,8 +211,10 @@ namespace Ginei
             float growth = PopulationDynamicsRules.ProjectedAnnualGrowth(p, DemographicsRules.VitalRates.Default);
             string sign = growth >= 0f ? "+" : "";
             int attract = Mathf.RoundToInt(PopulationMigrationRules.Attractiveness(p) * 100f);
+            int femalePct = Mathf.RoundToInt(pop.femaleShare * 100f);
             return $"\n人口動態: 年少 {Mathf.RoundToInt(pop.youth)} / 生産 {Mathf.RoundToInt(pop.working)} / 高齢 {Mathf.RoundToInt(pop.elderly)}" +
                    $"（{phase}・成長 {sign}{growth * 100f:0.#}%/年）" +
+                   $"\n男女比: 男{100 - femalePct} : 女{femalePct}" +
                    $"\n定住魅力: {attract}%（高いほど移民が集まり、低いと流出）";
         }
 
@@ -354,6 +356,7 @@ namespace Ginei
             float elderShare = 0.08f + ((h >> 13) % 16) / 100f;  // 0.08..0.23
             float workShare = Mathf.Max(0.3f, 1f - youthShare - elderShare);
             p.demographics = new Population(pop * youthShare, pop * workShare, pop * elderShare);
+            p.demographics.femaleShare = 0.48f + ((h >> 17) % 5) / 100f; // 男女比 0.48..0.52（ほぼ均衡・決定的）
             // 職業構成（生産年齢の就労先・#110 職業）＝惑星の類型でバイアス（工業惑星は工員が多い等）。
             p.workforce = OccupationRules.Default(p.systemType);
             return p;

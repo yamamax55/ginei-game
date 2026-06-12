@@ -931,6 +931,9 @@ namespace Ginei
             // 汎用BOM（BOM-6・#2098）：消費財（食品/衣類）をレシピで生産し、需要充足で生活水準を補正。
             RunBomConsumerTick();
 
+            // SCM計画（SCM-6・#2105）：消費財需要をMRP展開し、原材料の逼迫（ボトルネック）を勢力ごとに通知（read-only）。
+            RunScmPlanTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1319,6 +1322,48 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"食料不足の星系 {foodShort}（穀物・食品の供給不足）");
             if (clothingShort > 0)
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"衣類不足の星系 {clothingShort}（繊維・布の供給不足）");
+        }
+
+        // --- SCM計画（MRP所要量展開・SCM・#2105 read-only 配線） ---
+        /// <summary>勢力ごとに消費財需要をMRP展開し、原材料供給見込みと突き合わせて逼迫品目を通知（状態は変えない）。</summary>
+        private void RunScmPlanTick()
+        {
+            if (map == null || provinces == null) return;
+            EnsureBomContent();
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                float totalPop = 0f, grainSupply = 0f, fiberSupply = 0f;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || s.owner != fac) continue;
+                    if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                    float pop = prov.population;
+                    float outFactor = GovernanceRules.OutputFactor(prov);
+                    totalPop += pop;
+                    grainSupply += pop * 1.5f * outFactor; // RunBomConsumerTick と同じ供給見込み
+                    fiberSupply += pop * 0.6f * outFactor;
+                }
+                if (totalPop <= 0f) continue;
+
+                var demands = new System.Collections.Generic.Dictionary<int, float>
+                {
+                    { foodId, totalPop * 1.0f },     // 食品＝全員
+                    { clothingId, totalPop * 0.2f }, // 衣類＝控えめ
+                };
+                var onHand = new CommodityStock();
+                onHand.Add(grainId, grainSupply);
+                onHand.Add(fiberId, fiberSupply);
+
+                var plan = ScmTickRules.Plan(demands, onHand);
+                if (plan.serviceLevel < 0.7f && plan.criticalCommodity >= 0)
+                {
+                    var crit = CommodityCatalog.Get(plan.criticalCommodity);
+                    string name = crit != null ? crit.name : "原材料";
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                        $"{fac} SCM計画：{name}が逼迫（消費財の充足見込み {(int)(plan.serviceLevel * 100)}%）");
+                }
+            }
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

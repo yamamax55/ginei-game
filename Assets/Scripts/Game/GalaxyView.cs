@@ -105,6 +105,8 @@ namespace Ginei
         private List<HighSchool> highSchools;
         private List<MiddleSchool> middleSchools;
         private List<TechnicalCollege> colleges; // 高専（中学校→高専の実務技術者路・#157）
+        private List<JuniorCollege> juniorColleges; // 短大（高校卒後2年・行政中堅・#156）
+        private List<VocationalSchool> vocationalSchools; // 専門学校（高校卒後2年・実務specialist・#157）
 
         // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
         // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
@@ -667,6 +669,17 @@ namespace Ginei
                 new TechnicalCollege(schoolId: 14, faction: Faction.帝国, name: "帝国高等専門学校", capacity: 5, quality: 0.6f),
                 new TechnicalCollege(schoolId: 15, faction: Faction.同盟, name: "同盟工業高専", capacity: 5, quality: 0.55f),
             };
+            // 短大／専門学校（高校卒後2年制・中堅人材＝官界/現場の裾野・#156/#157）。
+            juniorColleges = new List<JuniorCollege>
+            {
+                new JuniorCollege(schoolId: 16, faction: Faction.帝国, name: "帝国短期大学", capacity: 6, quality: 0.5f),
+                new JuniorCollege(schoolId: 17, faction: Faction.同盟, name: "同盟短期大学", capacity: 6, quality: 0.5f),
+            };
+            vocationalSchools = new List<VocationalSchool>
+            {
+                new VocationalSchool(schoolId: 18, faction: Faction.帝国, name: "帝国専門学校", capacity: 6, quality: 0.5f),
+                new VocationalSchool(schoolId: 19, faction: Faction.同盟, name: "同盟専門学校", capacity: 6, quality: 0.5f),
+            };
         }
 
         /// <summary>その勢力の高校（中等教育）を返す（無ければ null＝教育の制約なし）。</summary>
@@ -881,6 +894,13 @@ namespace Ginei
             if (colleges != null)
                 for (int i = 0; i < colleges.Count; i++)
                     if (colleges[i] != null) RunTechnicalCollege(colleges[i]);
+            // 短大／専門学校（高校卒後2年・中堅人材＝官界/現場の裾野）も輩出。
+            if (juniorColleges != null)
+                for (int i = 0; i < juniorColleges.Count; i++)
+                    if (juniorColleges[i] != null) RunJuniorCollege(juniorColleges[i]);
+            if (vocationalSchools != null)
+                for (int i = 0; i < vocationalSchools.Count; i++)
+                    if (vocationalSchools[i] != null) RunVocationalSchool(vocationalSchools[i]);
         }
 
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
@@ -939,6 +959,34 @@ namespace Ginei
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{c.faction} {c.name} {grads.Count}名 卒業（技術者）");
+        }
+
+        /// <summary>短大の卒業（高校卒後2年・行政中堅文民を官吏層から・#156）。</summary>
+        private void RunJuniorCollege(JuniorCollege c)
+        {
+            ResolveEducation(c.faction, c.quality, out float enroll, out float eq); // 高校卒後＝高校チェーン込み
+            int intake = JuniorCollegeRules.Intake(c, CivilCandidatePoolOf(c.faction) * enroll);
+            if (intake <= 0) return;
+            var eff = new JuniorCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
+            var grads = JuniorCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{c.faction} {c.name} {grads.Count}名 卒業（行政中堅）");
+        }
+
+        /// <summary>専門学校の卒業（高校卒後2年・実務specialist を工員層から・#157）。</summary>
+        private void RunVocationalSchool(VocationalSchool s)
+        {
+            ResolveEducation(s.faction, s.quality, out float enroll, out float eq);
+            int intake = VocationalSchoolRules.Intake(s, TechnicalCandidatePoolOf(s.faction) * enroll);
+            if (intake <= 0) return;
+            var eff = new VocationalSchool(s.schoolId, s.faction, s.name, s.capacity, eq);
+            var grads = VocationalSchoolRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{s.faction} {s.name} {grads.Count}名 卒業（実務）");
         }
 
         /// <summary>テクノクラート大学の卒業（技術者を文民ロスターへ・#157）。</summary>

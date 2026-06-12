@@ -933,6 +933,22 @@ namespace Ginei
                 Person d = deceased[i];
                 int age = LifecycleRules.Age(d, campaignYear);
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
+
+                // ネームド資産の相続/没収（NASSET-4/6・#2063）：故人の固有資産を同勢力の最高位の存命司令へ相続、不在なら国家へ没収。
+                var estate = NamedAssetRegistry.OwnedByPerson(d.id);
+                if (estate.Count > 0)
+                {
+                    Person heir = FindHeir(d);
+                    for (int e = 0; e < estate.Count; e++)
+                    {
+                        var asset = estate[e];
+                        if (!AssetTransferRules.CanTransfer(asset)) continue; // 称号など不可は本人と消える
+                        if (heir != null) AssetTransferRules.Inherit(asset, heir.id);
+                        else AssetTransferRules.Confiscate(asset, d.faction);
+                    }
+                    string dest = heir != null ? $"{heir.name} が相続" : "国家へ没収";
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{d.name} の資産（{estate.Count}件）→ {dest}");
+                }
             }
 
             // 人物の財産を1年ぶん（PFIN-6・#2056 配線）：俸給#1969 から特性で貯金/投資/浪費し財産が増減。
@@ -947,6 +963,16 @@ namespace Ginei
                 PersonFinanceTickRules.TickYear(c, salary, ret);
             }
 
+            // ネームド資産（NASSET-6・#2063 配線）：人物/国家が固有名の資産（旗艦・宮殿等）を持ち、収益→財産・値上がり・相続。
+            SeedNamedAssets();                                  // デモ資産シード（冪等）
+            NamedAssetTickRules.TickYear(ResolveCommander);     // 純収益→所有者 wealth#2056・時価値上がり
+            for (int f = 0; f < DemoFactions.Length; f++)       // 国家資産の純収益は国庫#163 相当へ（デモはログのみ）
+            {
+                float fInc = NamedAssetEffectRules.FactionAnnualIncome(DemoFactions[f]);
+                if (fInc != 0f)
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 国有資産収益 {fInc:0}");
+            }
+
             // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
             if (academies != null && commanders.Count < OfficerRosterCap)
                 for (int i = 0; i < academies.Count; i++)
@@ -954,6 +980,64 @@ namespace Ginei
 
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
+        }
+
+        // --- ネームド資産（NASSET・#2063 デモ配線） ---
+        private static readonly Faction[] DemoFactions = { Faction.帝国, Faction.同盟 };
+        private bool namedAssetsSeeded;
+
+        /// <summary>id から司令を解決（資産収益を所有者 wealth へ流す・<see cref="NamedAssetTickRules"/> 用）。</summary>
+        private Person ResolveCommander(int id)
+        {
+            if (commanders == null) return null;
+            for (int i = 0; i < commanders.Count; i++)
+                if (commanders[i] != null && commanders[i].id == id) return commanders[i];
+            return null;
+        }
+
+        /// <summary>相続人＝故人と同勢力の最高位の存命司令（本人除く・同位は先頭）。不在なら null（=没収）。</summary>
+        private Person FindHeir(Person d)
+        {
+            if (commanders == null || d == null) return null;
+            Person best = null;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.id == d.id || c.deathYear != 0) continue;
+                if (c.faction != d.faction) continue;
+                if (best == null || c.rankTier > best.rankTier) best = c;
+            }
+            return best;
+        }
+
+        /// <summary>デモ資産シード（冪等）：各司令に固有名の旗艦、各勢力に宮殿を1つ持たせる（NASSET-6）。</summary>
+        private void SeedNamedAssets()
+        {
+            if (namedAssetsSeeded || NamedAssetRegistry.All.Count > 0) { namedAssetsSeeded = true; return; }
+            // 各勢力の宮殿（国家所有＝維持費は重いが威信・正統性を生む）。
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                var palace = new NamedAsset(NamedAssetRegistry.NextId(), $"{DemoFactions[f]}宮殿", NamedAssetCategory.宮殿)
+                {
+                    ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f],
+                    value = 5000f, yieldRate = 0.02f, upkeepRate = 0.05f, prestige = 30f
+                };
+                NamedAssetRegistry.Register(palace);
+            }
+            // 各司令の旗艦（人物所有＝維持費はかかるが威信。固有名は提督名から）。
+            if (commanders != null)
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null) continue;
+                    var flagship = new NamedAsset(NamedAssetRegistry.NextId(), $"{c.name}旗艦", NamedAssetCategory.旗艦)
+                    {
+                        ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id,
+                        value = 800f, upkeepRate = 0.03f, prestige = 8f
+                    };
+                    NamedAssetRegistry.Register(flagship);
+                }
+            namedAssetsSeeded = true;
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

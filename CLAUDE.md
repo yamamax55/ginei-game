@@ -67,7 +67,7 @@
 - **`ShipyardRules.CommissionToPool`(Core)**：造船の完成艦を特定艦隊でなく `FleetPool` へ就役＝**建艦で総艦艇が増える**（既存 `Commission`=特定艦隊就役 とは別経路）。生産力は `ProductionFactor(Province)`(安定度比例・BUILD-2)。
 - **`AnnualLifecycleRules`(Core)**：暦の年境界で人物ロスターを1年ぶん老衰判定し死亡者を返す（`LifecycleRules` 委譲・決定論 roll）。`GalaxyView` の onYear で提督が老いて死ぬ。
 - **`FleetOrganizationPanel`(Game)**：Strategy シーンに **B キー**で開閉（ポーズ）。勢力プール（総/割当/残）＋艦隊一覧。各艦隊で艦艇数±／司令・副提督・参謀を階級ゲート(○×)付きで配属。`OrderOfBattlePanel`(Battle・梯団管理)の姉妹。
-- **`GalaxyView` のデモ配線**：星系ごとの造船所（全勢力＝AIも建艦）を暦の日次で Tick→プール供給、会戦の戦力喪失を `ResolveEncountersWithAttrition` でプール損耗へ。
+- **`GalaxyView` のデモ配線**：星系ごとの造船所（全勢力＝AIも建艦）を暦の日次で Tick→プール供給。**会戦（手動潜行・放置の自動解決とも）は `StrategicFleet.strength` のみ消耗し、勢力プール(`FleetPool`)は減らさない**（壊滅艦隊は盤面レジストリから除去されるがプール総数は不変＝総保有と盤面戦力を分離。プールは建艦でのみ増える）。`FleetPoolRules.ApplyAttrition` は損耗API として残すが会戦経路からは呼ばない。
 
 ## データ / 列挙 / ScriptableObject
 - `Faction.cs`：`enum Faction { 帝国, 同盟 }`（旧式・後方互換用）。陣営の置き場所は `FleetStrength.faction`。

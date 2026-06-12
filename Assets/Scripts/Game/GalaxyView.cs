@@ -934,6 +934,9 @@ namespace Ginei
             // SCM計画（SCM-6・#2105）：消費財需要をMRP展開し、原材料の逼迫（ボトルネック）を勢力ごとに通知（read-only）。
             RunScmPlanTick();
 
+            // 外交（DIPLO-6・#2119）：勢力ペアの関係をドリフトし、AIが宣戦/講和/同盟を決める。
+            RunDiplomacyTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1404,6 +1407,58 @@ namespace Ginei
                     RegionalDistributionTickRules.Distribute(stocks, grainId, grainDemand, float.MaxValue, DistributionLoss);
                 }
             }
+        }
+
+        // --- 外交（DIPLO・#2119 配線） ---
+        /// <summary>勢力ペアの外交を年次で回す＝関係ドリフト→AIが宣戦/講和/同盟を決定し通知。</summary>
+        private void RunDiplomacyTick()
+        {
+            if (map == null) return;
+            // セッション初期化＋FactionRelations.ActiveDiplomacy 配線（冪等）。
+            var names = new System.Collections.Generic.List<string>();
+            for (int f = 0; f < DemoFactions.Length; f++) names.Add(DemoFactions[f].ToString());
+            var state = DiplomacySession.Ensure(names);
+
+            var dp = DiplomacyRules.DiplomacyParams.Default;
+            var ai = DiplomacyAiRules.DiploAiParams.Default;
+            var wp = WarGoalRules.WarGoalParams.Default;
+
+            for (int i = 0; i < DemoFactions.Length; i++)
+                for (int j = i + 1; j < DemoFactions.Length; j++)
+                {
+                    Faction fa = DemoFactions[i], fb = DemoFactions[j];
+                    string a = fa.ToString(), b = fb.ToString();
+                    // 国力＝所有惑星の人口合計、思想親和＝デモは異勢力で険悪、国境接触ありとみなす。
+                    float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
+                    var factors = new DiplomacyRules.OpinionFactors(-0.5f, 0.2f, true, 0f, false);
+                    var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);
+                    switch (ev)
+                    {
+                        case DiplomacyEvent.宣戦布告:
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.警告, $"{a} が {b} に宣戦布告");
+                            break;
+                        case DiplomacyEvent.講和:
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} と {b} が講和");
+                            break;
+                        case DiplomacyEvent.同盟締結:
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} と {b} が同盟締結");
+                            break;
+                    }
+                }
+
+            // 失効した条約を整理（status系は平時へ）。
+            TreatyManagementRules.ExpireDue(state, campaignYear);
+        }
+
+        /// <summary>勢力の国力 proxy＝所有星系の人口合計。</summary>
+        private float FactionPopulation(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float pop = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                    pop += prov.population;
+            return pop;
         }
 
         // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。

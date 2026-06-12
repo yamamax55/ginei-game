@@ -850,9 +850,10 @@ namespace Ginei
                 foreach (var kv in provinces)
                 {
                     if (kv.Value == null) continue;
-                    // 保育園（保育）が整うと出生率が上がる＝所有勢力の整備率で出生率を底上げ。
+                    // 保育園（保育）で出生率↑、POP男女比の偏りで出生率↓（番が組みにくい）＝所有勢力/惑星の状態で出生を増減。
                     StarSystem sys = map != null ? map.GetSystem(kv.Key) : null;
-                    float fert = sys != null ? NurseryFertilityOf(sys.owner) : 1f;
+                    float fert = (sys != null ? NurseryFertilityOf(sys.owner) : 1f)
+                               * SexRules.BalanceFactor(FemaleShareOf(kv.Value));
                     var baseRates = DemographicsRules.VitalRates.Default;
                     var rates = new DemographicsRules.VitalRates(
                         baseRates.birthRate * fert, baseRates.youthAging, baseRates.workAging, baseRates.elderMortality);
@@ -946,12 +947,27 @@ namespace Ginei
         private float RecruitablePoolOf(Faction faction)
         {
             if (map == null || provinces == null) return 0f;
+            float part = FemaleMilitaryParticipationOf(faction); // 女性の軍参加政策（帝国は低い＝家父長制）
             float pool = 0f;
             foreach (var s in map.systems)
                 if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
-                    pool += OccupationRules.RecruitablePool(prov);
+                {
+                    // POP の性別構成で徴募源をゲート＝男性＋女性参加ぶんだけ軍に就ける。
+                    float elig = SexRules.EligibleMilitaryFraction(FemaleShareOf(prov), part);
+                    pool += OccupationRules.RecruitablePool(prov) * elig;
+                }
             return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
         }
+
+        // 女性の軍参加政策（デモ＝銀英伝風：帝国は家父長的で女性の軍参加が低く徴募源が細る／同盟は平等で全員）。
+        private const float ImperialFemaleMilitaryParticipation = 0.1f;
+        private const float AllianceFemaleMilitaryParticipation = 1f;
+        private float FemaleMilitaryParticipationOf(Faction faction)
+            => faction == Faction.同盟 ? AllianceFemaleMilitaryParticipation : ImperialFemaleMilitaryParticipation;
+
+        /// <summary>惑星の女性割合（POP の男女比・コホート未設定なら均衡0.5）。</summary>
+        private static float FemaleShareOf(Province prov)
+            => prov != null && prov.demographics != null ? prov.demographics.femaleShare : SexRules.BalancedFemaleShare;
 
         /// <summary>その勢力の文民候補（官吏層 #110）＝所有星系の Province を合算（大学の輩出数の素・#156/#157）。</summary>
         private float CivilCandidatePoolOf(Faction faction)

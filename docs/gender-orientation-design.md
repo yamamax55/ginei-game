@@ -13,8 +13,8 @@
 
 ### 配線
 - `GalaxyView` が新任人材へ**所有勢力の政策男女比**で性別を割り当てる（デモ：帝国＝家父長的で女性少`ImperialFemaleShare`0.08／同盟＝平等で多め`AllianceFemaleShare`0.35＝銀英伝風の体制差）。
+- **POPの性別が機構に効く**：①**徴募ゲート**＝`RecruitablePoolOf` が `SexRules.EligibleMilitaryFraction(femaleShare, 女性軍参加率)` で軍の徴募源を絞る（帝国＝女性参加0.1で徴募源≒0.55倍＝<b>家父長制が半分の人口を軍に使えないコスト</b>／同盟＝1.0で全員）。②**出生**＝`SexRules.BalanceFactor(femaleShare)` を出生Tickに掛ける（男女比が偏ると出生鈍化）。
 - `SystemView` が惑星の男女比を表示。
-- `SexRules.BalanceFactor` は出生（`PopulationDynamicsRules`）へ掛けられる Core 関数（デモは均衡ゆえ実質無効＝将来の偏り発生時に効く）。
 
 ### 方針
 - マクロ背景として効かせる（**タイクン化回避**）＝個別の交配・家系図を作らない。性別による能力差は付けない（差別的設計を避ける）。

@@ -49,5 +49,20 @@ namespace Ginei.Tests
             // 値域クランプ
             Assert.AreEqual(SexRules.BalanceFactor(0f), SexRules.BalanceFactor(-1f), 1e-4f);
         }
+
+        [Test]
+        public void EligibleMilitaryFraction_GatesByPolicy()
+        {
+            // 平等（女性参加100%）＝全員が軍に就ける
+            Assert.AreEqual(1f, SexRules.EligibleMilitaryFraction(0.5f, 1f), 1e-4f);
+            // 家父長的（女性参加10%）＝男性0.5＋女性0.5×0.1＝0.55（半分の人口を活かせない）
+            Assert.AreEqual(0.55f, SexRules.EligibleMilitaryFraction(0.5f, 0.1f), 1e-4f);
+            // 女性参加0＝男性のみ
+            Assert.AreEqual(0.5f, SexRules.EligibleMilitaryFraction(0.5f, 0f), 1e-4f);
+            // 参加率が高いほど徴募源が広い
+            Assert.Greater(SexRules.EligibleMilitaryFraction(0.5f, 1f), SexRules.EligibleMilitaryFraction(0.5f, 0.2f));
+            // 全員男性なら参加政策によらず全員就ける
+            Assert.AreEqual(1f, SexRules.EligibleMilitaryFraction(0f, 0f), 1e-4f);
+        }
     }
 }

@@ -32,5 +32,16 @@ namespace Ginei
             float f = Mathf.Clamp01(femaleShare);
             return sex == Sex.女性 ? f : 1f - f;
         }
+
+        /// <summary>
+        /// POP のうち軍に就ける割合（0..1）＝<b>男性は常に＋女性は参加率ぶん</b>。<paramref name="femaleShare"/>＝POP女性割合、
+        /// <paramref name="femaleParticipation"/>＝その勢力の女性の軍参加政策（家父長的社会は低い＝半分の人口を軍に使えず徴募源が細る）。
+        /// </summary>
+        public static float EligibleMilitaryFraction(float femaleShare, float femaleParticipation)
+        {
+            float f = Mathf.Clamp01(femaleShare);
+            float part = Mathf.Clamp01(femaleParticipation);
+            return Mathf.Clamp01((1f - f) + f * part);
+        }
     }
 }

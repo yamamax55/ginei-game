@@ -186,7 +186,16 @@ namespace Ginei
                    $"産出/秒: {FormatPlanetResources(p)}" +
                    FormatPlanetDemographics(p) +
                    FormatPlanetOccupation(p) +
+                   FormatPlanetConsumption(p) +
                    FormatPlanetStrategic(p);
+        }
+
+        // POP の要求物資・生活水準（#2042）：充足から導く生活水準＋飢餓（必需不足）。
+        private static string FormatPlanetConsumption(Province p)
+        {
+            int ls = Mathf.RoundToInt(p.livingStandard * 100f);
+            int fam = Mathf.RoundToInt(p.foodShortage * 100f);
+            return $"\n生活水準 {ls}%" + (fam > 0 ? $"・飢餓 {fam}%" : "");
         }
 
         // POP の職業構成（#110 職業）：就労シェア＋就業率＋徴募源（軍属）。

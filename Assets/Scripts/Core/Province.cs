@@ -52,6 +52,15 @@ namespace Ginei
         /// </summary>
         public float wageIndex = 1f;
 
+        /// <summary>
+        /// 生活水準（POPDEM-4・#181・0..1・既定0.5）。POP要求物資の充足率からマズロー階層#403 で年々算出（<see cref="PopConsumptionTickRules.TickYear"/>）。
+        /// 高い＝必需が満たされ快適/奢侈も充足。支持#113 の係数。
+        /// </summary>
+        public float livingStandard = 0.5f;
+
+        /// <summary>飢餓の深さ（POPDEM-3・0..1・既定0）。必需（食料）の不足＝1−必需充足率。供給切れ#94/不安定で上がり、不満#113/人口減#153 の圧。</summary>
+        public float foodShortage = 0f;
+
         /// <summary>希少資源（戦略資源 #178）の鉱床を持つか。<b>偏在</b>＝大半の惑星は false（鉱床なし＝後方互換）。</summary>
         public bool hasStrategicResource = false;
 

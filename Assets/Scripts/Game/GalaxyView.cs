@@ -882,6 +882,13 @@ namespace Ginei
                     LaborMarketTickRules.TickYear(kv.Value, mob, flow);
                     // 賃金を1年ぶん（POPLAB-4 配線）：労働逼迫（就業率）×技能で賃金指数が動く。
                     LaborWageTickRules.TickYear(kv.Value, LaborWageTickRules.DefaultAdjustRate);
+
+                    // POP の消費需要を1年ぶん（#2042 配線）：購買力(賃金#1969)×人口で需要、生産力(安定度#109)で供給→充足→生活水準#181・飢餓。
+                    // 不安定/占領/補給切れで生産力が落ちると必需が不足し飢餓に。富裕(高賃金)ほど上位財の需要が増える。
+                    float outFactor = GovernanceRules.OutputFactor(kv.Value);
+                    float popC = kv.Value.population;
+                    PopConsumptionTickRules.TickYear(kv.Value, kv.Value.wageIndex,
+                        popC * outFactor, popC * outFactor * 0.4f, popC * outFactor * 0.15f);
                 }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。

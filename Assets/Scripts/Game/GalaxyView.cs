@@ -715,26 +715,44 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
             }
 
-            // 士官学校（#155 LIFE-5）：各校が1学年を卒業させ新任士官をロスターへ供給（POPの軍属#96が支える）。
+            // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
             if (academies != null && commanders.Count < OfficerRosterCap)
-            {
                 for (int i = 0; i < academies.Count; i++)
-                {
-                    Academy a = academies[i];
-                    if (a == null) continue;
-                    int intake = OfficerAcademyRules.Intake(a, RecruitablePoolOf(a.faction));
-                    if (intake <= 0) continue;
-                    var grads = OfficerAcademyRules.GraduateCohort(a, campaignYear, intake, nextPersonId,
-                        _ => UnityEngine.Random.value);
-                    nextPersonId += grads.Count;
-                    commanders.AddRange(grads);
-                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
-                        $"{a.faction} {a.name} {grads.Count}名 卒業（首席 tier{(grads.Count > 0 ? grads[0].rankTier : 0)}）");
-                }
-            }
+                    if (academies[i] != null) RunMilitaryAcademy(academies[i]);
 
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
+        }
+
+        /// <summary>軍学校＝多段の選抜（幼年学校→士官学校→大学校・#155 細分化）。軍属層から入校し、任官者だけを士官名簿へ。</summary>
+        private void RunMilitaryAcademy(Academy a)
+        {
+            int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction)), 0, 20);
+            if (sitters <= 0) return;
+            var results = MilitaryAcademyRules.RunMilitarySession(a, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += results.Count;
+
+            int 退校 = 0, 幼 = 0, 士 = 0, 参 = 0;
+            Person 首席 = null;
+            for (int k = 0; k < results.Count; k++)
+            {
+                Person p = results[k];
+                switch (p.militaryDegree)
+                {
+                    case MilitaryDegree.大学校卒: 参++; break;
+                    case MilitaryDegree.士官学校卒: 士++; break;
+                    case MilitaryDegree.幼年学校卒: 幼++; break;
+                    default: 退校++; break;
+                }
+                if (MilitaryAcademyRules.IsCommissioned(p.militaryDegree))
+                {
+                    commanders.Add(p); // 任官（士官学校卒以上）のみ士官名簿へ
+                    if (p.hammockNumber == 1) 首席 = p;
+                }
+            }
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{a.faction} {a.name} 入校{sitters}：参謀{参}/士官{士}/幼年{幼}/退校{退校}"
+                + (首席 != null ? $"（首席 tier{首席.rankTier}）" : ""));
         }
 
         /// <summary>その勢力の徴募源（軍属 #96）＝所有星系の Province を合算（士官学校の輩出数の素・#155）。</summary>

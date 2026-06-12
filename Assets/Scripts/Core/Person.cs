@@ -37,6 +37,7 @@ namespace Ginei
 
         // --- 経歴（出自パイプライン LIFE-5/6/7 #155/#156/#157） ---
         public int hammockNumber; // 士官学校の卒業席次（1=首席。小さいほど上位。LIFE-5）
+        public MilitaryDegree militaryDegree = MilitaryDegree.無資格; // 軍学歴の最高（幼年学校卒/士官学校卒/大学校卒。LIFE-5 細分化・MilitaryAcademyRules）
         public int graduationYear; // 卒業年/合格年（学閥=同期の判定）
         public int schoolId;       // 卒業/合格制度のID（学閥=同窓の判定）
         public int examRank;       // 登用試験の合格順位（文官版ハンモック。LIFE-6）

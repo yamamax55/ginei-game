@@ -28,6 +28,15 @@ namespace Ginei
         /// <summary>人口規模（Pop。徴募・産出のスケール）。</summary>
         public float population = 100f;
 
+        /// <summary>希少資源（戦略資源 #178）の鉱床を持つか。<b>偏在</b>＝大半の惑星は false（鉱床なし＝後方互換）。</summary>
+        public bool hasStrategicResource = false;
+
+        /// <summary>この惑星が産出する希少資源（<see cref="hasStrategicResource"/>=true のとき有効）。解決は <see cref="StrategicResourceRules"/>。</summary>
+        public StrategicResourceType strategicResource = StrategicResourceType.レアメタル;
+
+        /// <summary>鉱床の豊富さ（0..1）。希少資源の産出率に乗る（0＝枯れ・1＝豊富）。</summary>
+        public float strategicAbundance = 0f;
+
         /// <summary>安定度・治安（0..100）。低いと産出減・反乱リスク。既定＝中立。</summary>
         public float stability = GovernanceRules.BaseStability;
 

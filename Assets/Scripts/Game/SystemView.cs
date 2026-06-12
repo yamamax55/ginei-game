@@ -183,7 +183,17 @@ namespace Ginei
                    $"安定度: {Mathf.RoundToInt(p.stability)}%{unrest}\n" +
                    $"統合度: {Mathf.RoundToInt(p.integration * 100f)}%\n" +
                    $"類型: {p.systemType}（産出効率 {output}%）\n" +
-                   $"産出/秒: {FormatPlanetResources(p)}";
+                   $"産出/秒: {FormatPlanetResources(p)}" +
+                   FormatPlanetStrategic(p);
+        }
+
+        // 希少資源の鉱床（#178）。鉱床のある惑星だけ「希少資源: 名（豊富さ%・産出/秒）」を出す。
+        private static string FormatPlanetStrategic(Province p)
+        {
+            if (!p.hasStrategicResource) return "";
+            StrategicResourceInfo info = StrategicResourceRules.Info(p.strategicResource);
+            float rate = StrategicResourceRules.ProvinceRate(p);
+            return $"\n<希少資源> {info.displayName}（豊富さ {Mathf.RoundToInt(p.strategicAbundance * 100f)}%・産出/秒 {rate:0.##}）";
         }
 
         // 惑星の実効産出（類型×安定度比例）を「物資/弾薬/燃料」で表す（#93 を惑星層へ・0は省く）。
@@ -215,11 +225,26 @@ namespace Ginei
                 fue += ResourceProductionRules.ProvinceRate(e.province, ResourceType.燃料);
             }
 
+            // 希少資源（#178・偏在）：星系内の鉱床の産出を種類別に合算
+            var stratParts = new List<string>();
+            foreach (var t in StrategicResourceRules.All)
+            {
+                float r = 0f;
+                foreach (var e in planets)
+                    if (e.province.hasStrategicResource && e.province.strategicResource == t)
+                        r += StrategicResourceRules.ProvinceRate(e.province);
+                if (r > 0f) stratParts.Add($"{StrategicResourceRules.Info(t).displayName} {r:0.##}");
+            }
+            string stratLine = stratParts.Count > 0
+                ? "\n希少資源/秒　" + string.Join(" / ", stratParts)
+                : "\n希少資源：なし（偏在＝この星系には鉱床なし）";
+
             aggregateLabel.text = $"星系全体（{g.planetCount}惑星の集約）" +
                 $"　安定度 {Mathf.RoundToInt(g.weightedStability)}%" +
                 $"　人口 {Mathf.RoundToInt(g.totalPopulation)}" +
                 $"　支配思想 {g.dominantIdeology}{unrest}\n" +
-                $"資源産出/秒　物資 {sup:0.#} / 弾薬 {amm:0.#} / 燃料 {fue:0.#}";
+                $"資源産出/秒　物資 {sup:0.#} / 弾薬 {amm:0.#} / 燃料 {fue:0.#}" +
+                stratLine;
         }
 
         private void BuildOrbitRing(float radius, int index)
@@ -288,6 +313,13 @@ namespace Ginei
             p.stability = 22f + (h % 68);                 // 22..90（一部は反乱域に近い）
             p.integration = 0.5f + ((h >> 3) % 6) / 10f;  // 0.5..1.0
             p.systemType = (SystemType)((h >> 5) % 4);    // 工業/農業/鉱業/居住＝惑星が産出する資源（#93 を惑星層へ）
+            // 希少資源の鉱床（#178・偏在＝約1/3の惑星のみ・地理＝決定的）。大半は鉱床なし＝争奪の的が限られる。
+            if (h % 3 == 1)
+            {
+                p.hasStrategicResource = true;
+                p.strategicResource = (StrategicResourceType)((h >> 11) % 4);
+                p.strategicAbundance = 0.4f + ((h >> 7) % 7) / 10f; // 0.4..1.0
+            }
             return p;
         }
 

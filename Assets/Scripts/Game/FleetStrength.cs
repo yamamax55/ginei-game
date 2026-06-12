@@ -107,6 +107,9 @@ namespace Ginei
         [Range(0f, 0.9f)]
         public float flagshipDamageReduction = 0.3f;
 
+        [Tooltip("捨てがまり判定：この距離内に敵がいれば『追われている』とみなす（敵が追ってきている時だけ殿＝捨てがまりが発動）")]
+        public float pursuitDetectRange = 12f;
+
         [Header("得意陣形ボーナス（#104）")]
         [Tooltip("提督の得意陣形と現在陣形が一致する間の被ダメージ軽減率（0=無効, 0.15で被ダメージ15%カット）。実効値パターン＝基準ダメージ・防御計算は非破壊")]
         [Range(0f, 0.9f)]
@@ -294,6 +297,13 @@ namespace Ginei
         {
             if (IsRetreating || IsDestroyed) return;
 
+            // 捨てがまりは「敵が追ってきている場合」のみ発動。追手がいなければ部隊は安全に退却する（配下艦も帯同）。
+            if (!IsBeingPursued())
+            {
+                BeginRetreat();
+                return;
+            }
+
             int escorts = squadron != null ? squadron.LivingEscortCount() : 0;
             float leadership = admiralData != null ? admiralData.EffectiveLeadership : 50f;
             float humility = admiralData != null ? admiralData.humility : 50f;
@@ -313,6 +323,21 @@ namespace Ginei
                 // 散り散り（無能/尊大な提督）または配下艦皆無 → 旗艦撃墜。
                 DestroyFlagship(escorts > 0);
             }
+        }
+
+        /// <summary>追手がいるか＝`pursuitDetectRange` 内に敵対する生存艦（旗艦/配下艦）がいるか。捨てがまり発動条件。</summary>
+        private bool IsBeingPursued()
+        {
+            IReadOnlyList<IShipTarget> all = FleetRegistry.AllTargets;
+            float r2 = pursuitDetectRange * pursuitDetectRange;
+            for (int i = 0; i < all.Count; i++)
+            {
+                IShipTarget t = all[i];
+                if (t == null || !t.IsAlive) continue;
+                if (!FactionRelations.IsHostile(this, t)) continue;
+                if (((Vector2)(t.Transform.position - transform.position)).sqrMagnitude <= r2) return true;
+            }
+            return false;
         }
 
         /// <summary>

@@ -26,6 +26,7 @@ namespace Ginei
 
         private Vector2 lastClickWorldPos;
         private Selectable lastClickedFleet;
+        private bool corpsFormationMode; // 陣形サブメニューを軍団モードで使うか（軍団陣形）
 
         // 陣形サブメニューの配置制御用（Start でキャッシュ）
         private RectTransform formationSubRect;
@@ -182,6 +183,12 @@ namespace Ginei
                 // 3. 陣形変更
                 CreateButton("陣形変更", ToggleFormationSubMenu);
                 buttonCount++;
+
+                // 3c. 軍団陣形（隷下艦隊を集結させ軍団陣形を組む・軍団長は後方／方陣は前列ローテーション）
+                CreateButton("軍団陣形", ToggleCorpsFormationSubMenu);
+                buttonCount++;
+                CreateButton("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); });
+                buttonCount++;
                 
                 // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
                 Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];
@@ -328,6 +335,17 @@ namespace Ginei
         /// <summary>陣形サブメニューの開閉。開くときはメインメニューの脇（画面端と反対側）へ配置する。</summary>
         private void ToggleFormationSubMenu()
         {
+            corpsFormationMode = false; // 通常＝艦隊の陣形変更
+            if (formationSubMenu == null) return;
+            bool show = !formationSubMenu.activeSelf;
+            formationSubMenu.SetActive(show);
+            if (show) PositionFormationSubMenu();
+        }
+
+        /// <summary>軍団陣形サブメニューの開閉。陣形を選ぶと選択艦隊の軍団を集結させ陣形を組む（軍団長は後方）。</summary>
+        private void ToggleCorpsFormationSubMenu()
+        {
+            corpsFormationMode = true; // 同じサブメニューを軍団モードで使う
             if (formationSubMenu == null) return;
             bool show = !formationSubMenu.activeSelf;
             formationSubMenu.SetActive(show);
@@ -371,6 +389,19 @@ namespace Ginei
 
         public void ChangeFormation(int formationIdx)
         {
+            if (corpsFormationMode)
+            {
+                // 軍団陣形：選択中の艦隊が属する軍団を集結させ指定陣形を組む（軍団長は後方）。
+                if (commander != null && commander.SelectedFleets.Count > 0)
+                {
+                    FleetStrength fs = commander.SelectedFleets[0].GetComponent<FleetStrength>();
+                    if (fs != null && CorpsFormation.Instance != null)
+                        CorpsFormation.Instance.FormCorps(fs, (Formation)formationIdx);
+                }
+                corpsFormationMode = false;
+                CloseMenu();
+                return;
+            }
             // 陣形変更の実体は FleetCommander に集約（重複排除）。ここではメニューを閉じるだけ担当。
             if (commander != null) commander.ChangeFormation(formationIdx);
             CloseMenu();

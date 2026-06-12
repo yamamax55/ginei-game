@@ -91,6 +91,11 @@ namespace Ginei
         private List<Person> commanders;
         private int campaignYear;
 
+        // 士官学校（#155 LIFE-5）：勢力ごとの学校。暦の年境界で新任士官を輩出しロスターへ供給する。
+        private List<Academy> academies;
+        private int nextPersonId = 1;       // 卒業生のID採番（手置き提督の次から）
+        private const int OfficerRosterCap = 80; // 士官名簿の上限（PERF＝無制限増加を防ぐ）
+
         // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
         // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
         private List<Shipyard> shipyards;
@@ -616,6 +621,14 @@ namespace Ginei
             commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
             commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
             commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+            nextPersonId = id; // 卒業生はこの続き番号で採番
+
+            // 士官学校（#155 LIFE-5）：各勢力に1校。質に差を付ける（名門は良将を出す）。
+            academies = new List<Academy>
+            {
+                new Academy(schoolId: 1, faction: Faction.帝国, name: "帝国士官学校", capacity: 6, quality: 0.6f),
+                new Academy(schoolId: 2, faction: Faction.同盟, name: "同盟士官学校", capacity: 6, quality: 0.55f),
+            };
         }
 
         /// <summary>
@@ -687,6 +700,35 @@ namespace Ginei
                 int age = LifecycleRules.Age(d, campaignYear);
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
             }
+
+            // 士官学校（#155 LIFE-5）：各校が1学年を卒業させ新任士官をロスターへ供給（POPの軍属#96が支える）。
+            if (academies != null && commanders.Count < OfficerRosterCap)
+            {
+                for (int i = 0; i < academies.Count; i++)
+                {
+                    Academy a = academies[i];
+                    if (a == null) continue;
+                    int intake = OfficerAcademyRules.Intake(a, RecruitablePoolOf(a.faction));
+                    if (intake <= 0) continue;
+                    var grads = OfficerAcademyRules.GraduateCohort(a, campaignYear, intake, nextPersonId,
+                        _ => UnityEngine.Random.value);
+                    nextPersonId += grads.Count;
+                    commanders.AddRange(grads);
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{a.faction} {a.name} {grads.Count}名 卒業（首席 tier{(grads.Count > 0 ? grads[0].rankTier : 0)}）");
+                }
+            }
+        }
+
+        /// <summary>その勢力の徴募源（軍属 #96）＝所有星系の Province を合算（士官学校の輩出数の素・#155）。</summary>
+        private float RecruitablePoolOf(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float pool = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                    pool += OccupationRules.RecruitablePool(prov);
+            return pool;
         }
 
         /// <summary>

@@ -34,6 +34,12 @@ namespace Ginei
         /// </summary>
         public Population demographics = null;
 
+        /// <summary>
+        /// 労働力構成＝生産年齢人口の職業別シェア（#110 職業・null＝未設定＝類型既定で見積り＝後方互換）。
+        /// 解決は <see cref="OccupationRules"/>（適所度・徴募源・失業圧）。職業は惑星の <see cref="systemType"/> でバイアスされる。
+        /// </summary>
+        public Workforce workforce = null;
+
         /// <summary>希少資源（戦略資源 #178）の鉱床を持つか。<b>偏在</b>＝大半の惑星は false（鉱床なし＝後方互換）。</summary>
         public bool hasStrategicResource = false;
 

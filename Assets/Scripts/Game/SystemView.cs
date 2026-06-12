@@ -185,8 +185,22 @@ namespace Ginei
                    $"類型: {p.systemType}（産出効率 {output}%）\n" +
                    $"産出/秒: {FormatPlanetResources(p)}" +
                    FormatPlanetDemographics(p) +
+                   FormatPlanetOccupation(p) +
                    FormatPlanetStrategic(p);
         }
+
+        // POP の職業構成（#110 職業）：就労シェア＋就業率＋徴募源（軍属）。
+        private static string FormatPlanetOccupation(Province p)
+        {
+            Workforce w = p.workforce ?? OccupationRules.Default(p.systemType);
+            int emp = Mathf.RoundToInt(OccupationRules.EmploymentRate(p) * 100f);
+            int rec = Mathf.RoundToInt(OccupationRules.RecruitablePool(p));
+            return $"\n職業: 農{Pct(w, Occupation.農民)}/工{Pct(w, Occupation.工員)}/鉱{Pct(w, Occupation.鉱員)}" +
+                   $"/官{Pct(w, Occupation.官吏)}/兵{Pct(w, Occupation.軍属)}/無職{Pct(w, Occupation.無職)}" +
+                   $"\n就業率 {emp}%・徴募源 {rec}人（軍属）";
+        }
+
+        private static int Pct(Workforce w, Occupation o) => Mathf.RoundToInt(w.Share(o) * 100f);
 
         // 人口動態（出生死亡・LIFE-3 #153）：年齢構成＋局面＋見込み成長率（安定度で出生/死亡が増減）。
         private static string FormatPlanetDemographics(Province p)
@@ -340,6 +354,8 @@ namespace Ginei
             float elderShare = 0.08f + ((h >> 13) % 16) / 100f;  // 0.08..0.23
             float workShare = Mathf.Max(0.3f, 1f - youthShare - elderShare);
             p.demographics = new Population(pop * youthShare, pop * workShare, pop * elderShare);
+            // 職業構成（生産年齢の就労先・#110 職業）＝惑星の類型でバイアス（工業惑星は工員が多い等）。
+            p.workforce = OccupationRules.Default(p.systemType);
             return p;
         }
 

@@ -101,8 +101,9 @@ namespace Ginei
         private List<Person> civilians;
         private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
 
-        // 高校（#155-157 の土台）：勢力ごとの中等教育。進学率＝候補の母数、質＝候補の素質を左右する。
+        // 高校/中学校（#155-157 の土台）：勢力ごとの中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
         private List<HighSchool> highSchools;
+        private List<MiddleSchool> middleSchools;
 
         // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
         // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
@@ -653,6 +654,12 @@ namespace Ginei
                 new HighSchool(schoolId: 10, faction: Faction.帝国, name: "帝国高等学校", enrollmentRate: 0.5f, quality: 0.6f),
                 new HighSchool(schoolId: 11, faction: Faction.同盟, name: "同盟公立高校", enrollmentRate: 0.75f, quality: 0.5f),
             };
+            // 中学校（前期中等教育）：高校より進学率高め（裾野）。中学校→高校→上級学校で進学率が複利。
+            middleSchools = new List<MiddleSchool>
+            {
+                new MiddleSchool(schoolId: 12, faction: Faction.帝国, name: "帝国中等学校", enrollmentRate: 0.8f, quality: 0.55f),
+                new MiddleSchool(schoolId: 13, faction: Faction.同盟, name: "同盟公立中学校", enrollmentRate: 0.95f, quality: 0.5f),
+            };
         }
 
         /// <summary>その勢力の高校（中等教育）を返す（無ければ null＝教育の制約なし）。</summary>
@@ -662,6 +669,37 @@ namespace Ginei
             for (int i = 0; i < highSchools.Count; i++)
                 if (highSchools[i] != null && highSchools[i].faction == faction) return highSchools[i];
             return null;
+        }
+
+        /// <summary>その勢力の中学校（前期中等教育）を返す（無ければ null）。</summary>
+        private MiddleSchool MiddleSchoolOf(Faction faction)
+        {
+            if (middleSchools == null) return null;
+            for (int i = 0; i < middleSchools.Count; i++)
+                if (middleSchools[i] != null && middleSchools[i].faction == faction) return middleSchools[i];
+            return null;
+        }
+
+        /// <summary>
+        /// 教育チェーン（中学校→高校）を解決し、上級学校の候補母数倍率（進学率の複利）と実効教育質（質の段階的上乗せ）を返す。
+        /// 学校が無い段は素通り（倍率1・据え置き＝後方互換）。
+        /// </summary>
+        private void ResolveEducation(Faction faction, float baseQuality, out float enrollFactor, out float effectiveQuality)
+        {
+            enrollFactor = 1f;
+            effectiveQuality = baseQuality;
+            HighSchool hs = HighSchoolOf(faction);
+            MiddleSchool ms = MiddleSchoolOf(faction);
+            if (hs != null)
+            {
+                enrollFactor *= HighSchoolRules.EducationFactor(hs.enrollmentRate);
+                effectiveQuality = HighSchoolRules.EffectiveIntakeQuality(effectiveQuality, hs.quality);
+            }
+            if (ms != null)
+            {
+                enrollFactor *= MiddleSchoolRules.EducationFactor(ms.enrollmentRate);
+                effectiveQuality = MiddleSchoolRules.EffectiveIntakeQuality(effectiveQuality, ms.quality);
+            }
         }
 
         /// <summary>
@@ -746,10 +784,8 @@ namespace Ginei
         /// <summary>軍学校＝多段の選抜（幼年学校→士官学校→大学校・#155 細分化）。軍属層から入校し、任官者だけを士官名簿へ。</summary>
         private void RunMilitaryAcademy(Academy a)
         {
-            // 高校（中等教育）が候補の母数（進学率）と素質（質）を左右する。
-            HighSchool hs = HighSchoolOf(a.faction);
-            float enroll = hs != null ? HighSchoolRules.EducationFactor(hs.enrollmentRate) : 1f;
-            float eq = hs != null ? HighSchoolRules.EffectiveIntakeQuality(a.quality, hs.quality) : a.quality;
+            // 中学校→高校 の教育チェーンが候補の母数（進学率の複利）と素質（質の上乗せ）を左右する。
+            ResolveEducation(a.faction, a.quality, out float enroll, out float eq);
             int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction) * enroll), 0, 20);
             if (sitters <= 0) return;
             var eff = new Academy(a.schoolId, a.faction, a.name, a.capacity, eq);
@@ -828,9 +864,7 @@ namespace Ginei
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
         private void RunImperialExam(University u)
         {
-            HighSchool hs = HighSchoolOf(u.faction);
-            float enroll = hs != null ? HighSchoolRules.EducationFactor(hs.enrollmentRate) : 1f;
-            float eq = hs != null ? HighSchoolRules.EffectiveIntakeQuality(u.quality, hs.quality) : u.quality;
+            ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
             int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction) * enroll), 0, 40);
             if (sitters <= 0) return;
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
@@ -862,9 +896,7 @@ namespace Ginei
         /// <summary>テクノクラート大学の卒業（技術者を文民ロスターへ・#157）。</summary>
         private void RunTechnocratGraduation(University u)
         {
-            HighSchool hs = HighSchoolOf(u.faction);
-            float enroll = hs != null ? HighSchoolRules.EducationFactor(hs.enrollmentRate) : 1f;
-            float eq = hs != null ? HighSchoolRules.EffectiveIntakeQuality(u.quality, hs.quality) : u.quality;
+            ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
             int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll);
             if (intake <= 0) return;
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);

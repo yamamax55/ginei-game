@@ -69,6 +69,20 @@ namespace Ginei
 
         [Tooltip("所属軍団名（#147・表示用。空＝なし）")]
         public string corpsName = "";
+
+        [Header("軍団長の乗艦（CSG・打撃群指揮官モデル）")]
+        [Tooltip("この艦隊（軍団旗艦）に乗艦している軍団長。軍団長は艦隊を持たず旗艦に同乗する（艦の操艦は admiralData＝艦長）。" +
+                 "null＝軍団長は乗っていない。これが非nullの艦隊だけ右クリックで軍団メニューを開ける（CommandMenu）")]
+        public AdmiralData corpsCommander;
+
+        /// <summary>軍団長が乗艦している軍団旗艦か（CSG＝打撃群指揮官の乗る空母に相当）。</summary>
+        public bool IsCorpsFlagship => corpsCommander != null;
+
+        /// <summary>軍団長のバフ/デバフ（士気）。`BattlefieldCommandManager` が軍団ごとに設定。FleetMorale が乗算。</summary>
+        public float corpsMoraleFactor = 1f;
+
+        /// <summary>軍団長のバフ/デバフ（能力＝攻撃）。`BattlefieldCommandManager` が設定。FleetWeapon/EscortShip が乗算。</summary>
+        public float corpsAbilityFactor = 1f;
         [Tooltip("所属軍集団名（#147・表示用。空＝なし）")]
         public string armyGroupName = "";
 

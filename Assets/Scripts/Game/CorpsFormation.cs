@@ -207,6 +207,11 @@ namespace Ginei
 
         private static FleetStrength SelectCommander(List<FleetStrength> members, FleetStrength prefer)
         {
+            // 軍団長が乗艦している軍団旗艦（CSG＝打撃群指揮官の乗る艦）を最優先で軍団長扱いにする。
+            for (int i = 0; i < members.Count; i++)
+                if (members[i] != null && members[i].IsCorpsFlagship) return members[i];
+
+            // 乗艦が無ければ最上位階級の艦隊司令を充てる（後方互換）。
             FleetStrength best = prefer;
             int bestTier = TierOf(prefer);
             for (int i = 0; i < members.Count; i++)
@@ -251,10 +256,11 @@ namespace Ginei
             combat.Clear(); combat.AddRange(sorted);
         }
 
-        /// <summary>軍団長の見極め能力（0..1）＝実効統率と実効情報の平均を正規化。提督不在は中庸0.5。</summary>
+        /// <summary>軍団長の見極め能力（0..1）＝実効統率と実効情報の平均を正規化。乗艦している軍団長があればその能力を優先（CSG）。提督不在は中庸0.5。</summary>
         private static float CommanderSkill(FleetStrength cmd)
         {
-            AdmiralData ad = cmd != null ? cmd.admiralData : null;
+            // 軍団旗艦なら乗艦している軍団長（艦長＝admiralData とは別人）の能力で見立てる。
+            AdmiralData ad = (cmd != null && cmd.IsCorpsFlagship) ? cmd.corpsCommander : (cmd != null ? cmd.admiralData : null);
             if (ad == null) return 0.5f;
             return Mathf.Clamp01((ad.EffectiveLeadership + ad.EffectiveIntelligence) / 200f);
         }

@@ -184,11 +184,15 @@ namespace Ginei
                 CreateButton("陣形変更", ToggleFormationSubMenu);
                 buttonCount++;
 
-                // 3c. 軍団陣形（隷下艦隊を集結させ軍団陣形を組む・軍団長は後方／方陣は前列ローテーション）
-                CreateButton("軍団陣形", ToggleCorpsFormationSubMenu);
-                buttonCount++;
-                CreateButton("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); });
-                buttonCount++;
+                // 3c. 軍団陣形（軍団長が乗艦している軍団旗艦の選択時のみ＝CSG・乗艦している艦からのみ軍団指揮）。
+                FleetStrength sel0 = commander.SelectedFleets[0] != null ? commander.SelectedFleets[0].GetComponent<FleetStrength>() : null;
+                if (sel0 != null && sel0.IsCorpsFlagship)
+                {
+                    CreateButton("軍団陣形", ToggleCorpsFormationSubMenu);
+                    buttonCount++;
+                    CreateButton("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); });
+                    buttonCount++;
+                }
                 
                 // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
                 Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];

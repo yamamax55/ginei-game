@@ -158,7 +158,8 @@ namespace Ginei
             float moraleFactor = flagshipMorale != null ? flagshipMorale.GetMoraleFactor() : 1.0f;
 
             // 艦種の火力倍率を実効値として基準ダメージに乗算（旗艦の基準値は非破壊）。
-            int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier));
+            float corpsAbility = flagship != null ? flagship.corpsAbilityFactor : 1f; // 軍団長の能力バフ/デバフ（CSG）
+            int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier * Mathf.Max(0.1f, corpsAbility)));
 
             bool isFlank;
             float fAtk = FormationTraitRules.AttackFactor(parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣);

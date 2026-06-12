@@ -75,6 +75,9 @@ namespace Ginei
                     candidates.Add(new CommandCandidate(list[i].GetInstanceID(), tier, 0));
                 }
 
+                // 軍団長のバフ/デバフ（CSG）：軍団旗艦に乗艦している軍団長の統率で軍団全体の能力・士気を上下。
+                ApplyCorpsCommanderBuff(list);
+
                 var acting = BattlefieldCommandRules.SelectActingSuccessor(candidates);
                 if (acting.id < 0) continue;
 
@@ -90,6 +93,34 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
                         $"{kv.Key} の指揮を {name} が継承{(underRank ? "（階級不足ながら臨時）" : "（臨時）")}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// 軍団旗艦（軍団長乗艦）の軍団長の統率から、軍団全体（同 corpsName の生存旗艦）の能力・士気バフ/デバフを設定する。
+        /// 軍団長が乗艦していなければ等倍（軍団旗艦喪失は指揮空白デバフ）。CSG＝打撃群指揮官の影響。
+        /// </summary>
+        private static void ApplyCorpsCommanderBuff(List<FleetStrength> corpsFleets)
+        {
+            AdmiralData cc = null;
+            for (int i = 0; i < corpsFleets.Count; i++)
+                if (corpsFleets[i] != null && corpsFleets[i].IsCorpsFlagship) { cc = corpsFleets[i].corpsCommander; break; }
+
+            // 軍団長が乗艦していなければ等倍（軍団長を持たない軍団を不当にデバフしない）。
+            float ability = 1f, morale = 1f;
+            if (cc != null)
+            {
+                float lead = cc.EffectiveLeadership;
+                ability = CorpsCommandRules.AbilityFactor(lead);
+                morale = CorpsCommandRules.MoraleFactor(lead);
+            }
+
+            for (int i = 0; i < corpsFleets.Count; i++)
+            {
+                FleetStrength f = corpsFleets[i];
+                if (f == null) continue;
+                f.corpsAbilityFactor = ability;
+                f.corpsMoraleFactor = morale;
             }
         }
 

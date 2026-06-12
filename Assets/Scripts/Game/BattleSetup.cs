@@ -90,7 +90,52 @@ namespace Ginei
             // 4. 両軍が互いに正対するよう初期の向きを設定
             OrientFleetsToEnemy(spawnedFleets);
 
+            // 5. 軍団長の乗艦（CSG・打撃群指揮官）：軍団ごとに旗艦を1つ選び軍団長を乗艦させる。
+            EmbarkCorpsCommanders(spawnedFleets);
+
             Debug.Log($"BattleSetup: シナリオ「{scenario.scenarioName}」から {spawnedFleets.Count} 艦隊を生成しました。");
+        }
+
+        /// <summary>
+        /// 軍団ごとに軍団旗艦（最上位階級の艦隊）を選び、軍団長を乗艦させる（CSG＝打撃群指揮官モデル）。
+        /// `OrderOfBattle` の軍団に司令が配属されていればその人物を、無ければデモ既定として旗艦の艦隊司令を軍団長に充てる。
+        /// 軍団長は艦隊を持たず旗艦に同乗する＝乗艦艦の右クリックから軍団メニューを開け、軍団全体に能力/士気バフがかかる。
+        /// </summary>
+        private void EmbarkCorpsCommanders(System.Collections.Generic.List<GameObject> spawnedFleets)
+        {
+            var byCorps = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<FleetStrength>>();
+            foreach (var go in spawnedFleets)
+            {
+                if (go == null) continue;
+                FleetStrength fs = go.GetComponent<FleetStrength>();
+                if (fs == null || string.IsNullOrEmpty(fs.corpsName)) continue;
+                string key = fs.faction + "/" + fs.corpsName;
+                if (!byCorps.TryGetValue(key, out var list)) { list = new System.Collections.Generic.List<FleetStrength>(); byCorps[key] = list; }
+                list.Add(fs);
+            }
+
+            foreach (var kv in byCorps)
+            {
+                var list = kv.Value;
+                if (list.Count < 2) continue; // 単艦隊は軍団を成さない
+
+                // 旗艦＝最上位階級の艦隊。
+                FleetStrength flagship = list[0];
+                for (int i = 1; i < list.Count; i++)
+                {
+                    int t = list[i].admiralData != null ? list[i].admiralData.rankTier : 0;
+                    int bt = flagship.admiralData != null ? flagship.admiralData.rankTier : 0;
+                    if (t > bt) flagship = list[i];
+                }
+
+                // 軍団長：OrderOfBattle の軍団司令があればそれを、無ければデモ既定で旗艦の艦隊司令を充てる。
+                AdmiralData cc = null;
+                var corps = OrderOfBattle.GetOrCreate(EchelonType.軍団, flagship.faction, flagship.corpsName);
+                if (corps != null && corps.HasCommander) cc = corps.commander;
+                if (cc == null) cc = flagship.admiralData; // デモ既定（軍団長＝旗艦の司令を兼任）
+
+                flagship.corpsCommander = cc;
+            }
         }
 
         /// <summary>

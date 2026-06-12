@@ -185,8 +185,12 @@ namespace Ginei
             return ApplySustainment(factor);
         }
 
-        /// <summary>継戦ペナルティ（ORBAT-4・任意）を乗せる。コンポーネント無し/opt-in OFF/継戦OK なら 1.0 倍＝挙動不変。</summary>
+        /// <summary>継戦ペナルティ（ORBAT-4・任意）＋軍団長の士気バフ/デバフ（CSG）を乗せる。既定1.0で挙動不変。</summary>
         private float ApplySustainment(float factor)
-            => sustainment != null ? factor * sustainment.EffectiveFactor : factor;
+        {
+            if (sustainment != null) factor *= sustainment.EffectiveFactor;
+            if (strength != null) factor *= Mathf.Max(0.1f, strength.corpsMoraleFactor); // 軍団長のバフ/デバフ
+            return factor;
+        }
     }
 }

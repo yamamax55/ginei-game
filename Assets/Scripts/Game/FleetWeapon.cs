@@ -328,6 +328,10 @@ namespace Ginei
             }
             shotBeamColor = firedMissile ? missileBeamColor : beamColor;
 
+            // 軍団長の能力バフ/デバフ（CSG）：基準ダメージに乗算（既定1.0で挙動不変・実効値パターン）。
+            if (myStrength != null && myStrength.corpsAbilityFactor != 1f)
+                baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * Mathf.Max(0.1f, myStrength.corpsAbilityFactor)));
+
             // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;
             Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);

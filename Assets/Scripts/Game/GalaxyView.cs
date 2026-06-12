@@ -104,6 +104,7 @@ namespace Ginei
         // 高校/中学校（#155-157 の土台）：勢力ごとの中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
         private List<HighSchool> highSchools;
         private List<MiddleSchool> middleSchools;
+        private List<TechnicalCollege> colleges; // 高専（中学校→高専の実務技術者路・#157）
 
         // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
         // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
@@ -660,6 +661,12 @@ namespace Ginei
                 new MiddleSchool(schoolId: 12, faction: Faction.帝国, name: "帝国中等学校", enrollmentRate: 0.8f, quality: 0.55f),
                 new MiddleSchool(schoolId: 13, faction: Faction.同盟, name: "同盟公立中学校", enrollmentRate: 0.95f, quality: 0.5f),
             };
+            // 高専（中学校→高専の実務技術者路・高校を経ない別ルート・#157）。
+            colleges = new List<TechnicalCollege>
+            {
+                new TechnicalCollege(schoolId: 14, faction: Faction.帝国, name: "帝国高等専門学校", capacity: 5, quality: 0.6f),
+                new TechnicalCollege(schoolId: 15, faction: Faction.同盟, name: "同盟工業高専", capacity: 5, quality: 0.55f),
+            };
         }
 
         /// <summary>その勢力の高校（中等教育）を返す（無ければ null＝教育の制約なし）。</summary>
@@ -685,16 +692,26 @@ namespace Ginei
         /// 学校が無い段は素通り（倍率1・据え置き＝後方互換）。
         /// </summary>
         private void ResolveEducation(Faction faction, float baseQuality, out float enrollFactor, out float effectiveQuality)
+            => ResolveEducation(faction, baseQuality, true, out enrollFactor, out effectiveQuality);
+
+        /// <summary>
+        /// 教育チェーンを解決。<paramref name="includeHighSchool"/>=false は高校を経ない路（高専＝中学校→高専）＝高校段を素通り。
+        /// </summary>
+        private void ResolveEducation(Faction faction, float baseQuality, bool includeHighSchool,
+            out float enrollFactor, out float effectiveQuality)
         {
             enrollFactor = 1f;
             effectiveQuality = baseQuality;
-            HighSchool hs = HighSchoolOf(faction);
-            MiddleSchool ms = MiddleSchoolOf(faction);
-            if (hs != null)
+            if (includeHighSchool)
             {
-                enrollFactor *= HighSchoolRules.EducationFactor(hs.enrollmentRate);
-                effectiveQuality = HighSchoolRules.EffectiveIntakeQuality(effectiveQuality, hs.quality);
+                HighSchool hs = HighSchoolOf(faction);
+                if (hs != null)
+                {
+                    enrollFactor *= HighSchoolRules.EducationFactor(hs.enrollmentRate);
+                    effectiveQuality = HighSchoolRules.EffectiveIntakeQuality(effectiveQuality, hs.quality);
+                }
             }
+            MiddleSchool ms = MiddleSchoolOf(faction);
             if (ms != null)
             {
                 enrollFactor *= MiddleSchoolRules.EducationFactor(ms.enrollmentRate);
@@ -850,15 +867,20 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                     $"{deceased[i].faction} {deceased[i].name} 文官 死去（享年 {LifecycleRules.Age(deceased[i], campaignYear)}）");
 
-            // 大学の卒業（官吏層が支える）
-            if (universities == null || civilians.Count >= CivilRosterCap) return;
-            for (int i = 0; i < universities.Count; i++)
-            {
-                University u = universities[i];
-                if (u == null) continue;
-                if (u.track == CareerTrack.科挙) RunImperialExam(u);
-                else RunTechnocratGraduation(u);
-            }
+            // 上級教育の卒業（官吏/工員層が支える・PERF上限で打ち止め）
+            if (civilians.Count >= CivilRosterCap) return;
+            if (universities != null)
+                for (int i = 0; i < universities.Count; i++)
+                {
+                    University u = universities[i];
+                    if (u == null) continue;
+                    if (u.track == CareerTrack.科挙) RunImperialExam(u);
+                    else RunTechnocratGraduation(u);
+                }
+            // 高専（中学校→高専の実務技術者路・高校を経ない別ルート）も年境界で輩出。
+            if (colleges != null)
+                for (int i = 0; i < colleges.Count; i++)
+                    if (colleges[i] != null) RunTechnicalCollege(colleges[i]);
         }
 
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
@@ -891,6 +913,32 @@ namespace Ginei
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{u.faction} {u.name} 科挙 受験{sitters}：進士{進士}/貢士{貢士}/挙人{挙人}/生員{生員}"
                 + (状元 != null ? $"（状元 tier{状元.rankTier}）" : ""));
+        }
+
+        /// <summary>その勢力の技術者候補（工員層 #110）＝所有星系の Province を合算（高専の輩出数の素・#157）。</summary>
+        private float TechnicalCandidatePoolOf(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float pool = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                    pool += OccupationRules.Workers(prov, Occupation.工員);
+            return pool;
+        }
+
+        /// <summary>高専＝中学校から直接入る実務技術者路（高校を経ない・#157）。工員層から入学し技術者を文民ロスターへ。</summary>
+        private void RunTechnicalCollege(TechnicalCollege c)
+        {
+            // 高専は高校を経ない＝中学校のみの教育チェーン（includeHighSchool:false）。
+            ResolveEducation(c.faction, c.quality, false, out float enroll, out float eq);
+            int intake = TechnicalCollegeRules.Intake(c, TechnicalCandidatePoolOf(c.faction) * enroll);
+            if (intake <= 0) return;
+            var eff = new TechnicalCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
+            var grads = TechnicalCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{c.faction} {c.name} {grads.Count}名 卒業（技術者）");
         }
 
         /// <summary>テクノクラート大学の卒業（技術者を文民ロスターへ・#157）。</summary>

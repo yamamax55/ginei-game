@@ -16,6 +16,9 @@ namespace Ginei
         /// <summary>戦闘力（回廊戦闘の勝敗・消耗に使う抽象兵力）。</summary>
         public int strength = 100;
 
+        /// <summary>補給レディネス（0..1・既定1.0＝満補給・MILSUP-6 #2049）。補給線#94 から切れると下がり、低いと損耗・戦闘力低下（<see cref="MilitarySupplyTickRules"/>）。</summary>
+        public float supply = 1f;
+
         /// <summary>ワープ速度（コスト/秒）。回廊 length をこの速度で消化する。</summary>
         public float warpSpeed = 1f;
 

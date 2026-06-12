@@ -22,6 +22,23 @@ namespace Ginei
         [Tooltip("信認（0..1。預金者の信頼。低いほど取り付けリスク）")]
         public float confidence = 1f;
 
+        // ===== バランスシート拡張（BANK #1976・additive・既定0で従来挙動） =====
+
+        [Tooltip("準備金（手元現金＝資産。流動性の源）")]
+        public float reserves = 0f;
+
+        [Tooltip("保有有価証券（国債等＝資産。リスク重みは貸出より低い）")]
+        public float securities = 0f;
+
+        [Tooltip("不良債権（貸出のうち焦げ付き＝損失の源）")]
+        public float nonPerformingLoans = 0f;
+
+        [Tooltip("借入（中央銀行/市場からの調達＝負債）")]
+        public float borrowings = 0f;
+
+        [Tooltip("業態（都市銀行/地方銀行/信用金庫。既定=都市銀行で従来挙動・BTYP #2010）")]
+        public BankType bankType = BankType.都市銀行;
+
         public Bank() { }
 
         public Bank(float deposits, float loans, float reserveRatio = 0.1f, float confidence = 1f)

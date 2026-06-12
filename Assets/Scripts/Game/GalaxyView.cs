@@ -91,6 +91,27 @@ namespace Ginei
         private List<Person> commanders;
         private int campaignYear;
 
+        // 士官学校（#155 LIFE-5）：勢力ごとの学校。暦の年境界で新任士官を輩出しロスターへ供給する。
+        private List<Academy> academies;
+        private int nextPersonId = 1;       // 卒業生のID採番（手置き提督の次から）
+        private const int OfficerRosterCap = 80; // 士官名簿の上限（PERF＝無制限増加を防ぐ）
+
+        // 大学（#156/#157 LIFE-6/7）：文官/技術者を輩出する文民版の学校。文民ロスターへ供給する。
+        private List<University> universities;
+        private List<Person> civilians;
+        private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
+
+        // 幼稚園/小学校/中学校/高校（#155-157 の土台）：勢力ごとの就学前〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
+        private List<Kindergarten> kindergartens;
+        private List<ElementarySchool> elementarySchools;
+        private List<HighSchool> highSchools;
+        private List<MiddleSchool> middleSchools;
+        // 保育園（#153/#110）：教育でなく保育＝労働参加↑・出生率↑（POP の出生/労働に効く）。
+        private List<Nursery> nurseries;
+        private List<TechnicalCollege> colleges; // 高専（中学校→高専の実務技術者路・#157）
+        private List<JuniorCollege> juniorColleges; // 短大（高校卒後2年・行政中堅・#156）
+        private List<VocationalSchool> vocationalSchools; // 専門学校（高校卒後2年・実務specialist・#157）
+
         // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
         // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
         private List<Shipyard> shipyards;
@@ -616,6 +637,173 @@ namespace Ginei
             commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
             commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
             commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+            nextPersonId = id; // 卒業生はこの続き番号で採番
+
+            // 士官学校（#155 LIFE-5）：各勢力に1校。質に差を付ける（名門は良将を出す）。
+            academies = new List<Academy>
+            {
+                new Academy(schoolId: 1, faction: Faction.帝国, name: "帝国士官学校", capacity: 6, quality: 0.6f),
+                new Academy(schoolId: 2, faction: Faction.同盟, name: "同盟士官学校", capacity: 6, quality: 0.55f),
+            };
+
+            // 大学（#156/#157 LIFE-6/7）：各勢力に文官大学＋帝国に工科大学（テクノクラート）。文民/技術者を輩出。
+            civilians = new List<Person>();
+            universities = new List<University>
+            {
+                new University(schoolId: 3, faction: Faction.帝国, name: "帝国大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
+                new University(schoolId: 4, faction: Faction.同盟, name: "自由惑星同盟大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
+                new University(schoolId: 5, faction: Faction.帝国, name: "帝国工科大学", track: CareerTrack.テクノクラート, capacity: 4, quality: 0.6f),
+            };
+
+            // 高校（中等教育の土台）：帝国は選別的（進学率低・質高）、同盟は大衆教育（進学率高）。
+            highSchools = new List<HighSchool>
+            {
+                new HighSchool(schoolId: 10, faction: Faction.帝国, name: "帝国高等学校", enrollmentRate: 0.5f, quality: 0.6f),
+                new HighSchool(schoolId: 11, faction: Faction.同盟, name: "同盟公立高校", enrollmentRate: 0.75f, quality: 0.5f),
+            };
+            // 中学校（前期中等教育）：高校より進学率高め（裾野）。中学校→高校→上級学校で進学率が複利。
+            middleSchools = new List<MiddleSchool>
+            {
+                new MiddleSchool(schoolId: 12, faction: Faction.帝国, name: "帝国中等学校", enrollmentRate: 0.8f, quality: 0.55f),
+                new MiddleSchool(schoolId: 13, faction: Faction.同盟, name: "同盟公立中学校", enrollmentRate: 0.95f, quality: 0.5f),
+            };
+            // 小学校（初等教育の根）：ほぼ全員（義務教育）。就学率が教育チェーンの根を成す。
+            elementarySchools = new List<ElementarySchool>
+            {
+                new ElementarySchool(schoolId: 20, faction: Faction.帝国, name: "帝国国民学校", enrollmentRate: 0.9f, quality: 0.55f),
+                new ElementarySchool(schoolId: 21, faction: Faction.同盟, name: "同盟公立小学校", enrollmentRate: 0.99f, quality: 0.5f),
+            };
+            // 幼稚園（就学前教育＝教育チェーンの最下根）。
+            kindergartens = new List<Kindergarten>
+            {
+                new Kindergarten(schoolId: 22, faction: Faction.帝国, name: "帝国幼稚園", enrollmentRate: 0.6f, quality: 0.55f),
+                new Kindergarten(schoolId: 23, faction: Faction.同盟, name: "同盟幼稚園", enrollmentRate: 0.8f, quality: 0.5f),
+            };
+            // 保育園（保育＝労働参加↑/出生率↑・教育とは別軸）。同盟は福祉手厚く整備率高め。
+            nurseries = new List<Nursery>
+            {
+                new Nursery(schoolId: 24, faction: Faction.帝国, name: "帝国保育所", coverage: 0.4f),
+                new Nursery(schoolId: 25, faction: Faction.同盟, name: "同盟公立保育園", coverage: 0.7f),
+            };
+            // 高専（中学校→高専の実務技術者路・高校を経ない別ルート・#157）。
+            colleges = new List<TechnicalCollege>
+            {
+                new TechnicalCollege(schoolId: 14, faction: Faction.帝国, name: "帝国高等専門学校", capacity: 5, quality: 0.6f),
+                new TechnicalCollege(schoolId: 15, faction: Faction.同盟, name: "同盟工業高専", capacity: 5, quality: 0.55f),
+            };
+            // 短大／専門学校（高校卒後2年制・中堅人材＝官界/現場の裾野・#156/#157）。
+            juniorColleges = new List<JuniorCollege>
+            {
+                new JuniorCollege(schoolId: 16, faction: Faction.帝国, name: "帝国短期大学", capacity: 6, quality: 0.5f),
+                new JuniorCollege(schoolId: 17, faction: Faction.同盟, name: "同盟短期大学", capacity: 6, quality: 0.5f),
+            };
+            vocationalSchools = new List<VocationalSchool>
+            {
+                new VocationalSchool(schoolId: 18, faction: Faction.帝国, name: "帝国専門学校", capacity: 6, quality: 0.5f),
+                new VocationalSchool(schoolId: 19, faction: Faction.同盟, name: "同盟専門学校", capacity: 6, quality: 0.5f),
+            };
+        }
+
+        /// <summary>その勢力の高校（中等教育）を返す（無ければ null＝教育の制約なし）。</summary>
+        private HighSchool HighSchoolOf(Faction faction)
+        {
+            if (highSchools == null) return null;
+            for (int i = 0; i < highSchools.Count; i++)
+                if (highSchools[i] != null && highSchools[i].faction == faction) return highSchools[i];
+            return null;
+        }
+
+        /// <summary>その勢力の中学校（前期中等教育）を返す（無ければ null）。</summary>
+        private MiddleSchool MiddleSchoolOf(Faction faction)
+        {
+            if (middleSchools == null) return null;
+            for (int i = 0; i < middleSchools.Count; i++)
+                if (middleSchools[i] != null && middleSchools[i].faction == faction) return middleSchools[i];
+            return null;
+        }
+
+        /// <summary>その勢力の小学校（初等教育）を返す（無ければ null）。</summary>
+        private ElementarySchool ElementarySchoolOf(Faction faction)
+        {
+            if (elementarySchools == null) return null;
+            for (int i = 0; i < elementarySchools.Count; i++)
+                if (elementarySchools[i] != null && elementarySchools[i].faction == faction) return elementarySchools[i];
+            return null;
+        }
+
+        /// <summary>その勢力の幼稚園（就学前教育）を返す（無ければ null）。</summary>
+        private Kindergarten KindergartenOf(Faction faction)
+        {
+            if (kindergartens == null) return null;
+            for (int i = 0; i < kindergartens.Count; i++)
+                if (kindergartens[i] != null && kindergartens[i].faction == faction) return kindergartens[i];
+            return null;
+        }
+
+        /// <summary>その勢力の保育園の出生率倍率（無ければ1.0）。</summary>
+        private float NurseryFertilityOf(Faction faction)
+        {
+            if (nurseries == null) return 1f;
+            for (int i = 0; i < nurseries.Count; i++)
+                if (nurseries[i] != null && nurseries[i].faction == faction)
+                    return NurseryRules.FertilityFactor(nurseries[i].coverage);
+            return 1f;
+        }
+
+        /// <summary>その勢力の保育園の労働参加倍率（無ければ1.0）＝候補/徴募プールに掛ける。</summary>
+        private float NurseryLaborOf(Faction faction)
+        {
+            if (nurseries == null) return 1f;
+            for (int i = 0; i < nurseries.Count; i++)
+                if (nurseries[i] != null && nurseries[i].faction == faction)
+                    return NurseryRules.LaborParticipationFactor(nurseries[i].coverage);
+            return 1f;
+        }
+
+        /// <summary>
+        /// 教育チェーン（中学校→高校）を解決し、上級学校の候補母数倍率（進学率の複利）と実効教育質（質の段階的上乗せ）を返す。
+        /// 学校が無い段は素通り（倍率1・据え置き＝後方互換）。
+        /// </summary>
+        private void ResolveEducation(Faction faction, float baseQuality, out float enrollFactor, out float effectiveQuality)
+            => ResolveEducation(faction, baseQuality, true, out enrollFactor, out effectiveQuality);
+
+        /// <summary>
+        /// 教育チェーンを解決。<paramref name="includeHighSchool"/>=false は高校を経ない路（高専＝中学校→高専）＝高校段を素通り。
+        /// </summary>
+        private void ResolveEducation(Faction faction, float baseQuality, bool includeHighSchool,
+            out float enrollFactor, out float effectiveQuality)
+        {
+            enrollFactor = 1f;
+            effectiveQuality = baseQuality;
+            if (includeHighSchool)
+            {
+                HighSchool hs = HighSchoolOf(faction);
+                if (hs != null)
+                {
+                    enrollFactor *= HighSchoolRules.EducationFactor(hs.enrollmentRate);
+                    effectiveQuality = HighSchoolRules.EffectiveIntakeQuality(effectiveQuality, hs.quality);
+                }
+            }
+            MiddleSchool ms = MiddleSchoolOf(faction);
+            if (ms != null)
+            {
+                enrollFactor *= MiddleSchoolRules.EducationFactor(ms.enrollmentRate);
+                effectiveQuality = MiddleSchoolRules.EffectiveIntakeQuality(effectiveQuality, ms.quality);
+            }
+            // 小学校（初等教育の根）は学術路/実務路を問わず常にチェーンに入る。
+            ElementarySchool es = ElementarySchoolOf(faction);
+            if (es != null)
+            {
+                enrollFactor *= ElementarySchoolRules.EducationFactor(es.enrollmentRate);
+                effectiveQuality = ElementarySchoolRules.EffectiveIntakeQuality(effectiveQuality, es.quality);
+            }
+            // 幼稚園（就学前教育の最下根）も常にチェーンに入る。
+            Kindergarten kg = KindergartenOf(faction);
+            if (kg != null)
+            {
+                enrollFactor *= KindergartenRules.EducationFactor(kg.enrollmentRate);
+                effectiveQuality = KindergartenRules.EffectiveIntakeQuality(effectiveQuality, kg.quality);
+            }
         }
 
         /// <summary>
@@ -629,6 +817,25 @@ namespace Ginei
             CampaignRules.TickBudgetDay(StrategySession.Campaign, secondsPerDay); // 歳出＝予算総額を国庫から（国家予算の基盤）
             TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
+            RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
+        }
+
+        // 軍の補給を1日ぶん（MILSUP-6・#2049 配線）：補給源（自勢力領）から切れた前線艦隊は補給が枯れて損耗する。
+        // 現在/出発星系が自勢力領なら補給線が通る＝補給。敵に後背を取られる/前線で孤立すると干上がる（兵糧攻め）。
+        private void RunMilitarySupplyTick()
+        {
+            if (reg == null || reg.fleets == null || map == null) return;
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || f.strength <= 0) continue;
+                StarSystem sys = map.GetSystem(f.currentSystemId);
+                bool supplied = sys != null && sys.owner == f.faction; // 後背が自勢力領＝補給線が通る
+                int lost = MilitarySupplyTickRules.TickFleet(f, supplied);
+                if (lost > 0)
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                        $"{f.faction} 第{f.id}艦隊 補給途絶で損耗（-{lost}・補給{Mathf.RoundToInt(f.supply * 100f)}%）");
+            }
         }
 
         /// <summary>
@@ -653,9 +860,87 @@ namespace Ginei
         /// 暦の年境界ごとに人物を1年ぶん老衰判定する（TIME-6 #952・LIFE-2 #152）。死亡した提督はHUDで告知する。
         /// 純ロジックは <see cref="AnnualLifecycleRules"/> に委譲（乱数は決定論のため roll を渡す）。継承は後段。
         /// </summary>
+        // 勢力の教育シグナル（高校の普及率×質）＝POP労働技能の上限（#2034 SKILL-3）に使う。未設定は既定。
+        private void EducationSignalOf(Faction f, out float enrollment, out float quality)
+        {
+            enrollment = 0.7f; quality = 0.55f; // 既定
+            if (highSchools != null)
+                for (int i = 0; i < highSchools.Count; i++)
+                    if (highSchools[i] != null && highSchools[i].faction == f)
+                    { enrollment = highSchools[i].enrollmentRate; quality = highSchools[i].quality; return; }
+        }
+
         private void RunAnnualLifecycleTick()
         {
             campaignYear++;
+
+            // 惑星の人口を1年ぶん動かす（出生・死亡・加齢・LIFE-3 #153）。安定度で出生/死亡が増減＝荒れた星系は人口が減る。
+            // Province は StrategySession で永続＝年を跨いで人口が積み上がる。
+            if (provinces != null)
+                foreach (var kv in provinces)
+                {
+                    if (kv.Value == null) continue;
+                    // 保育園（保育）で出生率↑、POP男女比の偏りで出生率↓（番が組みにくい）＝所有勢力/惑星の状態で出生を増減。
+                    StarSystem sys = map != null ? map.GetSystem(kv.Key) : null;
+                    float fert = (sys != null ? NurseryFertilityOf(sys.owner) : 1f)
+                               * SexRules.BalanceFactor(FemaleShareOf(kv.Value));
+                    var baseRates = DemographicsRules.VitalRates.Default;
+                    var rates = new DemographicsRules.VitalRates(
+                        baseRates.birthRate * fert, baseRates.youthAging, baseRates.workAging, baseRates.elderMortality);
+                    PopulationDynamicsRules.TickYear(kv.Value, rates);
+
+                    // POP の労働技能を1年ぶん形成（教育→OJT・#2034 配線）。教育の普及/質で上限が決まり、年々熟練が積み上がる。
+                    float enroll, qual;
+                    EducationSignalOf(sys != null ? sys.owner : Faction.帝国, out enroll, out qual);
+                    PopLaborTickRules.TickYear(kv.Value, enroll, qual, EducationLevel.高等, PopLaborTickRules.DefaultLearnRate);
+
+                    // 労働市場を1年ぶん（POPLAB-2/3/6 + SKILL-5 配線）：安定度#109 連動の需要へ職業配分が収束＝不安定で失業↑。
+                    // 戦時（前線星系）は生産労働→軍属（総力戦#96）。技能が高い大衆ほど速く再配置（リスキリング#2034）。
+                    float overall = PopLaborTickRules.OverallSkill(kv.Value);
+                    float flow = LaborMarketTickRules.ReskillingFlowRate(LaborMarketTickRules.DefaultFlowRate, overall);
+                    float mob = (sys != null && HasHostileFleetAt(sys)) ? LaborMarketTickRules.WarMobilizationRate : 0f;
+                    LaborMarketTickRules.TickYear(kv.Value, mob, flow);
+                    // 賃金を1年ぶん（POPLAB-4 配線）：労働逼迫（就業率）×技能で賃金指数が動く。
+                    LaborWageTickRules.TickYear(kv.Value, LaborWageTickRules.DefaultAdjustRate);
+
+                    // POP の消費需要を1年ぶん（#2042 配線）：購買力(賃金#1969)×人口で需要、生産力(安定度#109)で供給→充足→生活水準#181・飢餓。
+                    // 不安定/占領/補給切れで生産力が落ちると必需が不足し飢餓に。富裕(高賃金)ほど上位財の需要が増える。
+                    float outFactor = GovernanceRules.OutputFactor(kv.Value);
+                    float popC = kv.Value.population;
+                    PopConsumptionTickRules.TickYear(kv.Value, kv.Value.wageIndex,
+                        popC * outFactor, popC * outFactor * 0.4f, popC * outFactor * 0.15f);
+                }
+
+            // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。
+            // 勢力をまたぐ流れ＝亡命（難民）。総量保存・StrategySession 永続で年を跨いで効く。
+            if (map != null && provinces != null)
+            {
+                var migParams = PopulationMigrationRules.MigrationParams.Default;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || !provinces.TryGetValue(s.id, out var from) || from == null) continue;
+                    System.Collections.Generic.List<int> neighbors = map.Neighbors(s.id);
+                    for (int i = 0; i < neighbors.Count; i++)
+                        if (provinces.TryGetValue(neighbors[i], out var to) && to != null)
+                            PopulationMigrationRules.TickPair(from, to, migParams, 1f);
+                }
+            }
+
+            // 代表生産チェーン（VCHAIN-6・#2091）：森林→木材→建材→住宅 を惑星ごとに年次で流し、住宅充足で生活水準を補正。
+            RunSupplyChainTick();
+
+            // 汎用BOM（BOM-6・#2098）：消費財（食品/衣類）をレシピで生産し、需要充足で生活水準を補正。
+            RunBomConsumerTick();
+
+            // SCM計画（SCM-6・#2105）：消費財需要をMRP展開し、原材料の逼迫（ボトルネック）を勢力ごとに通知（read-only）。
+            RunScmPlanTick();
+
+            // 外交（DIPLO-6・#2119）：勢力ペアの関係をドリフトし、AIが宣戦/講和/同盟を決める。
+            RunDiplomacyTick();
+
+            // 法の支配と法と秩序（LAW-6・#2126）：勢力の法の支配＋惑星の治安を解き、安定へ反映・抑圧を通知。
+            RunLawTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -664,7 +949,800 @@ namespace Ginei
                 Person d = deceased[i];
                 int age = LifecycleRules.Age(d, campaignYear);
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
+
+                // ネームド資産の相続/没収（NASSET-4/6・#2063）：故人の固有資産を同勢力の最高位の存命司令へ相続、不在なら国家へ没収。
+                var estate = NamedAssetRegistry.OwnedByPerson(d.id);
+                if (estate.Count > 0)
+                {
+                    Person heir = FindHeir(d);
+                    for (int e = 0; e < estate.Count; e++)
+                    {
+                        var asset = estate[e];
+                        if (!AssetTransferRules.CanTransfer(asset)) continue; // 称号など不可は本人と消える
+                        if (heir != null) AssetTransferRules.Inherit(asset, heir.id);
+                        else AssetTransferRules.Confiscate(asset, d.faction);
+                    }
+                    string dest = heir != null ? $"{heir.name} が相続" : "国家へ没収";
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{d.name} の資産（{estate.Count}件）→ {dest}");
+                }
+
+                // 金融資産の相続（NFIN-6・#2070）：故人の保有持分を最高位の相続人へ、不在なら国家へ。
+                var fin = FinancialHoldingRegistry.OwnedByPerson(d.id);
+                if (fin.Count > 0)
+                {
+                    Person heir = FindHeir(d);
+                    for (int e = 0; e < fin.Count; e++)
+                    {
+                        if (heir != null) { fin[e].ownerKind = AssetOwnerKind.人物; fin[e].ownerPersonId = heir.id; }
+                        else { fin[e].ownerKind = AssetOwnerKind.国家; fin[e].ownerFaction = d.faction; }
+                    }
+                }
+
+                // 不動産の細分化（NFIN-5/6・#2070＝分地相続）：故人の権利証を複数の相続人へ等分＝惑星の持分が細かく分かれる。
+                var deeds = PropertyDeedRegistry.OwnedByPerson(d.id);
+                if (deeds.Count > 0)
+                {
+                    var heirs = FindHeirs(d, 3); // 上位3名で分割（細分化傾向）
+                    for (int e = 0; e < deeds.Count; e++)
+                    {
+                        if (heirs.Count > 0) PropertyFragmentationRules.FragmentOnInheritance(deeds[e], heirs);
+                        else { deeds[e].ownerKind = AssetOwnerKind.国家; deeds[e].ownerFaction = d.faction; } // 相続人不在は国家へ（細分化せず）
+                    }
+                    if (heirs.Count > 1)
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{d.name} の所領が {heirs.Count} 人へ分割相続（細分化）");
+                }
             }
+
+            // 人物の財産を1年ぶん（PFIN-6・#2056 配線）：俸給#1969 から特性で貯金/投資/浪費し財産が増減。
+            // デモ：id で財産行動特性を割り振る。投資型は変動（暴落リスク#185）・浪費型は貯まらない・貯金型は堅実。
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.deathYear != 0) continue;
+                c.financialTrait = (FinancialTrait)(System.Math.Abs(c.id) % 3); // 0貯金/1投資/2浪費
+                float salary = 50f + c.rankTier * 50f; // 俸給 proxy（階級#14 比例・WAGE#1969）
+                float ret = 0.05f + (c.financialTrait == FinancialTrait.投資 ? (UnityEngine.Random.value - 0.5f) * 0.6f : 0f); // 投資は±変動
+                PersonFinanceTickRules.TickYear(c, salary, ret);
+            }
+
+            // ネームド資産（NASSET-6・#2063 配線）：人物/国家が固有名の資産（旗艦・宮殿等）を持ち、収益→財産・値上がり・相続。
+            SeedNamedAssets();                                  // デモ資産シード（冪等）
+            NamedAssetTickRules.TickYear(ResolveCommander);     // 純収益→所有者 wealth#2056・時価値上がり
+            for (int f = 0; f < DemoFactions.Length; f++)       // 国家資産の純収益は国庫#163 相当へ（デモはログのみ）
+            {
+                float fInc = NamedAssetEffectRules.FactionAnnualIncome(DemoFactions[f]);
+                if (fInc != 0f)
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 国有資産収益 {fInc:0}");
+            }
+
+            // ネームド金融資産・不動産（NFIN-6・#2070 配線）：株式/債券/投資信託の配当・惑星所有権の地代→財産、紙くず化。
+            SeedFinancialAssets();                                  // デモ金融/不動産シード（冪等）
+            MaybeCrashAStock();                                     // 紙くず化デモ（暴落#185）
+            NamedFinancialTickRules.TickYear(ResolveCommander);    // 配当/地代→所有者 wealth#2056
+            for (int f = 0; f < DemoFactions.Length; f++)          // 国家の金融/不動産収益（デモはログ）
+            {
+                float fInc = NamedFinancialTickRules.FactionAnnualIncome(DemoFactions[f]);
+                if (fInc != 0f)
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 金融/地代収益 {fInc:0}");
+            }
+
+            // 国家・惑星の行政物資消費（STATEDEM-6・#2077 配線）：産出を行政・インフラが消費し、不足で統治が逼迫＝安定度低下。
+            RunStateConsumptionTick();
+
+            // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
+            if (academies != null && commanders.Count < OfficerRosterCap)
+                for (int i = 0; i < academies.Count; i++)
+                    if (academies[i] != null) RunMilitaryAcademy(academies[i]);
+
+            // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
+            RunUniversityTick();
+        }
+
+        // --- ネームド資産（NASSET・#2063 デモ配線） ---
+        private static readonly Faction[] DemoFactions = { Faction.帝国, Faction.同盟 };
+        private bool namedAssetsSeeded;
+
+        /// <summary>id から司令を解決（資産収益を所有者 wealth へ流す・<see cref="NamedAssetTickRules"/> 用）。</summary>
+        private Person ResolveCommander(int id)
+        {
+            if (commanders == null) return null;
+            for (int i = 0; i < commanders.Count; i++)
+                if (commanders[i] != null && commanders[i].id == id) return commanders[i];
+            return null;
+        }
+
+        /// <summary>相続人＝故人と同勢力の最高位の存命司令（本人除く・同位は先頭）。不在なら null（=没収）。</summary>
+        private Person FindHeir(Person d)
+        {
+            if (commanders == null || d == null) return null;
+            Person best = null;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.id == d.id || c.deathYear != 0) continue;
+                if (c.faction != d.faction) continue;
+                if (best == null || c.rankTier > best.rankTier) best = c;
+            }
+            return best;
+        }
+
+        /// <summary>デモ資産シード（冪等）：各司令に固有名の旗艦、各勢力に宮殿を1つ持たせる（NASSET-6）。</summary>
+        private void SeedNamedAssets()
+        {
+            if (namedAssetsSeeded || NamedAssetRegistry.All.Count > 0) { namedAssetsSeeded = true; return; }
+            // 各勢力の宮殿（国家所有＝維持費は重いが威信・正統性を生む）。
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                var palace = new NamedAsset(NamedAssetRegistry.NextId(), $"{DemoFactions[f]}宮殿", NamedAssetCategory.宮殿)
+                {
+                    ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f],
+                    value = 5000f, yieldRate = 0.02f, upkeepRate = 0.05f, prestige = 30f
+                };
+                NamedAssetRegistry.Register(palace);
+            }
+            // 各司令の旗艦（人物所有＝維持費はかかるが威信。固有名は提督名から）。
+            if (commanders != null)
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null) continue;
+                    var flagship = new NamedAsset(NamedAssetRegistry.NextId(), $"{c.name}旗艦", NamedAssetCategory.旗艦)
+                    {
+                        ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id,
+                        value = 800f, upkeepRate = 0.03f, prestige = 8f
+                    };
+                    NamedAssetRegistry.Register(flagship);
+                }
+            namedAssetsSeeded = true;
+        }
+
+        // --- ネームド金融資産・不動産（NFIN・#2070 デモ配線） ---
+        private bool financialAssetsSeeded;
+
+        /// <summary>相続人を最大 max 名（同勢力の存命司令を階級降順・本人除く）。細分化相続の分割先。</summary>
+        private System.Collections.Generic.List<int> FindHeirs(Person d, int max)
+        {
+            var result = new System.Collections.Generic.List<int>();
+            if (commanders == null || d == null) return result;
+            var pool = new System.Collections.Generic.List<Person>();
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.id == d.id || c.deathYear != 0 || c.faction != d.faction) continue;
+                pool.Add(c);
+            }
+            pool.Sort((a, b) => b.rankTier.CompareTo(a.rankTier)); // 階級降順
+            for (int i = 0; i < pool.Count && i < max; i++) result.Add(pool[i].id);
+            return result;
+        }
+
+        /// <summary>デモ金融/不動産シード（冪等）：各勢力に国有株式・首都惑星の deed、各司令に少数の株式・地所（NFIN-6）。</summary>
+        private void SeedFinancialAssets()
+        {
+            if (financialAssetsSeeded || FinancialHoldingRegistry.All.Count > 0 || PropertyDeedRegistry.All.Count > 0)
+            { financialAssetsSeeded = true; return; }
+
+            int underlying = 1;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                // 国有の株式（配当）と債券（クーポン）。
+                FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.株式, $"{DemoFactions[f]}重工")
+                { ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f], underlyingId = underlying++, units = 1000f, unitPrice = 10f, incomePerUnit = 0.5f, bookCost = 10000f });
+                FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.債券, $"{DemoFactions[f]}国債")
+                { ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f], underlyingId = underlying++, units = 500f, unitPrice = 100f, incomePerUnit = 3f, bookCost = 50000f });
+            }
+            // 各司令に少数の株式（配当）と、首都星系（id=0 を仮の本拠）に地所（地代）。
+            if (commanders != null)
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null) continue;
+                    FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.投資信託, "銀河ファンド")
+                    { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, underlyingId = underlying, units = 50f, unitPrice = 12f, incomePerUnit = 0.4f, bookCost = 600f });
+                    var deed = new PropertyDeed(0, c.faction == Faction.同盟 ? 1 : 0, 0.2f, 3000f)
+                    { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, rentRate = 0.04f };
+                    PropertyDeedRegistry.Register(deed);
+                }
+            financialAssetsSeeded = true;
+        }
+
+        /// <summary>紙くず化デモ（NFIN-6・暴落#185）：低確率で1銘柄を時価0へ（同銘柄の全保有が紙くずに）。</summary>
+        private void MaybeCrashAStock()
+        {
+            var stocks = FinancialHoldingRegistry.HoldingsOfInstrument(FinancialInstrument.株式);
+            if (stocks.Count == 0 || UnityEngine.Random.value > 0.05f) return;
+            int victim = stocks[UnityEngine.Random.Range(0, stocks.Count)].underlyingId;
+            var affected = FinancialHoldingRegistry.HoldingsOfUnderlying(victim);
+            string banner = null;
+            for (int i = 0; i < affected.Count; i++)
+            {
+                FinancialAssetRules.MarkToMarket(affected[i], 0f, 0f); // 紙くず化
+                banner = affected[i].underlyingName;
+            }
+            if (banner != null)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{banner} 株が暴落＝紙くずに（保有 {affected.Count} 件が無価値化）");
+        }
+
+        // --- 国家・惑星の行政物資消費（STATEDEM・#2077 デモ配線） ---
+        private readonly System.Collections.Generic.Dictionary<Faction, ResourceStockpile> stateStockpiles
+            = new System.Collections.Generic.Dictionary<Faction, ResourceStockpile>();
+
+        /// <summary>国家ごとに所有惑星から産出→行政・インフラが消費→不足で統治逼迫＝安定度低下（STATEDEM-6）。</summary>
+        private void RunStateConsumptionTick()
+        {
+            if (map == null || provinces == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var owned = new System.Collections.Generic.List<Province>();
+                int systemCount = 0;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || s.owner != fac) continue;
+                    systemCount++;
+                    if (provinces.TryGetValue(s.id, out var prov) && prov != null) owned.Add(prov);
+                }
+                if (systemCount == 0) continue;
+
+                // 国庫（資源備蓄）を冪等生成。
+                if (!stateStockpiles.TryGetValue(fac, out var stock) || stock == null)
+                {
+                    stock = new ResourceStockpile(200f, 0f, 100f);
+                    stateStockpiles[fac] = stock;
+                }
+                // 年次産出（所有惑星の類型×統治で物資/燃料を産む）。
+                for (int i = 0; i < owned.Count; i++)
+                    ResourceProductionRules.ProduceFromProvince(stock, owned[i], 1f);
+
+                // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
+                var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);
+                if (result.overall < 0.999f)
+                {
+                    // 行政物資不足＝統治が回らず安定度低下（緩やかに削る＝GovernanceRules 収束と競合させない）。
+                    float penalty = StateConsumptionEffectRules.StabilityPenalty(result.overall) * 0.1f;
+                    for (int i = 0; i < owned.Count; i++)
+                        owned[i].stability = UnityEngine.Mathf.Max(0f, owned[i].stability - penalty);
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{fac} 行政物資が不足（充足 {(int)(result.overall * 100)}%）＝統治逼迫で安定度低下");
+                }
+
+                // 企業の投入制約つき生産（FIRMPROD-6・#2084）：工員#110 から計画産出を見積り、国庫を投入に実産出を解く。
+                // 原材料（物資）/エネルギー（燃料）が足りないと工場が遊休＝減産。実産出ぶんの投入を消費する。
+                float industryWorkers = 0f;
+                for (int i = 0; i < owned.Count; i++) industryWorkers += OccupationRules.Workers(owned[i], Occupation.工員);
+                if (industryWorkers > 0f)
+                {
+                    float planned = industryWorkers; // 計画産出 proxy（労働×生産性=1）
+                    var pr = EnterpriseProductionTickRules.Produce(planned, stock.Get(ResourceType.物資), stock.Get(ResourceType.燃料), float.MaxValue);
+                    EnterpriseProductionTickRules.Consume(stock, pr.realizedOutput);
+                    if (pr.inputConstrained && pr.utilization < 0.999f)
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                            $"{fac} 工業が{pr.binding}不足で減産（稼働 {(int)(pr.utilization * 100)}%）");
+                }
+            }
+        }
+
+        // --- 代表生産チェーン（森林→木材→建材→住宅・VCHAIN・#2091 デモ配線） ---
+        private readonly System.Collections.Generic.Dictionary<int, ChainStock> chainStocks
+            = new System.Collections.Generic.Dictionary<int, ChainStock>();
+
+        /// <summary>類型ごとの森林初期量（居住/農業は森が多く、工業/鉱業は少ない）。</summary>
+        private static float SeedForest(SystemType t)
+        {
+            switch (t)
+            {
+                case SystemType.農業: return 1000f;
+                case SystemType.居住: return 800f;
+                case SystemType.鉱業: return 200f;
+                default: return 300f; // 工業
+            }
+        }
+
+        /// <summary>惑星ごとに森林→木材→建材→住宅 を年次で流し、住宅充足で生活水準を補正（VCHAIN-6）。</summary>
+        private void RunSupplyChainTick()
+        {
+            if (provinces == null) return;
+            var p = SupplyChainParams.Default;
+            int shortageCount = 0, depletionCount = 0;
+            foreach (var kv in provinces)
+            {
+                Province prov = kv.Value;
+                if (prov == null) continue;
+                if (!chainStocks.TryGetValue(kv.Key, out var cs) || cs == null)
+                {
+                    // 初期住宅は需要の8割（最初から住んでいる）。
+                    cs = new ChainStock(SeedForest(prov.systemType), 0f, 0f, prov.population * p.perCapitaHousing * 0.8f);
+                    chainStocks[kv.Key] = cs;
+                }
+                var r = SupplyChainTickRules.TickYear(cs, prov.population, p);
+                // 住宅充足で生活水準#181 を補正（不足は頭打ち＝#2042 がその年に設定した値へ乗算）。
+                prov.livingStandard *= HousingDemandRules.LivingStandardFactor(r.occupancy, 0.7f);
+                if (r.occupancy < 0.8f) shortageCount++;
+                if (r.overharvest) depletionCount++;
+            }
+            if (shortageCount > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"住宅不足の星系 {shortageCount}（木材・建材の供給不足）");
+            if (depletionCount > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"森林の過伐採 {depletionCount} 星系（再生が追いつかない）");
+        }
+
+        // --- 汎用BOM消費財（食品/衣類・BOM・#2098 デモ配線） ---
+        private readonly System.Collections.Generic.Dictionary<int, CommodityStock> bomStocks
+            = new System.Collections.Generic.Dictionary<int, CommodityStock>();
+        private bool bomSeeded;
+        private int grainId, fiberId, clothId, foodId, clothingId;
+        private Recipe foodRecipe, clothRecipe, clothingRecipe;
+
+        /// <summary>品目カタログとレシピを冪等 seed（食品←穀物、布←繊維、衣類←布）。</summary>
+        private void EnsureBomContent()
+        {
+            if (bomSeeded) return;
+            grainId = CommodityCatalog.Register("穀物", CommodityCategory.原材料).id;
+            fiberId = CommodityCatalog.Register("繊維", CommodityCategory.原材料).id;
+            clothId = CommodityCatalog.Register("布", CommodityCategory.中間財).id;
+            foodId = CommodityCatalog.Register("食品", CommodityCategory.消費財).id;
+            clothingId = CommodityCatalog.Register("衣類", CommodityCategory.消費財).id;
+            foodRecipe = RecipeBook.Register(new Recipe(foodId).AddInput(grainId, 1f));        // 食品←穀物×1
+            clothRecipe = RecipeBook.Register(new Recipe(clothId).AddInput(fiberId, 2f));       // 布←繊維×2
+            clothingRecipe = RecipeBook.Register(new Recipe(clothingId).AddInput(clothId, 2f)); // 衣類←布×2
+            bomSeeded = true;
+        }
+
+        /// <summary>惑星ごとに原材料を供給→食品/衣類をレシピ生産→消費財需要を消費し、不足で生活水準を補正（BOM-6）。</summary>
+        private void RunBomConsumerTick()
+        {
+            if (provinces == null) return;
+            EnsureBomContent();
+            // Phase 1: 原材料供給（人口×安定度比例＝荒れた惑星は産まない）。
+            foreach (var kv in provinces)
+            {
+                Province prov = kv.Value;
+                if (prov == null) continue;
+                if (!bomStocks.TryGetValue(kv.Key, out var cs) || cs == null) { cs = new CommodityStock(); bomStocks[kv.Key] = cs; }
+                float outFactor = GovernanceRules.OutputFactor(prov);
+                cs.Add(grainId, prov.population * 1.5f * outFactor);
+                cs.Add(fiberId, prov.population * 0.6f * outFactor);
+            }
+            // Phase 2: 域内物流（DIST-6・#2112）＝余剰の穀物を不足惑星へ回廊で配送（通商破壊で分断）。生産の前に回す。
+            RunRegionalDistributionTick();
+            // Phase 3: レシピ生産＋消費財需要の充足。
+            int foodShort = 0, clothingShort = 0;
+            foreach (var kv in provinces)
+            {
+                Province prov = kv.Value;
+                if (prov == null) continue;
+                if (!bomStocks.TryGetValue(kv.Key, out var cs) || cs == null) continue;
+                float pop = prov.population;
+                // レシピ生産（上流→下流）：食品←穀物、布←繊維、衣類←布。
+                BomTickRules.Produce(cs, foodRecipe, pop * 1.0f);
+                BomTickRules.Produce(cs, clothRecipe, pop * 0.4f);
+                BomTickRules.Produce(cs, clothingRecipe, pop * 0.2f);
+                // 消費財需要の充足（食品は全員・衣類は控えめ）。
+                float foodDemand = ConsumerDemandRules.Demand(pop, 1.0f);
+                float clothingDemand = ConsumerDemandRules.Demand(pop, 0.2f);
+                float foodFulfill = ConsumerDemandRules.Fulfillment(cs.Get(foodId), foodDemand);
+                float clothingFulfill = ConsumerDemandRules.Fulfillment(cs.Get(clothingId), clothingDemand);
+                ConsumerDemandRules.Consume(cs, foodId, foodDemand);
+                ConsumerDemandRules.Consume(cs, clothingId, clothingDemand);
+                float consumerFactor = ConsumerDemandRules.LivingStandardFactor(UnityEngine.Mathf.Min(foodFulfill, clothingFulfill), 0.6f);
+                prov.livingStandard *= consumerFactor;
+                if (foodFulfill < 0.8f) foodShort++;
+                if (clothingFulfill < 0.8f) clothingShort++;
+            }
+            if (foodShort > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"食料不足の星系 {foodShort}（穀物・食品の供給不足）");
+            if (clothingShort > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"衣類不足の星系 {clothingShort}（繊維・布の供給不足）");
+        }
+
+        // --- SCM計画（MRP所要量展開・SCM・#2105 read-only 配線） ---
+        /// <summary>勢力ごとに消費財需要をMRP展開し、原材料供給見込みと突き合わせて逼迫品目を通知（状態は変えない）。</summary>
+        private void RunScmPlanTick()
+        {
+            if (map == null || provinces == null) return;
+            EnsureBomContent();
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                float totalPop = 0f, grainSupply = 0f, fiberSupply = 0f;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || s.owner != fac) continue;
+                    if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                    float pop = prov.population;
+                    float outFactor = GovernanceRules.OutputFactor(prov);
+                    totalPop += pop;
+                    grainSupply += pop * 1.5f * outFactor; // RunBomConsumerTick と同じ供給見込み
+                    fiberSupply += pop * 0.6f * outFactor;
+                }
+                if (totalPop <= 0f) continue;
+
+                var demands = new System.Collections.Generic.Dictionary<int, float>
+                {
+                    { foodId, totalPop * 1.0f },     // 食品＝全員
+                    { clothingId, totalPop * 0.2f }, // 衣類＝控えめ
+                };
+                var onHand = new CommodityStock();
+                onHand.Add(grainId, grainSupply);
+                onHand.Add(fiberId, fiberSupply);
+
+                var plan = ScmTickRules.Plan(demands, onHand);
+                if (plan.serviceLevel < 0.7f && plan.criticalCommodity >= 0)
+                {
+                    var crit = CommodityCatalog.Get(plan.criticalCommodity);
+                    string name = crit != null ? crit.name : "原材料";
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                        $"{fac} SCM計画：{name}が逼迫（消費財の充足見込み {(int)(plan.serviceLevel * 100)}%）");
+                }
+            }
+        }
+
+        // --- 勢力内供給配分（域内物流・DIST・#2112 配線） ---
+        private const float DistributionLoss = 0.05f; // 回廊輸送ロス
+
+        /// <summary>勢力ごとに連結領域内で穀物を再配分＝余剰の穀倉惑星が不足惑星を養う（通商破壊で分断・封鎖惑星は孤立）。</summary>
+        private void RunRegionalDistributionTick()
+        {
+            if (map == null || provinces == null) return;
+            // 通商破壊#95：敵艦が在席する星系は中継不能＝領域を分断する。
+            var blocked = new System.Collections.Generic.HashSet<int>();
+            foreach (var s in map.systems)
+                if (s != null && HasHostileFleetAt(s)) blocked.Add(s.id);
+
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var components = RegionReachabilityRules.Components(map, fac, blocked);
+                for (int ci = 0; ci < components.Count; ci++)
+                {
+                    var ids = new System.Collections.Generic.List<int>();
+                    foreach (var id in components[ci])
+                        if (provinces.TryGetValue(id, out var pv) && pv != null && bomStocks.TryGetValue(id, out var st) && st != null)
+                            ids.Add(id);
+                    if (ids.Count < 2) continue; // 2惑星以上ないと配分の意味がない
+
+                    var stocks = new CommodityStock[ids.Count];
+                    var grainDemand = new float[ids.Count];
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        stocks[i] = bomStocks[ids[i]];
+                        grainDemand[i] = provinces[ids[i]].population * 1.0f; // 食品の素＝穀物の地元需要
+                    }
+                    RegionalDistributionTickRules.Distribute(stocks, grainId, grainDemand, float.MaxValue, DistributionLoss);
+                }
+            }
+        }
+
+        // --- 外交（DIPLO・#2119 配線） ---
+        /// <summary>勢力ペアの外交を年次で回す＝関係ドリフト→AIが宣戦/講和/同盟を決定し通知。</summary>
+        private void RunDiplomacyTick()
+        {
+            if (map == null) return;
+            // セッション初期化＋FactionRelations.ActiveDiplomacy 配線（冪等）。
+            var names = new System.Collections.Generic.List<string>();
+            for (int f = 0; f < DemoFactions.Length; f++) names.Add(DemoFactions[f].ToString());
+            var state = DiplomacySession.Ensure(names);
+
+            var dp = DiplomacyRules.DiplomacyParams.Default;
+            var ai = DiplomacyAiRules.DiploAiParams.Default;
+            var wp = WarGoalRules.WarGoalParams.Default;
+            // プレイヤー勢力の外交はプレイヤーが操作する（AIに乗っ取らせない・#2119 操作化）。
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+
+            for (int i = 0; i < DemoFactions.Length; i++)
+                for (int j = i + 1; j < DemoFactions.Length; j++)
+                {
+                    Faction fa = DemoFactions[i], fb = DemoFactions[j];
+                    if (fa == player || fb == player) continue; // プレイヤー絡みのペアはAI判断しない
+                    string a = fa.ToString(), b = fb.ToString();
+                    // 国力＝所有惑星の人口合計、思想親和＝デモは異勢力で険悪、国境接触ありとみなす。
+                    float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
+                    var factors = new DiplomacyRules.OpinionFactors(-0.5f, 0.2f, true, 0f, false);
+                    var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);
+                    switch (ev)
+                    {
+                        case DiplomacyEvent.宣戦布告:
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.警告, $"{a} が {b} に宣戦布告");
+                            break;
+                        case DiplomacyEvent.講和:
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} と {b} が講和");
+                            break;
+                        case DiplomacyEvent.同盟締結:
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} と {b} が同盟締結");
+                            break;
+                    }
+                }
+
+            // 失効した条約を整理（status系は平時へ）。
+            TreatyManagementRules.ExpireDue(state, campaignYear);
+        }
+
+        /// <summary>
+        /// プレイヤー勢力の外交コマンドを発令（UI/キーから呼ぶ・#2119 操作化の入口）。
+        /// 検証/適用は <see cref="DiplomacyCommandRules"/> へ委譲。成功で外交カテゴリへ通知し true。
+        /// </summary>
+        public bool IssuePlayerDiplomacy(Faction target, DiplomaticAction action)
+        {
+            var state = DiplomacySession.State;
+            if (state == null) return false;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            if (target == player) return false;
+            string a = player.ToString(), b = target.ToString();
+            bool ok = DiplomacyCommandRules.Issue(state, a, b, action, DiplomacyRules.DiplomacyParams.Default);
+            if (ok)
+                NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} → {b}：{action} を発令");
+            return ok;
+        }
+
+        /// <summary>勢力の国力 proxy＝所有星系の人口合計。</summary>
+        private float FactionPopulation(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float pop = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                    pop += prov.population;
+            return pop;
+        }
+
+        // --- 法の支配と法と秩序（LAW・#2126 配線） ---
+        /// <summary>勢力の法の支配（デモ法体系）＋惑星の治安（犯罪→秩序）を年次で解き、安定へ反映・抑圧を通知。</summary>
+        private void RunLawTick()
+        {
+            if (map == null || provinces == null) return;
+            var cp = CrimeRules.CrimeParams.Default;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                // デモ法体系：同盟＝法の支配（権力も法に従う）／帝国＝法治どまり（権力制約が低い）。
+                LegalSystem legal = fac == Faction.同盟
+                    ? new LegalSystem(0.7f, 0.7f, 0.7f, 0.7f)
+                    : new LegalSystem(0.7f, 0.4f, 0.25f, 0.6f);
+                float rol = RuleOfLawRules.RuleOfLawIndex(legal);
+                const float enforcement = 0.6f; // デモ警察力
+                int repressed = 0;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || s.owner != fac) continue;
+                    if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                    float unemployment = UnityEngine.Mathf.Clamp01(OccupationRules.UnemploymentPressure(prov));
+                    float poverty = UnityEngine.Mathf.Clamp01(1f - prov.livingStandard);
+                    var r = LawTickRules.TickProvince(rol, unemployment, poverty, 0.3f, enforcement, cp);
+                    // 秩序で安定度を緩やかに補正（GovernanceRules 収束と競合させない）。
+                    prov.stability = UnityEngine.Mathf.Clamp(prov.stability + r.stabilityDelta * 0.1f, 0f, 100f);
+                    if (r.repression > 0.4f) repressed++;
+                }
+                if (RuleOfLawRules.IsRuleByLawOnly(legal) && repressed > 0)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                        $"{fac} 法治体制で取締りが抑圧化（{repressed} 星系）＝正統性を蝕む");
+            }
+        }
+
+        // 人材の男女比（デモ政策＝銀英伝風：帝国は家父長的で女性が少なく、同盟は平等で多め）。
+        private const float ImperialFemaleShare = 0.08f;
+        private const float AllianceFemaleShare = 0.35f;
+
+        /// <summary>新任人材に性別を割り当てる（所有勢力の政策男女比・決定論 roll）。性的指向は別軸の検討項目（未実装）。</summary>
+        private void AssignSexes(System.Collections.Generic.List<Person> people, Faction faction)
+        {
+            if (people == null) return;
+            float fshare = faction == Faction.同盟 ? AllianceFemaleShare : ImperialFemaleShare;
+            for (int i = 0; i < people.Count; i++)
+                if (people[i] != null)
+                    people[i].sex = UnityEngine.Random.value < fshare ? Sex.女性 : Sex.男性;
+        }
+
+        /// <summary>軍学校＝多段の選抜（幼年学校→士官学校→大学校・#155 細分化）。軍属層から入校し、任官者だけを士官名簿へ。</summary>
+        private void RunMilitaryAcademy(Academy a)
+        {
+            // 中学校→高校 の教育チェーンが候補の母数（進学率の複利）と素質（質の上乗せ）を左右する。
+            ResolveEducation(a.faction, a.quality, out float enroll, out float eq);
+            int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction) * enroll), 0, 20);
+            if (sitters <= 0) return;
+            var eff = new Academy(a.schoolId, a.faction, a.name, a.capacity, eq);
+            var results = MilitaryAcademyRules.RunMilitarySession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += results.Count;
+            AssignSexes(results, a.faction);
+
+            int 退校 = 0, 幼 = 0, 士 = 0, 参 = 0;
+            Person 首席 = null;
+            for (int k = 0; k < results.Count; k++)
+            {
+                Person p = results[k];
+                switch (p.militaryDegree)
+                {
+                    case MilitaryDegree.大学校卒: 参++; break;
+                    case MilitaryDegree.士官学校卒: 士++; break;
+                    case MilitaryDegree.幼年学校卒: 幼++; break;
+                    default: 退校++; break;
+                }
+                if (MilitaryAcademyRules.IsCommissioned(p.militaryDegree))
+                {
+                    commanders.Add(p); // 任官（士官学校卒以上）のみ士官名簿へ
+                    if (p.hammockNumber == 1) 首席 = p;
+                }
+            }
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{a.faction} {a.name} 入校{sitters}：参謀{参}/士官{士}/幼年{幼}/退校{退校}"
+                + (首席 != null ? $"（首席 tier{首席.rankTier}）" : ""));
+        }
+
+        /// <summary>その勢力の徴募源（軍属 #96）＝所有星系の Province を合算（士官学校の輩出数の素・#155）。</summary>
+        private float RecruitablePoolOf(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float part = FemaleMilitaryParticipationOf(faction); // 女性の軍参加政策（帝国は低い＝家父長制）
+            float pool = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                {
+                    // POP の性別構成で徴募源をゲート＝男性＋女性参加ぶんだけ軍に就ける。
+                    float elig = SexRules.EligibleMilitaryFraction(FemaleShareOf(prov), part);
+                    pool += OccupationRules.RecruitablePool(prov) * elig;
+                }
+            return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
+        }
+
+        // 女性の軍参加政策（デモ＝銀英伝風：帝国は家父長的で女性の軍参加が低く徴募源が細る／同盟は平等で全員）。
+        private const float ImperialFemaleMilitaryParticipation = 0.1f;
+        private const float AllianceFemaleMilitaryParticipation = 1f;
+        private float FemaleMilitaryParticipationOf(Faction faction)
+            => faction == Faction.同盟 ? AllianceFemaleMilitaryParticipation : ImperialFemaleMilitaryParticipation;
+
+        /// <summary>惑星の女性割合（POP の男女比・コホート未設定なら均衡0.5）。</summary>
+        private static float FemaleShareOf(Province prov)
+            => prov != null && prov.demographics != null ? prov.demographics.femaleShare : SexRules.BalancedFemaleShare;
+
+        /// <summary>その勢力の文民候補（官吏層 #110）＝所有星系の Province を合算（大学の輩出数の素・#156/#157）。</summary>
+        private float CivilCandidatePoolOf(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float pool = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                    pool += OccupationRules.Workers(prov, Occupation.官吏);
+            return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
+        }
+
+        /// <summary>
+        /// 暦の年境界で大学が新任文民（文官/技術者）を輩出し文民ロスターへ供給する（#156/#157 LIFE-6/7）。
+        /// 文民も老衰し（LIFE-2）、大学が補充する＝官界の世代交代。<see cref="OfficerAcademyRules"/> の文民版。
+        /// </summary>
+        private void RunUniversityTick()
+        {
+            if (civilians == null) return;
+            // 文民の老衰（人事の世代交代）
+            var deceased = AnnualLifecycleRules.ProcessMortality(civilians, campaignYear, 1, _ => UnityEngine.Random.value);
+            for (int i = 0; i < deceased.Count; i++)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{deceased[i].faction} {deceased[i].name} 文官 死去（享年 {LifecycleRules.Age(deceased[i], campaignYear)}）");
+
+            // 上級教育の卒業（官吏/工員層が支える・PERF上限で打ち止め）
+            if (civilians.Count >= CivilRosterCap) return;
+            if (universities != null)
+                for (int i = 0; i < universities.Count; i++)
+                {
+                    University u = universities[i];
+                    if (u == null) continue;
+                    if (u.track == CareerTrack.科挙) RunImperialExam(u);
+                    else RunTechnocratGraduation(u);
+                }
+            // 高専（中学校→高専の実務技術者路・高校を経ない別ルート）も年境界で輩出。
+            if (colleges != null)
+                for (int i = 0; i < colleges.Count; i++)
+                    if (colleges[i] != null) RunTechnicalCollege(colleges[i]);
+            // 短大／専門学校（高校卒後2年・中堅人材＝官界/現場の裾野）も輩出。
+            if (juniorColleges != null)
+                for (int i = 0; i < juniorColleges.Count; i++)
+                    if (juniorColleges[i] != null) RunJuniorCollege(juniorColleges[i]);
+            if (vocationalSchools != null)
+                for (int i = 0; i < vocationalSchools.Count; i++)
+                    if (vocationalSchools[i] != null) RunVocationalSchool(vocationalSchools[i]);
+        }
+
+        /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
+        private void RunImperialExam(University u)
+        {
+            ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
+            int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction) * enroll), 0, 40);
+            if (sitters <= 0) return;
+            var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
+            var results = ImperialExamRules.RunExamSession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += results.Count;
+            AssignSexes(results, u.faction);
+
+            int 生員 = 0, 挙人 = 0, 貢士 = 0, 進士 = 0;
+            Person 状元 = null;
+            for (int k = 0; k < results.Count; k++)
+            {
+                Person p = results[k];
+                switch (p.examDegree)
+                {
+                    case ExamDegree.生員: 生員++; break;
+                    case ExamDegree.挙人: 挙人++; break;
+                    case ExamDegree.貢士: 貢士++; break;
+                    case ExamDegree.進士:
+                        進士++;
+                        if (p.examRank == 1) 状元 = p;
+                        civilians.Add(p); // 進士のみ高官として登用（科挙の狭き門）
+                        break;
+                }
+            }
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{u.faction} {u.name} 科挙 受験{sitters}：進士{進士}/貢士{貢士}/挙人{挙人}/生員{生員}"
+                + (状元 != null ? $"（状元 tier{状元.rankTier}）" : ""));
+        }
+
+        /// <summary>その勢力の技術者候補（工員層 #110）＝所有星系の Province を合算（高専の輩出数の素・#157）。</summary>
+        private float TechnicalCandidatePoolOf(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float pool = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                    pool += OccupationRules.Workers(prov, Occupation.工員);
+            return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
+        }
+
+        /// <summary>高専＝中学校から直接入る実務技術者路（高校を経ない・#157）。工員層から入学し技術者を文民ロスターへ。</summary>
+        private void RunTechnicalCollege(TechnicalCollege c)
+        {
+            // 高専は高校を経ない＝中学校のみの教育チェーン（includeHighSchool:false）。
+            ResolveEducation(c.faction, c.quality, false, out float enroll, out float eq);
+            int intake = TechnicalCollegeRules.Intake(c, TechnicalCandidatePoolOf(c.faction) * enroll);
+            if (intake <= 0) return;
+            var eff = new TechnicalCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
+            var grads = TechnicalCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            AssignSexes(grads, c.faction);
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{c.faction} {c.name} {grads.Count}名 卒業（技術者）");
+        }
+
+        /// <summary>短大の卒業（高校卒後2年・行政中堅文民を官吏層から・#156）。</summary>
+        private void RunJuniorCollege(JuniorCollege c)
+        {
+            ResolveEducation(c.faction, c.quality, out float enroll, out float eq); // 高校卒後＝高校チェーン込み
+            int intake = JuniorCollegeRules.Intake(c, CivilCandidatePoolOf(c.faction) * enroll);
+            if (intake <= 0) return;
+            var eff = new JuniorCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
+            var grads = JuniorCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            AssignSexes(grads, c.faction);
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{c.faction} {c.name} {grads.Count}名 卒業（行政中堅）");
+        }
+
+        /// <summary>専門学校の卒業（高校卒後2年・実務specialist を工員層から・#157）。</summary>
+        private void RunVocationalSchool(VocationalSchool s)
+        {
+            ResolveEducation(s.faction, s.quality, out float enroll, out float eq);
+            int intake = VocationalSchoolRules.Intake(s, TechnicalCandidatePoolOf(s.faction) * enroll);
+            if (intake <= 0) return;
+            var eff = new VocationalSchool(s.schoolId, s.faction, s.name, s.capacity, eq);
+            var grads = VocationalSchoolRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            AssignSexes(grads, s.faction);
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{s.faction} {s.name} {grads.Count}名 卒業（実務）");
+        }
+
+        /// <summary>テクノクラート大学の卒業（技術者を文民ロスターへ・#157）。</summary>
+        private void RunTechnocratGraduation(University u)
+        {
+            ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
+            int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll);
+            if (intake <= 0) return;
+            var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
+            var grads = UniversityRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            nextPersonId += grads.Count;
+            AssignSexes(grads, u.faction);
+            civilians.AddRange(grads);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{u.faction} {u.name} {grads.Count}名 卒業（{u.track}）");
         }
 
         /// <summary>

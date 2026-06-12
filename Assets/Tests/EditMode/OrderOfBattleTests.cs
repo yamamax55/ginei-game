@@ -385,5 +385,87 @@ namespace Ginei.Tests
             Assert.AreEqual(g1.id, corps.parentId); // 親は g1 のまま（巻き込み無し）
             Assert.IsTrue(g1.childFormationIds.Contains(corps.id));
         }
+
+        // ===== ORBAT-1 #1717：EchelonType の多段化（戦隊/分艦隊/艦隊/軍団/軍/軍集団/宇宙艦隊） =====
+
+        /// <summary>
+        /// ORBAT-1：全梯団の必要階級 tier が現実準拠の段で定まる（戦隊4/分艦隊6/艦隊7/軍団8/軍9/軍集団10/宇宙艦隊10）。
+        /// 段が上がるほど必要 tier は単調非減少（高い段ほど高い階級が要る）。
+        /// </summary>
+        [Test]
+        public void RequiredTier_MultiTierEchelons_ORBAT1()
+        {
+            Assert.AreEqual(4, OrderOfBattle.RequiredTier(EchelonType.戦隊));
+            Assert.AreEqual(6, OrderOfBattle.RequiredTier(EchelonType.分艦隊));
+            Assert.AreEqual(7, OrderOfBattle.RequiredTier(EchelonType.艦隊));
+            Assert.AreEqual(8, OrderOfBattle.RequiredTier(EchelonType.軍団));
+            Assert.AreEqual(9, OrderOfBattle.RequiredTier(EchelonType.軍));
+            Assert.AreEqual(10, OrderOfBattle.RequiredTier(EchelonType.軍集団));
+            Assert.AreEqual(10, OrderOfBattle.RequiredTier(EchelonType.宇宙艦隊));
+
+            // enum の並び順＝序列（低→高）で必要 tier が単調非減少であることを固定
+            var order = new[]
+            {
+                EchelonType.戦隊, EchelonType.分艦隊, EchelonType.艦隊,
+                EchelonType.軍団, EchelonType.軍, EchelonType.軍集団, EchelonType.宇宙艦隊
+            };
+            for (int i = 1; i < order.Length; i++)
+                Assert.LessOrEqual(OrderOfBattle.RequiredTier(order[i - 1]),
+                                   OrderOfBattle.RequiredTier(order[i]),
+                                   $"{order[i - 1]} → {order[i]} で必要tierが下がってはならない");
+        }
+
+        /// <summary>
+        /// ORBAT-1：新段の司令配属が階級ゲートで効く。戦隊は准将(5≥4)で持てる／軍は上級大将(9)が要る（大将8は不可）／
+        /// 宇宙艦隊は元帥(10)のみ（上級大将9は不可）。
+        /// </summary>
+        [Test]
+        public void AssignCommander_NewEchelons_RankGate_ORBAT1()
+        {
+            var squadron = OrderOfBattle.Create(EchelonType.戦隊, Faction.同盟);
+            Assert.IsTrue(OrderOfBattle.AssignCommander(squadron.id, Admiral(5)));  // 准将でも戦隊は持てる（5≥4）
+
+            var army = OrderOfBattle.Create(EchelonType.軍, Faction.帝国);
+            Assert.IsFalse(OrderOfBattle.AssignCommander(army.id, Admiral(8)));     // 大将は軍を持てない（8<9）
+            Assert.IsTrue(OrderOfBattle.AssignCommander(army.id, Admiral(9)));      // 上級大将で可
+
+            var grand = OrderOfBattle.Create(EchelonType.宇宙艦隊, Faction.帝国);
+            Assert.IsFalse(OrderOfBattle.AssignCommander(grand.id, Admiral(9)));    // 上級大将は不可（9<10）
+            Assert.IsTrue(OrderOfBattle.AssignCommander(grand.id, Admiral(10)));    // 元帥で可
+        }
+
+        /// <summary>
+        /// ORBAT-1：多段ツリー（宇宙艦隊⊃軍集団⊃軍⊃軍団⊃艦隊⊃分艦隊⊃戦隊）を組み、葉に置いた艦隊が
+        /// 全段の StrengthUnder/AllFleetNumbersUnder へ再帰で巻き上がる（段が増えても集計は流用で通る）。
+        /// </summary>
+        [Test]
+        public void DeepEchelonTree_RollsUpLeafFleet_ORBAT1()
+        {
+            FleetRoster.Clear();
+            var grand = OrderOfBattle.Create(EchelonType.宇宙艦隊, Faction.帝国);
+            var group = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
+            var army = OrderOfBattle.Create(EchelonType.軍, Faction.帝国);
+            var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
+            var fleet = OrderOfBattle.Create(EchelonType.艦隊, Faction.帝国);
+            var sub = OrderOfBattle.Create(EchelonType.分艦隊, Faction.帝国);
+            var squadron = OrderOfBattle.Create(EchelonType.戦隊, Faction.帝国);
+
+            Assert.IsTrue(OrderOfBattle.AttachFormation(grand.id, group.id));
+            Assert.IsTrue(OrderOfBattle.AttachFormation(group.id, army.id));
+            Assert.IsTrue(OrderOfBattle.AttachFormation(army.id, corps.id));
+            Assert.IsTrue(OrderOfBattle.AttachFormation(corps.id, fleet.id));
+            Assert.IsTrue(OrderOfBattle.AttachFormation(fleet.id, sub.id));
+            Assert.IsTrue(OrderOfBattle.AttachFormation(sub.id, squadron.id));
+
+            var unit = FleetRoster.CreateFleet(Faction.帝国, 1);
+            unit.baseStrength = 12000;
+            Assert.IsTrue(OrderOfBattle.AttachFleet(squadron.id, 1)); // 最下段の戦隊に艦隊を置く
+
+            // 最上段の宇宙艦隊まで再帰で巻き上がる
+            Assert.AreEqual(1, OrderOfBattle.CountFleetsUnder(grand.id));
+            Assert.AreEqual(12000, OrderOfBattle.StrengthUnder(grand.id));
+            CollectionAssert.Contains(OrderOfBattle.AllFleetNumbersUnder(grand.id).ToList(), 1);
+            FleetRoster.Clear();
+        }
     }
 }

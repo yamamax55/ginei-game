@@ -25,9 +25,19 @@ namespace Ginei
         public Faction faction;
         public PersonRole role = PersonRole.軍人;
         public int rankTier; // 階級（#14・序列）
+        public Sex sex = Sex.男性; // 性別（既定=男性＝後方互換）。性的指向は別軸の検討項目（未実装）
 
         /// <summary>政治家か（政党・選挙で出世＝政治任用役職の資格・GOV-6 #159）。文民の一職種。</summary>
         public bool isPolitician;
+
+        /// <summary>君主・国家元首か（人物の職分＝君主。POP 職業分類#110 に載らない apex ゆえ別管理＝<see cref="PersonVocation"/>。継承#152/易姓革命で替わる）。既定 false＝後方互換。</summary>
+        public bool isSovereign;
+
+        /// <summary>財産行動の特性（PFIN-1・#2056・既定=貯金＝堅実・後方互換）。貯金/投資/浪費で可処分所得の使い方が変わる。</summary>
+        public FinancialTrait financialTrait = FinancialTrait.貯金;
+
+        /// <summary>個人の財産（PFIN-4・#2056・既定0）。俸給#1969 から特性に応じて貯金/投資で積み上がる（<see cref="PersonFinanceTickRules.TickYear"/>）。</summary>
+        public float wealth = 0f;
 
         // --- 人物ライフサイクル（LIFE-1/2/4 #151/#152/#154） ---
         public int birthYear;                                   // 生年（0=未設定＝加齢しない）
@@ -37,9 +47,11 @@ namespace Ginei
 
         // --- 経歴（出自パイプライン LIFE-5/6/7 #155/#156/#157） ---
         public int hammockNumber; // 士官学校の卒業席次（1=首席。小さいほど上位。LIFE-5）
+        public MilitaryDegree militaryDegree = MilitaryDegree.無資格; // 軍学歴の最高（幼年学校卒/士官学校卒/大学校卒。LIFE-5 細分化・MilitaryAcademyRules）
         public int graduationYear; // 卒業年/合格年（学閥=同期の判定）
         public int schoolId;       // 卒業/合格制度のID（学閥=同窓の判定）
         public int examRank;       // 登用試験の合格順位（文官版ハンモック。LIFE-6）
+        public ExamDegree examDegree = ExamDegree.無資格; // 科挙の最高功名（生員/挙人/貢士/進士。LIFE-6 細分化・ImperialExamRules）
 
         // 専門能力（テクノクラート LIFE-7・既存の戦闘/政治能力とは別軸）
         public int research;     // 研究

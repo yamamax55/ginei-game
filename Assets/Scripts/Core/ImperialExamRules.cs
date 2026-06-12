@@ -58,7 +58,9 @@ namespace Ginei
         public static int QuotaPassing(int sitters, ExamStage stage)
         {
             if (sitters <= 0) return 0;
-            return Mathf.Clamp(Mathf.CeilToInt(sitters * PassRate(stage)), 0, sitters);
+            // 浮動小数の誤差（例 100×0.3f=30.0000012）で +1 切り上げされないよう微小ガードを引く。
+            const float guard = 1e-4f;
+            return Mathf.Clamp(Mathf.CeilToInt(sitters * PassRate(stage) - guard), 0, sitters);
         }
 
         /// <summary>功名ごとの初任等級（進士7/貢士6/挙人5/生員4/無資格0）。</summary>

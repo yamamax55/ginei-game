@@ -225,6 +225,10 @@ namespace Ginei
             if (mid > 0)
                 sb.Append("\n中分類: ").Append(JsocMiddleClassification.FormatCode(mid))
                   .Append(JsocMiddleClassification.Name(mid));
+            // 小分類（JSOC 参考・curate）＝最多POP職業の代表小分類を添える。
+            string minor = JsocMinorClassification.RepresentativeMinor(dom);
+            if (!string.IsNullOrEmpty(minor))
+                sb.Append("\n小分類: ").Append(minor).Append(JsocMinorClassification.Name(minor));
             return sb.ToString();
         }
 

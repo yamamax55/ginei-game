@@ -28,6 +28,9 @@ namespace Ginei
 
         public bool Contains(int personnel) => personnel >= minPersonnel && personnel <= maxPersonnel;
 
+        /// <summary>この梯団の代表人員（レンジ中央。上限なし=軍 は下限を返す）。規模比較・基準に使う。</summary>
+        public int NominalPersonnel => maxPersonnel == int.MaxValue ? minPersonnel : (minPersonnel + maxPersonnel) / 2;
+
         public string ScaleText => maxPersonnel == int.MaxValue
             ? $"{minPersonnel:#,0}名〜"
             : $"{minPersonnel:#,0}〜{maxPersonnel:#,0}名";
@@ -60,6 +63,14 @@ namespace Ginei
 
         /// <summary>その地上梯団の標準指揮官階級 tier。</summary>
         public static int CommanderTierFor(GroundEchelonType echelon) => ProfileFor(echelon).commanderTier;
+
+        /// <summary>その人員規模（名）が相当する最大の地上梯団（下限を満たす一番大きい段・下回れば分隊）。</summary>
+        public static GroundEchelonType LargestEchelonFor(int personnel)
+        {
+            for (int i = table.Length - 1; i >= 0; i--)
+                if (personnel >= table[i].minPersonnel) return table[i].echelon;
+            return GroundEchelonType.分隊;
+        }
 
         /// <summary>a が b より大きい段か（並び順＝規模順）。</summary>
         public static bool IsLarger(GroundEchelonType a, GroundEchelonType b) => (int)a > (int)b;

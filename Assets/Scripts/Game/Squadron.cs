@@ -143,6 +143,11 @@ namespace Ginei
             {
                 gameObject.AddComponent<FlagshipMarker>();
             }
+            // 継戦状態（ORBAT-4・観測＋opt-in）も自動付与。既定値（艦隊・applyPenalty=false）ゆえ挙動不変。
+            if (GetComponent<FleetSustainment>() == null)
+            {
+                gameObject.AddComponent<FleetSustainment>();
+            }
         }
 
         private void Start()

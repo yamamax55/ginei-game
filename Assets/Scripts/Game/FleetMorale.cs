@@ -29,6 +29,7 @@ namespace Ginei
 
         private FleetStrength strength;
         private FleetWeapon weapon;
+        private FleetSustainment sustainment; // 継戦（ORBAT-4・任意・既定で挙動不変）
         private TextMesh moraleLabel;
         private float lastCombatTime;   // 直近に交戦していた時刻（敗走回復の待機判定用）
 
@@ -40,6 +41,8 @@ namespace Ginei
 
         private void Start()
         {
+            // 継戦（ORBAT-4）は Squadron.Awake が付与する＝Awake 順に依存しないよう Start で取得（無ければ null＝挙動不変）。
+            sustainment = GetComponent<FleetSustainment>();
             InitializeMorale();
             CreateMoraleLabel();
         }
@@ -162,14 +165,17 @@ namespace Ginei
         public float GetMoraleFactor()
         {
             // 最大士気が未設定(0以下)なら補正なし（ゼロ除算によるNaN防止）
-            if (maxMorale <= 0) return 1.0f;
+            if (maxMorale <= 0) return ApplySustainment(1.0f);
 
             // 士気が低いほど(閾値以下で)ペナルティが発生する簡易モデル
             // 例: 士気が最大値の30%以下から低下し始め、0で0.5倍になる
             float ratio = morale / maxMorale;
-            if (ratio > 0.3f) return 1.0f;
-            
-            return Mathf.Lerp(0.5f, 1.0f, ratio / 0.3f);
+            float factor = (ratio > 0.3f) ? 1.0f : Mathf.Lerp(0.5f, 1.0f, ratio / 0.3f);
+            return ApplySustainment(factor);
         }
+
+        /// <summary>継戦ペナルティ（ORBAT-4・任意）を乗せる。コンポーネント無し/opt-in OFF/継戦OK なら 1.0 倍＝挙動不変。</summary>
+        private float ApplySustainment(float factor)
+            => sustainment != null ? factor * sustainment.EffectiveFactor : factor;
     }
 }

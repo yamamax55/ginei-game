@@ -3,7 +3,7 @@
 > 現実の軍隊編制（総軍〜組の階層・NATO規模・階級↔規模・戦略/作戦/戦術単位）をゲームの編制（`OrderOfBattle` #147）に取り込み、**現実に即した部隊単位**にする。あわせて **混成禁止（#883）を撤回**＝現実の部隊は諸兵科連合（戦闘＋支援＋兵站が混在）。
 > 参考：[軍隊の編制（Wikipedia）](https://ja.wikipedia.org/wiki/%E8%BB%8D%E9%9A%8A%E3%81%AE%E7%B7%A8%E5%88%B6)。
 > 対になる EPIC：**階級準拠の指揮統率 #1710（RANKCMD）**（兵力を人物から切り離す＋階級ごとの指揮可能規模）。本 EPIC は「部隊の階層構造」を、RANKCMD は「階級が率いられる規模」を担当し統合する。
-> 状態：**ORBAT-1〜5 すべて純ロジック実装済**（EditMode テスト）。ORBAT-3 混成撤回／ORBAT-1 梯団多段化 `EchelonType{戦隊,分艦隊,艦隊,軍団,軍,軍集団,宇宙艦隊}`／ORBAT-2 梯団↔階級↔規模の一表 `CommandCapacityRules.ProfileFor`＋`EchelonProfile`（`OrderOfBattle.RequiredTier` の出所）／ORBAT-4 戦略・作戦・戦術区分 `OrgClassRules`＋`UnitEchelonClass`（戦術単位は上級配属がないと継戦不可＝`SustainmentFactor` 実効ペナルティ）／ORBAT-5 陸戦編制 `GroundForceRules`＋`GroundEchelonType`＋`GroundProfile`（惑星戦の地上戦力）。**残り＝盤面/UI配線**（戦術単位の継戦ペナルティを会戦へ・地上編制を SiegeArena へ）。数値・創作裁定は【要・作者判断】。
+> 状態：**ORBAT-1〜5 すべて純ロジック実装済**（EditMode テスト）。ORBAT-3 混成撤回／ORBAT-1 梯団多段化 `EchelonType{戦隊,分艦隊,艦隊,軍団,軍,軍集団,宇宙艦隊}`／ORBAT-2 梯団↔階級↔規模の一表 `CommandCapacityRules.ProfileFor`＋`EchelonProfile`（`OrderOfBattle.RequiredTier` の出所）／ORBAT-4 戦略・作戦・戦術区分 `OrgClassRules`＋`UnitEchelonClass`（戦術単位は上級配属がないと継戦不可＝`SustainmentFactor` 実効ペナルティ）／ORBAT-5 陸戦編制 `GroundForceRules`＋`GroundEchelonType`＋`GroundProfile`（惑星戦の地上戦力）。**盤面/UI配線も完了**＝継戦ペナルティ `FleetSustainment`（観測＋opt-in＝既定挙動不変・`FleetMorale.GetMoraleFactor` が実効倍率を乗算・`FleetHUDManager` が継戦状態を表示）／地上編制を `SiegeArena` の侵攻（占領）速度へ反映（地上戦力規模で `invadeRate` を加速）。数値・創作裁定は【要・作者判断】。
 
 ---
 

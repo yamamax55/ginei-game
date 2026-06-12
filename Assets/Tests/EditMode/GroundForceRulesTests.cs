@@ -58,5 +58,23 @@ namespace Ginei.Tests
             Assert.AreEqual(8, GroundForceRules.CommanderTierFor(GroundEchelonType.軍団)); // 大将/中将
             Assert.AreEqual(9, GroundForceRules.CommanderTierFor(GroundEchelonType.軍));   // 元帥〜中将
         }
+
+        [Test]
+        public void LargestEchelonFor_ClassifiesAggregate()
+        {
+            Assert.AreEqual(GroundEchelonType.分隊, GroundForceRules.LargestEchelonFor(0));      // 下限未満は最小段
+            Assert.AreEqual(GroundEchelonType.分隊, GroundForceRules.LargestEchelonFor(10));
+            Assert.AreEqual(GroundEchelonType.中隊, GroundForceRules.LargestEchelonFor(200));
+            Assert.AreEqual(GroundEchelonType.師団, GroundForceRules.LargestEchelonFor(15000)); // 1個師団規模
+            Assert.AreEqual(GroundEchelonType.軍,   GroundForceRules.LargestEchelonFor(80000)); // 軍規模
+        }
+
+        [Test]
+        public void NominalPersonnel_MidpointExceptOpenTop()
+        {
+            Assert.AreEqual(15000, GroundForceRules.ProfileFor(GroundEchelonType.師団).NominalPersonnel); // (10000+20000)/2
+            // 上限なし（軍）は下限を返す
+            Assert.AreEqual(50000, GroundForceRules.ProfileFor(GroundEchelonType.軍).NominalPersonnel);
+        }
     }
 }

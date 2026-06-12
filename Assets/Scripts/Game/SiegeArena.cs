@@ -27,8 +27,15 @@ namespace Ginei
         public float initialInvasionRatio = 0f;
         public float siegeMaxDefense = 100f;
         public float siegeInvasionThreshold = 100f;
-        [Tooltip("攻城旗艦1隊・1秒あたりの S-AV 戦力（制圧/侵攻の速さ）")]
+        [Tooltip("攻城旗艦1隊・1秒あたりの S-AV 戦力（制空権の制圧速度）")]
         public float siegeSpeedPerFleet = 2.5f;
+
+        [Header("地上戦力（ORBAT-5 #1721）")]
+        [Tooltip("攻城1隊が搭載する陸戦隊の規模（名）。在席数×これで地上戦力を見積もり、侵攻（占領）速度を決める")]
+        public int groundTroopsPerFleet = 3000;
+        [Tooltip("侵攻速度倍率の下限/上限（地上戦力÷1個師団 で算出。1個師団規模で等倍）")]
+        public float minInvadeFactor = 0.25f;
+        public float maxInvadeFactor = 3f;
 
         [Header("S-AV 演出")]
         public int savCraftCount = 18;
@@ -42,6 +49,7 @@ namespace Ginei
         private float barWidth = 4f, barHeight = 0.3f;
         private TextMesh statusLabel;
         private bool captured;
+        private GroundEchelonType groundEchelon = GroundEchelonType.師団; // 在席の攻城戦力が相当する地上梯団（表示用・ORBAT-5）
 
         // S-AV クラフト（発進→惑星→再発進のループ）
         private Transform[] craft;
@@ -177,16 +185,30 @@ namespace Ginei
 
             int alive = CountBesiegers();
 
-            // 攻城進行：在席の攻城旗艦数 × 速さ を S-AV戦力として制圧→侵略（timeScale 追従）
+            // 地上戦力（ORBAT-5）：在席数×1隊あたり陸戦隊で規模を見積もり、侵攻（占領）速度を決める。
+            int groundTroops = alive * Mathf.Max(0, groundTroopsPerFleet);
+            groundEchelon = GroundForceRules.LargestEchelonFor(groundTroops);
+            float invadeFactor = GroundInvadeFactor(groundTroops);
+
+            // 攻城進行：制空権の制圧は艦隊のS-AVで一定、ドメイン・ダウン後の侵攻は地上戦力の規模で加速（timeScale 追従）。
             if (alive > 0 && !captured && Time.deltaTime > 0f)
             {
                 float sav = alive * siegeSpeedPerFleet;
-                var r = PlanetSiegeRules.Tick(planet, besiegerFaction, sav, Time.deltaTime, new SiegeParams(1f, 1f, 0f));
+                var prm = new SiegeParams(1f, invadeFactor, 0f);
+                var r = PlanetSiegeRules.Tick(planet, besiegerFaction, sav, Time.deltaTime, prm);
                 if (r.captured) captured = true;
             }
 
             UpdateGauges();
             UpdateCraft(alive);
+        }
+
+        /// <summary>地上戦力（名）→ 侵攻速度倍率。1個師団規模で等倍、規模に比例（下限/上限でクランプ）。ORBAT-5。</summary>
+        private float GroundInvadeFactor(int groundTroops)
+        {
+            int reference = GroundForceRules.ProfileFor(GroundEchelonType.師団).NominalPersonnel; // 1個師団＝基準
+            if (reference <= 0) return 1f;
+            return Mathf.Clamp((float)groundTroops / reference, minInvadeFactor, maxInvadeFactor);
         }
 
         private int CountBesiegers()
@@ -215,7 +237,7 @@ namespace Ginei
                 else if (!planet.DomainDown)
                     statusLabel.text = $"制空権を制圧中 {Mathf.CeilToInt(DefenseRatio * 100f)}%　S-AV突入中";
                 else
-                    statusLabel.text = $"侵攻中（占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%）";
+                    statusLabel.text = $"侵攻中（地上戦力 {groundEchelon}・占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%）";
             }
         }
 

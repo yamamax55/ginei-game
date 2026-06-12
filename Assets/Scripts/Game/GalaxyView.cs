@@ -96,6 +96,11 @@ namespace Ginei
         private int nextPersonId = 1;       // 卒業生のID採番（手置き提督の次から）
         private const int OfficerRosterCap = 80; // 士官名簿の上限（PERF＝無制限増加を防ぐ）
 
+        // 大学（#156/#157 LIFE-6/7）：文官/技術者を輩出する文民版の学校。文民ロスターへ供給する。
+        private List<University> universities;
+        private List<Person> civilians;
+        private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
+
         // #884 造船 → #148 艦隊プール供給：星系ごとの造船所（全勢力＝AIも建艦）。暦の日次で建艦し、完成を所有勢力の FleetPool へ就役。
         // 生産力は内政（Province 安定度比例＝BUILD-2）に連動＝支配が不安定な系は建艦が遅い。損耗（戦略会戦の戦力喪失）でプール減。
         private List<Shipyard> shipyards;
@@ -629,6 +634,15 @@ namespace Ginei
                 new Academy(schoolId: 1, faction: Faction.帝国, name: "帝国士官学校", capacity: 6, quality: 0.6f),
                 new Academy(schoolId: 2, faction: Faction.同盟, name: "同盟士官学校", capacity: 6, quality: 0.55f),
             };
+
+            // 大学（#156/#157 LIFE-6/7）：各勢力に文官大学＋帝国に工科大学（テクノクラート）。文民/技術者を輩出。
+            civilians = new List<Person>();
+            universities = new List<University>
+            {
+                new University(schoolId: 3, faction: Faction.帝国, name: "帝国大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
+                new University(schoolId: 4, faction: Faction.同盟, name: "自由惑星同盟大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
+                new University(schoolId: 5, faction: Faction.帝国, name: "帝国工科大学", track: CareerTrack.テクノクラート, capacity: 4, quality: 0.6f),
+            };
         }
 
         /// <summary>
@@ -718,6 +732,9 @@ namespace Ginei
                         $"{a.faction} {a.name} {grads.Count}名 卒業（首席 tier{(grads.Count > 0 ? grads[0].rankTier : 0)}）");
                 }
             }
+
+            // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
+            RunUniversityTick();
         }
 
         /// <summary>その勢力の徴募源（軍属 #96）＝所有星系の Province を合算（士官学校の輩出数の素・#155）。</summary>
@@ -729,6 +746,46 @@ namespace Ginei
                 if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
                     pool += OccupationRules.RecruitablePool(prov);
             return pool;
+        }
+
+        /// <summary>その勢力の文民候補（官吏層 #110）＝所有星系の Province を合算（大学の輩出数の素・#156/#157）。</summary>
+        private float CivilCandidatePoolOf(Faction faction)
+        {
+            if (map == null || provinces == null) return 0f;
+            float pool = 0f;
+            foreach (var s in map.systems)
+                if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
+                    pool += OccupationRules.Workers(prov, Occupation.官吏);
+            return pool;
+        }
+
+        /// <summary>
+        /// 暦の年境界で大学が新任文民（文官/技術者）を輩出し文民ロスターへ供給する（#156/#157 LIFE-6/7）。
+        /// 文民も老衰し（LIFE-2）、大学が補充する＝官界の世代交代。<see cref="OfficerAcademyRules"/> の文民版。
+        /// </summary>
+        private void RunUniversityTick()
+        {
+            if (civilians == null) return;
+            // 文民の老衰（人事の世代交代）
+            var deceased = AnnualLifecycleRules.ProcessMortality(civilians, campaignYear, 1, _ => UnityEngine.Random.value);
+            for (int i = 0; i < deceased.Count; i++)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{deceased[i].faction} {deceased[i].name} 文官 死去（享年 {LifecycleRules.Age(deceased[i], campaignYear)}）");
+
+            // 大学の卒業（官吏層が支える）
+            if (universities == null || civilians.Count >= CivilRosterCap) return;
+            for (int i = 0; i < universities.Count; i++)
+            {
+                University u = universities[i];
+                if (u == null) continue;
+                int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction));
+                if (intake <= 0) continue;
+                var grads = UniversityRules.GraduateCohort(u, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+                nextPersonId += grads.Count;
+                civilians.AddRange(grads);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{u.faction} {u.name} {grads.Count}名 卒業（{u.track}）");
+            }
         }
 
         /// <summary>

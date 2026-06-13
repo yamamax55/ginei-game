@@ -22,6 +22,13 @@ concurrency:
   group: unity-test-${{ github.ref }}
   cancel-in-progress: true
 
+# game-ci/unity-test-runner が結果を check として投稿するのに必要（無いと
+# "Resource not accessible by integration" になる）。
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   test:
     name: EditMode (real Unity)

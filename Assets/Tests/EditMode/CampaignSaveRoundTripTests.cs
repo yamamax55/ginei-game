@@ -72,12 +72,12 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void RoundTrip_DropsInSessionFiscalState_ByDesign()
+        public void RoundTrip_PersistsFiscalState()
         {
-            // 財政フロー（treasury/budget/fiscal）は在席状態＝保存対象外＝復元時は既定で再構築（設計境界を pin）。
+            // 全永続化（continue）：財政フロー（treasury 等）も保存対象＝往復で維持される（旧「非永続」仕様から変更）。
             var src = BuildSample();
             CampaignState round = CampaignSerializer.FromSaveData(CampaignSerializer.ToSaveData(src));
-            Assert.AreEqual(0f, round.states[0].treasury, 1e-3f); // 999 は保存されず既定0
+            Assert.AreEqual(999f, round.states[0].treasury, 1e-3f); // BuildSample の treasury が往復で保存される
         }
 
         // ===== 人物ロスターの永続化（L5 最重要残件） =====

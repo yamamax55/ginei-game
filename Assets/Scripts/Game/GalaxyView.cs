@@ -297,6 +297,24 @@ namespace Ginei
             // 国家状態（#817 旗幟の基準忠誠の出所）：Battle 往復で失わないよう StrategySession に持たせる。
             if (StrategySession.Campaign == null) StrategySession.Campaign = new CampaignState(map);
             CampaignRules.EnsureStates(StrategySession.Campaign);
+
+            AnnounceCampaignObjective(); // 遊べる縦スライス：目標と初手をプレイヤーに提示（オンボーディング）
+        }
+
+        // --- オンボーディング（目標提示＋初手ガイド） ---
+        private static bool objectiveAnnounced;
+
+        /// <summary>キャンペーン開始時に勝利目標と最初の操作を通知で提示する（セッション一度きり）。勝敗は <see cref="CampaignVictoryRules"/>。</summary>
+        private void AnnounceCampaignObjective()
+        {
+            if (objectiveAnnounced) return;
+            objectiveAnnounced = true;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            int pct = Mathf.RoundToInt(CampaignVictoryRules.CampaignVictoryParams.Default.dominationFraction * 100f);
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
+                $"【目標】{player} で銀河の {pct}% を支配せよ（敵を全制圧でも勝利／全星系を失えば敗北）");
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
+                "操作：星系を右クリックで進軍 → 前線で接触 → 交戦中の回廊をダブルクリックで潜行（会戦へ）。Space/1-3=速度、H=ヘルプ。");
         }
 
         private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)
@@ -660,14 +678,36 @@ namespace Ginei
         {
             campaignYear = TimeDisplay.StartYear; // 開始暦（宇宙暦SE796）と揃える
             commanders = new List<Person>();
-            int y = campaignYear;
-            int id = 1;
-            // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
-            commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
-            commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
-            commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
-            commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
-            nextPersonId = id; // 卒業生はこの続き番号で採番
+            civilians = new List<Person>();
+            if (StrategySession.PendingPeople != null)
+            {
+                // ロード復元：保存済みロスターを採用（軍人=提督名簿／文民=文官名簿に振り分け）。
+                var loaded = StrategySession.PendingPeople;
+                int maxId = 0;
+                for (int i = 0; i < loaded.Count; i++)
+                {
+                    Person p = loaded[i];
+                    if (p == null) continue;
+                    if (p.role == PersonRole.軍人) commanders.Add(p); else civilians.Add(p);
+                    if (p.id > maxId) maxId = p.id;
+                }
+                nextPersonId = maxId + 1;
+                StrategySession.PendingPeople = null; // 消費（再構築は一度きり）
+            }
+            else
+            {
+                int y = campaignYear;
+                int id = 1;
+                // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
+                commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
+                commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
+                commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
+                commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+                nextPersonId = id; // 卒業生はこの続き番号で採番
+            }
+
+            // 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに候補を多段の苛烈な選抜で篩い、認定者を SOF 出身にする。
+            RunSofSelection();
 
             // 士官学校（#155 LIFE-5）：各勢力に1校。質に差を付ける（名門は良将を出す）。
             academies = new List<Academy>
@@ -677,7 +717,7 @@ namespace Ginei
             };
 
             // 大学（#156/#157 LIFE-6/7）：各勢力に文官大学＋帝国に工科大学（テクノクラート）。文民/技術者を輩出。
-            civilians = new List<Person>();
+            // civilians は上で初期化済（ロード復元 or 空）。ここでは再生成しない。
             universities = new List<University>
             {
                 new University(schoolId: 3, faction: Faction.帝国, name: "帝国大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
@@ -900,6 +940,78 @@ namespace Ginei
                     { enrollment = highSchools[i].enrollmentRate; quality = highSchools[i].quality; return; }
         }
 
+        /// <summary>
+        /// 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに軍人候補を選抜スコアで多段に篩い（基礎→地獄週→卒業）、
+        /// 認定者を SOF 出身にする（提督として能力上昇＝戦闘で常時+5%・側背/包囲で+20%）。開始時に一度。
+        /// </summary>
+        private void RunSofSelection()
+        {
+            if (commanders == null) return;
+            var byFaction = new Dictionary<Faction, List<SofCandidate>>();
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.role != PersonRole.軍人) continue;
+                float score = SpecialForcesRules.SelectionScore(c.leadership, c.mobility, c.attack);
+                if (!byFaction.TryGetValue(c.faction, out var list)) { list = new List<SofCandidate>(); byFaction[c.faction] = list; }
+                list.Add(new SofCandidate(c.id, score));
+            }
+            foreach (var kv in byFaction)
+            {
+                List<int> passed = SpecialForcesRules.Funnel(kv.Value);
+                for (int j = 0; j < passed.Count; j++)
+                {
+                    Person p = ResolveCommander(passed[j]);
+                    if (p == null) continue;
+                    p.isSpecialForces = true;
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{p.faction} {p.name} が特殊作戦部隊の選抜を突破（SOF認定）");
+                }
+            }
+        }
+
+        // 叙勲の配線パラメータ（#2263・デモ既定）
+        private const int MaxMedalsPerCommander = 5;  // 1人あたり叙勲数の上限（乱発防止）
+        private const int CommissionAge = 22;          // 任官年齢（在役年数の起点）
+
+        /// <summary>
+        /// 戦略の年次叙勲（#2263）。武勲ある将官（中将以上）へ階級に応じて叙勲し、
+        /// 恩給見込み（`RetirementRules.PensionFactor` × 勲章の `MedalRegistry.PensionFactor`）と名誉を通知する。
+        /// 史実：勲章は恩給（年金）と名誉を増す。乱発防止に1人あたり上限＋階級依存の決定論抽選。
+        /// </summary>
+        private void RunAnnualMedalTick()
+        {
+            if (commanders == null) return;
+            var rp = RetirementRules.RetireParams.Default;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.IsDeceased) continue;
+                if (c.rankTier < 7) continue;                                  // 中将以上の将官が対象
+                if (MedalRegistry.Count(c.id) >= MaxMedalsPerCommander) continue; // 上限
+
+                // 階級が高いほど叙勲されやすい（決定論抽選）。
+                float roll = Mathf.Abs(Mathf.Sin(c.id * 12.9898f + campaignYear * 78.233f));
+                roll -= Mathf.Floor(roll);
+                if (roll > c.rankTier / 20f) continue;
+
+                MedalKind kind = c.rankTier >= 9 ? MedalKind.勲功章 : MedalKind.武功章;
+                float merit = Mathf.Clamp(c.rankTier * 10f, 0f, 100f);
+                Decoration d = MedalRegistry.Award(c.id, kind, merit, campaignYear, $"{c.name} の武勲");
+
+                int age = LifecycleRules.Age(c, campaignYear);
+                int years = Mathf.Max(0, age - CommissionAge);
+                float pension = RetirementRules.PensionFactor(years, rp) * MedalRegistry.PensionFactor(c.id);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{c.faction} {c.name} に{kind}{d.grade}を叙勲。恩給見込み {pension:0.00}（勲章×{MedalRegistry.PensionFactor(c.id):0.00}）・名誉{MedalRegistry.Prestige(c.id):0}");
+            }
+        }
+
+        // 宗教/文化の配線パラメータ（#172-175/#194・デモ既定）
+        private const float RulerFaithDevotion = 0.6f;      // 支配勢力の信仰の強さ（デモ既定）
+        private const float ReligionStabilityScale = 10f;   // 信仰の社会効果→安定度への反映スケール
+        private const float SeparatismStabilityScale = 5f;  // 分離主義→安定度低下スケール
+
         private void RunAnnualLifecycleTick()
         {
             campaignYear++;
@@ -939,6 +1051,25 @@ namespace Ginei
                     float popC = kv.Value.population;
                     PopConsumptionTickRules.TickYear(kv.Value, kv.Value.wageIndex,
                         popC * outFactor, popC * outFactor * 0.4f, popC * outFactor * 0.15f);
+
+                    // 宗教(#172-175 配線)：住民の信仰を1年ぶん進め、信仰の社会効果を安定度へ緩やかに反映。
+                    // 統合が進んだ惑星は支配勢力の信仰と親和（affinityMatch）。基準値はTick側で非破壊。
+                    bool affinity = kv.Value.integration > 0.5f;
+                    ReligionTickRules.TickYear(kv.Value, RulerFaithDevotion, affinity);
+                    kv.Value.stability = Mathf.Clamp(
+                        kv.Value.stability + (ReligionTickRules.SocialFactor(kv.Value) - 1f) * ReligionStabilityScale,
+                        0f, 100f);
+
+                    // 文化・民族(#194 配線)：同化/分離を1年ぶん進め、分離主義が安定度を蝕む。
+                    // 戦時(前線)・低統合は分離を促す。亡命#194 の移住と相補的。
+                    bool atWarHere = sys != null && HasHostileFleetAt(sys);
+                    CultureTickRules.TickYear(kv.Value, kv.Value.integration > 0.5f, atWarHere);
+                    float separatism = CultureTickRules.SeparatismRisk(kv.Value);
+                    if (separatism > 0f)
+                        kv.Value.stability = Mathf.Clamp(kv.Value.stability - separatism * SeparatismStabilityScale, 0f, 100f);
+                    if (separatism > 0.6f && sys != null)
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                            $"{sys.systemName}：分離主義が高まっている（{separatism:0.0}）");
                 }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。
@@ -971,11 +1102,17 @@ namespace Ginei
             // 法の支配と法と秩序（LAW-6・#2126）：勢力の法の支配＋惑星の治安を解き、安定へ反映・抑圧を通知。
             RunLawTick();
 
+            // 叙勲（#2263）：武勲ある将官へ年次で叙勲し、恩給見込み（勲章で増）・名誉を通知。
+            RunAnnualMedalTick();
+
             // 財政の年（#161-163 配線）：予算編成→形式財政（債務/利払い）で予算と執行の1年を閉じる。
             RunFiscalYearTick();
 
             // 政体進化（#117 配線）：首長制→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ社会シグナルで分岐進化。
             RunRegimeEvolutionTick();
+
+            // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡で敗北。決着で時計を止めて告知。
+            RunCampaignVictoryCheck();
 
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
@@ -1222,6 +1359,29 @@ namespace Ginei
 
         // --- 政体進化（#117 配線）：首長制→民主/独裁→下位形態 ---
         private bool regimeFormsSeeded;
+
+        // --- キャンペーン勝敗（遊べる縦スライスの核） ---
+        private bool campaignDecided;
+
+        /// <summary>
+        /// プレイヤー勢力の戦略的決着を年次で判定し、勝利/敗北したら時計を止めて告知する（一度きり）。
+        /// 判定は <see cref="CampaignVictoryRules"/>（制覇=支配率/全制圧/滅亡）。終了画面は後段（まずは告知＋停止）。
+        /// </summary>
+        private void RunCampaignVictoryCheck()
+        {
+            if (campaignDecided || map == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            CampaignOutcome outcome = CampaignVictoryRules.Evaluate(map, player);
+            if (outcome == CampaignOutcome.継続) return;
+
+            campaignDecided = true;
+            if (StrategySession.Clock != null) StrategySession.Clock.Pause(); // 進行を止める
+            int frac = Mathf.RoundToInt(CampaignVictoryRules.OwnedFraction(map, player) * 100f);
+            string msg = outcome == CampaignOutcome.勝利
+                ? $"【勝利】{player} が銀河を制覇（支配 {frac}%）"
+                : $"【敗北】{player} は星系をすべて失った";
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.警告, msg);
+        }
 
         /// <summary>
         /// 政体進化を年次で回す（#117）：初期形態をシード（帝国=君主制/同盟=共和制/他=首長制）し、社会シグナル
@@ -2568,6 +2728,203 @@ namespace Ginei
                 if (kb.digit3Key.wasPressedThisFrame) { clock.SetSpeed(2f); clock.Resume(); }
             }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
+
+            // 外交コマンド（#2119 操作化）：対立勢力へ 7=宣戦 / 8=講和 / 9=同盟。自勢力の外交はプレイヤーが握る。
+            if (kb.digit7Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.宣戦布告);
+            if (kb.digit8Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.講和);
+            if (kb.digit9Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.同盟);
+
+            // ミッションコマンド（任務戦術）：C＝マウス直下の敵対星系へ攻略任務／V＝対立勢力を攻略（参謀本部が目標選定・必要兵力を見積もり自動動員）。
+            if (kb.cKey.wasPressedThisFrame) IssueMissionAtMouse();
+            if (kb.vKey.wasPressedThisFrame) IssueCampaignAgainstRival();
+
+            // セーブ/ロード（continue・全永続化）：F5=保存／F9=読込（読込後 Strategy を再ロードして再構築）。
+            if (kb.f5Key.wasPressedThisFrame) SaveCampaign();
+            if (kb.f9Key.wasPressedThisFrame) LoadCampaign();
+        }
+
+        /// <summary>対立勢力（プレイヤー以外の最初のデモ勢力）へ外交コマンドを発令。発令不可なら通知。</summary>
+        private void IssueDiplomacyToRival(DiplomaticAction action)
+        {
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            Faction rival = player;
+            for (int i = 0; i < DemoFactions.Length; i++)
+                if (DemoFactions[i] != player) { rival = DemoFactions[i]; break; }
+            if (rival == player) return; // 対立勢力なし
+            if (!IssuePlayerDiplomacy(rival, action))
+                NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{action} は今は発令できません（{rival} との現状態）");
+        }
+
+        /// <summary>
+        /// ミッションコマンド（任務戦術）：マウス直下の敵対星系へ「攻略せよ」と任務を下す。
+        /// 参謀本部（自勢力の最有能指揮官の文才）が必要兵力を見積もり、遊休艦隊から必要十分を自動動員して進軍させる。
+        /// 必要規模は参謀本部の実力で可変＝有能なら無駄なく軍団/軍集団を、無能なら過小動員のまま発動する。
+        /// </summary>
+        private void IssueMissionAtMouse()
+        {
+            if (cam == null || map == null || reg == null) return;
+            Vector2 w = WorldMouse();
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > 1.2f) return;
+            ExecuteMission(map.GetSystem(sysId));
+        }
+
+        /// <summary>
+        /// ミッションコマンド（任務戦術）：「◯◯勢力を攻略せよ」＝対立勢力を相手に攻撃目標を参謀本部が選定し任務を下す。
+        /// 避実撃虚で到達可能な最も攻めやすい敵星系を選び（兵力を分散させず一点に集中）、`ExecuteMission` で自動動員・進軍させる。
+        /// </summary>
+        private void IssueCampaignAgainstRival()
+        {
+            if (map == null || reg == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            Faction rival = player;
+            for (int i = 0; i < DemoFactions.Length; i++)
+                if (DemoFactions[i] != player) { rival = DemoFactions[i]; break; }
+            if (rival == player) return; // 対立勢力なし
+
+            // 敵勢力の星系を攻撃目標候補に。守備兵力＝在席敵対艦隊／到達可否＝自勢力星系から経路あり。
+            var targets = new List<CampaignTarget>();
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                if (!FactionRelations.IsHostile(null, player, s.ownerData, s.owner)) continue; // 敵対星系のみ
+                float garrison = 0f;
+                var here = reg.FleetsAt(s.id);
+                if (here != null)
+                    for (int k = 0; k < here.Count; k++)
+                        if (here[k] != null && FactionRelations.IsHostile(null, player, null, here[k].faction)) garrison += here[k].strength;
+                bool defended = s.planet != null && !s.planet.Captured;
+                targets.Add(new CampaignTarget(s.id, garrison, defended, ReachableByFaction(player, s.id)));
+            }
+
+            int targetId = MissionCommandRules.SelectCampaignTarget(targets);
+            if (targetId < 0)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.情報,
+                    $"{rival} 攻略：到達可能な攻撃目標がありません");
+                return;
+            }
+            ExecuteMission(map.GetSystem(targetId));
+        }
+
+        /// <summary>その勢力のいずれかの所有星系から目標星系へ回廊経路で到達可能か（避実撃虚の到達可否）。</summary>
+        private bool ReachableByFaction(Faction faction, int goalId)
+        {
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.owner != faction) continue;
+                if (s.id == goalId) return true;
+                if (GalaxyPathfinder.FindPath(map, s.id, goalId).Count > 0) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 任務の実行：参謀本部が必要兵力を見積もり、遊休艦隊から必要十分を自動動員して進軍させる。
+        /// 必要規模は参謀本部の実力で可変。<b>戦力の集中が満たせなければ逐次投入せず「集中待機」する（孫子）</b>。
+        /// </summary>
+        private void ExecuteMission(StarSystem s)
+        {
+            if (s == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+
+            // 自国/友軍星系には攻略任務を出さない（敵対星系のみ）。
+            if (!FactionRelations.IsHostile(null, player, s.ownerData, s.owner))
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.情報,
+                    $"{s.systemName} は攻略対象外（自国/友軍）");
+                return;
+            }
+
+            // 敵戦力＝目標星系に在席する敵対艦隊の合計。防衛惑星があれば攻者三倍の対象（defended）。
+            float enemyStrength = 0f;
+            var here = reg.FleetsAt(s.id);
+            if (here != null)
+                for (int i = 0; i < here.Count; i++)
+                {
+                    StrategicFleet g = here[i];
+                    if (g != null && FactionRelations.IsHostile(null, player, null, g.faction)) enemyStrength += g.strength;
+                }
+            bool defended = s.planet != null && !s.planet.Captured;
+
+            // 参謀本部の実力（0..1）＝自勢力の最有能指揮官の文才（運営/情報）。
+            float staff = StaffCompetence(player);
+
+            // 動員候補＝自勢力の遊休（停泊中・非交戦）艦隊。
+            var avail = new List<MissionForce>();
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || f.faction != player) continue;
+                if (f.IsOnCorridor || f.engaged) continue;          // 移動中/交戦中は動員しない
+                if (f.currentSystemId == s.id) continue;             // 既に目標星系に居る艦は除く
+                avail.Add(new MissionForce(f.id, f.strength));
+            }
+
+            MissionPlan plan = MissionCommandRules.PlanMission(
+                s.id, MissionType.星系攻略, player, enemyStrength, defended, staff, avail);
+
+            if (plan.fleetIds.Count == 0)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
+                    $"{s.systemName} 攻略任務：動員可能な遊休艦隊がありません");
+                return;
+            }
+
+            // 兵力の集中（孫子＝戦力の逐次投入をしない）：集中が満たせない有能な参謀本部は発動せず待機する。
+            if (!plan.launched)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
+                    $"任務：{s.systemName} 攻略は戦力集中まで待機（逐次投入を避ける）。動員可能{plan.committedStrength:0}/必要{plan.requiredStrength:0}");
+                return;
+            }
+
+            // 動員した艦隊を目標星系へ進軍させる（どう動くかは各艦の経路探索に委ねる＝任務戦術）。
+            for (int i = 0; i < plan.fleetIds.Count; i++)
+            {
+                StrategicFleet f = reg.GetFleet(plan.fleetIds[i]);
+                if (f != null) f.WarpTo(map, s.id);
+            }
+
+            string scale = plan.echelon.ToString();
+            string note = plan.piecemeal ? "（逐次投入＝兵力不足のまま発動）" : "";
+            NotificationCenter.Push(NotificationCategory.占領,
+                plan.piecemeal ? NotificationSeverity.注意 : NotificationSeverity.情報,
+                $"任務：{s.systemName} 攻略。{scale}を集中動員（{plan.fleetIds.Count}隊・兵力{plan.committedStrength:0}/{plan.requiredStrength:0}）{note}");
+        }
+
+        /// <summary>参謀本部の実力（0..1）＝その勢力の最有能指揮官の文才（運営/情報の平均）を正規化。指揮官不在は中庸0.5。</summary>
+        private float StaffCompetence(Faction faction)
+        {
+            if (commanders == null) return 0.5f;
+            float best = -1f;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.faction != faction || c.IsDeceased) continue;
+                if (c.CivilAptitude > best) best = c.CivilAptitude;
+            }
+            return best < 0f ? 0.5f : Mathf.Clamp01(best / 100f);
+        }
+
+        /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間）をファイルへ保存する（F5）。</summary>
+        private void SaveCampaign()
+        {
+            var people = new System.Collections.Generic.List<Person>();
+            if (commanders != null) people.AddRange(commanders);
+            if (civilians != null) people.AddRange(civilians);
+            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock);
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");
+        }
+
+        /// <summary>セーブから全状態を StrategySession へ復元し、Strategy シーンを再ロードして盤面を再構築する（F9）。</summary>
+        private void LoadCampaign()
+        {
+            if (!CampaignSaveManager.HasSave()) { NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意, "セーブがありません"); return; }
+            if (CampaignSaveManager.LoadSession())
+                SceneManager.LoadScene("Strategy");
         }
 
         private void HandleMouse()

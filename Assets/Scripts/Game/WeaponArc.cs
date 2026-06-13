@@ -17,6 +17,10 @@ namespace Ginei
         [Tooltip("射界線の色")]
         public Color gizmoColor = Color.red;
 
+        // ── #2254 射程帯 ──
+        [Tooltip("この武器が好む射程帯。FleetAI がキーティング（間合い調整）に使う。既定=中（従来挙動に近い）")]
+        public RangeBand preferredBand = RangeBand.中;
+
         private LineRenderer runtimeArc;
         private Material arcMaterial; // 実行時生成。OnDestroyで破棄
 

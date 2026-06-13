@@ -16,6 +16,10 @@ namespace Ginei
         public List<CorridorSave> corridors = new List<CorridorSave>();
         public List<FactionStateSave> states = new List<FactionStateSave>();
         public List<PersonSave> people = new List<PersonSave>(); // ネームド人物ロスター（提督/文官・空=後方互換）
+        public List<StrategicFleetSave> fleets = new List<StrategicFleetSave>(); // 戦略艦隊（盤面の駒・空=後方互換）
+        // 統一時間（GameClock）。0=未設定（後方互換＝既定クロック）。
+        public double clockElapsed;
+        public float clockSpeed = 1f;
     }
 
     /// <summary>星系のセーブ平データ。所有 SO は名前で持つ（復元時に Resources/Factions から解決）。</summary>
@@ -70,6 +74,24 @@ namespace Ginei
         // Community
         public float commHope, commRepression;
         public bool commDissent;
+        // 財政（在席フロー＝全永続化方針で保存）：国庫/税率/予算分野配分/形式債務。
+        public float treasury, taxRate;
+        public float budgetMilitary, budgetShipbuilding, budgetAdministration, budgetWelfare, budgetResearch, budgetDiplomacy;
+        public float fiscalDebt;
+    }
+
+    /// <summary>戦略艦隊（盤面の駒）のセーブ平データ。回廊上の精密位置（私有）は保存せず、停泊星系に再構築（移動中は目的地へ再ワープ）。</summary>
+    [Serializable]
+    public class StrategicFleetSave
+    {
+        public int id;
+        public int faction;             // (int)Faction
+        public int strength;
+        public float supply, warpSpeed, sublightFactor;
+        public int currentSystemId;     // 停泊星系（移動中は出発元）
+        public int destinationSystemId; // 移動中の目的地（0以下=停泊）
+        public bool moving;             // 移動中だったか（ロードで再ワープ）
+        public bool engaged;            // 交戦固着
     }
 
     /// <summary>ネームド人物（<see cref="Person"/>）の平データ（軍人/文民ロスターの永続化）。enum は int で持つ（JsonUtility 安全・前方互換）。</summary>

@@ -45,6 +45,10 @@ namespace Ginei
         [Tooltip("この距離以内に敵がいる撤退では後退移動を使う（遠ければ通常移動で素早く離脱）")]
         public float reverseRetreatRange = 14f;
 
+        [Header("キーティング（間合い調整）#2254")]
+        [Tooltip("速度優位がある交戦時、IdealRange に対する許容誤差（デッドゾーン）。射程の約10%を既定とする")]
+        public float keetingDeadzone = 1.0f;
+
         [Header("非戦闘艦の回避 #128")]
         [Tooltip("非戦闘艦（偵察/入植/輸送）がこの距離以内の敵から逃げる（戦線を張らず交戦を避ける）")]
         public float nonCombatEvadeRange = 22f;
@@ -56,6 +60,13 @@ namespace Ginei
         [Tooltip("ZOC回避ステアリングの強さ（大きいほど強く進路を曲げて避ける）")]
         public float zocAvoidStrength = 1.5f;
 
+        [Header("会戦改善")]
+        [Tooltip("撤退中、原点からこの距離（自勢力側の画面端）に達したら戦場から離脱（恒久退却）")]
+        public float battlefieldRadius = 45f;
+
+        [Tooltip("戦況（兵力比・敗走）に応じて有利な陣形へ自動切替する（AI艦隊のみ）")]
+        public bool autoFormation = true;
+
         private FleetMovement movement;
         private FleetWeapon weapon;
         private FleetStrength strength;
@@ -64,6 +75,7 @@ namespace Ginei
         private float nextSearchTime;
         private FleetStrength targetEnemy;
         private FleetMorale moraleComponent;
+        private Squadron squadron;
 
         private void Awake()
         {
@@ -72,10 +84,14 @@ namespace Ginei
             strength = GetComponent<FleetStrength>();
             weaponArc = GetComponent<WeaponArc>();
             moraleComponent = GetComponent<FleetMorale>();
+            squadron = GetComponent<Squadron>();
         }
 
         private void Update()
         {
+            // 既に戦場から離脱（恒久退却）した艦は何もしない。
+            if (strength != null && !strength.IsAlive) return;
+
             // 敗走チェック (最優先)
             if (moraleComponent != null && moraleComponent.IsRouted)
             {
@@ -91,6 +107,8 @@ namespace Ginei
 if (Time.time >= nextSearchTime)
             {
                 SearchNearestEnemy();
+                UpdateFormationDoctrine(); // 戦況に応じて有利な陣形へ自動切替（#会戦改善）
+                ConsiderActiveCommand();   // 状況に応じて特殊指揮を発動（#2253）
                 nextSearchTime = Time.time + searchInterval;
             }
 
@@ -125,6 +143,56 @@ if (Time.time >= nextSearchTime)
         }
 
         /// <summary>
+        /// 戦況（自/敵の兵力比・敗走）と提督の得意陣形から有利な陣形へ自動切替（AI艦隊のみ・#会戦改善 #5）。
+        /// 判断は <see cref="FormationDoctrineRules"/> へ委譲し、結果を自部隊の陣形へ反映する。
+        /// </summary>
+        private void UpdateFormationDoctrine()
+        {
+            if (!autoFormation || squadron == null || strength == null || !strength.IsCombatant) return;
+            float own = strength.strength;
+            float enemy = (targetEnemy != null && targetEnemy.IsAlive) ? targetEnemy.strength : own; // 敵不明は等倍扱い
+            bool routed = moraleComponent != null && moraleComponent.IsRouted;
+            Formation rec = FormationDoctrineRules.RecommendFormation(own, enemy, routed, strength.admiralData);
+
+            // #2253：有能なAIは敵陣形をカウンターする陣形に切り替える（三すくみ）。弱AIは取りこぼす。
+            if (!routed && targetEnemy != null && targetEnemy.IsAlive
+                && BattleAiRules.ShouldAct(AiSkill(), UnityEngine.Random.value))
+            {
+                Squadron enemySq = targetEnemy.GetComponent<Squadron>();
+                if (enemySq != null)
+                {
+                    Formation counter = BattleAiRules.CounterFormation(enemySq.currentFormation);
+                    if (FormationMatchupRules.AttackFactor(counter, enemySq.currentFormation) > 1f) rec = counter;
+                }
+            }
+            if (squadron.currentFormation != rec) squadron.currentFormation = rec;
+        }
+
+        /// <summary>会戦AIの目利き（0..1）＝提督の実効統率＋情報を正規化。提督不在は中庸0.5。</summary>
+        private float AiSkill()
+        {
+            AdmiralData ad = strength != null ? strength.admiralData : null;
+            if (ad == null) return 0.5f;
+            return Mathf.Clamp01((ad.EffectiveLeadership + ad.EffectiveIntelligence) / 200f);
+        }
+
+        /// <summary>状況に応じて特殊指揮を発動する（#2253・難易度ゲート）。</summary>
+        private void ConsiderActiveCommand()
+        {
+            if (strength == null || !strength.IsCombatant || !strength.IsAlive) return;
+            if (!BattleAiRules.ShouldAct(AiSkill(), UnityEngine.Random.value)) return;
+
+            bool engaged = currentState == AIState.交戦;
+            float moraleRatio = (moraleComponent != null && moraleComponent.maxMorale > 0f)
+                ? moraleComponent.morale / moraleComponent.maxMorale : 1f;
+            float enemyStr = (targetEnemy != null && targetEnemy.IsAlive) ? targetEnemy.strength : strength.strength;
+            float advantage = enemyStr > 0f ? strength.strength / enemyStr : 1f;
+
+            if (BattleAiRules.TryChooseCommand(engaged, moraleRatio, advantage, out ActiveCommand cmd))
+                ActiveCommandState.Issue(strength, cmd);
+        }
+
+        /// <summary>
         /// 現在の状態に応じた挙動を実行します。
         /// </summary>
         private void UpdateStateBehavior()
@@ -149,6 +217,12 @@ if (Time.time >= nextSearchTime)
             // ── 静観（#817 関ヶ原型）：山上で動かない＝接近も交戦もしない（発砲停止は FleetWeapon 側）──
             if (strength != null && !strength.IsFighting) return;
 
+            // 交戦規定（ROE・#2258）：退避スタンスは前進停止（撤退相当の行動に委ねる）。
+            // AdvanceFactor は接近中の前進判定で参照（後述の 接近 case）。
+            if (strength != null && RoeRules.AdvanceFactor(strength.stance) <= 0f
+                && currentState != AIState.撤退)
+                return;
+
             if (targetEnemy == null && currentState != AIState.撤退)
             {
                 // 敵がいない場合は停止
@@ -165,6 +239,10 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
+                        // 交戦規定（ROE・#2258）：攻撃的以外は追尾（深追い）しない。
+                        // 防御的/射撃管制では前進を抑制（AdvanceFactor が0より大きければ接近するが距離は縮めすぎない）。
+                        if (strength != null && !RoeRules.CanPursue(strength.stance)) break;
+
                         // 敵に向かって移動（進路上のブラックホールは迂回）。
                         // 進路上の「交戦対象以外」の敵ZOCは避ける（対象のZOCは意図して踏み込むので無視）。
                         Vector2 dest = SteerAroundBlackHoles(pos, targetEnemy.transform.position);
@@ -182,26 +260,61 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
-                        // 射程内ならその場で停止し、敵の方向を向いて射界を維持
-                        // （FleetWeaponが自動で撃つ。前進はしない）
-                        movement.FaceTarget(targetEnemy.transform.position);
+                        // ── #2254 キーティング（間合い調整）──
+                        // 自部隊が速度優位を持つ場合のみ射程帯に基づいて間合いを調整する。
+                        // 速度劣位・速度情報不明のときは従来どおり FaceTarget に留める（基準値は非破壊）。
+                        bool kiting = false;
+                        FleetMovement enemyMovement = targetEnemy.GetComponent<FleetMovement>();
+                        if (enemyMovement != null && weaponArc != null && movement.maxSpeed > enemyMovement.maxSpeed)
+                        {
+                            Vector2 pos2d = transform.position;
+                            Vector2 enemyPos2d = targetEnemy.transform.position;
+                            float currentDist = Vector2.Distance(pos2d, enemyPos2d);
+
+                            float idealRange = RangeBandRules.IdealRange(weaponArc.preferredBand, weaponArc.range);
+                            int direction = RangeBandRules.ApproachOrWithdraw(currentDist, idealRange, keetingDeadzone);
+
+                            if (direction > 0)
+                            {
+                                movement.SetDestination(enemyPos2d);       // 遠すぎ→接近
+                                kiting = true;
+                            }
+                            else if (direction < 0)
+                            {
+                                Vector2 awayDir = (pos2d - enemyPos2d).normalized; // 近すぎ→射界を保って後退
+                                movement.SetReverseDestination(pos2d + awayDir * (idealRange - currentDist + keetingDeadzone));
+                                kiting = true;
+                            }
+                        }
+                        if (!kiting)
+                        {
+                            // 速度優位なし・デッドゾーン内・速度情報不明＝従来動作（射界維持・停止）
+                            movement.FaceTarget(targetEnemy.transform.position);
+                        }
                     }
                     break;
 
                 case AIState.撤退:
-                    if (targetEnemy != null)
                     {
-                        // 敵と反対方向へ逃げる（逃走先のブラックホールも迂回）
-                        Vector2 awayDir = ((Vector2)transform.position - (Vector2)targetEnemy.transform.position).normalized;
-                        Vector2 fleeTarget = SteerAroundBlackHoles(pos, pos + awayDir * 20f);
-                        // 逃走先の進路上に敵ZOCがあれば迂回（敵の支配領域へ飛び込まない）
+                        // 敵不明（敗走で目標を見失う等）なら原点と反対＝外周方向を「自勢力端」とみなして目指す（#会戦改善 #3）。
+                        Vector2 enemyPos = targetEnemy != null ? (Vector2)targetEnemy.transform.position : Vector2.zero;
+
+                        // 自勢力側の画面端に到達したら戦場から離脱（恒久退却＝終了処理を締める #会戦改善 #1/#2）。
+                        if (BattleWithdrawalRules.IsAtWithdrawalEdge(pos, enemyPos, battlefieldRadius))
+                        {
+                            if (strength != null && strength.IsAlive) strength.BeginRetreat();
+                            return;
+                        }
+
+                        // 自勢力端へ向かう逃走目標（敵と反対／敵不明なら外周方向）。
+                        Vector2 fleeTarget = BattleWithdrawalRules.WithdrawalTarget(pos, enemyPos, 20f);
+                        fleeTarget = SteerAroundBlackHoles(pos, fleeTarget);
                         if (avoidEnemyZoc)
                             fleeTarget = ZoneOfControl.SteerAround(strength, pos, fleeTarget, zocAvoidStrength, null);
 
-                        // 敵が近い間は後退移動で下がる（向き＝射界を保ち背中を見せない）。
-                        // 遠ければ通常移動（回頭して素早く離脱）。
-                        float distToEnemy = Vector2.Distance(pos, targetEnemy.transform.position);
-                        if (useReverseRetreat && distToEnemy <= reverseRetreatRange)
+                        // 敵が近い間は後退移動（向き＝射界を保ち背中を見せない）、遠ければ通常移動で素早く離脱。
+                        if (targetEnemy != null && useReverseRetreat
+                            && Vector2.Distance(pos, enemyPos) <= reverseRetreatRange)
                             movement.SetReverseDestination(fleeTarget);
                         else
                             movement.SetDestination(fleeTarget);

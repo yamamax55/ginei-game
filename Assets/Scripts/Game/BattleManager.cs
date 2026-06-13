@@ -30,6 +30,7 @@ namespace Ginei
         private float battleElapsed = 0f;        // 会戦経過時間（timeScale 追従。ポーズで停止・倍速で加速）
         private Faction vipFaction;              // 旗艦撃破/護衛の対象VIPの陣営（開始時に解決）
         private bool vipResolved = false;        // VIPの陣営を解決できたか
+        private float holdAccum = 0f;            // 拠点保持の連続保持秒数（#2259）
 
         private void Start()
         {
@@ -268,6 +269,49 @@ namespace Ginei
                     winner = defender;
                     reason = "時間防衛成功";
                     winnerRep = FindLivingFlagshipByLegacy(winner);
+                    return true;
+                }
+            }
+
+            // --- 突破：objectiveFaction の旗艦が戦場端(battlefieldRadius)に到達したら勝利（#2259）---
+            if (cond == VictoryCondition.突破 && activeScenario != null && activeScenario.battlefieldRadius > 0f)
+            {
+                Faction breaker = activeScenario.objectiveFaction;
+                float radius = activeScenario.battlefieldRadius;
+                foreach (var fs in FleetRegistry.AllFlagships)
+                {
+                    if (!CountsForVictory(fs)) continue;
+                    if (LegacyOf(fs) != breaker) continue;
+                    if (VictoryRules.BreakthroughAchieved((Vector2)fs.transform.position, radius))
+                    {
+                        winner = breaker;
+                        reason = "突破成功（戦場端に到達）";
+                        winnerRep = fs;
+                        return true;
+                    }
+                }
+            }
+
+            // --- 拠点保持：objectiveFaction が objectivePoint 周辺を holdDuration 秒保持で勝利（#2259）---
+            if (cond == VictoryCondition.拠点保持 && activeScenario != null)
+            {
+                Faction holder = activeScenario.objectiveFaction;
+                Vector2 center = activeScenario.objectivePoint;
+                float radius = activeScenario.objectiveRadius;
+                float needed = activeScenario.holdDuration;
+                bool holding = false;
+                foreach (var fs in FleetRegistry.AllFlagships)
+                {
+                    if (!CountsForVictory(fs)) continue;
+                    if (LegacyOf(fs) != holder) continue;
+                    if (VictoryRules.IsInZone((Vector2)fs.transform.position, center, radius)) { holding = true; break; }
+                }
+                holdAccum = holding ? holdAccum + Time.deltaTime : 0f; // ゾーン離脱でリセット
+                if (VictoryRules.HoldAchieved(holdAccum, needed))
+                {
+                    winner = holder;
+                    reason = $"拠点保持成功（{needed:F0}秒保持）";
+                    winnerRep = FindLivingFlagshipByLegacy(holder);
                     return true;
                 }
             }
@@ -552,7 +596,49 @@ namespace Ginei
 
             // 勢力名キー別の戦績（多勢力対応。ResultManager が勢力数可変で表示）
             RecordFactionStats(settings);
+
+            // #2260 会戦結果のメタ反映：生存旗艦の提督に会戦経験値を付与（純ロジックは BattleMetaRules）。
+            ApplyBattleExperience(winner);
         }
+
+        /// <summary>
+        /// 会戦終了時に各提督へ経験値を付与する（#2260 最小配線・実データ永続は Growth 永続化後に拡張）。
+        /// </summary>
+        private void ApplyBattleExperience(Faction winnerFaction)
+        {
+            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FleetStrength fs = all[i];
+                if (fs == null || fs.admiralData == null) continue;
+
+                bool isWinner = (LegacyOf(fs) == winnerFaction);
+                float amount = BattleMetaRules.ExperienceFromBattle(fs.DamageDealt, 0, isWinner);
+                if (amount <= 0f) continue;
+
+                // Growth は AdmiralData へ未永続（Wave1 配線待ち）。一時インスタンスで関数の疎通のみ確認。
+                var tempGrowth = new Growth(GrowthArchetype.叩き上げ);
+                GrowthRules.GainExperience(tempGrowth, amount, dt: 1f);
+                // 将来: fs.admiralData.growth に GainExperience を適用する。
+
+                // #2263 叙勲：戦功（与ダメ＋勝利）に応じて武功章を授与。次戦の士気底上げ（名誉）へ繋がる。
+                float merit = Mathf.Clamp(fs.DamageDealt / MedalMeritScale, 0f, 100f) + (isWinner ? MedalWinnerMeritBonus : 0f);
+                if (merit >= MedalAwardThreshold)
+                {
+                    int admiralId = fs.admiralData.GetInstanceID();
+                    Decoration d = MedalRegistry.Award(admiralId, MedalKind.武功章, merit, 0, $"{currentName(fs)} の戦功");
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{fs.admiralName} に武功章 {d.grade} を叙勲（戦功）");
+                }
+            }
+        }
+
+        // 叙勲の調整値（#2263）。
+        private const float MedalMeritScale = 200f;       // 与ダメ→戦功スコアの正規化（20000ダメで満点付近）
+        private const float MedalWinnerMeritBonus = 15f;  // 勝利側の戦功加点
+        private const float MedalAwardThreshold = 30f;    // この戦功以上で叙勲（乱発防止）
+
+        private static string currentName(FleetStrength fs) => fs != null ? fs.admiralName : "";
 
         /// <summary>
         /// 会戦を最初からやり直します。

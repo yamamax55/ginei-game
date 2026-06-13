@@ -294,6 +294,67 @@ namespace Ginei
             return reg;
         }
 
+        // ===== 惑星内政（Province）の往復（#109/#759） =====
+
+        /// <summary>惑星内政（systemId→Province）を保存データへ書き込む（既存 provinces をクリア）。
+        /// 人口動態/職業/技能の細部（demographics/workforce/skills）は保存せずロード後に再構築（マクロ背景＝再安定する）。</summary>
+        public static void WriteProvinces(CampaignSaveData save, System.Collections.Generic.Dictionary<int, Province> provinces)
+        {
+            if (save == null) return;
+            save.provinces.Clear();
+            if (provinces == null) return;
+            foreach (var kv in provinces)
+            {
+                Province p = kv.Value;
+                if (p == null) continue;
+                save.provinces.Add(new ProvinceSave
+                {
+                    systemId = p.systemId,
+                    nativeIdeology = p.nativeIdeology,
+                    systemType = (int)p.systemType,
+                    population = p.population,
+                    wageIndex = p.wageIndex,
+                    livingStandard = p.livingStandard,
+                    foodShortage = p.foodShortage,
+                    hasStrategicResource = p.hasStrategicResource,
+                    strategicResource = (int)p.strategicResource,
+                    strategicAbundance = p.strategicAbundance,
+                    stability = p.stability,
+                    integration = p.integration
+                });
+            }
+        }
+
+        /// <summary>保存データから惑星内政（systemId→Province）を復元する（空/null は空辞書）。
+        /// demographics/workforce/skills は null のまま（ロード後に再構築＝後方互換）。</summary>
+        public static System.Collections.Generic.Dictionary<int, Province> ReadProvinces(CampaignSaveData save)
+        {
+            var dict = new System.Collections.Generic.Dictionary<int, Province>();
+            if (save == null || save.provinces == null) return dict;
+            for (int i = 0; i < save.provinces.Count; i++)
+            {
+                ProvinceSave d = save.provinces[i];
+                if (d == null) continue;
+                var p = new Province
+                {
+                    systemId = d.systemId,
+                    nativeIdeology = d.nativeIdeology ?? "",
+                    systemType = (SystemType)d.systemType,
+                    population = d.population,
+                    wageIndex = d.wageIndex <= 0f ? 1f : d.wageIndex,
+                    livingStandard = d.livingStandard,
+                    foodShortage = d.foodShortage,
+                    hasStrategicResource = d.hasStrategicResource,
+                    strategicResource = (StrategicResourceType)d.strategicResource,
+                    strategicAbundance = d.strategicAbundance,
+                    stability = d.stability,
+                    integration = d.integration
+                };
+                dict[p.systemId] = p;
+            }
+            return dict;
+        }
+
         // ===== 統一時間（GameClock） =====
 
         /// <summary>クロックを保存データへ。</summary>

@@ -17,9 +17,26 @@ namespace Ginei
         public List<FactionStateSave> states = new List<FactionStateSave>();
         public List<PersonSave> people = new List<PersonSave>(); // ネームド人物ロスター（提督/文官・空=後方互換）
         public List<StrategicFleetSave> fleets = new List<StrategicFleetSave>(); // 戦略艦隊（盤面の駒・空=後方互換）
+        public List<ProvinceSave> provinces = new List<ProvinceSave>(); // 惑星内政（#109/#759・空=後方互換）
         // 統一時間（GameClock）。0=未設定（後方互換＝既定クロック）。
         public double clockElapsed;
         public float clockSpeed = 1f;
+    }
+
+    /// <summary>惑星内政（<see cref="Province"/>）のセーブ平データ。安定度/統合/経済/希少資源の継続。
+    /// 人口動態/職業/技能の細部（demographics/workforce/skills）はロード後に再構築（マクロ背景＝再安定する）。</summary>
+    [Serializable]
+    public class ProvinceSave
+    {
+        public int systemId;
+        public string nativeIdeology;
+        public int systemType;        // (int)SystemType
+        public float population;
+        public float wageIndex, livingStandard, foodShortage;
+        public bool hasStrategicResource;
+        public int strategicResource; // (int)StrategicResourceType
+        public float strategicAbundance;
+        public float stability, integration;
     }
 
     /// <summary>星系のセーブ平データ。所有 SO は名前で持つ（復元時に Resources/Factions から解決）。</summary>

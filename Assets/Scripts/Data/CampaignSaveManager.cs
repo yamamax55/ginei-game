@@ -40,19 +40,21 @@ namespace Ginei
         /// <summary>
         /// 戦役の<b>全状態</b>（銀河/勢力/財政/政体/人物/戦略艦隊/統一時間）を保存する（continue・全永続化）。
         /// </summary>
-        public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock)
+        public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock, Dictionary<int, Province> provinces = null)
         {
             if (campaign == null) return;
             CampaignSaveData save = CampaignSerializer.ToSaveData(campaign);
             CampaignSerializer.WritePeople(save, people);
             CampaignSerializer.WriteFleets(save, reg);
+            CampaignSerializer.WriteProvinces(save, provinces);
             CampaignSerializer.WriteClock(save, clock);
             File.WriteAllText(SavePath, JsonUtility.ToJson(save, true));
         }
 
         /// <summary>
         /// セーブから全状態を <see cref="StrategySession"/> へ復元する（Map/Reg/Campaign/Clock＋人物は PendingPeople へ）。
-        /// 呼び出し側が Strategy シーンを再ロードして盤面を再構築する。成功で true。Province 内政は再構築（未永続）。
+        /// 呼び出し側が Strategy シーンを再ロードして盤面を再構築する。成功で true。
+        /// Province 内政（安定度/統合/経済/希少資源）も復元する（demographics/workforce/skills の細部は再構築）。
         /// </summary>
         public static bool LoadSession()
         {
@@ -66,7 +68,7 @@ namespace Ginei
             StrategySession.Reg = CampaignSerializer.ReadFleets(save, campaign.map);
             StrategySession.Campaign = campaign;
             StrategySession.Clock = CampaignSerializer.ReadClock(save);
-            StrategySession.Provinces = null; // 内政は未永続＝ロード後に再構築（既知の境界）
+            StrategySession.Provinces = CampaignSerializer.ReadProvinces(save); // 内政を復元（空=後方互換）
             StrategySession.PendingPeople = CampaignSerializer.ReadPeople(save);
             return true;
         }

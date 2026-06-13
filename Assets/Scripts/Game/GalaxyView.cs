@@ -1040,6 +1040,9 @@ namespace Ginei
             // 陸軍大学校のエリート街道（#SCHOOL-AGE 配線）：現役将校を大学校へ入校（学校配属＝艦隊配属不可）→卒業で参謀＝恩賜の軍刀組→昇進優遇。
             RunWarCollegeCareerTick();
 
+            // 人事の空席補充（#152）と捕虜の処遇（#154）：死亡/退役/捕虜で空いた要職を後任補充、捕虜は解放/登用/処断で処遇。
+            RunPersonnelTurnoverTick();
+
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
         }
@@ -1100,6 +1103,120 @@ namespace Ginei
                         NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{e.faction} {e.personName} {rank}へ昇進");
                         break;
                 }
+            }
+        }
+
+        // --- 人事の空席補充（#152）と捕虜の処遇（#154）の配線 ---
+        private Office[] commandOffices; // 勢力ごとの要職（DemoFactions と並行・null=未設定）
+
+        /// <summary>勢力の現役（生存・自由・現役）司令を後任候補として集める。</summary>
+        private System.Collections.Generic.List<ICharacter> ActiveCommanders(Faction f)
+        {
+            var list = new System.Collections.Generic.List<ICharacter>();
+            if (commanders == null) return list;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c != null && c.faction == f && c.IsAvailable && c.serviceStatus == ServiceStatus.現役)
+                    list.Add(c);
+            }
+            return list;
+        }
+
+        /// <summary>デモの政体（文民統制型）：帝国＝君主統帥／同盟＝文民統制。捕虜処遇 DefaultDisposition に使う。</summary>
+        private static CivilianControlType FactionControl(Faction f)
+            => f == Faction.帝国 ? CivilianControlType.君主統帥 : CivilianControlType.文民統制;
+
+        private static Faction EnemyOf(Faction f) => f == Faction.帝国 ? Faction.同盟 : Faction.帝国;
+
+        /// <summary>要職をシード（冪等）：勢力ごとに「宇宙艦隊司令長官」を1つ作り、最先任の現役へ任命。</summary>
+        private void SeedCommandOffices()
+        {
+            if (commandOffices != null) return;
+            GovernmentRegistry.Clear();
+            commandOffices = new Office[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var office = new Office(900 + f, $"{fac}宇宙艦隊司令長官", OfficeScope.国家, OfficeDomain.軍事)
+                { militaryOnly = true, requiredTier = 8 };
+                commandOffices[f] = office;
+                VacancyRules.FillVacancy(fac, office, ActiveCommanders(fac)); // 初任命
+            }
+        }
+
+        /// <summary>
+        /// 後任補充（VacancyRules・#152）＋捕虜の処遇（CaptivityRules・#154）を年次で回す。数式/状態遷移は Core 窓口へ委譲。
+        /// </summary>
+        private void RunPersonnelTurnoverTick()
+        {
+            if (commanders == null) return;
+            ResolveCaptives();   // 既存捕虜を処遇（解放/登用/処断）
+            MaybeCapture();      // 敵対勢力により低確率で捕虜化
+            FillCommandVacancies(); // 要職の空席を後任補充
+        }
+
+        /// <summary>捕虜を捕獲側の政体に従って処遇：登用（寝返り・稀）→さもなくば解放/処断。</summary>
+        private void ResolveCaptives()
+        {
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.captiveStatus != CaptiveStatus.捕虜) continue;
+                Faction captor = c.heldBy;
+
+                // まず登用（寝返り＝調略）を試みる（思想差・処遇で決まる稀な成立）。
+                float recruitChance = CaptivityRules.RecruitChance(0.5f, 0.5f);
+                if (UnityEngine.Random.value < recruitChance && CaptivityRules.Recruit(c, captor))
+                {
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{c.name} {captor} へ登用（寝返り）");
+                    continue;
+                }
+
+                // さもなくば捕獲側の政体の既定処遇（処断 or 解放）。
+                CaptiveDisposition dispo = CaptivityRules.DefaultDisposition(FactionControl(captor));
+                if (dispo == CaptiveDisposition.処断 && CaptivityRules.Execute(c, campaignYear))
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.警告, $"{c.name} 処断（捕虜）");
+                else if (CaptivityRules.Release(c))
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{c.name} 解放され帰還");
+            }
+        }
+
+        /// <summary>敵対勢力により低確率で中堅以下の現役将校を捕虜化（前線での捕獲のデモ）。</summary>
+        private void MaybeCapture()
+        {
+            if (UnityEngine.Random.value > 0.15f) return; // 年あたりの捕獲生起（控えめ）
+            var pool = new System.Collections.Generic.List<Person>();
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c != null && c.IsAvailable && c.serviceStatus == ServiceStatus.現役 && c.rankTier < 8)
+                    pool.Add(c); // 最高位は捕らえにくい＝中堅以下
+            }
+            if (pool.Count == 0) return;
+            Person target = pool[UnityEngine.Random.Range(0, pool.Count)];
+            Faction captor = EnemyOf(target.faction);
+            if (CaptivityRules.Capture(target, captor, campaignYear))
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{target.faction} {target.name} {captor} の捕虜に");
+        }
+
+        /// <summary>要職の保持者が死亡/捕虜/退役なら解任し、現役の有資格者で後任補充（VacancyRules・#152）。</summary>
+        private void FillCommandVacancies()
+        {
+            SeedCommandOffices();
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Office office = commandOffices[f];
+                if (office == null) continue;
+                Faction fac = DemoFactions[f];
+                var holder = GovernmentRegistry.GetHolder(office) as Person;
+                if (holder != null && (!holder.IsAvailable || holder.serviceStatus == ServiceStatus.退役))
+                    GovernmentRegistry.Dismiss(office, holder);
+                ICharacter before = GovernmentRegistry.GetHolder(office);
+                VacancyRules.FillVacancy(fac, office, ActiveCommanders(fac));
+                ICharacter after = GovernmentRegistry.GetHolder(office);
+                if (after != null && after != before)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{fac} {office.officeName} に {after.CharacterName} が就任");
             }
         }
 

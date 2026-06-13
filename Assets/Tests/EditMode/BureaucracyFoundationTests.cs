@@ -116,11 +116,14 @@ namespace Ginei.Tests
         // ---- 銓衡・任用（CivilServiceRules） ----
 
         [Test]
-        public void MeritWeight_ExamMostMeritocratic_OnReverseRoute()
+        public void MeritWeight_ExamMostMeritocratic_OnmiLeastMeritocratic()
         {
-            Assert.Greater(CivilServiceRules.MeritWeight(CivilEntryRoute.科挙),
-                           CivilServiceRules.MeritWeight(CivilEntryRoute.辟召));
-            Assert.Greater(CivilServiceRules.MeritWeight(CivilEntryRoute.辟召),
+            // 日本の登用経路：貢挙（試験）＞雑任（叩き上げ）＞譜第（世襲）＞蔭位（門閥）
+            Assert.Greater(CivilServiceRules.MeritWeight(CivilEntryRoute.貢挙),
+                           CivilServiceRules.MeritWeight(CivilEntryRoute.雑任));
+            Assert.Greater(CivilServiceRules.MeritWeight(CivilEntryRoute.雑任),
+                           CivilServiceRules.MeritWeight(CivilEntryRoute.譜第));
+            Assert.Greater(CivilServiceRules.MeritWeight(CivilEntryRoute.譜第),
                            CivilServiceRules.MeritWeight(CivilEntryRoute.蔭位));
         }
 
@@ -181,6 +184,113 @@ namespace Ginei.Tests
             var prm = AP.Default;
             var lone = new Person(1, "下位", Faction.帝国, PersonRole.文民) { rankTier = 3 };
             Assert.IsNull(CivilServiceRules.SelectForOffice(new[] { lone }, requiredTier: 7, p => null, prm));
+        }
+
+        // ---- 位階（CourtRank / JapaneseCourtRankRules） ----
+
+        [Test]
+        public void CourtRank_OrderingAndClassification()
+        {
+            // 正一位が最上、無位は位階を持たない
+            Assert.IsTrue(JapaneseCourtRankRules.Compare(CourtRank.正一位, CourtRank.従五位下) > 0);
+            Assert.IsFalse(JapaneseCourtRankRules.IsRanked(CourtRank.無位));
+            // 五位の壁：従五位下以上が貴族、正六位上は貴族でない
+            Assert.IsTrue(JapaneseCourtRankRules.IsNobility(CourtRank.従五位下));
+            Assert.IsFalse(JapaneseCourtRankRules.IsNobility(CourtRank.正六位上));
+            // 公卿：従三位以上
+            Assert.IsTrue(JapaneseCourtRankRules.IsKugyo(CourtRank.従三位));
+            Assert.IsFalse(JapaneseCourtRankRules.IsKugyo(CourtRank.正四位上));
+            // Higher は上位を返す
+            Assert.AreEqual(CourtRank.正三位, JapaneseCourtRankRules.Higher(CourtRank.正三位, CourtRank.従四位上));
+        }
+
+        [Test]
+        public void CourtRank_NextPrevious_AndEntryFromMui()
+        {
+            Assert.AreEqual(CourtRank.正一位, JapaneseCourtRankRules.Next(CourtRank.従一位));
+            Assert.AreEqual(CourtRank.正一位, JapaneseCourtRankRules.Next(CourtRank.正一位)); // 頭打ち
+            Assert.AreEqual(CourtRank.少初位下, JapaneseCourtRankRules.Next(CourtRank.無位)); // 叙任でラダーに乗る
+            Assert.AreEqual(CourtRank.無位, JapaneseCourtRankRules.Previous(CourtRank.少初位下)); // 底
+        }
+
+        [Test]
+        public void AdvanceOnMerit_FifthRankWall_BlocksRoutinePromotion()
+        {
+            // 正六位上から上系考第でも、勅授（allowBreak=true）でなければ五位へ昇れない
+            Assert.AreEqual(CourtRank.正六位上,
+                JapaneseCourtRankRules.AdvanceOnMerit(CourtRank.正六位上, MeritRating.上上, allowBreakFifthWall: false));
+            Assert.AreEqual(CourtRank.従五位下,
+                JapaneseCourtRankRules.AdvanceOnMerit(CourtRank.正六位上, MeritRating.上上, allowBreakFifthWall: true));
+            // 壁に関係ない場所では上系で昇叙・下下で貶位・中系は据置
+            Assert.AreEqual(CourtRank.正七位上,
+                JapaneseCourtRankRules.AdvanceOnMerit(CourtRank.正七位下, MeritRating.上中));
+            Assert.AreEqual(CourtRank.従七位上,
+                JapaneseCourtRankRules.AdvanceOnMerit(CourtRank.正七位下, MeritRating.下下));
+            Assert.AreEqual(CourtRank.正七位下,
+                JapaneseCourtRankRules.AdvanceOnMerit(CourtRank.正七位下, MeritRating.中中));
+        }
+
+        [Test]
+        public void CrossesFifthRankWall_OnlyUpwardIntoFifth()
+        {
+            Assert.IsTrue(JapaneseCourtRankRules.CrossesFifthRankWall(CourtRank.正六位上, CourtRank.従五位下));
+            Assert.IsFalse(JapaneseCourtRankRules.CrossesFifthRankWall(CourtRank.従五位下, CourtRank.正六位上)); // 下向きは壁でない
+            Assert.IsFalse(JapaneseCourtRankRules.CrossesFifthRankWall(CourtRank.正七位下, CourtRank.正七位上)); // 六位内
+        }
+
+        [Test]
+        public void Tier_IsMonotonicWithRank()
+        {
+            Assert.Greater(JapaneseCourtRankRules.Tier(CourtRank.正三位), JapaneseCourtRankRules.Tier(CourtRank.従五位下));
+            Assert.Greater(JapaneseCourtRankRules.Tier(CourtRank.従五位下), JapaneseCourtRankRules.Tier(CourtRank.正六位上));
+            Assert.AreEqual(0, JapaneseCourtRankRules.Tier(CourtRank.無位));
+        }
+
+        [Test]
+        public void OfficeFitness_KaniSotou()
+        {
+            // 官位相当：許容±2階。役職が求める位階に対し、上回れば格上、下回れば格下
+            Assert.AreEqual(AppointmentFit.適任,
+                JapaneseCourtRankRules.OfficeFitness(CourtRank.従五位上, CourtRank.従五位下));
+            Assert.AreEqual(AppointmentFit.格上,
+                JapaneseCourtRankRules.OfficeFitness(CourtRank.正四位上, CourtRank.従五位下));
+            Assert.AreEqual(AppointmentFit.格下,
+                JapaneseCourtRankRules.OfficeFitness(CourtRank.従六位下, CourtRank.従五位下));
+        }
+
+        // ---- 蔭位制（OnishikiRules） ----
+
+        [Test]
+        public void Onishiki_HighParentGivesNobleStart_LegitimateBeatsConcubineSon()
+        {
+            // 一位の嫡子＝従五位下（いきなり貴族）、庶子＝正六位上（貴族未満）
+            Assert.AreEqual(CourtRank.従五位下, OnishikiRules.StartingRank(CourtRank.正一位, legitimate: true));
+            Assert.AreEqual(CourtRank.正六位上, OnishikiRules.StartingRank(CourtRank.正一位, legitimate: false));
+            Assert.IsTrue(JapaneseCourtRankRules.IsNobility(OnishikiRules.StartingRank(CourtRank.正一位, true)));
+            Assert.IsFalse(JapaneseCourtRankRules.IsNobility(OnishikiRules.StartingRank(CourtRank.正一位, false)));
+        }
+
+        [Test]
+        public void Onishiki_Ineligible_WhenParentBelowFifth()
+        {
+            Assert.IsFalse(OnishikiRules.IsEligible(CourtRank.正六位上));
+            Assert.AreEqual(CourtRank.無位, OnishikiRules.StartingRank(CourtRank.正六位上, legitimate: true));
+            Assert.IsFalse(OnishikiRules.TryStartingRank(CourtRank.正六位上, true, out _));
+            // 五位の親なら資格あり
+            Assert.IsTrue(OnishikiRules.IsEligible(CourtRank.従五位下));
+            Assert.IsTrue(OnishikiRules.TryStartingRank(CourtRank.従五位下, true, out var start));
+            Assert.AreEqual(CourtRank.従八位上, start);
+        }
+
+        [Test]
+        public void Onishiki_Grandchild_OnlyForThirdRankAndAbove_OneStepLower()
+        {
+            // 三位以上は嫡孫にも蔭が及び、嫡子の位より一階下げ
+            CourtRank son = OnishikiRules.StartingRank(CourtRank.正一位, legitimate: true);       // 従五位下
+            CourtRank grandson = OnishikiRules.StartingRank(CourtRank.正一位, true, grandchild: true);
+            Assert.AreEqual(JapaneseCourtRankRules.Previous(son), grandson); // 一階下げ
+            // 四位の孫には蔭が及ばない
+            Assert.AreEqual(CourtRank.無位, OnishikiRules.StartingRank(CourtRank.正四位上, true, grandchild: true));
         }
     }
 }

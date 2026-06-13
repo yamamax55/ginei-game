@@ -3,9 +3,10 @@ using UnityEngine;
 namespace Ginei
 {
     /// <summary>
-    /// 考課（こうか）制度＝官僚の勤務評定の純ロジック（官僚制基盤・史実参考）。
-    /// 史実の唐の考課は「四善」（徳義・清慎・公平・恪勤＝<b>徳</b>）と「最」（職掌ごとの功績＝<b>能・績</b>）を
-    /// 量り、九等の考第（<see cref="MeritRating"/>）に落とした。本ルールはそれを三要素へ抽象する：
+    /// 考課（こうか）制度＝官僚の勤務評定の純ロジック（日本の律令制・官僚制基盤・史実参考）。
+    /// 唐令を承けた日本の律令（考課令）も「四善」（徳義・清慎・公平・恪勤＝<b>徳</b>）と「最」（職掌ごとの
+    /// 功績＝<b>能・績</b>）を量り、九等の考第（<see cref="MeritRating"/>）に落とした（式部省＝文官・兵部省＝武官が
+    /// 司り、考限に達すると選叙で位階を叙位＝<see cref="JapaneseCourtRankRules.AdvanceOnMerit"/>）。本ルールはそれを三要素へ抽象する：
     /// <list type="bullet">
     ///   <item><b>能</b>＝役職への実効力（<see cref="PersonRules.Effectiveness"/> ＝適材適所 0..1）。</item>
     ///   <item><b>徳</b>＝清廉度（<see cref="OfficialMerit.integrity"/> 0..1）。</item>

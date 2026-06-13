@@ -1034,11 +1034,36 @@ namespace Ginei
                 for (int i = 0; i < academies.Count; i++)
                     if (academies[i] != null) RunMilitaryAcademy(academies[i]);
 
+            // 退役（#530-536 配線）：階級別の停年に達した現役将校を退役へ（元帥は終身）。退役者は昇進・入校の対象外＝以後は老衰で退場。
+            RunRetirementTick();
+
             // 陸軍大学校のエリート街道（#SCHOOL-AGE 配線）：現役将校を大学校へ入校（学校配属＝艦隊配属不可）→卒業で参謀＝恩賜の軍刀組→昇進優遇。
             RunWarCollegeCareerTick();
 
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
+        }
+
+        /// <summary>
+        /// 退役（#530-536 配線）：現役将校が階級別の停年に達したら退役へ編入（元帥 tier は終身＝対象外）。
+        /// 退役者はロスターに残り（資産・老衰死の対象）、昇進・大学校入校からは外れる＝現役→退役→死亡 の一方向。
+        /// </summary>
+        private void RunRetirementTick()
+        {
+            if (commanders == null) return;
+            var prm = RetirementRules.RetireParams.Default;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.deathYear != 0) continue;
+                if (c.serviceStatus != ServiceStatus.現役) continue;
+                int age = LifecycleRules.Age(c, campaignYear);
+                if (RetirementRules.ShouldRetireByAge(age, c.rankTier, prm))
+                {
+                    c.serviceStatus = ServiceStatus.退役;
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{c.faction} {c.name} 退役（停年・享年 {age}）");
+                }
+            }
         }
 
         // --- 陸軍大学校のエリート街道（#SCHOOL-AGE 配線） ---

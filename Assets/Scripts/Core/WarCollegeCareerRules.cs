@@ -38,6 +38,7 @@ namespace Ginei
         public static bool CanEnroll(Person p, int year)
         {
             if (p == null || !p.IsAvailable) return false;
+            if (p.serviceStatus != ServiceStatus.現役) return false; // 退役/予備役は入校しない
             if (p.militaryDegree == MilitaryDegree.大学校卒) return false; // 既に参謀
             if (p.birthYear <= 0) return false;
             if (SchoolPostingRules.IsEnrolled(p, year)) return false;       // 既に在学中
@@ -125,7 +126,8 @@ namespace Ginei
 
                 // ③ 昇進（在学中でない・上限未満を昇進優遇順に枠ぶん）
                 var promo = CollectByFaction(roster, f, p =>
-                    p.IsAvailable && !SchoolPostingRules.IsEnrolled(p, year) && p.rankTier < EliteTierCeiling);
+                    p.IsAvailable && p.serviceStatus == ServiceStatus.現役
+                    && !SchoolPostingRules.IsEnrolled(p, year) && p.rankTier < EliteTierCeiling);
                 promo.Sort((a, b) => PromotionFavor(b, doctrine).CompareTo(PromotionFavor(a, doctrine)));
                 int n = Mathf.Min(PromotionsPerFactionPerYear, promo.Count);
                 for (int i = 0; i < n; i++)

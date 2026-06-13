@@ -22,6 +22,13 @@ concurrency:
   group: unity-test-${{ github.ref }}
   cancel-in-progress: true
 
+# game-ci/unity-test-runner が結果を check として投稿するのに必要（無いと
+# "Resource not accessible by integration" になる）。
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   test:
     name: EditMode (real Unity)
@@ -37,14 +44,18 @@ jobs:
         with:
           lfs: true
 
-      - name: Guard — ライセンス情報が設定されているか
+      - name: Guard — ライセンス情報が「完全に」設定されているか
         id: guard
         run: |
-          if [ -n "${UNITY_LICENSE}" ] || { [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ]; }; then
+          # Personal は UNITY_LICENSE(.ulf) が必須。Pro は UNITY_EMAIL+UNITY_PASSWORD+UNITY_SERIAL。
+          # メール/パスワードだけ（.ulf も serial も無い）では unity-test-runner が
+          # 'Missing Unity License File and no Serial' で必ず失敗する（実測）ので、
+          # その場合は走らせず skip する（＝全 PR が赤くならない）。詳細は docs/gameci-setup.md。
+          if [ -n "${UNITY_LICENSE}" ] || { [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ] && [ -n "${UNITY_SERIAL}" ]; }; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Unity ライセンス未設定のためスキップ（UNITY_EMAIL+UNITY_PASSWORD か UNITY_LICENSE。docs/gameci-setup.md 参照）。dotnet TestHarness は別ワークフローで実行されます。"
+            echo "::notice::Unity ライセンス未設定/不完全のためスキップ（Personal=UNITY_LICENSE(.ulf) 必須／Pro=UNITY_EMAIL+UNITY_PASSWORD+UNITY_SERIAL）。dotnet TestHarness は別ワークフローで実行されます。docs/gameci-setup.md 参照。"
           fi
 
       - name: Cache Library

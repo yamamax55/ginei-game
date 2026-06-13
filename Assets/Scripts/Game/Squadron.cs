@@ -112,6 +112,42 @@ namespace Ginei
         [Tooltip("分離スキャンの間引き間隔（秒）。0で毎フレーム。重い時は大きく")]
         public float separationUpdateInterval = 0.1f;
 
+        [Tooltip("分離のLOD（EMOV-5）。画面外/遠方の部隊は分離スキャンを粗くして負荷を下げる")]
+        public bool separationLOD = true;
+
+        [Tooltip("画面外の部隊の分離間引き倍率（separationUpdateInterval にこれを乗算）")]
+        public float separationOffscreenMultiplier = 4f;
+
+        [Header("スロット割当（#69/#80 EMOV-1/2）")]
+        [Tooltip("艦種でスロット配置を寄せる重み（0で距離のみ＝艦種非依存）。戦艦を前面/外周・駆逐艦を側面へ。陣形変更/初回の配置にのみ効く（戦死再フィットは距離のみ＝安定）")]
+        public float slotClassBias = 20f;
+
+        [Header("配下艦の加減速・バンク（#69 EMOV-3）")]
+        [Tooltip("加減速ランプ。速度変化を escortAcceleration で制限し急発進/急停止をなめらかにする")]
+        public bool enableAccelRamp = true;
+
+        [Tooltip("配下艦の最大加速度（units/秒²）。大きいほど機敏。0で無効")]
+        public float escortAcceleration = 30f;
+
+        [Tooltip("回頭バンク。移動中の急回頭で進行方向へわずかに余分に傾ける（既定OFF＝従来の見た目を維持）")]
+        public bool enableBanking = false;
+
+        [Tooltip("バンクの強さ（残り回頭角に対する係数）")]
+        public float bankStrength = 0.3f;
+
+        [Tooltip("バンクの最大角（度）。これ以上は傾けない")]
+        public float maxBankAngle = 15f;
+
+        [Header("航行/戦闘の隊形密度（#80 EMOV-4）")]
+        [Tooltip("航行中（移動・非交戦）の実効間隔倍率。1より大で隊列を伸ばす")]
+        public float cruiseSpacingMul = 1.12f;
+
+        [Tooltip("交戦中/停止時の実効間隔倍率。1で基準（締めて火力集中）")]
+        public float combatSpacingMul = 1.0f;
+
+        [Tooltip("実効間隔倍率の追従速度（/秒）。航行⇄戦闘の切替のなめらかさ")]
+        public float spacingChangeSpeed = 1.5f;
+
         // SmoothDamp用の速度バッファ（memberShips と添字同期）
         private List<Vector2> velocities = new List<Vector2>();
 
@@ -135,6 +171,28 @@ namespace Ginei
         private List<Vector2> cachedSlots = new List<Vector2>();
         private Formation cachedFormation;
         private int cachedCount = -1;
+
+        // スロット割当（EMOV-1/2）：添字＝member、値＝割り当てスロット添字（-1=未割当）。
+        // スロット集合が変わった時だけ EscortSlotAssignmentRules で再割当して席替え交差を防ぐ。
+        private List<int> slotForMember = new List<int>();
+        private bool slotsAssigned = false;
+        // ReassignSlots の使い回しバッファ（GC を増やさない）
+        private readonly List<Vector2> reassignPositions = new List<Vector2>();
+        private readonly List<ShipClass> reassignClasses = new List<ShipClass>();
+        private readonly List<Vector2> effSlots = new List<Vector2>();
+
+        // 航行/戦闘の実効間隔倍率（EMOV-4・基準 spacing は非破壊）。
+        private float spacingFactor = 1f;
+        private Vector2 lastFlagshipPos;
+        private float flagshipSpeed;
+
+        // 分離（EMOV-5）：SeparationResolveRules のグリッド用バッファ（使い回し）。
+        private readonly List<Vector2> sepPositions = new List<Vector2>();
+        private readonly List<int> sepMap = new List<int>();
+        private Vector2[] sepDisplace = new Vector2[0];
+        private readonly System.Collections.Generic.Dictionary<long, List<int>> sepGrid
+            = new System.Collections.Generic.Dictionary<long, List<int>>();
+        private Camera mainCam;
 
         private void Awake()
         {
@@ -162,6 +220,8 @@ namespace Ginei
             flagshipWeapon = GetComponent<FleetWeapon>();
             flagshipMovement = GetComponent<FleetMovement>();
             if (flagshipMovement != null) flagshipMaxSpeed = flagshipMovement.maxSpeed;
+            lastFlagshipPos = transform.position; // EMOV-4 旗艦移動量の基準
+            mainCam = Camera.main;                 // EMOV-5 LOD 用（null は毎回再取得を試みる）
             // 分離スキャンの初回位相を分散（全部隊が同フレームに走らないように）
             nextSeparationTime = Time.time + Random.value * Mathf.Max(0f, separationUpdateInterval);
         }
@@ -296,7 +356,8 @@ namespace Ginei
 
         /// <summary>
         /// 編成比率（戦艦/巡航艦/駆逐艦）に応じて各配下艦へ艦種を割り当て、表示スケールに反映する（#80）。
-        /// スロット配置は艦種非依存（最小実装＝混成のみ。前衛/遊撃の配置最適化は将来）。
+        /// スロットへの配置（前衛=戦艦/遊撃=駆逐艦）は EMOV-2＝EscortSlotAssignmentRules.AssignWithClass が担う。
+        /// ここは各メンバの艦種（耐久/火力/速度/スケール）を決めるだけ＝配置は ReassignSlots 側。
         /// </summary>
         private void AssignShipClasses()
         {
@@ -437,6 +498,7 @@ namespace Ginei
             memberShips.RemoveAt(idx);
             if (idx < velocities.Count) velocities.RemoveAt(idx);
             if (idx < memberEscorts.Count) memberEscorts.RemoveAt(idx); // 艦種キャッシュも添字同期
+            if (idx < slotForMember.Count) slotForMember.RemoveAt(idx); // スロット割当も添字同期（次の EnsureSlots で再割当）
         }
 
         private void Update()
@@ -491,6 +553,9 @@ namespace Ginei
             float st = inCombat ? combatSmoothTime : smoothTime;
 
             float dt = Time.deltaTime;
+            // EMOV-4：航行（移動中・非交戦）は隊形を広げ、交戦/停止では締める（実効間隔・基準非破壊）。
+            UpdateSpacingFactor(inCombat, dt);
+
             // 速度上限の基準＝旗艦の最高速 × catchUpRatio（遅れは取り戻せるがワープしない）。
             float baseMaxSpeed = (flagshipMovement != null ? flagshipMovement.maxSpeed : flagshipMaxSpeed)
                                  * Mathf.Max(0.1f, catchUpRatio);
@@ -498,7 +563,9 @@ namespace Ginei
             for (int i = 0; i < memberShips.Count; i++)
             {
                 if (memberShips[i] == null) continue;
-                if (i >= cachedSlots.Count) continue;
+                // EMOV-1：添字順でなく割り当てスロットを参照（席替え交差を防ぐ）。
+                int slot = (i < slotForMember.Count) ? slotForMember[i] : -1;
+                if (slot < 0 || slot >= cachedSlots.Count) continue;
 
                 // #80 艦種の速度倍率を上限に乗算（戦艦は遅く・駆逐艦は速く＝速い遊撃）。FleetMovement は不変。
                 float speedMul = (i < memberEscorts.Count && memberEscorts[i] != null)
@@ -506,12 +573,13 @@ namespace Ginei
                 float maxSpeed = baseMaxSpeed * Mathf.Max(0.1f, speedMul);
                 float maxStep = maxSpeed * dt;
 
-                // ローカル座標→ワールド座標（旗艦の回転に追従。root スケールは1前提）
-                Vector3 targetWorldPos = transform.TransformPoint(cachedSlots[i]);
+                // ローカル座標→ワールド座標（旗艦の回転に追従。root スケールは1前提）。実効間隔（EMOV-4）を乗算。
+                Vector3 targetWorldPos = transform.TransformPoint(cachedSlots[slot] * spacingFactor);
                 targetWorldPos.z = transform.position.z;
 
                 Vector2 currentPos = memberShips[i].position;
-                Vector2 velocity = velocities[i];
+                Vector2 velBefore = velocities[i];
+                Vector2 velocity = velBefore;
                 // SmoothDamp 自体に maxSpeed を渡して、旗艦回頭時の外周艦の異常加速を抑える。
                 Vector2 nextPos = Vector2.SmoothDamp(currentPos, (Vector2)targetWorldPos, ref velocity, st, maxSpeed);
 
@@ -522,6 +590,14 @@ namespace Ginei
                     delta = delta.normalized * maxStep;
                     nextPos = currentPos + delta;
                     if (velocity.magnitude > maxSpeed) velocity = velocity.normalized * maxSpeed;
+                }
+
+                // EMOV-3：加減速ランプ＝速度変化を escortAcceleration で制限（急発進/急停止をなめらかに）。
+                if (enableAccelRamp && dt > 0f && escortAcceleration > 0f)
+                {
+                    velocity = Vector2.MoveTowards(velBefore, velocity, escortAcceleration * dt);
+                    nextPos = currentPos + velocity * dt;
+                    delta = nextPos - currentPos;
                 }
                 velocities[i] = velocity;
 
@@ -551,6 +627,12 @@ namespace Ginei
             {
                 // 進行方向を前方(Transform.up)に向ける：up が角度φのとき z 回転は φ-90°。
                 float ang = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg - 90f;
+                // EMOV-3 バンク：残り回頭角ぶん進行方向へ余分に傾けて旋回らしさを出す（移動中のみ・既定OFF）。
+                if (enableBanking)
+                {
+                    float remaining = Mathf.DeltaAngle(ship.eulerAngles.z, ang);
+                    ang += Mathf.Clamp(remaining * bankStrength, -maxBankAngle, maxBankAngle);
+                }
                 targetRot = Quaternion.Euler(0f, 0f, ang);
                 rotSpeed = escortRotationSpeed;
             }
@@ -564,8 +646,24 @@ namespace Ginei
         }
 
         /// <summary>
+        /// EMOV-4：航行中（移動・非交戦）は実効間隔を広げ、交戦/停止では締める。
+        /// 旗艦の移動量から判定し、spacingFactor をなめらかに追従させる（基準 spacing は非破壊）。
+        /// </summary>
+        private void UpdateSpacingFactor(bool inCombat, float dt)
+        {
+            Vector2 pos = transform.position;
+            flagshipSpeed = (dt > 0f) ? ((pos - lastFlagshipPos).magnitude / dt) : 0f;
+            lastFlagshipPos = pos;
+
+            bool cruising = !inCombat && flagshipSpeed > headingMoveThreshold;
+            float target = cruising ? cruiseSpacingMul : combatSpacingMul;
+            spacingFactor = Mathf.MoveTowards(spacingFactor, target, Mathf.Max(0f, spacingChangeSpeed) * dt);
+        }
+
+        /// <summary>
         /// 同一部隊内の配下艦同士が minSeparation 未満に重なったら、半分ずつ押し離して
-        /// すり抜け・団子を防ぐ。間引き(separationUpdateInterval)＋初回位相分散で負荷を抑える。
+        /// すり抜け・団子を防ぐ。EMOV-5：押し離しの計算は SeparationResolveRules（Core・グリッドで ~O(n)）
+        /// に委譲し、間引き(separationUpdateInterval)＋初回位相分散＋画面外LOD で負荷を抑える。
         /// 旗艦(transform)は対象外＝root は動かさない。
         /// </summary>
         private void ApplySeparation()
@@ -574,46 +672,104 @@ namespace Ginei
             if (separationUpdateInterval > 0f)
             {
                 if (Time.time < nextSeparationTime) return;
-                nextSeparationTime = Time.time + separationUpdateInterval;
+                float interval = separationUpdateInterval;
+                if (separationLOD && !IsRoughlyVisible())
+                    interval *= Mathf.Max(1f, separationOffscreenMultiplier);
+                nextSeparationTime = Time.time + interval;
             }
 
-            float minSq = minSeparation * minSeparation;
             int n = memberShips.Count;
+            if (n <= 1) return;
+
+            // 非null の配下艦だけを詰めて Core へ渡す（添字対応は sepMap で復元）。
+            sepPositions.Clear();
+            sepMap.Clear();
             for (int i = 0; i < n; i++)
             {
-                Transform a = memberShips[i];
-                if (a == null) continue;
-                Vector2 pa = a.position;
-                for (int j = i + 1; j < n; j++)
-                {
-                    Transform b = memberShips[j];
-                    if (b == null) continue;
-                    Vector2 pb = b.position;
-                    Vector2 d = pa - pb;
-                    float dsq = d.sqrMagnitude;
-                    if (dsq < minSq && dsq > 1e-6f)
-                    {
-                        float dist = Mathf.Sqrt(dsq);
-                        Vector2 push = d / dist * ((minSeparation - dist) * 0.5f * separationStrength);
-                        pa += push;
-                        pb -= push;
-                        a.position = new Vector3(pa.x, pa.y, a.position.z);
-                        b.position = new Vector3(pb.x, pb.y, b.position.z);
-                    }
-                }
+                Transform m = memberShips[i];
+                if (m == null) continue;
+                sepMap.Add(i);
+                sepPositions.Add(m.position);
+            }
+            int cn = sepPositions.Count;
+            if (cn <= 1) return;
+            if (sepDisplace.Length < cn) sepDisplace = new Vector2[cn];
+
+            SeparationResolveRules.Resolve(sepPositions, cn, minSeparation, separationStrength, sepDisplace, sepGrid);
+
+            for (int k = 0; k < cn; k++)
+            {
+                Vector2 push = sepDisplace[k];
+                if (push.sqrMagnitude <= 1e-10f) continue;
+                Transform t = memberShips[sepMap[k]];
+                if (t == null) continue;
+                Vector3 p = t.position;
+                t.position = new Vector3(p.x + push.x, p.y + push.y, p.z);
             }
         }
 
+        /// <summary>EMOV-5 LOD：部隊がメインカメラの視界内に概ね入っているか（粗い判定）。</summary>
+        private bool IsRoughlyVisible()
+        {
+            if (mainCam == null) mainCam = Camera.main;
+            if (mainCam == null) return true; // カメラ不明なら常に処理
+            Vector3 vp = mainCam.WorldToViewportPoint(transform.position);
+            if (vp.z < 0f) return false; // カメラ背面
+            const float margin = 0.2f;
+            return vp.x >= -margin && vp.x <= 1f + margin && vp.y >= -margin && vp.y <= 1f + margin;
+        }
+
         /// <summary>
-        /// 隻数・陣形が変わった時だけ陣形スロットを再計算してキャッシュする。
+        /// 隻数・陣形が変わった時だけ陣形スロットを再計算してキャッシュし、スロット割当を更新する。
+        /// 割当（EMOV-1/2）は EscortSlotAssignmentRules に委譲＝陣形変更/戦死時の席替え交差を防ぐ。
         /// </summary>
         private void EnsureSlots()
         {
             int n = memberShips.Count;
-            if (n == cachedCount && currentFormation == cachedFormation) return;
+            bool formationChanged = currentFormation != cachedFormation;
+            bool countChanged = n != cachedCount;
+            if (!formationChanged && !countChanged && slotsAssigned) return;
+
             cachedSlots = ComputeSlots(currentFormation, n);
             cachedCount = n;
             cachedFormation = currentFormation;
+
+            // 陣形変更/初回は艦種重み込みで配置（戦艦=前面/外周・駆逐艦=側面）、
+            // 戦死による隻数変化は距離のみの軽量再フィット（席を動かさない）。
+            ReassignSlots(formationChanged || !slotsAssigned);
+            slotsAssigned = true;
+        }
+
+        /// <summary>
+        /// 各配下艦を現在位置から近いスロットへ割り当て直す（EMOV-1/2）。
+        /// useClass=true で艦種重み込みの貪欲割当（陣形変更/初回）、false で距離のみの最近傍（戦死再フィット）。
+        /// 数式は EscortSlotAssignmentRules（Core・test-first）に委譲し Game 側に二重実装しない。
+        /// </summary>
+        private void ReassignSlots(bool useClass)
+        {
+            int n = memberShips.Count;
+            reassignPositions.Clear();
+            reassignClasses.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                Transform m = memberShips[i];
+                // 旗艦中心のローカル座標（回転前空間）でスロットと比較する。
+                Vector2 local = (m != null) ? (Vector2)transform.InverseTransformPoint(m.position) : Vector2.zero;
+                reassignPositions.Add(local);
+                ShipClass cls = (i < memberEscorts.Count && memberEscorts[i] != null)
+                                ? memberEscorts[i].shipClass : ShipClass.巡航艦;
+                reassignClasses.Add(cls);
+            }
+            // スロットは実効間隔（EMOV-4 の spacingFactor）込みで比較する。
+            effSlots.Clear();
+            for (int j = 0; j < cachedSlots.Count; j++) effSlots.Add(cachedSlots[j] * spacingFactor);
+
+            int[] assign = useClass
+                ? EscortSlotAssignmentRules.AssignWithClass(reassignPositions, effSlots, reassignClasses, slotClassBias)
+                : EscortSlotAssignmentRules.Assign(reassignPositions, effSlots);
+
+            slotForMember.Clear();
+            for (int i = 0; i < n; i++) slotForMember.Add(i < assign.Length ? assign[i] : -1);
         }
 
         // ===== 陣形ごとのスロット計算（すべて原点中心・左右対称・+Y=前方）=====

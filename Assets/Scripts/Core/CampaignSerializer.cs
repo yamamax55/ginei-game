@@ -72,6 +72,7 @@ namespace Ginei
                     {
                         faction = (int)fs.faction,
                         inclusiveness = fs.inclusiveness,
+                        governmentForm = (int)fs.governmentForm,
                         regimeLegitimacy = fs.regime.legitimacy,
                         regimeCorruption = fs.regime.corruption,
                         regimeVirtue = fs.regime.virtue,
@@ -138,6 +139,7 @@ namespace Ginei
                 FactionStateSave fss = save.states[i];
                 if (fss == null) continue;
                 var fs = new FactionState((Faction)fss.faction, fss.inclusiveness);
+                fs.governmentForm = (GovernmentForm)fss.governmentForm;
                 fs.regime.legitimacy = fss.regimeLegitimacy;
                 fs.regime.corruption = fss.regimeCorruption;
                 fs.regime.virtue = fss.regimeVirtue;
@@ -158,11 +160,90 @@ namespace Ginei
             return state;
         }
 
+        // ===== ネームド人物ロスター（提督/文官）の往復 =====
+
+        /// <summary><see cref="Person"/> → 平データ（全永続フィールド・enum は int）。</summary>
+        public static PersonSave PersonToSave(Person p)
+        {
+            if (p == null) return null;
+            return new PersonSave
+            {
+                id = p.id, name = p.name, faction = (int)p.faction, role = (int)p.role,
+                rankTier = p.rankTier, sex = (int)p.sex,
+                isPolitician = p.isPolitician, isSovereign = p.isSovereign,
+                financialTrait = (int)p.financialTrait, wealth = p.wealth,
+                birthYear = p.birthYear, deathYear = p.deathYear,
+                captiveStatus = (int)p.captiveStatus, heldBy = (int)p.heldBy,
+                hammockNumber = p.hammockNumber, graduationYear = p.graduationYear,
+                schoolId = p.schoolId, examRank = p.examRank,
+                militaryDegree = (int)p.militaryDegree, examDegree = (int)p.examDegree,
+                schoolPostingUntilYear = p.schoolPostingUntilYear, warCollegeRank = p.warCollegeRank,
+                serviceStatus = (int)p.serviceStatus,
+                leadership = p.leadership, attack = p.attack, defense = p.defense, mobility = p.mobility,
+                operation = p.operation, intelligence = p.intelligence,
+                research = p.research, engineering = p.engineering, planning = p.planning, production = p.production
+            };
+        }
+
+        /// <summary>平データ → <see cref="Person"/>（往復）。</summary>
+        public static Person PersonFromSave(PersonSave d)
+        {
+            if (d == null) return null;
+            var p = new Person(d.id, d.name, (Faction)d.faction, (PersonRole)d.role)
+            {
+                rankTier = d.rankTier, sex = (Sex)d.sex,
+                isPolitician = d.isPolitician, isSovereign = d.isSovereign,
+                financialTrait = (FinancialTrait)d.financialTrait, wealth = d.wealth,
+                birthYear = d.birthYear, deathYear = d.deathYear,
+                captiveStatus = (CaptiveStatus)d.captiveStatus, heldBy = (Faction)d.heldBy,
+                hammockNumber = d.hammockNumber, graduationYear = d.graduationYear,
+                schoolId = d.schoolId, examRank = d.examRank,
+                militaryDegree = (MilitaryDegree)d.militaryDegree, examDegree = (ExamDegree)d.examDegree,
+                schoolPostingUntilYear = d.schoolPostingUntilYear, warCollegeRank = d.warCollegeRank,
+                serviceStatus = (ServiceStatus)d.serviceStatus,
+                leadership = d.leadership, attack = d.attack, defense = d.defense, mobility = d.mobility,
+                operation = d.operation, intelligence = d.intelligence,
+                research = d.research, engineering = d.engineering, planning = d.planning, production = d.production
+            };
+            return p;
+        }
+
+        /// <summary>人物ロスターを保存データへ書き込む（既存 people をクリアして詰め直す）。null は無視。</summary>
+        public static void WritePeople(CampaignSaveData save, System.Collections.Generic.IEnumerable<Person> people)
+        {
+            if (save == null) return;
+            save.people.Clear();
+            if (people == null) return;
+            foreach (Person p in people)
+                if (p != null) save.people.Add(PersonToSave(p));
+        }
+
+        /// <summary>保存データから人物ロスターを復元する（空/null は空リスト）。</summary>
+        public static System.Collections.Generic.List<Person> ReadPeople(CampaignSaveData save)
+        {
+            var list = new System.Collections.Generic.List<Person>();
+            if (save == null || save.people == null) return list;
+            for (int i = 0; i < save.people.Count; i++)
+            {
+                Person p = PersonFromSave(save.people[i]);
+                if (p != null) list.Add(p);
+            }
+            return list;
+        }
+
         // ===== JSON 文字列 =====
 
         /// <summary>世界状態をJSON文字列へ（バージョン付き）。</summary>
         public static string ToJson(CampaignState c, bool prettyPrint = false)
             => JsonUtility.ToJson(ToSaveData(c), prettyPrint);
+
+        /// <summary>世界状態＋人物ロスターをJSON文字列へ（人物を同梱して保存する版）。</summary>
+        public static string ToJson(CampaignState c, System.Collections.Generic.IEnumerable<Person> people, bool prettyPrint = false)
+        {
+            CampaignSaveData save = ToSaveData(c);
+            WritePeople(save, people);
+            return JsonUtility.ToJson(save, prettyPrint);
+        }
 
         /// <summary>JSON文字列を平データへ復元（空/不正は null）。SO解決前の素の状態。</summary>
         public static CampaignSaveData Parse(string json)

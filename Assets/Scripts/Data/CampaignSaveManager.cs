@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -19,6 +20,21 @@ namespace Ginei
             if (campaign == null) return;
             string json = CampaignSerializer.ToJson(campaign, prettyPrint: true);
             File.WriteAllText(SavePath, json);
+        }
+
+        /// <summary>戦役の世界状態＋ネームド人物ロスターをJSON保存する（提督/文官を継続するための版）。</summary>
+        public static void Save(CampaignState campaign, IEnumerable<Person> people)
+        {
+            if (campaign == null) return;
+            File.WriteAllText(SavePath, CampaignSerializer.ToJson(campaign, people, prettyPrint: true));
+        }
+
+        /// <summary>セーブから人物ロスターのみ復元する（無ければ空）。世界状態は <see cref="Load"/>。</summary>
+        public static List<Person> LoadPeople()
+        {
+            if (!File.Exists(SavePath)) return new List<Person>();
+            CampaignSaveData save = CampaignSerializer.Parse(File.ReadAllText(SavePath));
+            return CampaignSerializer.ReadPeople(save);
         }
 
         /// <summary>セーブが存在するか。</summary>

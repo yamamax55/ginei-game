@@ -143,7 +143,8 @@ namespace Ginei
             bool isFlank;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 flagship != null ? flagship.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank);
+                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank,
+                flagship != null ? flagship.qualityFactor : 1f); // 軍の質（C4・配下艦は旗艦の質に従う）
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

@@ -300,7 +300,8 @@ namespace Ginei
             bool isFlank;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank);
+                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank,
+                myStrength != null ? myStrength.qualityFactor : 1f); // 軍の質（C4）
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

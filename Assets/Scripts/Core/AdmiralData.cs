@@ -145,6 +145,14 @@ namespace Ginei
         [Tooltip("成長状態（ADM-2 #2303・GrowthRules#537-543）。経験で実効能力が伸びる（軍神#軍神は天地人で100超）。null＝成長なし＝従来動作")]
         public Growth growth = null;
 
+        [Header("提督の采配と人物ドラマ（CDR・#2310）")]
+        [Tooltip("性格類型（CDR-1 #2311）。AI采配の傾向（交戦/撤退・特殊指揮・陣形選好）を決める＝CommandDoctrineRules。既定=冷静")]
+        public CommanderPersonality personality = CommanderPersonality.冷静;
+
+        [Tooltip("君主への個人忠誠（0..1・CDR-2 #2312・既定1＝忠臣）。論功行賞/不遇/功名心で動き、低忠誠×高功名心で下剋上＝AllegianceDriftRules")]
+        [Range(0f, 1f)]
+        public float personalLoyalty = 1f;
+
         /// <summary>参謀の最大人数。</summary>
         public const int MaxStaff = 3;
 

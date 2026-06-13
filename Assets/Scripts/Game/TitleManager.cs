@@ -30,6 +30,7 @@ namespace Ginei
         // メインタイトル画面（実行時生成）
         private GameObject titleScreenRoot;
         private Button continueMenuButton;
+        private Button continueCampaignButton;
 
         // 設定画面（実行時生成・フルスクリーン）
         private GameObject settingsScreenRoot;
@@ -560,18 +561,25 @@ namespace Ginei
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(0f, -110f);
+            rt.anchoredPosition = new Vector2(0f, -40f);
             rt.sizeDelta = new Vector2(560f, 10f);
 
+            // ボタン数が増えても収まるよう内容高さに合わせて自動サイズ＝中央寄せのまま見切れない。
+            ContentSizeFitter csf = menu.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
             VerticalLayoutGroup vlg = menu.GetComponent<VerticalLayoutGroup>();
-            vlg.spacing = 16f;
+            vlg.spacing = 14f;
             vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = true; vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
 
             CreateMenuButton(menu.transform, "会戦開始", StartBattle);
-            continueMenuButton = CreateMenuButton(menu.transform, "続きから", ContinueBattle);
+            continueMenuButton = CreateMenuButton(menu.transform, "続きから（会戦）", ContinueBattle);
             if (continueMenuButton != null) continueMenuButton.interactable = SaveManager.HasSave();
+            CreateMenuButton(menu.transform, "銀河の戦役（新規）", StartCampaign);
+            continueCampaignButton = CreateMenuButton(menu.transform, "戦役を再開", ContinueCampaign);
+            if (continueCampaignButton != null) continueCampaignButton.interactable = CampaignSaveManager.HasSave();
             CreateMenuButton(menu.transform, "設定", OpenSettings);
             CreateMenuButton(menu.transform, "ゲームを終了する", QuitGame);
         }
@@ -697,6 +705,37 @@ namespace Ginei
             else
             {
                 Debug.LogWarning("TitleManager: No save data found to continue.");
+            }
+        }
+
+        /// <summary>
+        /// 「銀河の戦役（新規）」：戦略の世界状態を破棄して Strategy シーンへ遷移する（一から銀河を構築＝新規キャンペーン）。
+        /// 会戦（Title→Battle→Result）に対し、戦略マップ（潜行→実会戦→復帰→年次進行→勝敗）の縦スライスへ入る導線。
+        /// </summary>
+        public void StartCampaign()
+        {
+            Debug.Log("TitleManager: StartCampaign（新規戦役→Strategy へ遷移）");
+            GalaxyView.BeginNewCampaign();      // StrategySession を破棄＝GalaxyView が新規に銀河を構築
+            GameSettings.Instance.ResetStats();
+            DestroySelectionUI();
+            SceneLoader.Instance.LoadScene("Strategy");
+        }
+
+        /// <summary>
+        /// 「戦役を再開」：直近の戦役セーブ（全永続化）を復元して Strategy シーンへ遷移する（continue）。
+        /// </summary>
+        public void ContinueCampaign()
+        {
+            if (!CampaignSaveManager.HasSave())
+            {
+                Debug.LogWarning("TitleManager: No campaign save to continue.");
+                return;
+            }
+            if (CampaignSaveManager.LoadSession())
+            {
+                GalaxyView.ResetCampaignStatics(); // 復元した盤面でも目標提示が出るように
+                DestroySelectionUI();
+                SceneLoader.Instance.LoadScene("Strategy");
             }
         }
 

@@ -1,0 +1,57 @@
+using NUnit.Framework;
+using Ginei;
+
+namespace Ginei.Tests
+{
+    /// <summary>
+    /// 能力の遺伝（結婚と出産システム基盤）を固定する：子は両親と相関しつつばらつく（中間親値＋平均回帰＋乱数）。
+    /// <b>倫理ガード：優生学NG</b>＝遺伝率1未満で必ず平均回帰し、有能な親同士でも上限へラチェットできず、
+    /// 乱数で低能力の親から優れた子・高能力の親から凡庸な子が生まれうる（選別による品種改良が成立しない）。
+    /// </summary>
+    public class HeredityRulesTests
+    {
+        static HeredityRules.HeredityParams P => HeredityRules.HeredityParams.Default; // h0.5 / mean50 / spread12 / max100
+
+        [Test]
+        public void ExpectedStat_RegressesTowardMean()
+        {
+            // 中間親値が平均(50)から遺伝率(0.5)ぶんだけ寄る＝平均回帰
+            Assert.AreEqual(75f, HeredityRules.ExpectedStat(100, 100, P), 1e-4f); // 50+0.5*(100-50)
+            Assert.AreEqual(25f, HeredityRules.ExpectedStat(0, 0, P), 1e-4f);     // 50+0.5*(0-50)
+            Assert.AreEqual(50f, HeredityRules.ExpectedStat(50, 50, P), 1e-4f);
+            Assert.AreEqual(50f, HeredityRules.MidParent(20, 80), 1e-4f);
+        }
+
+        [Test]
+        public void InheritStat_CorrelatesButSpreads()
+        {
+            // roll=0.5 で無ノイズ＝期待値、roll=1/0 で±spread に散る
+            Assert.AreEqual(75, HeredityRules.InheritStat(100, 100, 0.5f, P));
+            Assert.AreEqual(87, HeredityRules.InheritStat(100, 100, 1f, P)); // +12
+            Assert.AreEqual(63, HeredityRules.InheritStat(100, 100, 0f, P)); // -12
+        }
+
+        [Test]
+        public void NoEugenicRatchet_TwoElitesNeverReachCap()
+        {
+            // 親が二人とも100でも、平均回帰＋限られたばらつきで上限100には届かない＝世代で能力を吊り上げられない
+            for (float r = 0f; r <= 1f; r += 0.1f)
+                Assert.Less(HeredityRules.InheritStat(100, 100, r, P), 100);
+        }
+
+        [Test]
+        public void UpwardMobility_TwoLowParentsCanExceedThemselves()
+        {
+            // 親が二人とも0でも、上振れで親を超える子が生まれうる＝低能力の家系も埋もれない（優生学的選別の否定）
+            Assert.Greater(HeredityRules.InheritStat(0, 0, 1f, P), 0);
+        }
+
+        [Test]
+        public void Clamps_ToZeroAndMax()
+        {
+            var hi = new HeredityRules.HeredityParams(1f, 50f, 100f, 100f); // 遺伝率1・大ばらつき
+            Assert.AreEqual(100, HeredityRules.InheritStat(100, 100, 1f, hi)); // 100+100 → clamp100
+            Assert.AreEqual(0, HeredityRules.InheritStat(0, 0, 0f, hi));       // 0-100 → clamp0
+        }
+    }
+}

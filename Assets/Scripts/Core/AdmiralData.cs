@@ -116,6 +116,17 @@ namespace Ginei
                  "既定 false＝従来動作。TurncoatRules が解決")]
         public bool isTurncoat = false; // 寝返り型＝小早川秀秋型（布陣後の寝返り・名誉大幅減）
 
+        [Tooltip("徳望（0..100・#徳望＝劉備玄徳型の核）。高いほど人が慕い忠誠が集まる。徳望の主は限界突破して100超の実効徳になる（VirtueLordRules）。既定50")]
+        [Range(0, 100)]
+        public int virtue = 50;
+
+        [Tooltip("漢室の末裔を自称するか（#徳望＝劉備玄徳型）。自称でも大義名分となり正統性を高める。既定false。VirtueLordRules が解決")]
+        public bool claimsImperialDescent = false;
+
+        [Tooltip("徳望の主（#徳望＝劉備玄徳型）。徳と人物審美眼が限界突破し、桃園/水魚/三顧で人を得るが、義兄弟を失うと諫言を無視し大敗する（夷陵）。" +
+                 "既定false＝従来動作。VirtueLordRules が解決")]
+        public bool isVirtuousLord = false; // 徳望の主＝劉備玄徳型
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

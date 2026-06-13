@@ -139,6 +139,10 @@ namespace Ginei
                  "既定false＝従来動作。GrandTacticianRules が解決")]
         public bool isGrandTactician = false; // 大戦術家＝ハンニバル型
 
+        [Tooltip("覇王（#覇王＝ラインハルト型）。各個撃破の電撃戦・攻勢インフレ・黄金の獅子のカリスマ・門閥特効・好敵手で輝く。相棒喪失で暴走・短期決戦無敵だが持久戦に弱い。" +
+                 "既定false＝従来動作。KaiserRules が解決（専用旗艦ブリュンヒルトは SignatureShipRegistry）")]
+        public bool isKaiser = false; // 覇王＝ラインハルト型
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

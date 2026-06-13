@@ -104,6 +104,7 @@ if (Time.time >= nextSearchTime)
             {
                 SearchNearestEnemy();
                 UpdateFormationDoctrine(); // 戦況に応じて有利な陣形へ自動切替（#会戦改善）
+                ConsiderActiveCommand();   // 状況に応じて特殊指揮を発動（#2253）
                 nextSearchTime = Time.time + searchInterval;
             }
 
@@ -148,7 +149,43 @@ if (Time.time >= nextSearchTime)
             float enemy = (targetEnemy != null && targetEnemy.IsAlive) ? targetEnemy.strength : own; // 敵不明は等倍扱い
             bool routed = moraleComponent != null && moraleComponent.IsRouted;
             Formation rec = FormationDoctrineRules.RecommendFormation(own, enemy, routed, strength.admiralData);
+
+            // #2253：有能なAIは敵陣形をカウンターする陣形に切り替える（三すくみ）。弱AIは取りこぼす。
+            if (!routed && targetEnemy != null && targetEnemy.IsAlive
+                && BattleAiRules.ShouldAct(AiSkill(), UnityEngine.Random.value))
+            {
+                Squadron enemySq = targetEnemy.GetComponent<Squadron>();
+                if (enemySq != null)
+                {
+                    Formation counter = BattleAiRules.CounterFormation(enemySq.currentFormation);
+                    if (FormationMatchupRules.AttackFactor(counter, enemySq.currentFormation) > 1f) rec = counter;
+                }
+            }
             if (squadron.currentFormation != rec) squadron.currentFormation = rec;
+        }
+
+        /// <summary>会戦AIの目利き（0..1）＝提督の実効統率＋情報を正規化。提督不在は中庸0.5。</summary>
+        private float AiSkill()
+        {
+            AdmiralData ad = strength != null ? strength.admiralData : null;
+            if (ad == null) return 0.5f;
+            return Mathf.Clamp01((ad.EffectiveLeadership + ad.EffectiveIntelligence) / 200f);
+        }
+
+        /// <summary>状況に応じて特殊指揮を発動する（#2253・難易度ゲート）。</summary>
+        private void ConsiderActiveCommand()
+        {
+            if (strength == null || !strength.IsCombatant || !strength.IsAlive) return;
+            if (!BattleAiRules.ShouldAct(AiSkill(), UnityEngine.Random.value)) return;
+
+            bool engaged = currentState == AIState.交戦;
+            float moraleRatio = (moraleComponent != null && moraleComponent.maxMorale > 0f)
+                ? moraleComponent.morale / moraleComponent.maxMorale : 1f;
+            float enemyStr = (targetEnemy != null && targetEnemy.IsAlive) ? targetEnemy.strength : strength.strength;
+            float advantage = enemyStr > 0f ? strength.strength / enemyStr : 1f;
+
+            if (BattleAiRules.TryChooseCommand(engaged, moraleRatio, advantage, out ActiveCommand cmd))
+                ActiveCommandState.Issue(strength, cmd);
         }
 
         /// <summary>

@@ -32,3 +32,4 @@
 - [x] [Core] TacticalDoctrineRules 新規作成（AmbushRules/VeterancyRules/ReconRules を Evaluate＋ShouldAmbush に統合・テスト11件）（cycle1・2026-06-13）
 - [x] [Core] ForceQualityRules に CombatMultiplier(NcoCorps, proficiency, readiness, veterancyXp) オーバーロード追加・テスト3件（cycle1・2026-06-13）
 - [x] [Core] flow1（並列8・2026-06-13）：FogOfWarRules（戦場の霧）/ScreeningRules（偵察幕）/SignalIntelligenceRules（通信諜報）/PursuitBattleRules（追撃の収支）/BattleTempoRules（会戦テンポの振り戻し）/SortieTimingRules（出撃好機）/AttritionExchangeRules（消耗交換比）/CommandDelayRules（指揮伝達遅延）を新規実装（各EditModeテスト付き）。
+- [x] [Core] flow2（並列8・2026-06-13）：ManeuverEnvelopmentRules（機動包囲）/BattleLineRules（戦列の維持崩壊）/ReserveDeploymentRules（予備投入）/NightBattleRules（夜戦）/ChokeholdBattleRules（隘路戦＝イゼルローン型）/RallyRules（敗走兵再結集）/SuppressionFireRules（制圧射撃）/CombinedArmsRules（諸兵科連合）を新規実装（各EditModeテスト付き）。

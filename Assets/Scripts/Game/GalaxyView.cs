@@ -101,6 +101,17 @@ namespace Ginei
         private List<Person> civilians;
         private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
 
+        // 朝廷の権威（律令の形骸化・官僚制基盤）。封建の世＝既に低め（武家政権相当）＝官職は名誉職化方向。
+        // 文官ネームドの考課・叙位（五位の壁）はこの権威で効く（BureaucracyCareerRules / RitsuryoFormalizationRules）。
+        private CourtAuthority courtAuthority = new CourtAuthority(0.35f);
+
+        /// <summary>朝廷の権威（観測用・read-only 参照）。</summary>
+        public CourtAuthority Court => courtAuthority;
+        /// <summary>文民ネームドのロスター（観測用・人物名鑑が読む）。</summary>
+        public IReadOnlyList<Person> CivilianRoster => civilians;
+        /// <summary>武官ネームドのロスター（観測用・人物名鑑が読む）。</summary>
+        public IReadOnlyList<Person> CommanderRoster => commanders;
+
         // 幼稚園/小学校/中学校/高校（#155-157 の土台）：勢力ごとの就学前〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
         private List<Kindergarten> kindergartens;
         private List<ElementarySchool> elementarySchools;
@@ -332,8 +343,26 @@ namespace Ginei
                 }
 
                 FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
-                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s), deltaTime: dt);
+                // 文官行政（総督＝地方＋宰相＝中央）が安定度目標を押し上げる＝名実の乖離で朝廷の権威ぶん減衰（権威0なら効かない）。
+                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s),
+                    deltaTime: dt, policy: GovernancePolicy.民生, adminBonus: SystemAdminBonus(s));
             }
+        }
+
+        /// <summary>所有勢力の在任宰相による安定度寄与（名実の乖離＝朝廷の権威で減衰・<see cref="AdministrationRules"/>）。空席/非デモ勢力は0。</summary>
+        private float PremierAdminBonus(Faction owner)
+        {
+            if (civilOffices == null) return 0f;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                if (DemoFactions[f] != owner) continue;
+                Office office = civilOffices[f];
+                if (office == null) return 0f;
+                var premier = GovernmentRegistry.GetHolder(office) as Person;
+                float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+                return AdministrationRules.StabilityContribution(premier, authority, AdministrationRules.AdminParams.Default);
+            }
+            return 0f;
         }
 
         /// <summary>その星系に所有勢力と敵対する戦略艦隊が停泊しているか（戦時ペナルティ判定）。</summary>
@@ -1189,6 +1218,15 @@ namespace Ginei
 
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
+
+            // 文官の官歴（官僚制基盤）：文民ネームドに位階を叙し、考課で叙位・五位の壁を回す（朝廷の権威で効く）。
+            RunBureaucracyTick();
+
+            // 文官の銓衡配属（官僚制基盤）：叙位された文官を官位相当＋考課で宰相（文官要職）へ任命する（式部省の選叙）。
+            RunCivilAppointmentTick();
+
+            // 総督（地方官）の銓衡配属（官僚制基盤）：所有星系ごとに官位相当の文官を配属＝受領/国司。
+            RunGovernorAppointmentTick();
         }
 
         /// <summary>
@@ -1418,6 +1456,43 @@ namespace Ginei
 
         // --- 人事の空席補充（#152）と捕虜の処遇（#154）の配線 ---
         private Office[] commandOffices; // 勢力ごとの要職（DemoFactions と並行・null=未設定）
+        private Office[] civilOffices;   // 勢力ごとの文官要職＝宰相（銓衡で配属・DemoFactions と並行）
+        private Office[] governorOffices; // 勢力ごとの総督職（OfficeScope.星系・scopeKey=星系id で星系別に配属）
+        private const CourtRank PremierRequiredRank = CourtRank.従五位下; // 宰相の官位相当＝五位以上（貴族）
+        private const CourtRank GovernorRequiredRank = CourtRank.正六位上; // 総督（受領/国司）の官位相当＝六位以上
+        private const int MaxGovernedSystems = 16;   // 総督を置く星系の上限（PERF＝無制限配属を防ぐ）
+        private const float CentralOversightShare = 0.3f; // 中央（宰相）が地方へ及ぼす監督の効き（薄く全土へ）
+
+        /// <summary>文官要職（観測用・人物名鑑が在任を表示）。</summary>
+        public IReadOnlyList<Office> CivilOffices => civilOffices;
+
+        /// <summary>DemoFactions 内の番号（非デモ勢力は −1）。</summary>
+        private int FactionIndex(Faction f)
+        {
+            for (int i = 0; i < DemoFactions.Length; i++) if (DemoFactions[i] == f) return i;
+            return -1;
+        }
+
+        /// <summary>その文官が就いている文官官職名（宰相＝中央 or ◯◯総督＝地方）。無ければ空（観測用・人物名鑑が読む）。</summary>
+        public string CivilPostOf(Person p)
+        {
+            if (p == null) return "";
+            if (civilOffices != null)
+                for (int f = 0; f < civilOffices.Length; f++)
+                    if (civilOffices[f] != null && GovernmentRegistry.GetHolder(civilOffices[f]) is Person h && h.id == p.id)
+                        return civilOffices[f].officeName;
+            if (governorOffices != null && map != null)
+                for (int i = 0; i < map.systems.Count; i++)
+                {
+                    StarSystem s = map.systems[i];
+                    if (s == null) continue;
+                    int fIdx = FactionIndex(s.owner);
+                    if (fIdx < 0 || governorOffices[fIdx] == null) continue;
+                    if (GovernmentRegistry.GetHolder(governorOffices[fIdx], s.id) is Person g && g.id == p.id)
+                        return $"{s.systemName}総督";
+                }
+            return "";
+        }
 
         /// <summary>勢力の現役（生存・自由・現役）司令を後任候補として集める。</summary>
         private System.Collections.Generic.List<ICharacter> ActiveCommanders(Faction f)
@@ -1458,6 +1533,136 @@ namespace Ginei
                 commandOffices[f] = office;
                 VacancyRules.FillVacancy(fac, office, ActiveCommanders(fac)); // 初任命
             }
+            // 文官要職＝宰相（内政・文民専用）。位階の要求は官位相当（PremierRequiredRank）で別途効かせる＝requiredTier=0。
+            // 初任は空席のまま（文民は年を追って卒業・叙位される）。年次の RunCivilAppointmentTick が銓衡で埋める。
+            civilOffices = new Office[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                civilOffices[f] = new Office(910 + f, $"{fac}宰相", OfficeScope.国家, OfficeDomain.内政)
+                { civilianOnly = true, requiredTier = 0 };
+            }
+            // 文官の地方官＝総督（受領/国司・OfficeScope.星系）。同一 Office を scopeKey=星系id で星系別に使う。
+            governorOffices = new Office[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                governorOffices[f] = new Office(920 + f, $"{fac}総督", OfficeScope.星系, OfficeDomain.内政)
+                { civilianOnly = true, requiredTier = 0 };
+            }
+        }
+
+        /// <summary>勢力の文民ネームドを集める（銓衡候補）。</summary>
+        private List<Person> CiviliansOf(Faction f)
+        {
+            var list = new List<Person>();
+            if (civilians == null) return list;
+            for (int i = 0; i < civilians.Count; i++)
+                if (civilians[i] != null && civilians[i].faction == f) list.Add(civilians[i]);
+            return list;
+        }
+
+        /// <summary>
+        /// 文官の銓衡配属（官僚制基盤＝<see cref="CivilAppointmentRules"/> へ委譲）。死亡/捕虜・官位相当を割った在任者を解任し、
+        /// 叙位された文官から考課＋位階で最適者を宰相へ任命する（式部省の選叙）。就任は人事通知へ。
+        /// </summary>
+        private void RunCivilAppointmentTick()
+        {
+            SeedCommandOffices(); // 冪等＝文官要職もここで用意される
+            if (civilOffices == null || civilians == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Office office = civilOffices[f];
+                if (office == null) continue;
+                Faction fac = DemoFactions[f];
+                var holder = GovernmentRegistry.GetHolder(office) as Person;
+                if (holder != null && (!holder.IsAvailable
+                    || JapaneseCourtRankRules.Compare(holder.courtRank, PremierRequiredRank) < 0))
+                    GovernmentRegistry.Dismiss(office, holder); // 官位相当を割った（位階喪失）／死亡・捕虜
+                ICharacter before = GovernmentRegistry.GetHolder(office);
+                Person appointed = CivilAppointmentRules.FillVacancy(
+                    fac, office, PremierRequiredRank, CiviliansOf(fac), CivilServiceRules.AppointmentParams.Default);
+                if (appointed != null && appointed != before)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{fac} {office.officeName} に {appointed.name}（{JapaneseCourtRankRules.Name(appointed.courtRank)}）が就任");
+            }
+        }
+
+        /// <summary>勢力の文民から、既に他の官職に就いている者（<paramref name="assigned"/>）を除いた銓衡候補。一人一職を保つ。</summary>
+        private List<Person> CiviliansOfExcluding(Faction f, HashSet<int> assigned)
+        {
+            var list = new List<Person>();
+            if (civilians == null) return list;
+            for (int i = 0; i < civilians.Count; i++)
+            {
+                Person c = civilians[i];
+                if (c != null && c.faction == f && (assigned == null || !assigned.Contains(c.id))) list.Add(c);
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// 総督（地方官）の銓衡配属（官僚制基盤）。所有星系ごとに、官位相当（六位以上）の文官を考課＋位階で配属する
+        /// ＝受領/国司。中央の宰相とは別人（一人一職）。PERF＝<see cref="MaxGovernedSystems"/> 件で打ち止め。
+        /// </summary>
+        private void RunGovernorAppointmentTick()
+        {
+            SeedCommandOffices();
+            if (governorOffices == null || civilians == null || map == null) return;
+
+            var assigned = new HashSet<int>();
+            if (civilOffices != null) // 宰相（中央）は総督に重ねない
+                for (int f = 0; f < civilOffices.Length; f++)
+                    if (civilOffices[f] != null && GovernmentRegistry.GetHolder(civilOffices[f]) is Person pm) assigned.Add(pm.id);
+
+            int governed = 0;
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                if (governed >= MaxGovernedSystems) break;
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                int fIdx = FactionIndex(s.owner);
+                if (fIdx < 0) continue; // デモ勢力の領のみ
+                Office office = governorOffices[fIdx];
+                if (office == null) continue;
+
+                var holder = GovernmentRegistry.GetHolder(office, s.id) as Person;
+                if (holder != null && (!holder.IsAvailable
+                    || JapaneseCourtRankRules.Compare(holder.courtRank, GovernorRequiredRank) < 0))
+                {
+                    GovernmentRegistry.Dismiss(office, holder, s.id);
+                    holder = null;
+                }
+                ICharacter before = holder;
+                Person gov = CivilAppointmentRules.FillVacancy(
+                    s.owner, office, GovernorRequiredRank, CiviliansOfExcluding(s.owner, assigned),
+                    CivilServiceRules.AppointmentParams.Default, scopeKey: s.id);
+                if (gov == null) continue;
+
+                assigned.Add(gov.id);
+                governed++;
+                if (gov != before)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{s.owner} {s.systemName}総督 に {gov.name}（{JapaneseCourtRankRules.Name(gov.courtRank)}）が就任");
+            }
+        }
+
+        /// <summary>
+        /// 星系の内政に効く文官行政寄与＝<b>総督（地方・その星系）＋宰相（中央・薄く監督）</b>。いずれも名実の乖離で
+        /// 朝廷の権威ぶん減衰（<see cref="AdministrationRules"/>）。総督が空席なら中央の監督のみが薄く届く。
+        /// </summary>
+        private float SystemAdminBonus(StarSystem s)
+        {
+            if (s == null) return 0f;
+            float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+            float gov = 0f;
+            int fIdx = FactionIndex(s.owner);
+            if (fIdx >= 0 && governorOffices != null && governorOffices[fIdx] != null)
+            {
+                var governor = GovernmentRegistry.GetHolder(governorOffices[fIdx], s.id) as Person;
+                gov = AdministrationRules.StabilityContribution(governor, authority, AdministrationRules.AdminParams.Default);
+            }
+            return gov + PremierAdminBonus(s.owner) * CentralOversightShare;
         }
 
         /// <summary>
@@ -2135,6 +2340,37 @@ namespace Ginei
             if (vocationalSchools != null)
                 for (int i = 0; i < vocationalSchools.Count; i++)
                     if (vocationalSchools[i] != null) RunVocationalSchool(vocationalSchools[i]);
+        }
+
+        /// <summary>
+        /// 文官の官歴を1年ぶん回す（官僚制基盤＝<see cref="BureaucracyCareerRules"/> へ委譲）。文民ネームドに位階を叙し、
+        /// 考課（能×徳×績）で叙位／貶位する。<b>五位の壁</b>は朝廷の権威が高いとき（律令が機能）だけ越えられる
+        /// ＝封建の世（権威低）では門閥以外は貴族へ上がれない。叙位の節目（五位突破）は通知へ。
+        /// </summary>
+        private void RunBureaucracyTick()
+        {
+            if (civilians == null || civilians.Count == 0) return;
+            var changes = new List<BureaucracyCareerRules.CareerChange>();
+            BureaucracyCareerRules.TickYear(
+                civilians, courtAuthority != null ? courtAuthority.authority : 0f,
+                campaignYear, BureaucracyCareerRules.CareerParams.Default, changes);
+
+            for (int i = 0; i < changes.Count; i++)
+            {
+                if (changes[i].kind != BureaucracyCareerRules.CareerEventKind.五位突破) continue;
+                Person p = FindCivilian(changes[i].personId);
+                if (p == null) continue;
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{p.faction} {p.name} 叙従五位下＝貴族に列す（{JapaneseCourtRankRules.Name(changes[i].from)}→{JapaneseCourtRankRules.Name(changes[i].to)}）");
+            }
+        }
+
+        private Person FindCivilian(int id)
+        {
+            if (civilians == null) return null;
+            for (int i = 0; i < civilians.Count; i++)
+                if (civilians[i] != null && civilians[i].id == id) return civilians[i];
+            return null;
         }
 
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>

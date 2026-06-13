@@ -204,6 +204,13 @@ namespace Ginei
             if (isSof && isFlank)
                 finalDamage = Mathf.RoundToInt(finalDamage * SpecialForcesRules.SpecialOpFactor(true, true));
 
+            // 人物 archetype（配下艦は旗艦提督の archetype に従う）：与効果倍率（フラグ無しは1.0＝後方互換）。
+            if (flagship != null)
+            {
+                float archAtk = AdmiralArchetypeModifiers.AttackFactor(flagship.admiralData, flagship.HpRatio);
+                if (archAtk != 1f) finalDamage = Mathf.RoundToInt(finalDamage * archAtk);
+            }
+
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);
 

@@ -116,6 +116,41 @@ namespace Ginei
                  "既定 false＝従来動作。TurncoatRules が解決")]
         public bool isTurncoat = false; // 寝返り型＝小早川秀秋型（布陣後の寝返り・名誉大幅減）
 
+        [Tooltip("徳望（0..100・#徳望＝劉備玄徳型の核）。高いほど人が慕い忠誠が集まる。徳望の主は限界突破して100超の実効徳になる（VirtueLordRules）。既定50")]
+        [Range(0, 100)]
+        public int virtue = 50;
+
+        [Tooltip("漢室の末裔を自称するか（#徳望＝劉備玄徳型）。自称でも大義名分となり正統性を高める。既定false。VirtueLordRules が解決")]
+        public bool claimsImperialDescent = false;
+
+        [Tooltip("徳望の主（#徳望＝劉備玄徳型）。徳と人物審美眼が限界突破し、桃園/水魚/三顧で人を得るが、義兄弟を失うと諫言を無視し大敗する（夷陵）。" +
+                 "既定false＝従来動作。VirtueLordRules が解決")]
+        public bool isVirtuousLord = false; // 徳望の主＝劉備玄徳型
+
+        [Tooltip("武聖（#武聖＝関羽型）。限界突破した武勇・一騎打ちの達人・千里行（主君への忠）。傲慢（虎の子はやれぬ）で同盟を失い孤立すると背後を突かれる（荊州陥落）。" +
+                 "既定false＝従来動作。WarSaintRules が解決。※上杉謙信の軍神(TenchijinRules)とは別")]
+        public bool isWarSaint = false; // 武聖＝関羽型（限界突破の武・一騎打ち・千里行・荊州の慢心）
+
+        [Tooltip("猛将（#猛将＝張飛型）。猪突猛進・長坂の一喝・一騎打ちに強く正義感に厚いが、部下に厳しく酒癖が悪く暗殺されうる。" +
+                 "既定false＝従来動作。FierceGeneralRules が解決")]
+        public bool isFierceGeneral = false; // 猛将＝張飛型（猪突・一喝・正義感・酒癖・暗殺リスク）
+
+        [Tooltip("大戦術家（#大戦術家＝ハンニバル型）。包囲殲滅・戦場の霧・心理戦・地形無効（アルプス越え）・宿敵特効・多国籍結束に長けるが、内政/兵站が苦手で研究されると包囲が破られる。" +
+                 "既定false＝従来動作。GrandTacticianRules が解決")]
+        public bool isGrandTactician = false; // 大戦術家＝ハンニバル型
+
+        [Tooltip("覇王（#覇王＝ラインハルト型）。各個撃破の電撃戦・攻勢インフレ・黄金の獅子のカリスマ・門閥特効・好敵手で輝く。相棒喪失で暴走・短期決戦無敵だが持久戦に弱い。" +
+                 "既定false＝従来動作。KaiserRules が解決（専用旗艦ブリュンヒルトは SignatureShipRegistry）")]
+        public bool isKaiser = false; // 覇王＝ラインハルト型
+
+        [Tooltip("半身（#半身＝キルヒアイス型）。万能・流血なき懐柔・無私の身代わり・主君の良心（暴走を止める）・精神攻撃無効・真のカリスマ。覇王と組むと倍化し、喪失で覇王が暴走する。" +
+                 "既定false＝従来動作。RightHandRules が解決")]
+        public bool isRightHand = false; // 半身＝キルヒアイス型（理想のナンバーツー）
+
+        [Tooltip("魔術師（#魔術師＝ヤン・ウェンリー型）。やる気ゼロの最高知力。絶体絶命ほど逆転し、不敗の撤退・先読み無効化・民主主義の精神耐性・偉大なる教師。覇王の好敵手。" +
+                 "既定false＝従来動作。MagicianRules が解決（専用旗艦ヒューベリオンは SignatureShipRegistry）")]
+        public bool isMagician = false; // 魔術師＝ヤン・ウェンリー型（不敗・逆転特化）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

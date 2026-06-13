@@ -403,6 +403,13 @@ namespace Ginei
             // 特殊作戦部隊（#SOF）：出身提督が艦隊単独の特殊作戦＝側背/包囲（後方かく乱・周りこみ）を行うと +20%。
             if (isSof && isFlank)
                 finalDamage = Mathf.RoundToInt(finalDamage * SpecialForcesRules.SpecialOpFactor(true, true));
+
+            // 人物 archetype（#日本一の兵の武勇/決死・#猛将の猪突・#魔術師の逆転）：与効果倍率（フラグ無しは1.0＝後方互換）。
+            if (myStrength != null)
+            {
+                float archAtk = AdmiralArchetypeModifiers.AttackFactor(myStrength.admiralData, myStrength.HpRatio);
+                if (archAtk != 1f) finalDamage = Mathf.RoundToInt(finalDamage * archAtk);
+            }
             if (bd != null)
             {
                 nextBreakdownSampleTime = Time.time + BreakdownSampleInterval;

@@ -79,6 +79,7 @@ namespace Ginei
                 sb.Append("\n<color=#ffcc66>人物データがありません。</color>\n");
                 sb.Append("シナリオ（Resources）に提督（AdmiralData）が登録されていません。\n");
                 sb.Append("会戦シナリオを作成すると、その提督がここに一覧表示されます。");
+                AppendRuntimeCivilians(sb); // 実行時の文官ネームド（あれば）は提督アセットが無くても出す
                 return sb.ToString();
             }
 
@@ -86,7 +87,39 @@ namespace Ginei
             for (int i = 0; i < shown; i++) AppendPerson(sb, admirals[i]);
             if (count > shown) sb.Append($"\n<color=#8aa0b0>…他 {count - shown} 名</color>");
             sb.Append($"\n\n<color=#8aa0b0>計 {count} 名</color>");
+            AppendRuntimeCivilians(sb); // 実行時に生成・叙位された文官ネームド（律令の官人）
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// 実行時に生成・叙位された文官ネームド（律令の官人）を一覧する。Strategy の <see cref="GalaxyView"/> から
+        /// 文民ロスターを read-only で読み、位階・考第・文才を出す。GalaxyView が無い（Battle 等）なら何もしない。
+        /// </summary>
+        private void AppendRuntimeCivilians(StringBuilder sb)
+        {
+            var gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
+            if (gv == null) return;
+            var civs = gv.CivilianRoster;
+            if (civs == null || civs.Count == 0) return;
+
+            float authority = gv.Court != null ? gv.Court.authority : 0f;
+            sb.Append("\n\n<color=#5b6b7a>──── 文官（律令の官人・実行時）────</color>\n");
+            sb.Append($"<color=#8aa0b0>朝廷の権威 {authority:0.00}（{RitsuryoFormalizationRules.PhaseOf(authority)}）＝官位の実権はこの権威で減衰</color>\n");
+
+            int shown = Mathf.Min(civs.Count, maxPersons);
+            for (int i = 0; i < shown; i++) AppendCivil(sb, civs[i]);
+            if (civs.Count > shown) sb.Append($"\n<color=#8aa0b0>…他 {civs.Count - shown} 名</color>");
+            sb.Append($"\n<color=#8aa0b0>文官 計 {civs.Count} 名</color>");
+        }
+
+        private void AppendCivil(StringBuilder sb, Person p)
+        {
+            if (p == null) return;
+            string ikai = JapaneseCourtRankRules.Name(p.courtRank);
+            string kou = p.merit != null ? p.merit.lastRating.ToString() : "未評定";
+            string noble = JapaneseCourtRankRules.IsNobility(p.courtRank) ? "　<color=#ffd54a>貴族</color>" : "";
+            sb.Append($"\n<color=#bfe9c0>◆ {ikai} {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　考第:{kou}{noble}\n");
+            sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}\n");
         }
 
         private void AppendPerson(StringBuilder sb, AdmiralData a)

@@ -101,6 +101,17 @@ namespace Ginei
         private List<Person> civilians;
         private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
 
+        // 朝廷の権威（律令の形骸化・官僚制基盤）。封建の世＝既に低め（武家政権相当）＝官職は名誉職化方向。
+        // 文官ネームドの考課・叙位（五位の壁）はこの権威で効く（BureaucracyCareerRules / RitsuryoFormalizationRules）。
+        private CourtAuthority courtAuthority = new CourtAuthority(0.35f);
+
+        /// <summary>朝廷の権威（観測用・read-only 参照）。</summary>
+        public CourtAuthority Court => courtAuthority;
+        /// <summary>文民ネームドのロスター（観測用・人物名鑑が読む）。</summary>
+        public IReadOnlyList<Person> CivilianRoster => civilians;
+        /// <summary>武官ネームドのロスター（観測用・人物名鑑が読む）。</summary>
+        public IReadOnlyList<Person> CommanderRoster => commanders;
+
         // 幼稚園/小学校/中学校/高校（#155-157 の土台）：勢力ごとの就学前〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
         private List<Kindergarten> kindergartens;
         private List<ElementarySchool> elementarySchools;
@@ -1052,6 +1063,9 @@ namespace Ginei
 
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
+
+            // 文官の官歴（官僚制基盤）：文民ネームドに位階を叙し、考課で叙位・五位の壁を回す（朝廷の権威で効く）。
+            RunBureaucracyTick();
         }
 
         /// <summary>
@@ -1975,6 +1989,37 @@ namespace Ginei
             if (vocationalSchools != null)
                 for (int i = 0; i < vocationalSchools.Count; i++)
                     if (vocationalSchools[i] != null) RunVocationalSchool(vocationalSchools[i]);
+        }
+
+        /// <summary>
+        /// 文官の官歴を1年ぶん回す（官僚制基盤＝<see cref="BureaucracyCareerRules"/> へ委譲）。文民ネームドに位階を叙し、
+        /// 考課（能×徳×績）で叙位／貶位する。<b>五位の壁</b>は朝廷の権威が高いとき（律令が機能）だけ越えられる
+        /// ＝封建の世（権威低）では門閥以外は貴族へ上がれない。叙位の節目（五位突破）は通知へ。
+        /// </summary>
+        private void RunBureaucracyTick()
+        {
+            if (civilians == null || civilians.Count == 0) return;
+            var changes = new List<BureaucracyCareerRules.CareerChange>();
+            BureaucracyCareerRules.TickYear(
+                civilians, courtAuthority != null ? courtAuthority.authority : 0f,
+                campaignYear, BureaucracyCareerRules.CareerParams.Default, changes);
+
+            for (int i = 0; i < changes.Count; i++)
+            {
+                if (changes[i].kind != BureaucracyCareerRules.CareerEventKind.五位突破) continue;
+                Person p = FindCivilian(changes[i].personId);
+                if (p == null) continue;
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{p.faction} {p.name} 叙従五位下＝貴族に列す（{JapaneseCourtRankRules.Name(changes[i].from)}→{JapaneseCourtRankRules.Name(changes[i].to)}）");
+            }
+        }
+
+        private Person FindCivilian(int id)
+        {
+            if (civilians == null) return null;
+            for (int i = 0; i < civilians.Count; i++)
+                if (civilians[i] != null && civilians[i].id == id) return civilians[i];
+            return null;
         }
 
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>

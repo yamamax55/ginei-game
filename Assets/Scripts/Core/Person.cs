@@ -56,6 +56,10 @@ namespace Ginei
         public ServiceStatus serviceStatus = ServiceStatus.現役; // 在役状態（現役→予備役→退役。RetirementRules・#530-536）
         public ExamDegree examDegree = ExamDegree.無資格; // 科挙の最高功名（生員/挙人/貢士/進士。LIFE-6 細分化・ImperialExamRules）
 
+        // 官僚制（律令の位階・考課・官僚制基盤）。文官のネームド化＝官位を帯び考課で叙位される。既定は無位/未評定＝後方互換。
+        public CourtRank courtRank = CourtRank.無位; // 位階（律令の身分序列。JapaneseCourtRankRules で叙位）
+        public OfficialMerit merit;                  // 考課記録（OfficialMerit・null=未評定。BureaucracyCareerRules が起こす）
+
         // 専門能力（テクノクラート LIFE-7・既存の戦闘/政治能力とは別軸）
         public int research;     // 研究
         public int engineering;  // 技術

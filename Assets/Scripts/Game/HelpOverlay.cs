@@ -162,6 +162,7 @@ namespace Ginei
             // ディマー背景
             Image dimImage = panel.AddComponent<Image>();
             dimImage.color = new Color(0f, 0f, 0f, dimAlpha);
+            WindowChrome.MakeNonModal(dimImage); // ウィンドウ化＝非モーダル（盤面を塞がない）
 
             // 全画面ウィンドウを生成
             BuildHelpContentPanel(panel.transform);
@@ -217,6 +218,7 @@ namespace Ginei
             LayoutElement hle = header.AddComponent<LayoutElement>();
             hle.minHeight = 60f;
             hle.preferredHeight = 60f;
+            WindowChrome.MakeDraggable(header, parent as RectTransform); // ウィンドウ化：ヘッダーをつかんで移動
 
             // 内側の伸縮子（ヘッダー帯いっぱいに広げ、ここで横並びを行う）
             GameObject inner = new GameObject("HeaderInner");

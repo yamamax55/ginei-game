@@ -223,6 +223,7 @@ namespace Ginei
             panelRT.anchoredPosition = Vector2.zero;
             Image dimImage = panel.AddComponent<Image>();
             dimImage.color = new Color(0f, 0f, 0f, dimAlpha);
+            WindowChrome.MakeNonModal(dimImage); // ウィンドウ化＝非モーダル（盤面を塞がない）
 
             BuildContentPanel(panel.transform);
         }
@@ -251,6 +252,7 @@ namespace Ginei
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
+            WindowChrome.AddTitleBarLayout(frameRT, "国家状態（勢力）", () => SetVisible(false));
             BuildScrollBody(frame.transform);
         }
 

@@ -63,6 +63,9 @@ namespace Ginei
         /// <summary>党内派閥（GOV-7 #165）。</summary>
         public List<PartyFaction> factions = new List<PartyFaction>();
 
+        /// <summary>党の役職への就任（党首以外＝幹事長/政調会長等。党首は <see cref="leaderId"/> が出所）。<see cref="PartyOrganizationRules"/> が窓口。</summary>
+        public List<PartyAppointment> posts = new List<PartyAppointment>();
+
         public Party() { }
 
         public Party(int id, string partyName, Faction faction)

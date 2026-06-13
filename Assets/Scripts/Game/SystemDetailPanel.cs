@@ -218,6 +218,20 @@ namespace Ginei
                 string ideo = string.IsNullOrEmpty(prov.nativeIdeology) ? "（不明）" : prov.nativeIdeology;
                 sb.AppendLine($"住民の思想: {ideo}　人口: {Mathf.RoundToInt(prov.population)}");
                 sb.AppendLine($"統合度: {Mathf.RoundToInt(Mathf.Clamp01(prov.integration) * 100f)}%　産出: ×{GovernanceRules.OutputFactor(prov):0.00}");
+
+                // 経済（#93 を惑星層へ #767）＝SystemView と同じ Core 窓口を読むだけ（数式は二重実装しない）。
+                sb.AppendLine($"経済類型: {prov.systemType}");
+                float sup = ResourceProductionRules.ProvinceRate(prov, ResourceType.物資);
+                float amm = ResourceProductionRules.ProvinceRate(prov, ResourceType.弾薬);
+                float fue = ResourceProductionRules.ProvinceRate(prov, ResourceType.燃料);
+                sb.AppendLine($"資源産出/秒: 物資 {sup:0.#} / 弾薬 {amm:0.#} / 燃料 {fue:0.#}");
+                if (prov.hasStrategicResource) // 希少資源の鉱床（#178・偏在＝一部の惑星のみ）
+                {
+                    StrategicResourceInfo info = StrategicResourceRules.Info(prov.strategicResource);
+                    float srate = StrategicResourceRules.ProvinceRate(prov);
+                    sb.AppendLine($"希少資源: {info.displayName}（豊富さ {Mathf.RoundToInt(prov.strategicAbundance * 100f)}%・/秒 {srate:0.##}）");
+                }
+
                 if (GovernanceRules.IsUnrest(prov))
                     sb.AppendLine($"反乱圧: {Mathf.RoundToInt(GovernanceRules.RebelPressure(prov) * 100f)}%（安定度が低い）");
             }

@@ -8,23 +8,49 @@
 
 Unity バージョン：**6000.4.9f1**（`ProjectSettings/ProjectVersion.txt`）。ライセンス：**Personal（無料）**。
 
-## ⚠ 重要：Unity 6 の新ライセンス方式では `.ulf` が作られない
-- かつての `.alf`→`.ulf` 手動アクティベーションは **Unity が Personal で廃止**（`unity-request-activation-file` は削除済み）。
-- さらに **Unity 6 / Hub 3.x の新ライセンス方式では、ローカルにも `Unity_lic.ulf` が生成されない**ことがある（既知の問題：[game-ci/documentation #469](https://github.com/game-ci/documentation/issues/469)）。`C:\ProgramData\Unity` を探しても `.ulf` が無いのはこのため。
+## ⚠ 重要：Personal ライセンスは `.ulf`（`UNITY_LICENSE`）が必須
 
-→ **現行の確実な方法＝Unity ID の「メール＋パスワード」を GitHub Secret に入れ、CI が実行ごとにアクティベートする**（GameCI v4 が対応）。`.ulf` は不要。
+**実測（2026-06 CI ログ）で判明：`game-ci/unity-test-runner@v4` の Personal ライセンスは
+`UNITY_EMAIL`+`UNITY_PASSWORD` だけでは動かない。** ガード（メール/パスワード検出）は通るが、
+実行ステップが即座に `Missing Unity License File and no Serial` で失敗する。
+メール＋パスワードだけで足りるのは **Pro/Plus（＋`UNITY_SERIAL`）** の場合だけ。
 
-## 手順（メール＋パスワード方式・推奨）
+→ **Personal（無料）は `.ulf` ライセンスファイルの中身を Secret `UNITY_LICENSE` に入れる**のが必須。
+`unity-test.yml` は `UNITY_LICENSE` を既に配線済み（追加のワークフロー変更は不要）。
 
-GitHub → リポジトリ `yamamax55/ginei-game` → **Settings → Secrets and variables → Actions → New repository secret** で**2つ**作る：
+### `.ulf` の入手（Unity が手動 alf→ulf を Personal で廃止したため、ローカル取得が現実解）
+かつての `.alf`→`.ulf` 手動アクティベーション（`license.unity3d.com/manual`）は **Unity が Personal で廃止**
+（[game-ci/unity-test-runner #235](https://github.com/game-ci/unity-test-runner/issues/235) /
+[game-ci/documentation #408](https://github.com/game-ci/documentation/issues/408)）。
+現行の確実な方法は**自分の PC で Unity Hub から Personal ライセンスを有効化し、生成された `Unity_lic.ulf` を使う**：
 
-| Name | Secret |
-|---|---|
-| `UNITY_EMAIL` | Unity ID のメールアドレス |
-| `UNITY_PASSWORD` | Unity ID のパスワード |
+1. Unity Hub →（歯車）Preferences → **Licenses** → **Add** → **Get a free personal license**。
+2. OS ごとの場所から `Unity_lic.ulf` を開く：
+   - Windows: `C:\ProgramData\Unity\Unity_lic.ulf`（`ProgramData` は隠しフォルダ）
+   - macOS: `/Library/Application Support/Unity/Unity_lic.ulf`
+   - Linux: `~/.local/share/unity3d/Unity/Unity_lic.ulf`
+3. **ファイル全体（XML）をコピー**し、GitHub Secret `UNITY_LICENSE` に貼る。
+
+> ⚠ **Unity 6 / Hub 3.x では `Unity_lic.ulf` がローカルに生成されないことがある**（既知の問題：
+> [game-ci/documentation #408](https://github.com/game-ci/documentation/issues/408)）。
+> 見つからない場合の現実的な選択肢：(a) Unity Pro/Plus にして `UNITY_SERIAL` 方式（CI が一番安定）、
+> (b) **GameCI を諦め、軽量な dotnet TestHarness（`dotnet-tests.yml`＝全 Core/Data を検証）を CI の正とし、
+> Game 層はローカル Unity エディタで目視**（リポジトリ既定の「ライセンス地雷回避」方針）。
+
+## 手順（GitHub Secrets）
+
+GitHub → リポジトリ `yamamax55/ginei-game` → **Settings → Secrets and variables → Actions → New repository secret** で作る：
+
+| Name | Secret | 必須？ |
+|---|---|---|
+| `UNITY_LICENSE` | `.ulf` ファイルの中身（XML 全体） | **Personal は必須** |
+| `UNITY_EMAIL` | Unity ID のメールアドレス | 必須 |
+| `UNITY_PASSWORD` | Unity ID のパスワード | 必須 |
+| `UNITY_SERIAL` | シリアル番号 | **Pro/Plus のみ**（Personal は不要・空のまま） |
 
 > ⚠ Unity Cloud（cloud.unity.com）の Secrets ではなく **GitHub リポジトリ**の Secrets。
-> ⚠ Pro/Plus なら追加で `UNITY_SERIAL` も入れる（Personal は不要）。
+> ⚠ Pro/Plus なら `UNITY_LICENSE` の代わりに `UNITY_SERIAL`＋メール/パスワードでよい。
+
 
 ### 動作確認
 GitHub → Actions → **`unity-test`** → **Run workflow**（または PR を更新）。

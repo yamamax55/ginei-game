@@ -61,20 +61,41 @@ jobs:
           github_token: ${{ github.token }}   # OIDC を介さず付与済みトークンを使う
           prompt: |
             .claude/commands/playtest-improve.md の手順に厳密に従い、プレイアビリティ改善ループを1サイクルだけ実行してください。
-            - 検証ゲートは TestHarness のみ（cd TestHarness && dotnet test）。green な変更だけをマージする。
+            - 検証ゲートは TestHarness のみ（cd TestHarness && dotnet test）。green な変更だけを残す。
             - 実装してよいのは [Core]（純ロジック＋EditMode テスト）と既存配線点の極小な読み替えのみ。
               Game層（MonoBehaviour/シーン/UI）の大きな改変は実装せず .claude/playtest-findings.md の [Game] に記録するだけ。
             - [Core] 未着手が3件未満なら、コードを監査して findings を補充する。
-            - 【必須】実装した項目は .claude/playtest-findings.md を更新（[x] 化＋完了ログ追記）し、その findings 変更も同じコミットに含めること。
-            - 【必須】auto/playtest-<日時> ブランチを master から切り（master への直接コミット/直接 push/git 直マージは禁止）、
-              コミット→git push→必ず gh pr create（base master・ready・本文に TestHarness green を明記）→PR番号を取得し
-              必ず gh pr merge <PR番号> --merge --delete-branch で自動マージする（gh pr merge 以外でのマージは禁止）。
-            - [Core] 候補が尽き監査でも新規が出ないなら、ブランチもPRも作らず何も変更せず終了（無駄PRを作らない）。
+            - 【必須】実装した項目は .claude/playtest-findings.md を更新（[x] 化＋完了ログ追記）すること。
+            - 【重要】最後に必ず「git add -A && git commit -m '...'」で**チェックアウト中の master にローカルコミット**して終わること。
+              **push も gh pr create も gh pr merge も実行しない**（ブランチ作成・PR作成・マージはこの後のワークフローステップが機械的に行う）。
+            - [Core] 候補が尽き監査でも新規が出ないなら、コミットせず何も変更せず終了（その場合は後段でPRを作らない）。
           claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep"'
+
+      - name: ブランチ→PR→自動マージ（agent のローカルコミットがあれば）
+        if: always()
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -z "$(git log origin/master..HEAD --oneline 2>/dev/null)" ]; then
+            echo "agent のコミットなし＝改善なし。PR を作らず終了。"
+            exit 0
+          fi
+          echo "=== TestHarness ゲート ==="
+          ( cd TestHarness && dotnet test -v q )
+          BR="auto/playtest-$(date +%Y%m%d-%H%M%S)"
+          git branch "$BR"
+          git push -u origin "$BR"
+          gh pr create --base master --head "$BR" \
+            --title "playtest改善（自動・$(date +%Y-%m-%d\ %H:%M)）" \
+            --body "プレイアビリティ改善ループの自走サイクル成果。TestHarness green を確認済み。" || true
+          PRNUM=$(gh pr view "$BR" --json number -q .number)
+          gh pr merge "$PRNUM" --merge --delete-branch
+          echo "PR #$PRNUM をマージしました。"
 
       - name: 結果サマリ
         if: always()
         run: |
           echo "## Playtest Improve 結果" >> "$GITHUB_STEP_SUMMARY"
-          echo "- 残 [Core] 改善候補: $(grep -c '^- \[ \] \[Core\]' .claude/playtest-findings.md || echo 0) 件" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 残 [Core] 改善候補: $(grep -c '^- \[ \] \[Core\]' .claude/playtest-findings.md 2>/dev/null || echo 0) 件" >> "$GITHUB_STEP_SUMMARY"
           git log --oneline -3 >> "$GITHUB_STEP_SUMMARY"

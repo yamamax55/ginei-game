@@ -127,6 +127,10 @@ namespace Ginei
                  "既定false＝従来動作。VirtueLordRules が解決")]
         public bool isVirtuousLord = false; // 徳望の主＝劉備玄徳型
 
+        [Tooltip("武聖（#武聖＝関羽型）。限界突破した武勇・一騎打ちの達人・千里行（主君への忠）。傲慢（虎の子はやれぬ）で同盟を失い孤立すると背後を突かれる（荊州陥落）。" +
+                 "既定false＝従来動作。WarSaintRules が解決。※上杉謙信の軍神(TenchijinRules)とは別")]
+        public bool isWarSaint = false; // 武聖＝関羽型（限界突破の武・一騎打ち・千里行・荊州の慢心）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

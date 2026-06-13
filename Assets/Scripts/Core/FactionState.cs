@@ -40,6 +40,10 @@ namespace Ginei
         /// <summary>目安箱への信認（箱ごと・MEYASU-2 #1298）。建白が権力者に聞かれるかを左右する“借り物の権威”。解決は <see cref="CredibilityRules"/>。</summary>
         public BoxCredibility credibility = new BoxCredibility();
 
+        /// <summary>政治状態＝政党と衆参の選挙日程（政党システム GOV-6 #159）。民主政治で <see cref="PoliticsTickRules"/> が年次で回す
+        /// （二大政党への収束・選挙・分断危機）。budget/fiscal と同じく在席のセッション状態（セーブ非対象・null=未設定）。</summary>
+        public PoliticsState politics;
+
         public FactionState() { }
 
         public FactionState(Faction faction, float inclusiveness = 0.5f)

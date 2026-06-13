@@ -143,6 +143,10 @@ namespace Ginei
                  "既定false＝従来動作。KaiserRules が解決（専用旗艦ブリュンヒルトは SignatureShipRegistry）")]
         public bool isKaiser = false; // 覇王＝ラインハルト型
 
+        [Tooltip("半身（#半身＝キルヒアイス型）。万能・流血なき懐柔・無私の身代わり・主君の良心（暴走を止める）・精神攻撃無効・真のカリスマ。覇王と組むと倍化し、喪失で覇王が暴走する。" +
+                 "既定false＝従来動作。RightHandRules が解決")]
+        public bool isRightHand = false; // 半身＝キルヒアイス型（理想のナンバーツー）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

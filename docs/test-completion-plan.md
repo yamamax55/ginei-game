@@ -80,4 +80,4 @@
 
 ## 進捗
 
-- [x] **C1 着手**：orphan 配線監査（→ `docs/core-orphan-audit.md`）。
+- [x] **C1 完了**：orphan 配線監査（→ `docs/core-orphan-audit.md`）。Core *Rules 約329 のうち Game 直接参照は約30%。残70%は **推移的配線の取りこぼし＋意図的 Core-first（経済100+業種は集約・背景化）** を含む。**完成直結は Tier A の十数個**（兵站#2049/#95・諜報・政体駆動 CoupRules/継承/選挙・予算の軍事/外交・条約#191）。Tier C は配線しない（集約・観測で背景化）。次は A-2 軍政の駆動 or C2-C4 の因果検証。

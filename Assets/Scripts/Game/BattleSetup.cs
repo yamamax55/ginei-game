@@ -57,6 +57,7 @@ namespace Ginei
             FleetRegistry.Clear();
             FleetRoster.Clear(); // 艦隊編制台帳(#146)も会戦ごとに作り直す（永続化は #108 で別途）
             OrderOfBattle.Clear(); // 編制ツリー(#147)も会戦ごとに作り直す
+            ShipNameRegistry.Clear(); // 旗艦名(#旗艦名)の払い出しも会戦ごとに初期化（永続化は別途）
 
             // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
             if (BattleHandoff.Pending)
@@ -299,6 +300,9 @@ namespace Ginei
                 // 旗幟（#817 関ヶ原型）：忠誠/調略浸透を反映（既定 1/0＝従来動作）
                 strength.loyalty = Mathf.Clamp01(entry.loyalty);
                 strength.intrigue = Mathf.Clamp01(entry.intrigue);
+
+                // 旗艦名（#旗艦名・世界遺産由来）を払い出す。重複なし＝部隊の固有名として頭上に表示。
+                strength.shipName = ShipNameRegistry.Assign();
 
                 // 反映した勢力で色を再適用
                 FactionColor color = fleet.GetComponent<FactionColor>();

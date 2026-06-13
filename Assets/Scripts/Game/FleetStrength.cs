@@ -18,6 +18,9 @@ namespace Ginei
         [Tooltip("提督名")]
         public string admiralName = "ラインハルト";
 
+        [Tooltip("旗艦名（#旗艦名・世界遺産由来。BattleSetup が ShipNameRegistry から払い出す。空＝無名）")]
+        public string shipName = "";
+
         [Tooltip("現在の兵力")]
         public int strength = 10000;
 
@@ -452,6 +455,9 @@ namespace Ginei
 
             FleetRegistry.Unregister(this);
 
+            // 撃沈した旗艦の名は永久欠番（#旗艦名・史実の艦名継承の重み）。
+            if (!string.IsNullOrEmpty(shipName)) ShipNameRegistry.Retire(shipName);
+
             // 配下艦を散らす（殿が立たなかった＝主君を見捨てて逃散）。本体破棄の前に切り離して逃がす。
             if (squadron != null) squadron.ScatterEscorts();
 
@@ -548,6 +554,8 @@ namespace Ginei
             if (strengthDisplay != null)
             {
                 string head = HasFleetNumber ? $"{FleetLabel} {admiralName}" : admiralName;
+                // 旗艦名（#旗艦名）があれば提督名の前に「《名》」で前置（無名は従来表示）。
+                if (!string.IsNullOrEmpty(shipName)) head = $"《{shipName}》{head}";
                 strengthDisplay.text = IsRetreating
                     ? $"{head}\n退却"
                     : $"{head}\n兵力: {Mathf.Max(0, strength)}";

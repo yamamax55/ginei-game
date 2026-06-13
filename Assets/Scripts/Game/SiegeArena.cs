@@ -30,12 +30,19 @@ namespace Ginei
         [Tooltip("攻城旗艦1隊・1秒あたりの S-AV 戦力（制空権の制圧速度）")]
         public float siegeSpeedPerFleet = 2.5f;
 
-        [Header("地上戦力（ORBAT-5 #1721）")]
-        [Tooltip("攻城1隊が搭載する陸戦隊の規模（名）。在席数×これで地上戦力を見積もり、侵攻（占領）速度を決める")]
+        [Header("地上戦力・守備隊（ORBAT-5 #1721 / 二者化 #131）")]
+        [Tooltip("攻城1隊が搭載する陸戦隊の規模（名）。在席数×これで攻撃側の地上戦力を見積もる")]
         public int groundTroopsPerFleet = 3000;
-        [Tooltip("侵攻速度倍率の下限/上限（地上戦力÷1個師団 で算出。1個師団規模で等倍）")]
-        public float minInvadeFactor = 0.25f;
-        public float maxInvadeFactor = 3f;
+        [Tooltip("惑星の地上守備隊（名）。ドメイン・ダウン後の地上戦で侵攻に抵抗。攻撃側がこれを上回るぶんだけ侵略が進む（劣勢なら停滞）。0＝守備隊なし＝従来動作")]
+        public int maxGroundGarrison = 12000;
+        [Tooltip("突入時の守備隊残り割合(0..1)。将来は戦略の惑星から引き継ぐ")]
+        public float initialGarrisonRatio = 1f;
+
+        [Header("対空砲火（守備隊→包囲艦）")]
+        [Tooltip("地上守備隊が包囲艦へ撃つ対空火線の本数（演出＝火力分散の単位）")]
+        public int flakBeamCount = 6;
+        public float flakFireInterval = 0.5f;
+        public Color flakBeamColor = new Color(1f, 0.62f, 0.32f);
 
         [Header("S-AV 演出")]
         public int savCraftCount = 18;
@@ -63,9 +70,16 @@ namespace Ginei
         private float[] satFireTimer;   // 次の発砲までの残り（秒）
         private float[] satBeamTimer;   // ビーム表示の残り時間（秒・フェード用）
         private float[] satBaseAngle;   // 周回の初期角（ラジアン）
-        private Material satBeamMat;
+        private Material beamMat;        // 衛星ビーム・対空火線で共有
         private float resolvedSatRadius, resolvedDefenseRange;
         private const float DefenseBeamDuration = 0.18f;
+        private const float FlakBeamDuration = 0.16f;
+
+        // 対空砲火（地上戦の二者化）。守備隊が惑星表面から包囲艦へ撃つ火線。
+        private LineRenderer[] flakBeams;
+        private float[] flakFireTimer;
+        private float[] flakBeamTimer;
+        private Transform garrisonFill; // 守備隊ゲージ（緑・減る）
 
         private Planet planet;
         private Material ringMat, lineMat;
@@ -75,6 +89,7 @@ namespace Ginei
         private TextMesh statusLabel;
         private bool captured;
         private GroundEchelonType groundEchelon = GroundEchelonType.師団; // 在席の攻城戦力が相当する地上梯団（表示用・ORBAT-5）
+        private float attackerGroundCached; // 直近フレームの攻撃側地上戦力（名・表示用＝再計算回避）
 
         // S-AV クラフト（発進→惑星→再発進のループ）
         private Transform[] craft;
@@ -85,6 +100,8 @@ namespace Ginei
         public float DefenseRatio => planet != null && siegeMaxDefense > 0f ? planet.orbitalDefense / siegeMaxDefense : 0f;
         /// <summary>戦術側の現在の侵略値割合(0..1)。</summary>
         public float InvasionRatio => planet != null && siegeInvasionThreshold > 0f ? planet.invasionProgress / siegeInvasionThreshold : 0f;
+        /// <summary>地上守備隊の残り割合(0..1)。守備隊なしは0。</summary>
+        public float GarrisonRatio => planet != null && planet.maxGroundGarrison > 0f ? planet.groundGarrison / planet.maxGroundGarrison : 0f;
         public bool Captured => captured;
 
         /// <summary>BattleSetup が値を設定した後に呼ぶ。ビジュアルと攻城状態を構築する。</summary>
@@ -94,17 +111,22 @@ namespace Ginei
             whiteLeft = MakeWhite();
             lineMat = new Material(Shader.Find("Sprites/Default"));
             ringMat = new Material(Shader.Find("Sprites/Default"));
+            beamMat = BeamFx.CreateMaterial(); // 衛星ビーム・対空火線で共有
 
             // 攻城状態（戦略の惑星から制空権・侵略値を引き継ぐ）
             planet = new Planet(0, planetOwner, siegeMaxDefense, siegeInvasionThreshold);
             planet.orbitalDefense = Mathf.Clamp01(initialDefenseRatio) * siegeMaxDefense;
             planet.invasionProgress = Mathf.Clamp01(initialInvasionRatio) * siegeInvasionThreshold;
+            // 地上守備隊（二者化 #131）。0＝守備隊なし＝従来の一方的侵攻。
+            planet.maxGroundGarrison = Mathf.Max(0, maxGroundGarrison);
+            planet.groundGarrison = Mathf.Clamp01(initialGarrisonRatio) * planet.maxGroundGarrison;
 
             BuildPlanet();
             BuildRing();
             BuildGauges();
             BuildCraft();
             BuildSatellites();
+            BuildFlak();
         }
 
         private void BuildPlanet()
@@ -152,12 +174,15 @@ namespace Ginei
             float baseY = -planetScale * 0.95f;
             // 制空権バー（橙・減る）
             defenseFill = MakeBar("DefenseBar", new Vector3(-barWidth * 0.5f, baseY, 0f), new Color(0.9f, 0.55f, 0.25f));
+            // 守備隊バー（緑・減る・地上戦の二者化 #131）。守備隊なし(0)なら作らない。
+            if (planet != null && planet.maxGroundGarrison > 0f)
+                garrisonFill = MakeBar("GarrisonBar", new Vector3(-barWidth * 0.5f, baseY - barHeight * 1.6f, 0f), new Color(0.35f, 0.8f, 0.4f));
             // 占領（侵略）バー（赤・増える）
-            invadeFill = MakeBar("InvadeBar", new Vector3(-barWidth * 0.5f, baseY - barHeight * 1.6f, 0f), new Color(0.95f, 0.3f, 0.3f));
+            invadeFill = MakeBar("InvadeBar", new Vector3(-barWidth * 0.5f, baseY - barHeight * 3.2f, 0f), new Color(0.95f, 0.3f, 0.3f));
 
             var lblGo = new GameObject("SiegeStatus");
             lblGo.transform.SetParent(transform, false);
-            lblGo.transform.localPosition = new Vector3(0f, baseY - barHeight * 3.4f, 0f);
+            lblGo.transform.localPosition = new Vector3(0f, baseY - barHeight * 5.0f, 0f);
             statusLabel = lblGo.AddComponent<TextMesh>();
             statusLabel.font = FontProvider.JapaneseFont; statusLabel.fontSize = 40;
             statusLabel.characterSize = 0.1f; statusLabel.anchor = TextAnchor.MiddleCenter;
@@ -214,7 +239,6 @@ namespace Ginei
 
             resolvedSatRadius = satelliteOrbitRadius > 0f ? satelliteOrbitRadius : approachRadius;
             resolvedDefenseRange = defenseRange > 0f ? defenseRange : approachRadius + 7f;
-            satBeamMat = BeamFx.CreateMaterial();
 
             satellites = new Transform[n];
             satBeams = new LineRenderer[n];
@@ -239,7 +263,7 @@ namespace Ginei
                 var beamGo = new GameObject("DefenseBeam");
                 beamGo.transform.SetParent(go.transform, false);
                 var lr = beamGo.AddComponent<LineRenderer>();
-                lr.material = satBeamMat; lr.useWorldSpace = true;
+                lr.material = beamMat; lr.useWorldSpace = true;
                 BeamFx.ConfigureLine(lr, 0.1f);
                 lr.startColor = lr.endColor = defenseBeamColor;
                 lr.sortingOrder = 8;
@@ -248,6 +272,74 @@ namespace Ginei
                 satellites[i] = go.transform;
                 satBeams[i] = lr;
                 satFireTimer[i] = Random.value * satelliteFireInterval; // 位相分散＝一斉発砲を避ける
+            }
+        }
+
+        // 対空火線の本数ぶん LineRenderer を用意（守備隊→包囲艦・初期非表示）。守備隊なしなら作らない。
+        private void BuildFlak()
+        {
+            int n = Mathf.Max(0, flakBeamCount);
+            if (n == 0 || planet == null || planet.maxGroundGarrison <= 0f) { flakBeams = new LineRenderer[0]; return; }
+
+            flakBeams = new LineRenderer[n];
+            flakFireTimer = new float[n];
+            flakBeamTimer = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                var beamGo = new GameObject("FlakBeam");
+                beamGo.transform.SetParent(transform, false);
+                var lr = beamGo.AddComponent<LineRenderer>();
+                lr.material = beamMat; lr.useWorldSpace = true;
+                BeamFx.ConfigureLine(lr, 0.09f);
+                lr.startColor = lr.endColor = flakBeamColor;
+                lr.sortingOrder = 8;
+                lr.enabled = false;
+                flakBeams[i] = lr;
+                flakFireTimer[i] = Random.value * flakFireInterval; // 位相分散
+            }
+        }
+
+        // 地上戦（ドメイン・ダウン後）：守備隊の対空砲火で包囲艦に損害を与える。総ダメ＝残存守備隊×係数を全火線で分散。
+        // 守備隊が削られるほど砲火も弱まる。dt 追従（ポーズ/倍速対応）。
+        private void UpdateGarrisonFlak(float casualtyPerSec, float dt)
+        {
+            if (flakBeams == null || flakBeams.Length == 0) return;
+            int n = flakBeams.Length;
+            bool firing = casualtyPerSec > 0f && !captured && planet.DomainDown && planet.groundGarrison > 0f && dt > 0f;
+            int perShot = firing ? Mathf.Max(1, Mathf.RoundToInt(casualtyPerSec * flakFireInterval / n)) : 0;
+            Vector2 center = transform.position;
+
+            for (int i = 0; i < n; i++)
+            {
+                LineRenderer lr = flakBeams[i];
+                if (lr == null) continue;
+
+                if (flakBeamTimer[i] > 0f)
+                {
+                    flakBeamTimer[i] -= dt;
+                    float a = Mathf.Clamp01(flakBeamTimer[i] / FlakBeamDuration);
+                    Color c = flakBeamColor; c.a *= a;
+                    lr.startColor = lr.endColor = c;
+                    if (flakBeamTimer[i] <= 0f) lr.enabled = false;
+                }
+
+                if (!firing) continue;
+                flakFireTimer[i] -= dt;
+                if (flakFireTimer[i] > 0f) continue;
+                flakFireTimer[i] = flakFireInterval;
+
+                IShipTarget target = NearestBesieger(center, resolvedDefenseRange > 0f ? resolvedDefenseRange : approachRadius + 7f);
+                if (target == null) continue;
+                target.TakeDamage(perShot);
+
+                // 火線は惑星表面のランダム点から包囲艦へ
+                float ang = Random.value * Mathf.PI * 2f;
+                Vector2 origin = center + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (planetScale * 0.5f);
+                lr.enabled = true;
+                lr.SetPosition(0, origin);
+                lr.SetPosition(1, target.Transform.position);
+                lr.startColor = lr.endColor = flakBeamColor;
+                flakBeamTimer[i] = FlakBeamDuration;
             }
         }
 
@@ -340,32 +432,37 @@ namespace Ginei
             if (planet == null) return;
 
             int alive = CountBesiegers();
+            float dt = Time.deltaTime;
 
-            // 地上戦力（ORBAT-5）：在席数×1隊あたり陸戦隊で規模を見積もり、侵攻（占領）速度を決める。
-            int groundTroops = alive * Mathf.Max(0, groundTroopsPerFleet);
-            groundEchelon = GroundForceRules.LargestEchelonFor(groundTroops);
-            float invadeFactor = GroundInvadeFactor(groundTroops);
+            // 攻撃側の地上戦力（在席数×1隊あたり陸戦隊）。守備隊との二者消耗（#131・GroundInvasionRules）。
+            float attackerGround = alive * Mathf.Max(0, groundTroopsPerFleet);
+            attackerGroundCached = attackerGround;
+            groundEchelon = GroundForceRules.LargestEchelonFor(Mathf.RoundToInt(attackerGround));
+            var gprm = GroundInvasionParams.Default;
+            // 侵略速度係数＝攻撃側の純優勢（守備隊を上回るぶん）。守備が上回る間は0＝停滞（占領できない）。
+            float invadeFactor = GroundInvasionRules.InvasionRateFactor(attackerGround, planet.groundGarrison, gprm);
 
-            // 攻城進行：制空権の制圧は艦隊のS-AVで一定、ドメイン・ダウン後の侵攻は地上戦力の規模で加速（timeScale 追従）。
-            if (alive > 0 && !captured && Time.deltaTime > 0f)
+            // 攻城進行：制空権の制圧は艦隊のS-AVで一定、ドメイン・ダウン後の侵攻は地上の純優勢で進む（timeScale 追従）。
+            if (alive > 0 && !captured && dt > 0f)
             {
                 float sav = alive * siegeSpeedPerFleet;
                 var prm = new SiegeParams(1f, invadeFactor, 0f);
-                var r = PlanetSiegeRules.Tick(planet, besiegerFaction, sav, Time.deltaTime, prm);
+                var r = PlanetSiegeRules.Tick(planet, besiegerFaction, sav, dt, prm);
                 if (r.captured) captured = true;
+
+                // 地上戦（ドメイン・ダウン後）：攻撃側の規模に応じて守備隊を削る。
+                if (planet.DomainDown && planet.groundGarrison > 0f)
+                {
+                    float loss = GroundInvasionRules.GarrisonLosses(attackerGround, planet.groundGarrison, gprm, dt);
+                    planet.groundGarrison = Mathf.Max(0f, planet.groundGarrison - loss);
+                }
             }
 
-            UpdateDefense(Time.deltaTime);
+            UpdateDefense(dt);
+            // 守備隊の対空砲火で包囲艦に損害（残存守備隊に比例＝削れば弱まる）。
+            UpdateGarrisonFlak(GroundInvasionRules.AttackerCasualtyRate(planet.groundGarrison, gprm), dt);
             UpdateGauges();
             UpdateCraft(alive);
-        }
-
-        /// <summary>地上戦力（名）→ 侵攻速度倍率。1個師団規模で等倍、規模に比例（下限/上限でクランプ）。ORBAT-5。</summary>
-        private float GroundInvadeFactor(int groundTroops)
-        {
-            int reference = GroundForceRules.ProfileFor(GroundEchelonType.師団).NominalPersonnel; // 1個師団＝基準
-            if (reference <= 0) return 1f;
-            return Mathf.Clamp((float)groundTroops / reference, minInvadeFactor, maxInvadeFactor);
         }
 
         private int CountBesiegers()
@@ -384,6 +481,8 @@ namespace Ginei
         {
             if (defenseFill != null)
                 defenseFill.localScale = new Vector3(barWidth * Mathf.Clamp01(DefenseRatio), barHeight, 1f);
+            if (garrisonFill != null)
+                garrisonFill.localScale = new Vector3(barWidth * Mathf.Clamp01(GarrisonRatio), barHeight, 1f);
             if (invadeFill != null)
                 invadeFill.localScale = new Vector3(barWidth * Mathf.Clamp01(InvasionRatio), barHeight, 1f);
 
@@ -397,6 +496,12 @@ namespace Ginei
                         : PlanetaryDefenseRules.LiveSatellites(planet.orbitalDefense, planet.maxOrbitalDefense, satellites.Length);
                     statusLabel.text = $"軌道戦 制空権 {Mathf.CeilToInt(DefenseRatio * 100f)}%（防衛衛星 {sats}機が反撃）";
                 }
+                else if (planet.groundGarrison > 0f && GroundInvasionRules.DefendersHolding(
+                             attackerGroundCached, planet.groundGarrison))
+                    // 守備隊が攻撃側を上回る＝侵攻停滞（兵力を増やすか守備隊を削るまで進まない）
+                    statusLabel.text = $"地上戦 守備隊が抗戦中（守備隊 {Mathf.CeilToInt(GarrisonRatio * 100f)}%・侵攻停滞）";
+                else if (planet.groundGarrison > 0f)
+                    statusLabel.text = $"地上戦 侵攻中（守備隊 {Mathf.CeilToInt(GarrisonRatio * 100f)}%・占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%・地上戦力 {groundEchelon}）";
                 else
                     statusLabel.text = $"侵攻中（地上戦力 {groundEchelon}・占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%）";
             }
@@ -485,7 +590,7 @@ namespace Ginei
         {
             if (ringMat != null) Destroy(ringMat);
             if (lineMat != null) Destroy(lineMat);
-            if (satBeamMat != null) Destroy(satBeamMat);
+            if (beamMat != null) Destroy(beamMat);
             if (disc != null && disc.texture != null) Destroy(disc.texture);
             if (whiteLeft != null && whiteLeft.texture != null) Destroy(whiteLeft.texture);
         }

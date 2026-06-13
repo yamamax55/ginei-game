@@ -40,6 +40,19 @@ namespace Ginei
         /// <summary>占領に必要な侵略値の閾値。</summary>
         public float invasionThreshold;
 
+        /// <summary>
+        /// 地上守備隊（名）。ドメイン・ダウン後の地上戦で侵攻に抵抗する（<see cref="GroundInvasionRules"/>）。
+        /// 攻撃側の地上戦力がこれを上回るぶんだけ侵略が進む（劣勢なら停滞）。守備隊は対空砲火で包囲艦にも損害を与える。
+        /// 既定0＝守備隊なし＝従来動作（後方互換）。
+        /// </summary>
+        public float groundGarrison;
+
+        /// <summary>地上守備隊の最大（表示・割合の基準）。</summary>
+        public float maxGroundGarrison;
+
+        /// <summary>地上守備隊が壊滅したか。</summary>
+        public bool GarrisonDown => groundGarrison <= 0f;
+
         /// <summary>ドメイン・ダウン（制空権崩壊）したか。艦隊接近・占領の解禁条件。</summary>
         public bool DomainDown => orbitalDefense <= 0f;
 

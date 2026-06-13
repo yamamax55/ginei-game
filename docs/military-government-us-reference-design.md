@@ -86,31 +86,41 @@
 
 > いずれも **既存の `CivilianControlRules`／`OrderOfBattle`／`Office` を壊さず additive**。スカラビリティ規律（個体粒度に降りない・暦境界 Tick・差分/集約）を順守。`CivilianControlType` 未設定なら従来動作。
 
-### 3-A. 指揮の二系統分離（ゴールドウォーター゠ニコルズ）★最優先
+### 3-A. 指揮の二系統分離（ゴールドウォーター゠ニコルズ）★最優先 ✅実装済（Core 純ロジック・`CommandChainRules`）
+> **状態：実装済**＝`Assets/Scripts/Core/CommandChainRules.cs`＋`Office.commandChain`＋EditMode テスト（`CommandChainRulesTests`）。盤面/UI 配線（§4 ★1）は別途。下記 API は実装と一致。
+
 **狙い**：作戦指揮（戦力を使う）と軍政管理（戦力を育てる）を分け、**一人に集中させない**。クーデター母体の有無をデータで表す。
 
 既存資産の連結で実装できる（新レジストリ不要）：
 - 作戦系統＝`OrderOfBattle`（梯団ツリーの司令）。
 - 管理系統＝`Office`（`OfficeDomain.軍事` の役職＝参謀総長・軍政ポスト）＋`Ministry`（軍政省庁）。
 
-新規 Core：`CommandChainRules`（static・唯一の窓口）
+新規 Core：`CommandChainRules`（static・唯一の窓口）。識別子は `int`（作戦頂点の司令＝`AdmiralData` と管理頂点の役職保持者＝`ICharacter` で型が異なるため**型非依存**。配線層が id を解決する）。
 ```csharp
 public enum CommandChain { 作戦, 管理 }   // 作戦=部隊を動かす / 管理=organize-train-equip
 
 public static class CommandChainRules
 {
-    // 役職がどちらの系統か（軍事所掌の役職に作戦/管理の別を与える）
+    public const int Vacant = int.MinValue;             // 頂点空席の番兵
+    // 集中度の重み（作戦0.45+管理0.35+予算0.20=1.0）／分断度の配点（両頂点別人0.6+予算独立0.4）
+
+    // 役職がどちらの系統か（軍事所掌は Office.commandChain、非軍事は管理）
     public static CommandChain ChainOf(Office o);
 
-    // 同一人物が両系統の頂点を兼ねていないか（兼任＝集中＝危険）
-    public static bool ConcentratesCommand(ICharacter c, IEnumerable<Office> heldOffices, /*作戦頂点*/ MilitaryFormation topFormation);
+    // 構造の頂点を既存資産から抽出
+    public static MilitaryFormation OperationalApexFormation(IEnumerable<MilitaryFormation> formations);
+    public static MilitaryFormation OperationalApexFormation(Faction faction);   // OrderOfBattle 版
+    public static Office AdministrativeApexOffice(IEnumerable<Office> offices);  // 国家・軍事・最高tier
 
-    // 指揮集中度 0..1（作戦頂点＋軍政頂点＋予算権を一人がどれだけ握るか）
-    //   →§3-E の CoupRisk の駆動因「commandUnity（軍側の一枚岩度）」へ供給
-    public static float CommandConcentration(Faction f, ...);
+    // 一人が握る権限の束→指揮集中度 0..1（作戦頂点+軍政頂点+予算権）
+    public static float Concentration(bool operationalApex, bool administrativeApex, bool budgetAuthority);
+    public static bool ConcentratesCommand(bool operationalApex, bool administrativeApex); // 両頂点兼任=GN違反
 
-    // ゴールドウォーター゠ニコルズ準拠か（二系統が別人に割れているか）
-    public static bool IsUnifiedCommandSeparated(Faction f, ...);
+    // ゴールドウォーター゠ニコルズ準拠か（両頂点が埋まり別人か）
+    public static bool IsUnifiedCommandSeparated(int operationalApexHolderId, int administrativeApexHolderId);
+
+    // 指揮分断度 0..1 ＝§3-E の CoupRisk 駆動因（両頂点別人+予算独立=power of the purse）
+    public static float CommandSeparation(int operationalApexHolderId, int administrativeApexHolderId, int budgetHolderId);
 }
 ```
 **ゲーム的帰結**：帝国（門閥）は一人の元帥に作戦＋軍政＋財政が集中しやすく `CommandConcentration` 高＝クーデター母体あり。同盟（民主）は二系統が割れ低い。プレイヤーが大将に権限を集めるほど効率は上がるが**独走リスクが上がる**トレードオフ。

@@ -23,6 +23,13 @@ namespace Ginei
         /// <summary>所掌（軍事/内政/外交/財政/元首）。</summary>
         public OfficeDomain domain = OfficeDomain.内政;
 
+        /// <summary>
+        /// 軍事所掌の役職がどちらの指揮系統か（ゴールドウォーター゠ニコルズの二系統分離・MILGOV-US §3-A）。
+        /// 作戦＝部隊を動かす（統合軍司令官型）／管理＝organize-train-equip（参謀総長/軍政型）。
+        /// 既定＝管理（＝作戦指揮権を含意しない後方互換）。非軍事所掌では無意味（<see cref="CommandChainRules.ChainOf"/> が管理を返す）。
+        /// </summary>
+        public CommandChain commandChain = CommandChain.管理;
+
         /// <summary>文民専用（軍人は就けない）。既定 false＝兼任可。</summary>
         public bool civilianOnly;
 

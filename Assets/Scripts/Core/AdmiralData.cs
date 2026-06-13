@@ -104,6 +104,10 @@ namespace Ginei
                  "既定 false＝従来動作。RisingHeroRules が解決")]
         public bool isRisingHero = false; // 立身出世型＝豊臣秀吉型（足軽から天下人）
 
+        [Tooltip("日本一の兵（#日本一の兵＝真田幸村型）。とにかく強い武勇に加え、真田丸の堅守（寡兵の防衛）と決死の突撃（窮地ほど苛烈）。" +
+                 "既定 false＝従来動作。PeerlessWarriorRules が解決")]
+        public bool isPeerlessWarrior = false; // 日本一の兵＝真田幸村型（剛勇・真田丸・決死突撃）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

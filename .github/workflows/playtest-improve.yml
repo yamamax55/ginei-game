@@ -11,8 +11,10 @@ name: Playtest Improve 自動ループ
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '27 */3 * * *'   # 3時間ごと:27（core-wave :07 / auto-implement :47 と分離）
+  # schedule は CLAUDE.md スリム化（CIワーカーの文脈圧迫の根治）まで一時停止。
+  # 根治後にこのコメントを外して再開する。手動実行は workflow_dispatch で可。
+  # schedule:
+  #   - cron: '27 */3 * * *'   # 3時間ごと:27（core-wave :07 / auto-implement :47 と分離）
 
 concurrency:
   group: playtest-improve

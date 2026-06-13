@@ -721,6 +721,7 @@ namespace Ginei
                 commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
                 commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
                 commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+                id = SeedFoundingYouth(id, y); // 世代交代ループの種＝結婚適齢の若者（男女）
                 nextPersonId = id; // 卒業生はこの続き番号で採番
             }
 
@@ -1141,6 +1142,9 @@ namespace Ginei
             // 年境界の自動保存（決着後は保存しない＝終了状態で上書きしない）。閉じても進行が消えない。
             if (!campaignDecided) AutoSaveCampaign();
 
+            // 世代交代（#159 配線）：成年が結婚し夫婦が子をなして名簿に加わる＝血統が年々更新される（死は下の老衰で）。
+            RunGenerationTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1149,6 +1153,13 @@ namespace Ginei
                 Person d = deceased[i];
                 int age = LifecycleRules.Age(d, campaignYear);
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
+
+                // 配偶者を死別（生存配偶者の婚姻を解除）。
+                if (d.spouseId >= 0)
+                {
+                    Person spouse = commanders.Find(x => x != null && x.id == d.spouseId);
+                    PersonMarriageRules.Widow(spouse);
+                }
 
                 // ネームド資産の相続/没収（NASSET-4/6・#2063）：故人の固有資産を同勢力の最高位の存命司令へ相続、不在なら国家へ没収。
                 var estate = NamedAssetRegistry.OwnedByPerson(d.id);
@@ -1584,6 +1595,49 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
                         $"{s.faction} 二大政党化で社会の分断が深刻化（有効政党数 {r.effectiveParties:0.0}）");
             }
+        }
+
+        /// <summary>
+        /// 世代交代の年次 Tick（#159 配線）：名簿（commanders）の成年が結婚し、夫婦が子をなして名簿に加わる。
+        /// 数値は <see cref="GenerationTickRules"/>（→PersonMarriageRules/ChildbirthRules/HeredityRules）へ委譲。死（老衰）は下流の ProcessMortality が担う。
+        /// </summary>
+        private void RunGenerationTick()
+        {
+            if (commanders == null) return;
+            var res = GenerationTickRules.TickYear(
+                commanders, campaignYear,
+                () => nextPersonId++,
+                () => UnityEngine.Random.value,
+                new GenerationTickRules.GenerationParams(0.4f, OfficerRosterCap),
+                ChildbirthRules.FertilityParams.Default,
+                HeredityRules.HeredityParams.Default);
+
+            if (res.marriages > 0 || res.births > 0)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"世代交代：{res.marriages} 組が結婚・{res.births} 人誕生（名簿 {commanders.Count} 名）");
+        }
+
+        /// <summary>世代交代ループの種＝結婚適齢の若者（男女）を勢力ごとに数名置く。これが結婚→出産→加齢→死で世代が回る。</summary>
+        private int SeedFoundingYouth(int startId, int year)
+        {
+            int id = startId;
+            Faction[] facs = { Faction.帝国, Faction.同盟 };
+            for (int fi = 0; fi < facs.Length; fi++)
+            {
+                Faction fac = facs[fi];
+                for (int k = 0; k < 4; k++) // 男2・女2
+                {
+                    Sex sex = (k % 2 == 0) ? Sex.男性 : Sex.女性;
+                    commanders.Add(new Person(id++, $"{fac}の士{k + 1}", fac, PersonRole.軍人)
+                    {
+                        sex = sex,
+                        birthYear = year - (20 + k), // 成年（20〜23歳）
+                        rankTier = 0,
+                        leadership = 45, attack = 45, defense = 45, mobility = 45, operation = 45, intelligence = 45,
+                    });
+                }
+            }
+            return id;
         }
 
         /// <summary>デモ用の政党シード：多党乱立から出発させる（成熟が上がると二大政党へ収束する＝#159）。</summary>

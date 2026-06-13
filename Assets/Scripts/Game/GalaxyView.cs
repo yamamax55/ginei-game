@@ -945,6 +945,9 @@ namespace Ginei
             // 財政の年（#161-163 配線）：予算編成→形式財政（債務/利払い）で予算と執行の1年を閉じる。
             RunFiscalYearTick();
 
+            // 政体進化（#117 配線）：首長制→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ社会シグナルで分岐進化。
+            RunRegimeEvolutionTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1172,6 +1175,46 @@ namespace Ginei
                     if (adminBonusByFaction.TryGetValue(sys.owner, out float ab))
                         prov.stability = Mathf.Clamp(prov.stability + ab, 0f, 100f);
                 }
+        }
+
+        // --- 政体進化（#117 配線）：首長制→民主/独裁→下位形態 ---
+        private bool regimeFormsSeeded;
+
+        /// <summary>
+        /// 政体進化を年次で回す（#117）：初期形態をシード（帝国=君主制/同盟=共和制/他=首長制）し、社会シグナル
+        /// （正統性/腐敗/合意/希望/包摂）から `GovernmentFormRules.NextForm` で年1回1遷移を進めて通知する。数式は Core へ委譲。
+        /// </summary>
+        private void RunRegimeEvolutionTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            if (!regimeFormsSeeded)
+            {
+                for (int i = 0; i < camp.states.Count; i++)
+                {
+                    FactionState s = camp.states[i];
+                    if (s == null || s.governmentForm != GovernmentForm.首長制) continue;
+                    s.governmentForm = s.faction == Faction.帝国 ? GovernmentForm.君主制
+                                     : s.faction == Faction.同盟 ? GovernmentForm.共和制
+                                     : GovernmentForm.首長制; // 他勢力は首長制スタート
+                }
+                regimeFormsSeeded = true;
+            }
+
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null) continue;
+                RegimeSignals signals = GovernmentFormRules.SignalsOf(s);
+                GovernmentForm next = GovernmentFormRules.NextForm(s.governmentForm, signals);
+                if (next != s.governmentForm)
+                {
+                    GovernmentForm from = s.governmentForm;
+                    GovernmentFormRules.Apply(s, next);
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} 政体が {from} → {next} へ移行");
+                }
+            }
         }
 
         /// <summary>建艦の出資度（G3）＝建艦予算/必要額。歳入の2割を満額基準とする（不足で建艦が遅れる）。</summary>

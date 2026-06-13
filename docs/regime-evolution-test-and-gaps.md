@@ -7,7 +7,9 @@
 
 ## 0. 結論（先に）
 
-**政体の「形態」を表す統一型と、形態間の遷移グラフが存在しない。** あるのは**軸がバラバラの部品**だけ：
+> **状態：§4 の最小設計を実装済**＝`GovernmentForm`／`GovernmentFormRules`（Core・test-first `GovernmentFormRulesTests`）＋`FactionState.governmentForm`＋`GalaxyView.RunRegimeEvolutionTick`（年次・帝国=君主制/同盟=共和制シード→社会シグナルで分岐進化・通知）。形態は軸（軍政/所有）へ `ControlTypeOf`/`OwnershipOf` で橋渡し（既存窓口接続は C1 Tier A 軍政駆動と同時に効かせる）。下記は当初のギャップ分析（記録）。
+
+**（当初の不足）政体の「形態」を表す統一型と、形態間の遷移グラフが存在しなかった。** あるのは**軸がバラバラの部品**だけ：
 
 | 軸 | 既存モジュール | カバー範囲 |
 |---|---|---|

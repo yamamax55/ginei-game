@@ -147,6 +147,10 @@ namespace Ginei
                  "既定false＝従来動作。RightHandRules が解決")]
         public bool isRightHand = false; // 半身＝キルヒアイス型（理想のナンバーツー）
 
+        [Tooltip("魔術師（#魔術師＝ヤン・ウェンリー型）。やる気ゼロの最高知力。絶体絶命ほど逆転し、不敗の撤退・先読み無効化・民主主義の精神耐性・偉大なる教師。覇王の好敵手。" +
+                 "既定false＝従来動作。MagicianRules が解決（専用旗艦ヒューベリオンは SignatureShipRegistry）")]
+        public bool isMagician = false; // 魔術師＝ヤン・ウェンリー型（不敗・逆転特化）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

@@ -639,6 +639,9 @@ namespace Ginei
             commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
             nextPersonId = id; // 卒業生はこの続き番号で採番
 
+            // 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに候補を多段の苛烈な選抜で篩い、認定者を SOF 出身にする。
+            RunSofSelection();
+
             // 士官学校（#155 LIFE-5）：各勢力に1校。質に差を付ける（名門は良将を出す）。
             academies = new List<Academy>
             {
@@ -867,6 +870,36 @@ namespace Ginei
                 for (int i = 0; i < highSchools.Count; i++)
                     if (highSchools[i] != null && highSchools[i].faction == f)
                     { enrollment = highSchools[i].enrollmentRate; quality = highSchools[i].quality; return; }
+        }
+
+        /// <summary>
+        /// 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに軍人候補を選抜スコアで多段に篩い（基礎→地獄週→卒業）、
+        /// 認定者を SOF 出身にする（提督として能力上昇＝戦闘で常時+5%・側背/包囲で+20%）。開始時に一度。
+        /// </summary>
+        private void RunSofSelection()
+        {
+            if (commanders == null) return;
+            var byFaction = new Dictionary<Faction, List<SofCandidate>>();
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.role != PersonRole.軍人) continue;
+                float score = SpecialForcesRules.SelectionScore(c.leadership, c.mobility, c.attack);
+                if (!byFaction.TryGetValue(c.faction, out var list)) { list = new List<SofCandidate>(); byFaction[c.faction] = list; }
+                list.Add(new SofCandidate(c.id, score));
+            }
+            foreach (var kv in byFaction)
+            {
+                List<int> passed = SpecialForcesRules.Funnel(kv.Value);
+                for (int j = 0; j < passed.Count; j++)
+                {
+                    Person p = ResolveCommander(passed[j]);
+                    if (p == null) continue;
+                    p.isSpecialForces = true;
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{p.faction} {p.name} が特殊作戦部隊の選抜を突破（SOF認定）");
+                }
+            }
         }
 
         // 叙勲の配線パラメータ（#2263・デモ既定）

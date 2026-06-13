@@ -33,6 +33,9 @@ namespace Ginei
         /// <summary>君主・国家元首か（人物の職分＝君主。POP 職業分類#110 に載らない apex ゆえ別管理＝<see cref="PersonVocation"/>。継承#152/易姓革命で替わる）。既定 false＝後方互換。</summary>
         public bool isSovereign;
 
+        /// <summary>特殊作戦部隊（SOF）出身か（#SOF・SEAL型選抜の認定者）。提督として能力上昇＝<see cref="SpecialForcesRules"/>。既定 false。</summary>
+        public bool isSpecialForces;
+
         /// <summary>財産行動の特性（PFIN-1・#2056・既定=貯金＝堅実・後方互換）。貯金/投資/浪費で可処分所得の使い方が変わる。</summary>
         public FinancialTrait financialTrait = FinancialTrait.貯金;
 

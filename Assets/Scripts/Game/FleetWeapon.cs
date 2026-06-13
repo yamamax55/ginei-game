@@ -377,6 +377,10 @@ namespace Ginei
             float aptitude = WeaponTypeRules.TargetAptitude(weaponType, targetIsFlagship);
             if (aptitude != 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * aptitude));
 
+            // 特殊作戦部隊（#SOF）：出身提督は常時 +5% の戦闘力上昇（基準ダメージへ）。
+            bool isSof = myStrength != null && myStrength.admiralData != null && myStrength.admiralData.isSpecialForces;
+            if (isSof) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * SpecialForcesRules.AdmiralCombatFactor(true)));
+
             // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・陣形相性#2177・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;
             Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);
@@ -392,6 +396,10 @@ namespace Ginei
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
                 moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk, LanchesterFactor, bd);
+
+            // 特殊作戦部隊（#SOF）：出身提督が艦隊単独の特殊作戦＝側背/包囲（後方かく乱・周りこみ）を行うと +20%。
+            if (isSof && isFlank)
+                finalDamage = Mathf.RoundToInt(finalDamage * SpecialForcesRules.SpecialOpFactor(true, true));
             if (bd != null)
             {
                 nextBreakdownSampleTime = Time.time + BreakdownSampleInterval;

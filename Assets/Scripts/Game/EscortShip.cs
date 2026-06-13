@@ -181,6 +181,10 @@ namespace Ginei
                 if (aptitude != 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * aptitude));
             }
 
+            // 特殊作戦部隊（#SOF）：旗艦提督が SOF 出身なら配下艦も常時 +5%。
+            bool isSof = flagship != null && flagship.admiralData != null && flagship.admiralData.isSpecialForces;
+            if (isSof) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * SpecialForcesRules.AdmiralCombatFactor(true)));
+
             bool isFlank;
             Formation myFormation = parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣;
             float fAtk = FormationTraitRules.AttackFactor(myFormation);
@@ -193,6 +197,10 @@ namespace Ginei
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 flagship != null ? flagship.admiralData : null,
                 moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank, fAtk, lanchester);
+
+            // 特殊作戦部隊（#SOF）：側背/包囲（後方かく乱・周りこみ）時は +20%。
+            if (isSof && isFlank)
+                finalDamage = Mathf.RoundToInt(finalDamage * SpecialForcesRules.SpecialOpFactor(true, true));
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

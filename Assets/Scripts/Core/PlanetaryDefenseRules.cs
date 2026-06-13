@@ -183,5 +183,33 @@ namespace Ginei
             if (total <= 0f) return 1f;
             return Mathf.Clamp01(def / total);
         }
+
+        // ===== 軌道防衛の反撃（戦術アリーナ #131・防衛衛星＝アルテミスの首飾りのビーム）=====
+        // 防衛衛星(固定砲台)は健在な制空権(orbitalDefense)に比例した火力で包囲艦隊を撃つ＝攻城側は
+        // 軌道戦で損害を受ける（一方的でなくなる）。制空権を削られるほど衛星が落ち火力も落ちる。
+        // 純関数（決定論・test-first）。実際の被弾適用・ビーム描画は呼び出し側（SiegeArena）。
+
+        /// <summary>
+        /// 軌道防衛（防衛衛星）の秒間火力（≧0）。残存制空権 orbitalDefense に比例する
+        /// ＝衛星が落ちる（制空権が削られる）ほど火力が落ちる。制空権0（コロニー/ドメイン・ダウン）は0＝反撃なし。
+        /// firepowerPerDefense は制空権1点あたりの秒間火力（負はクランプ）。
+        /// </summary>
+        public static float OrbitalDefenseFirepower(float orbitalDefense, float firepowerPerDefense)
+            => Mathf.Max(0f, orbitalDefense) * Mathf.Max(0f, firepowerPerDefense);
+
+        /// <summary>
+        /// 残存制空権に応じた生存衛星数（0..maxSatellites）。制空権が満タンなら全機、削られるほど減る
+        /// （可視化＝アルテミスの首飾りの撃墜と火力分散の単位）。max が満タン時の機数。
+        /// 残存があるのに四捨五入で0になるのを防ぐため、わずかでも残っていれば最低1機を残す。
+        /// </summary>
+        public static int LiveSatellites(float orbitalDefense, float maxOrbitalDefense, int maxSatellites)
+        {
+            int max = Mathf.Max(0, maxSatellites);
+            if (max == 0 || maxOrbitalDefense <= 0f) return 0;
+            float ratio = Mathf.Clamp01(orbitalDefense / maxOrbitalDefense);
+            if (ratio <= 0f) return 0;
+            int n = Mathf.RoundToInt(ratio * max);
+            return Mathf.Clamp(n, 1, max); // 残存があれば最低1機
+        }
     }
 }

@@ -116,5 +116,27 @@ namespace Ginei.Tests
             Assert.AreEqual(0.75f, PlanetaryDefenseRules.OrbitalSupremacyContest(75f, 25f), Eps); // 守備優勢
             Assert.AreEqual(1f, PlanetaryDefenseRules.OrbitalSupremacyContest(0f, 0f), Eps); // 係争なし＝守備のもの
         }
+
+        /// <summary>軌道防衛の反撃火力＝残存制空権に比例（衛星が落ちるほど火力↓・制空権0は反撃なし）。</summary>
+        [Test]
+        public void OrbitalDefenseFirepower_残存制空権に比例する()
+        {
+            Assert.AreEqual(50f, PlanetaryDefenseRules.OrbitalDefenseFirepower(100f, 0.5f), Eps); // 満タン
+            Assert.AreEqual(25f, PlanetaryDefenseRules.OrbitalDefenseFirepower(50f, 0.5f), Eps);  // 半減＝火力半減
+            Assert.AreEqual(0f, PlanetaryDefenseRules.OrbitalDefenseFirepower(0f, 0.5f), Eps);    // 制空権0＝反撃なし
+            Assert.AreEqual(0f, PlanetaryDefenseRules.OrbitalDefenseFirepower(-10f, 0.5f), Eps);  // 負はクランプ
+            Assert.AreEqual(0f, PlanetaryDefenseRules.OrbitalDefenseFirepower(100f, -1f), Eps);   // 係数負もクランプ
+        }
+
+        /// <summary>生存衛星数＝残存制空権比×満タン機数（残れば最低1機・尽きれば0・コロニーは0）。</summary>
+        [Test]
+        public void LiveSatellites_残存制空権比で機数が決まる()
+        {
+            Assert.AreEqual(12, PlanetaryDefenseRules.LiveSatellites(100f, 100f, 12)); // 満タン
+            Assert.AreEqual(6, PlanetaryDefenseRules.LiveSatellites(50f, 100f, 12));   // 半分
+            Assert.AreEqual(1, PlanetaryDefenseRules.LiveSatellites(1f, 100f, 12));    // わずかでも残れば1機
+            Assert.AreEqual(0, PlanetaryDefenseRules.LiveSatellites(0f, 100f, 12));    // 尽きれば0
+            Assert.AreEqual(0, PlanetaryDefenseRules.LiveSatellites(50f, 0f, 12));     // コロニー(制空権なし)=0
+        }
     }
 }

@@ -88,6 +88,10 @@ namespace Ginei
         [Tooltip("特殊作戦部隊（SOF）出身か（#SOF）。出身者は提督として常時+5%、艦隊単独の特殊作戦〔側背/包囲＝後方かく乱・周りこみ〕で+20%。SpecialForcesRules")]
         public bool isSpecialForces = false; // 特殊作戦部隊出身
 
+        [Tooltip("軍神（限界突破型・#軍神＝上杉謙信型）。天地人（天の時/地の利/人の和）が揃ったときに限り能力上限100を超えて成長する。" +
+                 "既定 false＝並の提督は100で頭打ち（後方互換）。TenchijinRules が解決")]
+        public bool isTranscendent = false; // 軍神＝限界突破型
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

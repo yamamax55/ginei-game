@@ -32,6 +32,9 @@ namespace Ginei
     /// </summary>
     public static class PrisonerExchangeRules
     {
+        /// <summary>境界比較の浮動小数許容（実 Unity と dotnet スタブの 1ULP 差を吸収）。</summary>
+        private const float BoundaryEpsilon = 1e-4f;
+
         /// <summary>捕虜1名の交換価値＝基準×（1＋tier×段差）。tier は階級序列（#14、兵卒=0扱い）。</summary>
         public static float PrisonerValue(int rankTier, ExchangeParams p)
         {
@@ -74,7 +77,9 @@ namespace Ginei
             float ratio = OfferRatio(giveValue, receiveValue);
             if (float.IsPositiveInfinity(ratio)) return false; // タダ取りには応じない
             float tolerance = p.fairnessTolerance + Mathf.Clamp01(desperation); // 切迫が許容を広げる
-            return ratio <= 1f + tolerance;
+            // 境界（比＝許容上限ちょうど）を確実に受諾にする。実 Unity と dotnet スタブの浮動小数
+            // 1ULP差（例: 1f+0.2f vs 12f/10f）で判定が反転しないよう小さな許容を足す。
+            return ratio <= 1f + tolerance + BoundaryEpsilon;
         }
 
         public static bool Acceptable(float giveValue, float receiveValue, float desperation)

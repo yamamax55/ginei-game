@@ -14,6 +14,9 @@ namespace Ginei
     /// </summary>
     public static class PersonnelFateRules
     {
+        /// <summary>帯境界比較の浮動小数許容（実 Unity と dotnet スタブの 1ULP 差を吸収）。</summary>
+        private const float BoundaryEpsilon = 1e-4f;
+
         /// <summary>運命確率（捕虜/戦死/行方不明・残りが未配属）。合計&lt;=1 を想定（超過分は行方不明へ寄る）。</summary>
         public readonly struct FateOdds
         {
@@ -43,9 +46,12 @@ namespace Ginei
         {
             float r = Mathf.Clamp01(roll);
             float u = odds.Unassigned;
-            if (r < u) return PersonFate.未配属;
-            if (r < u + odds.captured) return PersonFate.捕虜;
-            if (r < u + odds.captured + odds.killed) return PersonFate.戦死;
+            // 「ちょうど境界は次の帯」を浮動小数で確実にする。帯境界の累積和は実 Unity と dotnet
+            // スタブで 1ULP ずれうる（例: 0.6+0.2+0.1 vs 0.9f）ので、各閾値から小さな許容を引いて
+            // 境界ちょうどの roll が下の帯へ取りこぼされないようにする。
+            if (r < u - BoundaryEpsilon) return PersonFate.未配属;
+            if (r < u + odds.captured - BoundaryEpsilon) return PersonFate.捕虜;
+            if (r < u + odds.captured + odds.killed - BoundaryEpsilon) return PersonFate.戦死;
             return PersonFate.行方不明;
         }
 

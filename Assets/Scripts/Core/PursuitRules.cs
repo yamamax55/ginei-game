@@ -36,12 +36,17 @@ namespace Ginei
     /// </summary>
     public static class PursuitRules
     {
+        /// <summary>境界比較の浮動小数許容（実 Unity と dotnet スタブの 1ULP 差を吸収）。</summary>
+        private const float BoundaryEpsilon = 1e-4f;
+
         /// <summary>振り切り成立か＝敗走側/追撃側の速度比が閾値以上（追いつかれない）。</summary>
         public static bool CleanBreak(float retreaterSpeed, float pursuerSpeed, PursuitParams p)
         {
             float pu = Mathf.Max(0f, pursuerSpeed);
             if (pu <= 0f) return true; // 追撃側が動けない＝必ず逃げ切る
-            return Mathf.Max(0f, retreaterSpeed) / pu >= p.cleanBreakSpeedRatio;
+            // 境界（比＝閾値ちょうど）を確実に「振り切り成立」にする。実 Unity と dotnet スタブの
+            // 浮動小数1ULP差（例: 12f/10f vs 1.2f）で判定が反転しないよう小さな許容を引く。
+            return Mathf.Max(0f, retreaterSpeed) / pu >= p.cleanBreakSpeedRatio - BoundaryEpsilon;
         }
 
         public static bool CleanBreak(float retreaterSpeed, float pursuerSpeed)

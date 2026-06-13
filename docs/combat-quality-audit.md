@@ -39,14 +39,22 @@
 - **`ForceQualityRules.CombatMultiplier(NcoCorps, recruitProficiency, readinessFactor)`**（Core・test-first）を新設＝**下士官団の背骨 × 新兵練度 × 即応 を単一の戦闘力倍率（0.4〜2.0）に合成**する唯一の窓口。会戦経路はこの1倍率を `ComputeDamage` に掛けるだけで「質」が効く設計点。各部品は既存窓口へ委譲（二重実装しない）。
 - テスト `ForceQualityRulesTests`：精鋭>素人／即応で増減／上下限クランプ／即応は `MilitaryReadinessRules`/`BudgetRules` の出力をそのまま渡せる。
 
-## 4. 残（質を会戦へ届ける配線・要・段階実装）
+## 4. 配線（実装済）— 質が会戦ダメージに届く
 
-合成窓口は出来たが、会戦に効かせるには2段の配線が要る（いずれも Game 層・#210 PB を含む）：
-1. **会戦ユニットへ質を attribute**＝`FleetStrength`（または `Squadron`）に `NcoCorps`＋新兵練度＋（戦略から持ち込む）補給/予算 readiness を持たせる（戦略→会戦は `BattleHandoff` で運ぶ）。
-2. **`ComputeDamage` に質倍率を1つ足す**＝`ComputeDamage(..., float qualityFactor = 1f)` を追加し `baseDamage × … × qualityFactor`。各 caller（`FleetWeapon.PerformAttack`/`EscortShip`）が `ForceQualityRules.CombatMultiplier(...)` を渡す。
+**会戦側の統合点（既定1.0＝従来動作不変）**：
+- `ShipCombat.ComputeDamage(..., out isFlank, float qualityFactor = 1f)` を追加し `baseDamage × 提督攻撃 × 士気 × 側背面 × qualityFactor`。
+- `FleetStrength.qualityFactor`（public 調整値・既定1.0）。`FleetWeapon`（旗艦）・`EscortShip`（配下艦は旗艦の質に従う）が `ComputeDamage` へ渡す。
 
-> ＝合成ロジック（数式）は本タスクで Core に確定・テスト済。残るは**データ attribution（#210）と1パラメータ追加**で、会戦コンポーネントに触れるため承認の上で段階的に。
+**戦略→会戦の供給（grounded source）**：
+- `BattleHandoff.qualityA/qualityB`（既定1.0・`Queue` でリセット）。`BattleSetup.SetupFromHandoff` が旗艦の `qualityFactor` に流す。
+- `GalaxyView.TryDescend`：降下する艦隊の**補給**（`StrategicFleet.supply`→`MilitaryReadinessRules.FirepowerFactor`）を `ForceQualityRules.CombatMultiplier(null, 0.5, …)` で質倍率にする＝**干上がった艦隊で会戦に降りると弱い**（既存の補給状態が戦術結果に効く）。
 
-## 5. 推奨
+## 5. 残（質をさらに豊かにする・段階）
 
-C4 の結論：**会戦の中核（提督/士気/側背面/防御/継戦）は効くが、軍政・教育・財政で積んだ「質」は届いていない**。完成（選択が会戦結果を変える）には §4 の2段配線が要る。`ForceQualityRules` がその合成点として準備済み。
+- **下士官団・新兵練度の attribute**（#210）＝今は `null`/中立（補給のみが質を動かす）。`StrategicFleet`/`FleetStrength` に `NcoCorps`＋練度を持たせれば `ForceQualityRules` の他2因子も効く（合成窓口は対応済み）。
+- **予算 readiness**（`BudgetRules.MilitaryReadinessFactor`）を `qualityA/B` に合成（C5）。
+- 直置きシナリオ（`ScenarioData`）では `qualityFactor` 既定1.0＝従来動作（後方互換）。
+
+## 6. 結論
+
+C4：**会戦の中核（提督/士気/側背面/防御/継戦）に加え、軍の質（当面は補給＝即応）が `qualityFactor` 経由で会戦ダメージに届くようになった**。合成は `ForceQualityRules`（Core・test）が単一窓口。下士官団/新兵練度は attribute（#210）で追って効かせる。

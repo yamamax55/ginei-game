@@ -34,7 +34,7 @@
 | **C1** | 配線監査の総ざらい：各 reference-design と CLAUDE.md の「未配線」を突き合わせ、**計算されるが盤面/UI/会戦に効かない Core モジュール**を一覧化（orphan list）。プレイヤー体感への近さで優先度付け | orphan list が tier A/B/C で出る（→ docs/core-orphan-audit.md） |
 | **C2** | 経済連鎖：労働#2026→所得#1969→消費#2042→生活水準#181→支持#113 が一本で効くか | 各段が前段の出力を受け、最終的に支持が動く。切れている段が特定される |
 | **C3** | 兵站：補給線#94／通商破壊#95→補給切れ損耗#2049→継戦#ORBAT-4→戦闘力 が効くか | 後背を断たれた前線艦隊が干上がり弱体化する。痛くない箇所が特定される |
-| **C4** | 軍の質が会戦に効くか：提督能力・陣形・士気・下士官団・新兵練度・補給即応 が命中/ダメージ/勝敗に届くか | **実施**（→ `docs/combat-quality-audit.md`）。WIRED=提督攻撃/士気/側背面/防御/継戦(士気経由)。ORPHAN=下士官団/新兵練度/補給・予算readiness（**会戦ユニットに質が未attribute＋ComputeDamageが読まない**）。合成窓口 `ForceQualityRules.CombatMultiplier` を新設（残＝#210 attribute＋ComputeDamage に質倍率1つ追加） |
+| **C4** | 軍の質が会戦に効くか：提督能力・陣形・士気・下士官団・新兵練度・補給即応 が命中/ダメージ/勝敗に届くか | **実施**（→ `docs/combat-quality-audit.md`）。WIRED=提督攻撃/士気/側背面/防御/継戦(士気経由)。ORPHAN=下士官団/新兵練度/補給・予算readiness（**会戦ユニットに質が未attribute＋ComputeDamageが読まない**）。合成窓口 `ForceQualityRules.CombatMultiplier` を新設**＋会戦へ配線済**（`ComputeDamage` に `qualityFactor`・`FleetStrength.qualityFactor`・`BattleHandoff.qualityA/B`・`TryDescend` が補給→質）。残＝下士官団/新兵練度の attribute(#210)・予算readiness合成 |
 | **C5** | 残 G3：`MilitaryReadinessFactor`→戦闘#106／`DiplomacyOpinionBonus`→#189 の注入点を作って予算が会戦・外交に効くか | 予算配分が会戦の強さ・外交関係に反映 |
 | **C6** | 外交が敵対判定を動かすか：`DiplomacyTickRules`→`FactionRelations.IsHostile`→前線/会戦の敵味方 が一致するか | 宣戦/講和/同盟が前線・会戦の敵味方に反映 |
 

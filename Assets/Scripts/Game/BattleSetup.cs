@@ -300,6 +300,9 @@ namespace Ginei
             eB.loyalty = BattleHandoff.loyaltyB; eB.intrigue = BattleHandoff.intrigueB;
             GameObject ga = SpawnFleet(eA, playerFaction);
             GameObject gb = SpawnFleet(eB, playerFaction);
+            // 軍の質（C4）：戦略側が補給/練度から積んだ戦闘力倍率を旗艦へ（既定1.0＝従来動作）
+            if (ga != null) { var fa = ga.GetComponent<FleetStrength>(); if (fa != null) fa.qualityFactor = BattleHandoff.qualityA; }
+            if (gb != null) { var fb = gb.GetComponent<FleetStrength>(); if (fb != null) fb.qualityFactor = BattleHandoff.qualityB; }
             if (ga != null) fleets.Add(ga);
             if (gb != null) fleets.Add(gb);
 

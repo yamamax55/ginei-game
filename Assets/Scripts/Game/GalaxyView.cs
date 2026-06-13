@@ -2413,6 +2413,11 @@ namespace Ginei
                 if (sb != null) { BattleHandoff.loyaltyB = FactionLoyaltyRules.BaselineLoyalty(sb); BattleHandoff.intrigueB = FactionLoyaltyRules.BribeSusceptibility(sb); }
             }
 
+            // 軍の質（C4）：降下する艦隊の補給（弾薬即応）を戦闘力倍率へ＝干上がった艦隊は会戦で弱い。
+            // 下士官団/新兵練度はユニット未attribute（#210）ゆえ既定（null/0.5中立）。
+            BattleHandoff.qualityA = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(a.supply));
+            BattleHandoff.qualityB = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(b.supply));
+
             SceneManager.LoadScene("Battle");
             return true;
         }

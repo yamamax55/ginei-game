@@ -48,3 +48,45 @@
 - [ ] 台数2〜3・非重複
 - [ ] マージ前：merge-base 検証／重複定義／API実在
 - [ ] 配線は親が逐次／CLAUDE.md は親が一括／worktree掃除
+
+---
+
+## 付録：複数の対話セッション（複数ターミナル）で同じ repo を開く場合
+> 上は「1セッション内のサブエージェント並列」の手順。ここは**人が複数の Claude Code セッション（別ターミナル/別ウィンドウ）を立ち上げ、同じ repo を同時に開発する**場合の手順。
+> 根本原則は同じ＝**git の checkout/branch/stash/作業ファイルは repo 全体で共有されるグローバル状態**。同じ作業ツリーを2セッションが直接触ると、片方の checkout がもう片方の編集を巻き戻す・ブランチを奪う事故が起きる（実際に踏んだ）。**作業ツリーを物理的に分けるのが唯一の根本対策。**
+
+### 1. セッション = worktree = 固有ブランチ（最重要）
+各セッションを独立フォルダ＋独立ブランチで動かす。同一ツリーで複数セッションを走らせない。
+```bash
+git worktree add ../ginei-A -b feat/economy master   # セッションA
+git worktree add ../ginei-B -b feat/orbat   master   # セッションB
+```
+- それぞれのフォルダで別々に Claude Code を起動する。
+- ファイル奪い合い・checkout 競合・ブランチ改名が**原理的に消える**。
+- 完了後は `git worktree remove ../ginei-A` ＋ `git branch -d feat/economy` で掃除。
+
+### 2. ブランチは一意名・master で並行作業しない
+- セッションごとに固有名ブランチ。`master` 上で複数セッションが直接コミットしない。
+- push は狙った SHA を明示：`git push origin <sha>:refs/heads/<unique-branch>`（`HEAD` 任せにしない）。
+
+### 3. 触るファイル集合を重ねない（§0 と同じ判断）
+- 独立（新 Core モジュール／別サブシステム／UI overlay／docs）＝別セッションで並列OK。
+- 密結合（共有ホットファイルを複数が編集）＝並列にしない。**配線は1セッションに集約**。
+- 共有ホットファイル：`FleetWeapon`/`FleetAI`/`FleetStrength`/`BattleManager`/`ShipCombat`/`GameInput.cs`/`CLAUDE.md` など。
+
+### 4. Unity 固有の制約（複数セッション特有）
+- **Unity エディタで開けるのは1ツリーだけ**：Unity は作業フォルダをロックする。worktree 分離していても、Unity で開くのは1つに限定し、他セッションは dotnet/grep/`TestHarness` で作業する。
+- **Game 層のコンパイルは全体ロック**：Game 層は1ファイルでもエラーがあると Unity が旧アセンブリを黙って保持する。複数セッションが Game 層を触ると片方のエラーで全体が古いまま固まる → 編集後は必ず Unity コンソールでコンパイル確認。
+- **純ロジックは `TestHarness/`（Assets 外・Unity 不要）で回帰確認**できる。Unity を開けない側のセッションはこちらで検証する。
+
+### 5. マージ経路を一本化・確認は内容で
+- 自動マージ bot（PR babysitter）と手動マージを競合させない。マージは1経路に絞る。
+- 並列だとコミットが別 SHA で再適用され `git merge-base --is-ancestor` が誤判定する。「マージ済み」は SHA 系譜でなく**内容**で確認：`git show origin/master:path/File.cs | grep ...` / `git ls-tree origin/master -- path`。
+
+### まとめ（運用テンプレ）
+```
+1セッション = 1 worktree = 1 固有ブランチ = 重ならないファイル集合
+共有ホットファイル(CLAUDE.md/ShipCombat 等)の配線は1セッションに集約
+Unity エディタで開くのは1ツリーのみ・他は TestHarness で検証
+マージ経路は一本化・確認は内容で
+```

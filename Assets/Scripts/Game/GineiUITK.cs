@@ -19,7 +19,13 @@ namespace Ginei
         public static UIDocument Attach(GameObject host, int sortingOrder, out VisualElement root)
         {
             root = null;
-            var doc = host.AddComponent<UIDocument>();
+            if (host == null) return null;
+
+            // 既に UIDocument があれば再利用する（二重 Attach・シーン再読込・既存コンポーネントでも安全）。
+            // AddComponent は重複時に null を返し、以降の panelSettings 代入で NRE になるため必ずガードする。
+            var doc = host.GetComponent<UIDocument>();
+            if (doc == null) doc = host.AddComponent<UIDocument>();
+            if (doc == null) return null;
 
             var ps = LoadPanelSettings();
             if (ps == null)

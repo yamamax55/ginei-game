@@ -304,13 +304,18 @@ namespace Ginei
         // --- オンボーディング（目標提示＋初手ガイド） ---
         private static bool objectiveAnnounced;
 
+        /// <summary>現在の難易度（GameSettings）に応じた勝敗しきい値。盤面/勝敗/目標表示の単一窓口。</summary>
+        private static CampaignVictoryRules.CampaignVictoryParams ActiveVictoryParams()
+            => CampaignDifficultyRules.VictoryParams(
+                GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通);
+
         /// <summary>キャンペーン開始時に勝利目標と最初の操作を通知で提示する（セッション一度きり）。勝敗は <see cref="CampaignVictoryRules"/>。</summary>
         private void AnnounceCampaignObjective()
         {
             if (objectiveAnnounced) return;
             objectiveAnnounced = true;
             Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
-            int pct = Mathf.RoundToInt(CampaignVictoryRules.CampaignVictoryParams.Default.dominationFraction * 100f);
+            int pct = Mathf.RoundToInt(ActiveVictoryParams().dominationFraction * 100f);
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
                 $"【目標】{player} で銀河の {pct}% を支配せよ（敵を全制圧でも勝利／全星系を失えば敗北）");
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
@@ -456,6 +461,15 @@ namespace Ginei
             reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300 });
             reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f) { strength = 150 });
             reg.Add(new StrategicFleet(4, 3, Faction.帝国, 1.3f) { strength = 200 }); // ドラコ防衛・前線で衝突用
+
+            // 難易度の開始戦力傾き（易しい＝自軍強め/敵弱め）。プレイヤー勢力以外を敵として倍率を掛ける（基準は等倍＝普通）。
+            CampaignDifficulty diff = GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通;
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            float pFac = CampaignDifficultyRules.PlayerStrengthFactor(diff);
+            float eFac = CampaignDifficultyRules.EnemyStrengthFactor(diff);
+            foreach (var f in reg.fleets)
+                if (f != null)
+                    f.strength = Mathf.Max(1, Mathf.RoundToInt(f.strength * (f.faction == pf ? pFac : eFac)));
 
             StrategySession.Set(map, reg);
         }
@@ -1382,7 +1396,7 @@ namespace Ginei
         {
             if (campaignDecided || map == null) return;
             Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
-            CampaignOutcome outcome = CampaignVictoryRules.Evaluate(map, player);
+            CampaignOutcome outcome = CampaignVictoryRules.Evaluate(map, player, ActiveVictoryParams());
             if (outcome == CampaignOutcome.継続) return;
 
             campaignDecided = true;

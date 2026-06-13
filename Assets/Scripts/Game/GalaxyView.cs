@@ -1130,6 +1130,9 @@ namespace Ginei
             // 政党政治（#159 配線）：民主政治の勢力で政党制が成熟度に応じ二大政党へ収束し、衆参の選挙が回り、分断危機を通知。
             RunPoliticsTick();
 
+            // 反乱（内政→戦略の創発ループ）：慢性的な不穏が積もると星系が離反＝内政の失敗が領土喪失に直結。
+            RunRebellionTick();
+
             // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡/敵制覇で敗北。決着で時計を止めて終了画面。
             RunCampaignVictoryCheck();
 
@@ -1428,6 +1431,60 @@ namespace Ginei
             StrategySession.Clear();
             BattleHandoff.Clear();
             ResetCampaignStatics();
+        }
+
+        // 反乱（内政→戦略の創発ループ）：星系ごとの不穏スコア累積と「兆し」警告の既出フラグ。
+        private readonly Dictionary<int, float> rebellionScore = new Dictionary<int, float>();
+        private readonly HashSet<int> rebellionWarned = new HashSet<int>();
+
+        /// <summary>
+        /// 反乱を年次で解決する：所有星系の不穏スコアを更新し、閾値超過で<b>離反</b>（隣接する敵対勢力へ寝返り／無ければ対勢力へ）。
+        /// 高税/債務/占領直後の低統合/補給切れ → 安定度低下 → 反乱 → 星系喪失、という台本なしの因果を作る（数値は `RebellionRules` へ委譲）。
+        /// 兆し域では一度だけ警告して猶予を与える（プレイヤーは G の国策などで安定を立て直せる）。
+        /// </summary>
+        private void RunRebellionTick()
+        {
+            if (map == null || provinces == null) return;
+            foreach (var s in map.systems)
+            {
+                if (s == null || !provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                rebellionScore.TryGetValue(s.id, out float score);
+                score = RebellionRules.NextScore(score, prov);
+
+                if (RebellionRules.ShouldRevolt(score))
+                {
+                    Faction old = s.owner;
+                    Faction rebel = RebelTargetFaction(s);
+                    s.owner = rebel;
+                    if (s.planet != null) s.planet.owner = rebel; // 惑星防衛も新所有者へ
+                    rebellionScore[s.id] = 0f;
+                    rebellionWarned.Remove(s.id);
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.systemName} が離反！（{old}→{rebel}）内政の乱れが反乱を招いた");
+                    // 占領扱い：次の TickGovernance が所有変化を検知し OnOccupied で新所有者にも不安定を課す。
+                }
+                else
+                {
+                    rebellionScore[s.id] = score;
+                    if (RebellionRules.IsBrewing(score) && rebellionWarned.Add(s.id))
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                            $"{s.systemName} で反乱の兆し（安定度を立て直さねば離反する）");
+                    else if (!RebellionRules.IsBrewing(score))
+                        rebellionWarned.Remove(s.id);
+                }
+            }
+        }
+
+        /// <summary>離反先の勢力：隣接する敵対勢力があればそこへ寝返る（無ければ legacy の対勢力）。</summary>
+        private Faction RebelTargetFaction(StarSystem s)
+        {
+            if (map != null && s != null)
+                foreach (int nid in map.Neighbors(s.id))
+                {
+                    StarSystem n = map.GetSystem(nid);
+                    if (n != null && n.owner != s.owner) return n.owner;
+                }
+            return (s != null && s.owner == Faction.帝国) ? Faction.同盟 : Faction.帝国;
         }
 
         /// <summary>

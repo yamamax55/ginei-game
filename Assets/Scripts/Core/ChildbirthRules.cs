@@ -117,8 +117,56 @@ namespace Ginei
             // 財産特性（性格）はどちらかの親からランダムに受け継ぐ＋突然変異（優生学的選別でない）。
             child.financialTrait = HeredityRules.InheritFinancialTrait(father.financialTrait, mother.financialTrait, roll(), roll());
 
+            // 劣性遺伝（マスクされた潜在能力）＝血統に埋もれた潜在を受け継ぎ、まれに子の最も強い能力域で開花する。
+            // 凡庸な親からも突如 名将が生まれうる（乱数＝選別できない＝優生学NGと整合）。
+            var rec = HeredityRules.RecessiveParams.Default;
+            int parentMaxExpressed = MaxCore(father) > MaxCore(mother) ? MaxCore(father) : MaxCore(mother);
+            int maxIdx = ArgMaxCore(child);
+            int childMax = CoreAt(child, maxIdx);
+            int carrier = HeredityRules.InheritRecessiveCarrier(
+                father.recessiveTalent, mother.recessiveTalent, parentMaxExpressed, childMax, rec);
+            int bloomed = HeredityRules.ExpressRecessive(childMax, carrier, roll(), roll(), rec, prm);
+            if (bloomed != childMax) SetCore(child, maxIdx, bloomed); // 最強能力域で開花
+            child.recessiveTalent = carrier;                          // 子も潜在を持ち越す（劣性として残る）
+
             return child;
         }
+
+        // --- 6つの基礎能力（統率/攻撃/防御/機動/運営/情報）への添字アクセス（劣性発現の対象選択用） ---
+        static int CoreAt(Person p, int i)
+        {
+            switch (i)
+            {
+                case 0: return p.leadership;
+                case 1: return p.attack;
+                case 2: return p.defense;
+                case 3: return p.mobility;
+                case 4: return p.operation;
+                default: return p.intelligence;
+            }
+        }
+
+        static void SetCore(Person p, int i, int v)
+        {
+            switch (i)
+            {
+                case 0: p.leadership = v; break;
+                case 1: p.attack = v; break;
+                case 2: p.defense = v; break;
+                case 3: p.mobility = v; break;
+                case 4: p.operation = v; break;
+                default: p.intelligence = v; break;
+            }
+        }
+
+        static int ArgMaxCore(Person p)
+        {
+            int idx = 0, best = CoreAt(p, 0);
+            for (int i = 1; i < 6; i++) { int v = CoreAt(p, i); if (v > best) { best = v; idx = i; } }
+            return idx;
+        }
+
+        static int MaxCore(Person p) => CoreAt(p, ArgMaxCore(p));
 
         public static Person Conceive(Person father, Person mother, int childId, int birthYear, float sexRoll, Func<float> roll)
             => Conceive(father, mother, childId, birthYear, sexRoll, roll, HeredityRules.HeredityParams.Default);

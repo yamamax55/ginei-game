@@ -54,8 +54,8 @@ namespace Ginei.Tests
         [Test]
         public void Siblings_VaryByRoll()
         {
-            // 能力ごとに独立な乱数を引く＝同じ親でもきょうだいで能力が散る（leadership..production の10能力＋財産特性2 の順に roll を消費）
-            var seq = new Queue<float>(new[] { 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0.9f, 0.9f });
+            // 能力ごとに独立な乱数を引く＝同じ親でもきょうだいで能力が散る（10能力＋財産特性2＋劣性2 の順に roll を消費）
+            var seq = new Queue<float>(new[] { 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0.9f, 0.9f, 0.9f, 0.5f });
             Func<float> roll = () => seq.Dequeue();
             var child = ChildbirthRules.Conceive(Father(1, 100), Mother(2, 100), 100, BirthYear, 0.6f, roll);
             Assert.IsNotNull(child);
@@ -125,6 +125,39 @@ namespace Ginei.Tests
             // 妊娠ロールが確率を下回れば授かる、上回れば授からない（毎年保証されない）
             Assert.IsNotNull(ChildbirthRules.TryConceive(f, m, 100, BirthYear, conceptionRoll: 0.1f, sexRoll: 0.5f, roll: Const(0.5f)));
             Assert.IsNull(ChildbirthRules.TryConceive(f, m, 100, BirthYear, conceptionRoll: 0.5f, sexRoll: 0.5f, roll: Const(0.5f)));
+        }
+
+        [Test]
+        public void RecessiveTalent_MaskedAbilityBloomsInChild()
+        {
+            // 凡庸な両親（全能力50）だが、父が血統に潜在能力90をマスクして持つ＝劣性が子で開花する
+            var f = Father(1, 50); f.recessiveTalent = 90;
+            var m = Mother(2, 50);
+            // 10能力(=0.5→全50)＋特性2(0.9,0.9)＋劣性[bloomRoll=0.0<0.08で発現, noise=0.5で±0]
+            var seq = new Queue<float>(new[]
+            { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.9f, 0.9f, 0.0f, 0.5f });
+            Func<float> roll = () => seq.Dequeue();
+
+            var child = ChildbirthRules.Conceive(f, m, 100, BirthYear, 0.2f, roll);
+            Assert.IsNotNull(child);
+            // 最強能力域（全50ゆえ先頭=統率）で潜在90が開花＝両親(50)を大きく超える
+            Assert.AreEqual(81, child.leadership); // carrier=90×0.9減衰=81 が開花値（noise0）
+            Assert.AreEqual(81, child.recessiveTalent); // 子も潜在を持ち越す（劣性として残る）
+        }
+
+        [Test]
+        public void RecessiveTalent_StaysMasked_WhenNoBloomRoll()
+        {
+            // 同じ潜在持ちでも、発現ロールが確率(0.08)を超えればマスクされたまま（凡庸＝50のまま）
+            var f = Father(1, 50); f.recessiveTalent = 90;
+            var m = Mother(2, 50);
+            var seq = new Queue<float>(new[]
+            { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.9f, 0.9f, 0.9f, 0.5f }); // bloomRoll=0.9≥0.08
+            Func<float> roll = () => seq.Dequeue();
+
+            var child = ChildbirthRules.Conceive(f, m, 100, BirthYear, 0.2f, roll);
+            Assert.AreEqual(50, child.leadership);        // 開花せず＝凡庸のまま
+            Assert.AreEqual(81, child.recessiveTalent);   // しかし潜在は受け継ぎ次代へ（埋もれて残る）
         }
 
         [Test]

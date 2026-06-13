@@ -62,6 +62,36 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void RecessiveCarrier_PassesMaskedTalentDownTheLine()
+        {
+            var r = HeredityRules.RecessiveParams.Default; // 減衰0.9 / 開花下限75
+            // 親が潜在90を持てば、世代減衰して81が子へ受け継がれる（埋もれて残る）
+            Assert.AreEqual(81, HeredityRules.InheritRecessiveCarrier(90, 0, 50, 50, r));
+            // 親の高い発現(100)が子(70)に出なければ、その差30が潜在として劣性化する
+            Assert.AreEqual(30, HeredityRules.InheritRecessiveCarrier(0, 0, 100, 70, r));
+            // 何も無ければ0
+            Assert.AreEqual(0, HeredityRules.InheritRecessiveCarrier(0, 0, 50, 50, r));
+        }
+
+        [Test]
+        public void ExpressRecessive_BloomsRarely_ElseStaysMasked()
+        {
+            var r = HeredityRules.RecessiveParams.Default; // 発現8% / 下限75
+            // 発現：潜在81・bloomRoll<0.08・潜在>現発現 → 潜在値±ノイズへ開花（noise0で81）
+            Assert.IsTrue(HeredityRules.WouldBloom(50, 81, 0.0f, r));
+            Assert.AreEqual(81, HeredityRules.ExpressRecessive(50, 81, 0.0f, 0.5f, r, P));
+            // ノイズで散る
+            Assert.AreEqual(93, HeredityRules.ExpressRecessive(50, 81, 0.0f, 1.0f, r, P)); // +12
+            // 非発現：bloomRoll が確率以上 → マスクのまま
+            Assert.IsFalse(HeredityRules.WouldBloom(50, 81, 0.5f, r));
+            Assert.AreEqual(50, HeredityRules.ExpressRecessive(50, 81, 0.5f, 0.5f, r, P));
+            // 潜在が下限未満なら開花しない
+            Assert.AreEqual(50, HeredityRules.ExpressRecessive(50, 60, 0.0f, 0.5f, r, P));
+            // 既に発現が潜在以上なら変化なし
+            Assert.AreEqual(90, HeredityRules.ExpressRecessive(90, 81, 0.0f, 0.5f, r, P));
+        }
+
+        [Test]
         public void Clamps_ToZeroAndMax()
         {
             var hi = new HeredityRules.HeredityParams(1f, 50f, 100f, 100f); // 遺伝率1・大ばらつき

@@ -85,5 +85,56 @@ namespace Ginei
 
         public static FinancialTrait InheritFinancialTrait(FinancialTrait a, FinancialTrait b, float pickRoll, float mutateRoll)
             => InheritFinancialTrait(a, b, pickRoll, mutateRoll, DefaultTraitMutation);
+
+        /// <summary>劣性遺伝（マスクされた潜在能力）の調整値。</summary>
+        public readonly struct RecessiveParams
+        {
+            /// <summary>子で潜在が発現（開花）する確率（0..1・既定0.08＝まれ）。</summary>
+            public readonly float bloomChance;
+            /// <summary>潜在の世代減衰（既定0.9＝消えにくく血統に埋もれて残る）。</summary>
+            public readonly float carrierDecay;
+            /// <summary>開花に値する潜在の下限（これ未満は発現しない・既定75＝開花は明確に高い）。</summary>
+            public readonly int minBloom;
+
+            public RecessiveParams(float bloomChance, float carrierDecay, int minBloom)
+            {
+                this.bloomChance = Mathf.Clamp01(bloomChance);
+                this.carrierDecay = Mathf.Clamp01(carrierDecay);
+                this.minBloom = Mathf.Clamp(minBloom, 0, 100);
+            }
+
+            /// <summary>既定＝発現8%・減衰0.9・開花下限75。</summary>
+            public static RecessiveParams Default => new RecessiveParams(0.08f, 0.9f, 75);
+        }
+
+        /// <summary>
+        /// 子が受け継ぐ<b>マスクされた潜在能力（劣性）</b>＝両親の潜在の高い方を世代減衰して引き継ぎ（埋もれて残る）、
+        /// さらに<b>親の高い発現能力が子に出なかったぶん（才能が劣性化）</b>を潜在として格納する。0..100。
+        /// </summary>
+        public static int InheritRecessiveCarrier(int parentARecessive, int parentBRecessive,
+            int parentMaxExpressed, int childMaxExpressed, RecessiveParams r)
+        {
+            float carried = Mathf.Max(parentARecessive, parentBRecessive) * r.carrierDecay;
+            float masked = Mathf.Max(0, parentMaxExpressed - childMaxExpressed); // 親の才能が子に発現せず劣性化
+            return Mathf.Clamp(Mathf.RoundToInt(Mathf.Max(carried, masked)), 0, 100);
+        }
+
+        public static int InheritRecessiveCarrier(int parentARecessive, int parentBRecessive, int parentMaxExpressed, int childMaxExpressed)
+            => InheritRecessiveCarrier(parentARecessive, parentBRecessive, parentMaxExpressed, childMaxExpressed, RecessiveParams.Default);
+
+        /// <summary>潜在が開花する条件か＝潜在が下限以上・発現ロールが確率を下回る・現発現を上回る（劣性が顕性化）。</summary>
+        public static bool WouldBloom(int expressed, int carrier, float bloomRoll, RecessiveParams r)
+            => carrier >= r.minBloom && Mathf.Clamp01(bloomRoll) < r.bloomChance && carrier > expressed;
+
+        /// <summary>
+        /// 劣性能力の発現（開花）＝<see cref="WouldBloom"/> が成立すれば潜在値±ノイズへ跳ね上がる、さもなくば現発現のまま（マスク継続）。
+        /// 凡庸な血統からでも突如 名将が生まれる＝乱数で起こり選別できない（優生学NGと整合）。
+        /// </summary>
+        public static int ExpressRecessive(int expressed, int carrier, float bloomRoll, float noiseRoll, RecessiveParams r, HeredityParams h)
+        {
+            if (!WouldBloom(expressed, carrier, bloomRoll, r)) return expressed;
+            float noise = (Mathf.Clamp01(noiseRoll) * 2f - 1f) * h.spread;
+            return Mathf.Clamp(Mathf.RoundToInt(carrier + noise), 0, Mathf.RoundToInt(h.statMax));
+        }
     }
 }

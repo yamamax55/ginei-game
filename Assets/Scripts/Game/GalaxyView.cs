@@ -349,8 +349,9 @@ namespace Ginei
 
                 FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
                 // 文官行政（総督＝地方＋宰相＝中央）が安定度目標を押し上げる＝名実の乖離で朝廷の権威ぶん減衰（権威0なら効かない）。
+                // ＋経済・民心（創発ループ配線）：高税/債務スパイラル/民心崩壊が安定度を下げ反乱を誘発、繁栄は安定を支える。
                 GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s),
-                    deltaTime: dt, policy: GovernancePolicy.民生, adminBonus: SystemAdminBonus(s));
+                    deltaTime: dt, policy: GovernancePolicy.民生, adminBonus: SystemAdminBonus(s) + EconomyStabilityBonus(s.owner));
             }
         }
 
@@ -368,6 +369,15 @@ namespace Ginei
                 return AdministrationRules.StabilityContribution(premier, authority, AdministrationRules.AdminParams.Default);
             }
             return 0f;
+        }
+
+        /// <summary>所有勢力の経済・民心が安定度へ与える±補正（創発ループ＝高税/債務/低民心で反乱を誘発・<see cref="GovernanceEconomyRules"/>）。国家状態が無ければ0。</summary>
+        private float EconomyStabilityBonus(Faction owner)
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null) return 0f;
+            FactionState fs = CampaignRules.GetState(camp, owner);
+            return fs == null ? 0f : GovernanceEconomyRules.StabilityModifier(fs);
         }
 
         /// <summary>その星系に所有勢力と敵対する戦略艦隊が停泊しているか（戦時ペナルティ判定）。</summary>

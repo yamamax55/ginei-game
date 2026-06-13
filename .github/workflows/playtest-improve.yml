@@ -12,11 +12,11 @@ name: Playtest Improve 自動ループ
 on:
   workflow_dispatch:
   schedule:
-    # 1サイクル実測 ≈ 12分（run #4: 実行ステップ 08:00:04→08:11:59 = 11分55秒）。
-    # concurrency で多重実行は防止済み。cadence はサブスク日次枠を基準に精緻化：
-    # core-wave(毎時:07)/auto-implement(:47) と同じ枠を共有するため playtest は控えめに6時間ごと。
-    # 頻度を上げたい/下げたいときはこの cron 1行だけ変える。
-    - cron: '25 */6 * * *'   # 6時間ごと:25（offset・4回/日・約50分/日のエージェント時間）
+    # 1サイクル実測 ≈ 12分（run #4: 実行ステップ 08:00:04→08:11:59）。concurrency で多重実行は防止済み
+    # （12分のサイクルは毎時でも重ならない）。従量課金なし＝サブスク日次枠を超えたら自動停止（無課金）。
+    # 実装サイクルを最速で回すため毎時に設定（offset :17＝core-wave :07 / auto-implement :47 と分離）。
+    # 日次枠は core-wave(毎時) と共有するため、使い切ると翌リセットまで全ループ停止。頻度はこの cron 1行で調整可。
+    - cron: '17 * * * *'   # 毎時:17（最速級・1サイクル≈12分）
 
 concurrency:
   group: playtest-improve

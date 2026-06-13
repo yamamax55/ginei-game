@@ -417,21 +417,23 @@ namespace Ginei
             // 戦略↔実会戦の往復で世界状態を保持（あれば再利用）
             if (StrategySession.HasState) { map = StrategySession.Map; reg = StrategySession.Reg; return; }
 
+            // 開始は帝国3:同盟3＝50:50（勝利/敗北しきい値70%＝開始時はどちらも未達＝開幕で決着しない）。
+            // 帝国＝右クラスタ{0,2,3}／同盟＝左クラスタ{1,4,5}。中央ドラコ(3)が唯一の前線ハブ。
             map = new GalaxyMap();
             map.AddSystem(new StarSystem(0, "アスタ", new Vector2(0f, 3f), Faction.帝国));
             map.AddSystem(new StarSystem(1, "ベガ", new Vector2(-5f, -3f), Faction.同盟));
             map.AddSystem(new StarSystem(2, "ケレス", new Vector2(5f, 3f), Faction.帝国));
             map.AddSystem(new StarSystem(3, "ドラコ", new Vector2(0f, -0.5f), Faction.帝国));
             map.AddSystem(new StarSystem(4, "エリス", new Vector2(-2.5f, 1f), Faction.同盟));
-            map.AddSystem(new StarSystem(5, "フェニクス", new Vector2(3.5f, -2.5f), Faction.帝国));
+            map.AddSystem(new StarSystem(5, "フェニクス", new Vector2(-3.5f, -2.5f), Faction.同盟));
 
             map.AddCorridor(new Corridor(2, 0, 4f, CorridorType.要衝));
             map.AddCorridor(new Corridor(0, 3, 5f));
-            map.AddCorridor(new Corridor(3, 1, 4f));
-            map.AddCorridor(new Corridor(3, 4, 3f));
+            map.AddCorridor(new Corridor(3, 1, 4f));  // 前線：帝国ドラコ ⟷ 同盟ベガ
+            map.AddCorridor(new Corridor(3, 4, 3f));  // 前線：帝国ドラコ ⟷ 同盟エリス
             map.AddCorridor(new Corridor(4, 1, 2f));
-            map.AddCorridor(new Corridor(0, 5, 3f));
-            map.AddCorridor(new Corridor(5, 3, 2f));
+            map.AddCorridor(new Corridor(1, 5, 2f));
+            map.AddCorridor(new Corridor(4, 5, 3f));
 
             // 帝国星系は惑星（制空権持ち）で防衛＝同盟は停泊だけでは占領できず攻城が要る（#131）。
             // 同盟星系は無防備（planet 無し）＝従来どおり停泊で占領（両方の挙動をデモ）。
@@ -1114,8 +1116,11 @@ namespace Ginei
             // 政党政治（#159 配線）：民主政治の勢力で政党制が成熟度に応じ二大政党へ収束し、衆参の選挙が回り、分断危機を通知。
             RunPoliticsTick();
 
-            // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡で敗北。決着で時計を止めて告知。
+            // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡/敵制覇で敗北。決着で時計を止めて終了画面。
             RunCampaignVictoryCheck();
+
+            // 年境界の自動保存（決着後は保存しない＝終了状態で上書きしない）。閉じても進行が消えない。
+            if (!campaignDecided) AutoSaveCampaign();
 
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
@@ -3035,14 +3040,27 @@ namespace Ginei
             return best < 0f ? 0.5f : Mathf.Clamp01(best / 100f);
         }
 
-        /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間）をファイルへ保存する（F5）。</summary>
-        private void SaveCampaign()
+        /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間/内政）をファイルへ書き出す共通処理。</summary>
+        private void WriteCampaignSave()
         {
             var people = new System.Collections.Generic.List<Person>();
             if (commanders != null) people.AddRange(commanders);
             if (civilians != null) people.AddRange(civilians);
             CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces);
+        }
+
+        /// <summary>戦役の全状態をファイルへ保存する（F5・手動）。</summary>
+        private void SaveCampaign()
+        {
+            WriteCampaignSave();
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");
+        }
+
+        /// <summary>年境界ごとの自動保存（閉じても進行が消えないように）。F9/タイトルの「戦役を再開」で復帰できる。</summary>
+        private void AutoSaveCampaign()
+        {
+            WriteCampaignSave();
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "オートセーブ");
         }
 
         /// <summary>セーブから全状態を StrategySession へ復元し、Strategy シーンを再ロードして盤面を再構築する（F9）。</summary>

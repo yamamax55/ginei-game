@@ -35,7 +35,7 @@ namespace Ginei.Tests
         [Test]
         public void Victory_WhenDominationFractionReached()
         {
-            // 5星系中4を帝国＝0.8 ≥ 0.6 → 制覇勝利
+            // 5星系中4を帝国＝0.8 ≥ 0.7 → 制覇勝利
             var m = Map(Faction.帝国, Faction.帝国, Faction.帝国, Faction.帝国, Faction.同盟);
             Assert.AreEqual(CampaignOutcome.勝利, CampaignVictoryRules.Evaluate(m, Faction.帝国));
         }
@@ -43,9 +43,42 @@ namespace Ginei.Tests
         [Test]
         public void Continues_WhenContested()
         {
-            // 4星系中2を帝国＝0.5 < 0.6・敵も残る → 継続
+            // 4星系中2を帝国＝0.5（自0.5<0.7・敵0.5<0.7）→ 継続
             var m = Map(Faction.帝国, Faction.帝国, Faction.同盟, Faction.同盟);
             Assert.AreEqual(CampaignOutcome.継続, CampaignVictoryRules.Evaluate(m, Faction.帝国));
+        }
+
+        [Test]
+        public void Defeat_WhenRivalReachesDominationThreshold()
+        {
+            // 5星系中4を敵（同盟）＝0.8 ≥ 0.7。プレイヤー（帝国）は1星系を残すが敵に制覇され敗北。
+            var m = Map(Faction.同盟, Faction.同盟, Faction.同盟, Faction.同盟, Faction.帝国);
+            Assert.AreEqual(CampaignOutcome.敗北, CampaignVictoryRules.Evaluate(m, Faction.帝国));
+        }
+
+        [Test]
+        public void NotDefeat_WhenRivalBelowThreshold()
+        {
+            // 5星系中3を敵＝0.6 < 0.7・プレイヤー2＝0.4 → まだ継続（敵制覇に至らず）。
+            var m = Map(Faction.同盟, Faction.同盟, Faction.同盟, Faction.帝国, Faction.帝国);
+            Assert.AreEqual(CampaignOutcome.継続, CampaignVictoryRules.Evaluate(m, Faction.帝国));
+        }
+
+        [Test]
+        public void MaxRivalFraction_TakesLargestRival()
+        {
+            // 敵が残る限り最大の敵勢力の支配率を返す（敵居なければ0）。
+            var m = Map(Faction.同盟, Faction.同盟, Faction.帝国);
+            Assert.AreEqual(2f / 3f, CampaignVictoryRules.MaxRivalFraction(m, Faction.帝国), 1e-4f);
+            Assert.AreEqual(0f, CampaignVictoryRules.MaxRivalFraction(Map(Faction.帝国, Faction.帝国), Faction.帝国), 1e-4f);
+        }
+
+        [Test]
+        public void PlayerVictory_TakesPriorityOverRivalDefeat()
+        {
+            // 自制覇（0.8≥0.7）は敵制覇判定より先＝勝利になる（敵はそもそも0.2）。
+            var m = Map(Faction.帝国, Faction.帝国, Faction.帝国, Faction.帝国, Faction.同盟);
+            Assert.AreEqual(CampaignOutcome.勝利, CampaignVictoryRules.Evaluate(m, Faction.帝国));
         }
 
         [Test]

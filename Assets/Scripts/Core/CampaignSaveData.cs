@@ -15,6 +15,7 @@ namespace Ginei
         public List<StarSystemSave> systems = new List<StarSystemSave>();
         public List<CorridorSave> corridors = new List<CorridorSave>();
         public List<FactionStateSave> states = new List<FactionStateSave>();
+        public List<PersonSave> people = new List<PersonSave>(); // ネームド人物ロスター（提督/文官・空=後方互換）
     }
 
     /// <summary>星系のセーブ平データ。所有 SO は名前で持つ（復元時に Resources/Factions から解決）。</summary>
@@ -69,5 +70,33 @@ namespace Ginei
         // Community
         public float commHope, commRepression;
         public bool commDissent;
+    }
+
+    /// <summary>ネームド人物（<see cref="Person"/>）の平データ（軍人/文民ロスターの永続化）。enum は int で持つ（JsonUtility 安全・前方互換）。</summary>
+    [System.Serializable]
+    public class PersonSave
+    {
+        public int id;
+        public string name;
+        public int faction;          // (int)Faction
+        public int role;             // (int)PersonRole
+        public int rankTier;
+        public int sex;              // (int)Sex
+        public bool isPolitician;
+        public bool isSovereign;
+        public int financialTrait;   // (int)FinancialTrait
+        public float wealth;
+        public int birthYear, deathYear;
+        public int captiveStatus;    // (int)CaptiveStatus
+        public int heldBy;           // (int)Faction
+        // 経歴・学歴・在役（#155/#156/#530/#SCHOOL-AGE）
+        public int hammockNumber, graduationYear, schoolId, examRank;
+        public int militaryDegree;   // (int)MilitaryDegree
+        public int examDegree;       // (int)ExamDegree
+        public int schoolPostingUntilYear, warCollegeRank;
+        public int serviceStatus;    // (int)ServiceStatus
+        // 能力（軍才/文才/技術才）
+        public int leadership, attack, defense, mobility, operation, intelligence;
+        public int research, engineering, planning, production;
     }
 }

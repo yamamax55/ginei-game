@@ -21,6 +21,7 @@
 
 ## 1. 本タスクの修正
 
+- **人物ロスターの永続化を実装**（L5 最重要残件）＝`PersonSave` DTO＋`CampaignSerializer.PersonToSave/PersonFromSave/WritePeople/ReadPeople`＋`CampaignSaveData.people`＋`CampaignSerializer.ToJson(c, people)`＋`CampaignSaveManager.Save(campaign, people)`/`LoadPeople()`。提督/文官の**全永続フィールド**（階級/能力/学歴`militaryDegree`/`warCollegeRank`/在役`serviceStatus`/学校配属`schoolPostingUntilYear`/捕虜`captiveStatus`/`heldBy`/財産/君主フラグ…）が往復する。**残＝GalaxyView 側の保存トリガ**（`commanders`/`civilians` を `CampaignSaveManager.Save(campaign, 連結)` で保存し、ロードで `LoadPeople()` を `commanders` へ流し込む配線）。現状 GalaxyView は campaign セーブを呼んでいない＝別件の配線。
 - **`governmentForm` を保存対象に追加**（`FactionStateSave.governmentForm`＋`CampaignSerializer` の往復）。これまで保存対象外で、**ロード時に政体が首長制（既定）へ戻るリグレッション**だった（今セッションで政体進化/政変を実装したため顕在化）。前方互換＝旧セーブ（フィールド欠落）は既定 0＝首長制（`JsonUtility` 既定埋め）。
 
 ## 2. テスト（`CampaignSaveRoundTripTests`）

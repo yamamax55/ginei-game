@@ -82,6 +82,34 @@ public static class SchoolAgeRules {
 
 ---
 
-## 4. テスト（EditMode・`SchoolAgeRulesTests`）
+## 5. 学校配属ゲート（`SchoolPostingRules`）— 在学中は艦隊配属不可
+
+> 入学/卒業年齢が定まったので、その帰結として **ネームドが学校に在学している間は「学校配属」となり艦隊（梯団）に配属できない**。卒業して初めて「艦隊配属可」になる。
+
+`SchoolPostingRules`（Core 純ロジック・read-only・唯一の窓口）：
+```csharp
+public enum MilitaryPosting { 学校配属, 艦隊配属可 }
+
+public static bool IsEnrolled(ICharacter c, int currentYear, SchoolType school); // 年齢窓 [入学,卒業)
+public static bool IsEnrolledByGraduationYear(int graduationYear, int currentYear); // 卒業年が未来か
+public static bool IsEnrolled(Person p, int currentYear);                         // 人物の卒業年で判定
+public static MilitaryPosting PostingOf(ICharacter c, int currentYear, SchoolType school);
+public static MilitaryPosting PostingOf(Person p, int currentYear);
+public static bool CanAssignToFleet(ICharacter c, int currentYear, SchoolType school); // 在学中=false
+public static bool CanAssignToFleet(Person p, int currentYear);
+```
+
+- 在学判定は2系統：(a) **年齢窓**＝年齢が `SchoolAgeRules` の [入学, 卒業) に入る（陸軍大学校に在学する29歳の現役将校も艦隊に出せない＝史実の参謀課程）／(b) **卒業年**＝`Person.graduationYear` がまだ未来（学生として作られたネームドは卒業年が未来）。
+- `CanAssignToFleet` は「**在学中でなく、かつ就任可能（生存・自由 `ICharacter.IsAvailable`）**」＝学校配属の間は不可・既卒の故人/捕虜も不可。
+- **後方互換**：生年未設定（BirthYear≤0）/卒業年未設定（≤0）は在学でない＝従来どおり配属可（既存の既卒ネームドは影響なし）。
+
+### 配線（後続・★）
+- 配属窓口 `FleetRoster.AssignAdmiral` / `OrderOfBattle.AssignCommander`（提督データ `AdmiralData` を受ける）が、候補に紐づく `Person` の `SchoolPostingRules.CanAssignToFleet` を見て**在学中なら拒否**する（ネームド↔提督データの id 紐付けが前提＝配線層）。
+- 主人公（GON-6）が士官学校在学中は艦隊指揮に就けず、卒業年に解禁される、等の演出に使える。
+- UI/編制パネル（`OrderOfBattlePanel`）で在学中の候補を「学校配属（在学）」として×表示（階級ゲートと同様）。
+
+---
+
+## 4. テスト（EditMode・`SchoolAgeRulesTests`／`SchoolPostingRulesTests`）
 
 年齢チェーン整合／修業年限＝卒業−入学／陸大は現役将校（28→31・士官学校22より年長）／幼年学校は若年（13→16）／科挙は年齢制限なし（30）／軍学歴別の生年（大学校卒>士官学校卒>幼年学校卒）／既存定数の委譲一致／高専<大学 を固定。`TestHarness`（dotnet）でも回帰。

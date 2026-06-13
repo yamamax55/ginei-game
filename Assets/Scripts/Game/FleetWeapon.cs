@@ -357,6 +357,12 @@ namespace Ginei
             if (myStrength != null && myStrength.IsConcealed)
                 baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * DetectionRules.AmbushDamageFactor));
 
+            // 命中・回避（#2255）：攻撃側精度−防御側回避で命中判定。外れはかすり（揺らぎ）。
+            float accuracy = myStrength != null && myStrength.admiralData != null
+                ? (myStrength.admiralData.EffectiveIntelligence + myStrength.admiralData.EffectiveMobility) / 2f : 50f;
+            float hitFactor = AccuracyRules.HitFactor(AccuracyRules.HitChance(accuracy, ShipCombat.EvasionOf(target)), Random.value);
+            if (hitFactor < 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * hitFactor));
+
             // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・陣形相性#2177・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;
             Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);

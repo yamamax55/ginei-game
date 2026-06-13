@@ -149,6 +149,18 @@ namespace Ginei
             return nearest;
         }
 
+        /// <summary>
+        /// 標的の回避値（0..100目安・命中判定#2255 用）。旗艦＝提督の実効機動／配下艦＝艦種速度倍率で素早いほど高い。
+        /// </summary>
+        public static float EvasionOf(IShipTarget t)
+        {
+            if (t is FleetStrength fs)
+                return fs.admiralData != null ? fs.admiralData.EffectiveMobility : 50f;
+            if (t is EscortShip es)
+                return Mathf.Clamp(50f * es.SpeedMultiplier, 0f, 100f); // 駆逐艦など速い配下艦は避けやすい
+            return 50f;
+        }
+
         /// <summary>個艦(旗艦/配下艦)が属する部隊(Squadron)を返す。判別できなければ null。</summary>
         public static Squadron GetSquadronOf(IShipTarget t)
         {

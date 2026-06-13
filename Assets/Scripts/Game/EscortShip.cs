@@ -163,8 +163,12 @@ namespace Ginei
             float corpsAbility = flagship != null ? flagship.corpsAbilityFactor : 1f; // 軍団長の能力バフ/デバフ（CSG）
             float activeAtk = flagship != null ? flagship.activeAttackFactor : 1f;     // 特殊指揮（#2175）
             float ambush = (flagship != null && flagship.IsConcealed) ? DetectionRules.AmbushDamageFactor : 1f; // 不意打ち（#2180）
+            // 命中・回避（#2255）：攻撃側精度は旗艦提督、回避は標的。外れはかすり。
+            float acc = (flagship != null && flagship.admiralData != null)
+                ? (flagship.admiralData.EffectiveIntelligence + flagship.admiralData.EffectiveMobility) / 2f : 50f;
+            float hit = AccuracyRules.HitFactor(AccuracyRules.HitChance(acc, ShipCombat.EvasionOf(target)), Random.value);
             int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier
-                * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk) * ambush));
+                * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk) * ambush * Mathf.Max(0.1f, hit)));
 
             bool isFlank;
             Formation myFormation = parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣;

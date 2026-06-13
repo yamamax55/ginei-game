@@ -130,8 +130,6 @@ namespace Ginei
         public int initialFleetPool = 12000;
         [Tooltip("星系造船所の建艦速度（ポイント/戦略秒。生産力係数 BUILD-2 を掛ける）")]
         public float shipyardBuildPower = 1f;
-        [Tooltip("戦略会戦の戦力喪失をプール損耗へ換算する倍率（1戦略戦力≒艦艇。BattleHandoff.StrengthScale 相当）")]
-        public int attritionPoolScale = 40;
 
         // TIME-7（#959）：暦の自動スロー（Paradox 風）。平時は暦を圧縮して速く流し、会戦の生起など「観るべき瞬間」は実時間へ減速。
         [Tooltip("平時に暦を実時間の何倍で流すか（自動スロー時は1倍＝実時間へ減速）。TIME-7 #959")]
@@ -236,7 +234,7 @@ namespace Ginei
                 engagedElapsed += dt;
                 if (engagedElapsed >= currentAutoResolveSeconds)
                 {
-                    ResolveEncountersWithAttrition(); // #884 損耗：戦力喪失を勢力プールへ反映
+                    StrategyRules.ResolveEncounters(reg); // 放置の自動解決。プールは減らさない（手動会戦と統一）
                     engagedElapsed = 0f;
                     currentAutoResolveSeconds = 0.0;
                 }
@@ -665,35 +663,6 @@ namespace Ginei
             {
                 NotificationCenter.Push(NotificationCategory.建艦, $"造船完成：艦艇 +{playerBuilt}（プールへ／編成画面 B で配分）");
             }
-        }
-
-        /// <summary>戦略会戦の戦力喪失を勢力プールの損耗へ反映して解決する（#884 損耗）。解決前後の戦力差を debit。</summary>
-        private void ResolveEncountersWithAttrition()
-        {
-            var before = TotalStrengthByFaction();
-            StrategyRules.ResolveEncounters(reg);
-            var after = TotalStrengthByFaction();
-            foreach (var kv in before)
-            {
-                after.TryGetValue(kv.Key, out int now);
-                int lost = kv.Value - now;
-                if (lost > 0) FleetPoolRules.ApplyAttrition(kv.Key, lost * Mathf.Max(0, attritionPoolScale));
-            }
-        }
-
-        /// <summary>現在の戦略艦隊の勢力別合計戦力。</summary>
-        private Dictionary<Faction, int> TotalStrengthByFaction()
-        {
-            var d = new Dictionary<Faction, int>();
-            if (reg != null && reg.fleets != null)
-                for (int i = 0; i < reg.fleets.Count; i++)
-                {
-                    StrategicFleet f = reg.fleets[i];
-                    if (f == null) continue;
-                    d.TryGetValue(f.faction, out int s);
-                    d[f.faction] = s + f.strength;
-                }
-            return d;
         }
 
         /// <summary>

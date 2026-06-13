@@ -100,6 +100,10 @@ namespace Ginei
                  "既定 false＝従来動作。InnovatorRules が解決")]
         public bool isInnovator = false; // 革新者＝織田信長型（先見性・新技術・若年うつけ）
 
+        [Tooltip("立身出世型（#立身出世＝豊臣秀吉型）。門地を問わぬ実力本位の出世・人たらし（人心掌握）・戦略機動の妙（中国大返し）。" +
+                 "既定 false＝従来動作。RisingHeroRules が解決")]
+        public bool isRisingHero = false; // 立身出世型＝豊臣秀吉型（足軽から天下人）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

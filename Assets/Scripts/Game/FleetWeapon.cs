@@ -340,6 +340,10 @@ namespace Ginei
             if (myStrength != null && myStrength.activeAttackFactor != 1f)
                 baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * Mathf.Max(0.1f, myStrength.activeAttackFactor)));
 
+            // 不意打ち（索敵 #2180）：敵に発見されていない攻撃側は先制の利（与ダメ増）。
+            if (myStrength != null && myStrength.IsConcealed)
+                baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * DetectionRules.AmbushDamageFactor));
+
             // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・陣形相性#2177・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;
             Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);

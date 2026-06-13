@@ -162,8 +162,9 @@ namespace Ginei
             // 艦種の火力倍率を実効値として基準ダメージに乗算（旗艦の基準値は非破壊）。
             float corpsAbility = flagship != null ? flagship.corpsAbilityFactor : 1f; // 軍団長の能力バフ/デバフ（CSG）
             float activeAtk = flagship != null ? flagship.activeAttackFactor : 1f;     // 特殊指揮（#2175）
+            float ambush = (flagship != null && flagship.IsConcealed) ? DetectionRules.AmbushDamageFactor : 1f; // 不意打ち（#2180）
             int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier
-                * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk)));
+                * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk) * ambush));
 
             bool isFlank;
             Formation myFormation = parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣;

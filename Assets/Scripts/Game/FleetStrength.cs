@@ -144,6 +144,12 @@ namespace Ginei
         private float nextEnvelopmentTime;
         private static readonly List<float> envelopScratch = new List<float>(16);
 
+        [Header("索敵（fog of war #2180）")]
+        [Tooltip("索敵範囲の基準（情報能力で増減）。武器射程より広めに採るのが通常")]
+        public float detectionBaseRange = 18f;
+        /// <summary>敵に発見されていない（=不意打ちできる）か。`DetectionRules` が間引き算定。</summary>
+        public bool IsConcealed { get; private set; }
+
         [Header("得意陣形ボーナス（#104）")]
         [Tooltip("提督の得意陣形と現在陣形が一致する間の被ダメージ軽減率（0=無効, 0.15で被ダメージ15%カット）。実効値パターン＝基準ダメージ・防御計算は非破壊")]
         [Range(0f, 0.9f)]
@@ -257,12 +263,16 @@ namespace Ginei
             UpdateEnvelopment();
         }
 
-        /// <summary>自分を範囲内で取り囲む敵対旗艦の方位分布から包囲度を算定してキャッシュする（#2178）。</summary>
+        /// <summary>
+        /// 敵対旗艦を1巡し、包囲度（#2178）と被発見（索敵 #2180）を同時に算定してキャッシュする。
+        /// 包囲＝範囲内の敵の方位分布。被発見＝いずれかの敵の索敵範囲（敵の情報能力依存）に入っているか。
+        /// </summary>
         private void UpdateEnvelopment()
         {
             envelopScratch.Clear();
-            float r2 = envelopmentRange * envelopmentRange;
+            float envR2 = envelopmentRange * envelopmentRange;
             Vector2 me = transform.position;
+            bool detected = false;
             IReadOnlyList<FleetStrength> flags = FleetRegistry.AllFlagships;
             for (int i = 0; i < flags.Count; i++)
             {
@@ -270,10 +280,20 @@ namespace Ginei
                 if (f == null || f == this || !f.IsAlive) continue;
                 if (!FactionRelations.IsHostile(this, f)) continue;
                 Vector2 d = (Vector2)f.transform.position - me;
-                if (d.sqrMagnitude > r2) continue;
-                envelopScratch.Add(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+                float distSq = d.sqrMagnitude;
+
+                if (distSq <= envR2)
+                    envelopScratch.Add(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+
+                if (!detected)
+                {
+                    float intel = f.admiralData != null ? f.admiralData.EffectiveIntelligence : 50f;
+                    float dr = DetectionRules.DetectionRange(intel, f.detectionBaseRange);
+                    if (distSq <= dr * dr) detected = true; // この敵の索敵範囲に入っている＝発見されている
+                }
             }
             EnvelopmentFactor = EnvelopmentRules.EncirclementFactor(envelopScratch);
+            IsConcealed = !detected; // どの敵にも捉えられていなければ不意打ち可能
         }
 
 

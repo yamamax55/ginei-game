@@ -82,6 +82,21 @@ namespace Ginei
                 MemberVoteAppeal(pol),
                 LegislatorVoteAppeal(pol));
 
+        /// <summary>地盤の有権者は票が固い＝投票率/支持の割増（地域選挙の得票に乗る・<see cref="ElectionRules"/> #選挙基盤）。</summary>
+        public const float HomeTurnoutBonus = 1.3f;
+
+        /// <summary>
+        /// 一選挙区（惑星/星系）の得票見込み（民意が票になる・選挙システム基盤）。
+        /// ＝有権者数 × 党員票への訴求（<see cref="MemberVoteAppeal"/>＝人気×弁舌・スキャンダル反映）×（自分の地盤なら <see cref="HomeTurnoutBonus"/>）。
+        /// 領域三層の <see cref="VoteTally"/> を組む素材で、集計/集約は <see cref="ElectionRules"/> が担う（票の解決は委譲）。
+        /// </summary>
+        public static float RegionVotes(PoliticianProfile pol, float electorate, string regionKey)
+        {
+            if (pol == null || electorate <= 0f) return 0f;
+            bool home = !string.IsNullOrEmpty(pol.homeRegionKey) && pol.homeRegionKey == regionKey;
+            return Mathf.Max(0f, electorate * MemberVoteAppeal(pol) * (home ? HomeTurnoutBonus : 1f));
+        }
+
         /// <summary>党首/首班候補として現実的か（総合選挙力がしきい値以上）。</summary>
         public static bool IsViableLeader(PoliticianProfile pol, float threshold)
             => ElectoralStrength(pol) >= threshold;

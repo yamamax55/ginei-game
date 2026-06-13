@@ -869,6 +869,11 @@ namespace Ginei
                     { enrollment = highSchools[i].enrollmentRate; quality = highSchools[i].quality; return; }
         }
 
+        // 宗教/文化の配線パラメータ（#172-175/#194・デモ既定）
+        private const float RulerFaithDevotion = 0.6f;      // 支配勢力の信仰の強さ（デモ既定）
+        private const float ReligionStabilityScale = 10f;   // 信仰の社会効果→安定度への反映スケール
+        private const float SeparatismStabilityScale = 5f;  // 分離主義→安定度低下スケール
+
         private void RunAnnualLifecycleTick()
         {
             campaignYear++;
@@ -908,6 +913,25 @@ namespace Ginei
                     float popC = kv.Value.population;
                     PopConsumptionTickRules.TickYear(kv.Value, kv.Value.wageIndex,
                         popC * outFactor, popC * outFactor * 0.4f, popC * outFactor * 0.15f);
+
+                    // 宗教(#172-175 配線)：住民の信仰を1年ぶん進め、信仰の社会効果を安定度へ緩やかに反映。
+                    // 統合が進んだ惑星は支配勢力の信仰と親和（affinityMatch）。基準値はTick側で非破壊。
+                    bool affinity = kv.Value.integration > 0.5f;
+                    ReligionTickRules.TickYear(kv.Value, RulerFaithDevotion, affinity);
+                    kv.Value.stability = Mathf.Clamp(
+                        kv.Value.stability + (ReligionTickRules.SocialFactor(kv.Value) - 1f) * ReligionStabilityScale,
+                        0f, 100f);
+
+                    // 文化・民族(#194 配線)：同化/分離を1年ぶん進め、分離主義が安定度を蝕む。
+                    // 戦時(前線)・低統合は分離を促す。亡命#194 の移住と相補的。
+                    bool atWarHere = sys != null && HasHostileFleetAt(sys);
+                    CultureTickRules.TickYear(kv.Value, kv.Value.integration > 0.5f, atWarHere);
+                    float separatism = CultureTickRules.SeparatismRisk(kv.Value);
+                    if (separatism > 0f)
+                        kv.Value.stability = Mathf.Clamp(kv.Value.stability - separatism * SeparatismStabilityScale, 0f, 100f);
+                    if (separatism > 0.6f && sys != null)
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                            $"{sys.systemName}：分離主義が高まっている（{separatism:0.0}）");
                 }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。

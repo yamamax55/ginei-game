@@ -22,7 +22,6 @@ namespace Ginei
         public static bool IsOpen => instance != null && instance.isOpen;
 
         private bool isOpen;
-        private float savedTimeScale = 1f;
         private GameObject root;
         private TextMeshProUGUI titleText;
         private TextMeshProUGUI bodyText;
@@ -50,25 +49,16 @@ namespace Ginei
             canvasObj.transform.SetParent(transform, false);
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 90;
+            canvas.sortingOrder = 950; // 通知/マップより前・観測窓(1090)より後ろの前面ウィンドウ
             canvasObj.AddComponent<CanvasScaler>();
             canvasObj.AddComponent<GraphicRaycaster>();
 
+            // root：全画面の透明コンテナ（★ディマー無し＝非モーダル＝背後のマップ操作を塞がない）。
             root = new GameObject("Root", typeof(RectTransform));
             root.transform.SetParent(canvasObj.transform, false);
             StretchFull(root.GetComponent<RectTransform>());
 
-            // 背景ディマー（クリックで閉じる）
-            GameObject dim = new GameObject("Dimmer", typeof(RectTransform));
-            dim.transform.SetParent(root.transform, false);
-            StretchFull(dim.GetComponent<RectTransform>());
-            Image dimImg = dim.AddComponent<Image>();
-            dimImg.color = new Color(0f, 0f, 0f, 0.6f);
-            Button dimBtn = dim.AddComponent<Button>();
-            dimBtn.transition = UnityEngine.UI.Selectable.Transition.None; // Ginei.Selectable と衝突回避
-            dimBtn.onClick.AddListener(Close);
-
-            // パネル（中央）
+            // 枠ウィンドウ（中央・タイトルバーをつかんでドラッグ移動）。
             GameObject panel = new GameObject("Panel", typeof(RectTransform));
             panel.transform.SetParent(root.transform, false);
             RectTransform pRT = panel.GetComponent<RectTransform>();
@@ -77,28 +67,73 @@ namespace Ginei
             pRT.anchoredPosition = Vector2.zero;
             Image pImg = panel.AddComponent<Image>();
             pImg.color = new Color(0.06f, 0.07f, 0.12f, 0.97f);
+            Outline border = panel.AddComponent<Outline>();
+            border.effectColor = new Color(1f, 0.84f, 0.36f, 0.5f);
+            border.effectDistance = new Vector2(2f, -2f);
 
-            VerticalLayoutGroup vlg = panel.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(26, 26, 22, 22);
+            VerticalLayoutGroup outer = panel.AddComponent<VerticalLayoutGroup>();
+            outer.padding = new RectOffset(0, 0, 0, 0);
+            outer.spacing = 0f;
+            outer.childControlWidth = true; outer.childForceExpandWidth = true;
+            outer.childControlHeight = true; outer.childForceExpandHeight = false;
+
+            BuildTitleBar(panel.transform, pRT);
+
+            // 内容コンテナ（内側パディング・残り高さを埋める）
+            GameObject content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(panel.transform, false);
+            LayoutElement contentLE = content.AddComponent<LayoutElement>();
+            contentLE.flexibleHeight = 1f;
+            VerticalLayoutGroup vlg = content.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(26, 26, 16, 18);
             vlg.spacing = 10f;
             vlg.childAlignment = TextAnchor.UpperLeft;
-            vlg.childControlWidth = true;
-            vlg.childForceExpandWidth = true;
-            vlg.childControlHeight = true;
-            vlg.childForceExpandHeight = false;
+            vlg.childControlWidth = true; vlg.childForceExpandWidth = true;
+            vlg.childControlHeight = true; vlg.childForceExpandHeight = false;
 
-            titleText = CreateText(panel.transform, "星系情報", 28f, FontStyles.Bold, TextAlignmentOptions.Center);
+            titleText = CreateText(content.transform, "星系情報", 24f, FontStyles.Bold, TextAlignmentOptions.Center);
 
             // 安定度バー（ラベル＋色付きフィル）
-            BuildStabilityBar(panel.transform);
+            BuildStabilityBar(content.transform);
 
-            bodyText = CreateText(panel.transform, "", 21f, FontStyles.Normal, TextAlignmentOptions.TopLeft);
+            bodyText = CreateText(content.transform, "", 21f, FontStyles.Normal, TextAlignmentOptions.TopLeft);
             LayoutElement bodyLE = bodyText.gameObject.AddComponent<LayoutElement>();
             bodyLE.flexibleHeight = 1f;
 
-            CreateButton(panel.transform, "閉じる (Esc)", Close);
-
             root.SetActive(false);
+        }
+
+        /// <summary>タイトルバー（Windows 風・つかんでドラッグ移動＋×で閉じる）。観測窓と同型。</summary>
+        private void BuildTitleBar(Transform parent, RectTransform windowRT)
+        {
+            GameObject bar = new GameObject("TitleBar", typeof(RectTransform));
+            bar.transform.SetParent(parent, false);
+            Image img = bar.AddComponent<Image>();
+            img.color = new Color(0.13f, 0.18f, 0.26f, 1f);
+            LayoutElement le = bar.AddComponent<LayoutElement>();
+            le.minHeight = 30f; le.preferredHeight = 30f;
+            UIDragMove drag = bar.AddComponent<UIDragMove>();
+            drag.target = windowRT;
+
+            TextMeshProUGUI cap = CreateText(bar.transform, "≡ 星系情報　（ドラッグで移動）", 15f, FontStyles.Normal, TextAlignmentOptions.Left);
+            cap.color = new Color(1f, 0.84f, 0.36f);
+            RectTransform crt = cap.rectTransform;
+            crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one;
+            crt.offsetMin = new Vector2(12f, 0f); crt.offsetMax = new Vector2(-42f, 0f);
+
+            GameObject cb = new GameObject("Close", typeof(RectTransform));
+            cb.transform.SetParent(bar.transform, false);
+            RectTransform cbrt = cb.GetComponent<RectTransform>();
+            cbrt.anchorMin = new Vector2(1f, 0f); cbrt.anchorMax = new Vector2(1f, 1f);
+            cbrt.pivot = new Vector2(1f, 0.5f); cbrt.sizeDelta = new Vector2(34f, 0f);
+            cbrt.anchoredPosition = new Vector2(-3f, 0f);
+            Image cimg = cb.AddComponent<Image>();
+            cimg.color = new Color(0.13f, 0.18f, 0.26f, 1f);
+            Button cbtn = cb.AddComponent<Button>();
+            cbtn.transition = UnityEngine.UI.Selectable.Transition.None;
+            cbtn.onClick.AddListener(Close);
+            TextMeshProUGUI glyph = CreateText(cb.transform, "×", 18f, FontStyles.Bold, TextAlignmentOptions.Center);
+            StretchFull(glyph.rectTransform);
         }
 
         private void BuildStabilityBar(Transform parent)
@@ -151,30 +186,20 @@ namespace Ginei
 
             if (bodyText != null) bodyText.text = BuildInfo(s, prov, neighborCount, fleetSummary);
 
-            if (!isOpen)
-            {
-                savedTimeScale = Time.timeScale;
-                Time.timeScale = 0f;
-                isOpen = true;
-            }
+            isOpen = true; // 非モーダル（ポーズしない）＝開いたままマップ操作・進行が続く
             if (root != null) root.SetActive(true);
         }
 
-        /// <summary>パネルを閉じて元の速度へ復帰する。</summary>
+        /// <summary>ウィンドウを閉じる。</summary>
         public void Close()
         {
-            if (isOpen)
-            {
-                Time.timeScale = savedTimeScale;
-                isOpen = false;
-            }
+            isOpen = false;
             if (root != null) root.SetActive(false);
         }
 
         private void Update()
         {
             if (!isOpen) return;
-            Time.timeScale = 0f; // 倍速キー等で解除されてもポーズ維持
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) Close();
         }
 
@@ -280,7 +305,6 @@ namespace Ginei
 
         private void OnDestroy()
         {
-            if (isOpen) Time.timeScale = savedTimeScale;
             if (instance == this) instance = null;
         }
     }

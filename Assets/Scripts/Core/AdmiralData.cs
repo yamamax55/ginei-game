@@ -92,6 +92,10 @@ namespace Ginei
                  "既定 false＝並の提督は100で頭打ち（後方互換）。TenchijinRules が解決")]
         public bool isTranscendent = false; // 軍神＝限界突破型
 
+        [Tooltip("表裏比興の者（#表裏比興＝真田昌幸型）。主家滅亡を発動条件に覚醒し、寡兵で大軍を翻弄・自在に変節して生き残る。" +
+                 "既定 false＝従来動作。HyoriHikyoRules が解決（発動条件＝主家滅亡）")]
+        public bool isHyoriHikyo = false; // 表裏比興の者＝主家滅亡で覚醒する梟雄
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

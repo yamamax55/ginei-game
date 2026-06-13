@@ -33,6 +33,12 @@ namespace Ginei
 
         public bool IsRouted => morale <= 0;
 
+        /// <summary>士気を増減する（士気の連鎖崩壊／高揚 #2176）。0〜maxMorale にクランプ。負で衝撃、正で高揚。</summary>
+        public void ApplyMoraleDelta(float delta)
+        {
+            morale = Mathf.Clamp(morale + delta, 0f, Mathf.Max(1f, maxMorale));
+        }
+
         private FleetStrength strength;
         private FleetWeapon weapon;
         private FleetSustainment sustainment; // 継戦（ORBAT-4・任意・既定で挙動不変）

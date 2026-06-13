@@ -314,6 +314,8 @@ namespace Ginei
             // 捨てがまりは「敵が追ってきている場合」のみ発動。追手がいなければ部隊は安全に退却する（配下艦も帯同）。
             if (!IsBeingPursued())
             {
+                // 一隊が戦線を離れる＝近傍の味方士気に軽い衝撃（#2176）。
+                MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.敗走);
                 BeginRetreat();
                 return;
             }
@@ -330,6 +332,8 @@ namespace Ginei
                 if (squadron != null) squadron.BeginSutegamari();
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
                     $"{admiralName} 隊：島津の捨てがまり！配下艦が殿を務め旗艦は離脱");
+                // 殿の奮戦が近傍の味方を奮い立たせる（#2176 高揚）。
+                MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.捨てがまり成功);
                 BeginRetreat(); // 旗艦は退却（生存）。配下艦は殿として戦い続ける。
             }
             else
@@ -373,6 +377,9 @@ namespace Ginei
                 escortsScatter
                     ? $"{admiralName} 隊：配下艦は散り散りに逃げ、旗艦は撃墜された"
                     : $"{admiralName} 隊：旗艦撃墜");
+
+            // 旗艦撃墜＝近傍の味方はパニック、敵は高揚（#2176 士気の連鎖崩壊）。
+            MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.旗艦撃墜);
 
             FleetAI ai = GetComponent<FleetAI>();
             if (ai != null) ai.enabled = false;

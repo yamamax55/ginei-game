@@ -1206,13 +1206,35 @@ namespace Ginei
             {
                 FactionState s = camp.states[i];
                 if (s == null) continue;
+
+                // (1) 政変（C1 Tier A）：統制が弱いとクーデター/革命が発火し、成功で政体が転換する。
+                CoupContext ctx = PoliticalUpheavalRules.ContextOf(s);
+                UpheavalResult up = PoliticalUpheavalRules.ResolveUpheaval(s.governmentForm, ctx, UnityEngine.Random.value);
+                if (up.attempted)
+                {
+                    if (s.regime != null) s.regime.legitimacy = up.newLegitimacy; // 事後正統性（成功/粛清/内戦）
+                    if (up.formChanged)
+                    {
+                        GovernmentForm from = s.governmentForm;
+                        GovernmentFormRules.Apply(s, up.newForm);
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告, $"{s.faction} {up.type}クーデター成功＝政体が {from} → {up.newForm} へ");
+                    }
+                    else
+                    {
+                        string note = up.outcome == CoupOutcome.内戦 ? "内戦化" : "未遂（鎮圧）";
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} {up.type}クーデター {note}");
+                    }
+                    continue; // 政変があった年は緩やかな進化はスキップ
+                }
+
+                // (2) 緩やかな進化：社会シグナルで合法な遷移を1段進める。
                 RegimeSignals signals = GovernmentFormRules.SignalsOf(s);
                 GovernmentForm next = GovernmentFormRules.NextForm(s.governmentForm, signals);
                 if (next != s.governmentForm)
                 {
-                    GovernmentForm from = s.governmentForm;
+                    GovernmentForm prev = s.governmentForm;
                     GovernmentFormRules.Apply(s, next);
-                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} 政体が {from} → {next} へ移行");
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} 政体が {prev} → {next} へ移行");
                 }
             }
         }

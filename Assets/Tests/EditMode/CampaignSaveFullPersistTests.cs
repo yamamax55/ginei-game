@@ -95,6 +95,76 @@ namespace Ginei.Tests
             Assert.AreEqual(3f, r.speed, 1e-3f);
         }
 
+        // ===== 惑星内政（Province） =====
+
+        [Test]
+        public void Provinces_RoundTrip()
+        {
+            var provinces = new System.Collections.Generic.Dictionary<int, Province>
+            {
+                [5] = new Province(5, "専制", 350f)
+                {
+                    systemType = SystemType.工業,
+                    stability = 42f,
+                    integration = 0.3f,
+                    wageIndex = 1.4f,
+                    livingStandard = 0.7f,
+                    foodShortage = 0.2f,
+                    hasStrategicResource = true,
+                    strategicResource = StrategicResourceType.反応物質,
+                    strategicAbundance = 0.85f
+                }
+            };
+
+            var save = new CampaignSaveData();
+            CampaignSerializer.WriteProvinces(save, provinces);
+            var r = CampaignSerializer.ReadProvinces(save);
+
+            Assert.AreEqual(1, r.Count);
+            Province p = r[5];
+            Assert.IsNotNull(p);
+            Assert.AreEqual("専制", p.nativeIdeology);
+            Assert.AreEqual(SystemType.工業, p.systemType);
+            Assert.AreEqual(350f, p.population, 1e-3f);
+            Assert.AreEqual(42f, p.stability, 1e-3f);
+            Assert.AreEqual(0.3f, p.integration, 1e-3f);
+            Assert.AreEqual(1.4f, p.wageIndex, 1e-3f);
+            Assert.AreEqual(0.7f, p.livingStandard, 1e-3f);
+            Assert.AreEqual(0.2f, p.foodShortage, 1e-3f);
+            Assert.IsTrue(p.hasStrategicResource);
+            Assert.AreEqual(StrategicResourceType.反応物質, p.strategicResource);
+            Assert.AreEqual(0.85f, p.strategicAbundance, 1e-3f);
+            // 細部（demographics/workforce/skills）は再構築＝null のまま
+            Assert.IsNull(p.demographics);
+            Assert.IsNull(p.workforce);
+            Assert.IsNull(p.skills);
+        }
+
+        [Test]
+        public void Provinces_EmptyBackwardCompatible()
+        {
+            // provinces 欠落の旧セーブ＝空辞書（後方互換）。
+            var save = CampaignSerializer.ToSaveData(new CampaignState());
+            Assert.AreEqual(0, CampaignSerializer.ReadProvinces(save).Count);
+        }
+
+        [Test]
+        public void Provinces_RoundTrip_ThroughJson()
+        {
+            var provinces = new System.Collections.Generic.Dictionary<int, Province>
+            {
+                [1] = new Province(1, "民主", 100f) { stability = 88f },
+                [2] = new Province(2, "専制", 200f) { stability = 12f, integration = 0f }
+            };
+            var save = new CampaignSaveData();
+            CampaignSerializer.WriteProvinces(save, provinces);
+            CampaignSaveData parsed = CampaignSerializer.Parse(JsonUtility.ToJson(save));
+            var r = CampaignSerializer.ReadProvinces(parsed);
+            Assert.AreEqual(2, r.Count);
+            Assert.AreEqual(88f, r[1].stability, 1e-3f);
+            Assert.AreEqual(0f, r[2].integration, 1e-3f);
+        }
+
         // ===== 全部入りの JSON 往復 =====
 
         [Test]

@@ -2679,7 +2679,7 @@ namespace Ginei
             var people = new System.Collections.Generic.List<Person>();
             if (commanders != null) people.AddRange(commanders);
             if (civilians != null) people.AddRange(civilians);
-            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock);
+            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces);
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");
         }
 

@@ -23,9 +23,12 @@ namespace Ginei
         /// <summary>ロード復元用の人物ロスター置き場（continue・セーブから復元）。GalaxyView が次の構築で消費する。null=なし。</summary>
         public static List<Person> PendingPeople;
 
+        /// <summary>朝廷の権威（官僚制基盤・名実の乖離の中央権威）。Battle 往復・潜行で形骸化の進み具合を失わない（null=未設定）。</summary>
+        public static CourtAuthority CourtAuthority;
+
         public static bool HasState => Map != null && Reg != null;
 
         public static void Set(GalaxyMap map, StrategicFleetRegistry reg) { Map = map; Reg = reg; }
-        public static void Clear() { Map = null; Reg = null; Provinces = null; Campaign = null; Clock = new GameClock(); PendingPeople = null; }
+        public static void Clear() { Map = null; Reg = null; Provinces = null; Campaign = null; Clock = new GameClock(); PendingPeople = null; CourtAuthority = null; }
     }
 }

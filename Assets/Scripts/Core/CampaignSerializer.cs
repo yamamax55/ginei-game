@@ -202,7 +202,16 @@ namespace Ginei
                 serviceStatus = (int)p.serviceStatus,
                 leadership = p.leadership, attack = p.attack, defense = p.defense, mobility = p.mobility,
                 operation = p.operation, intelligence = p.intelligence,
-                research = p.research, engineering = p.engineering, planning = p.planning, production = p.production
+                research = p.research, engineering = p.engineering, planning = p.planning, production = p.production,
+                // 官僚制（位階・考課）
+                courtRank = (int)p.courtRank,
+                hasMerit = p.merit != null,
+                meritEvaluations = p.merit != null ? p.merit.evaluations : 0,
+                meritCumulative = p.merit != null ? p.merit.cumulativeScore : 0f,
+                meritConsecutiveTop = p.merit != null ? p.merit.consecutiveTop : 0,
+                meritConsecutivePoor = p.merit != null ? p.merit.consecutivePoor : 0,
+                meritIntegrity = p.merit != null ? p.merit.integrity : 0.7f,
+                meritLastRating = p.merit != null ? (int)p.merit.lastRating : (int)MeritRating.中中
             };
         }
 
@@ -224,8 +233,19 @@ namespace Ginei
                 serviceStatus = (ServiceStatus)d.serviceStatus,
                 leadership = d.leadership, attack = d.attack, defense = d.defense, mobility = d.mobility,
                 operation = d.operation, intelligence = d.intelligence,
-                research = d.research, engineering = d.engineering, planning = d.planning, production = d.production
+                research = d.research, engineering = d.engineering, planning = d.planning, production = d.production,
+                courtRank = (CourtRank)d.courtRank
             };
+            // 考課記録（OfficialMerit）は hasMerit のときのみ復元（未評定は null＝後方互換）。
+            if (d.hasMerit)
+                p.merit = new OfficialMerit(d.id, d.meritIntegrity)
+                {
+                    evaluations = d.meritEvaluations,
+                    cumulativeScore = d.meritCumulative,
+                    consecutiveTop = d.meritConsecutiveTop,
+                    consecutivePoor = d.meritConsecutivePoor,
+                    lastRating = (MeritRating)d.meritLastRating
+                };
             return p;
         }
 

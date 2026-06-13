@@ -16,6 +16,8 @@ namespace Ginei
         public float fireInterval = 1.0f;
         [Tooltip("側背面攻撃時の最大ダメージ倍率 (真後ろで最大)")]
         public float flankMultiplier = 2.0f;
+        [Tooltip("武器種（#2256）：長距離砲は対旗艦↑/対配下艦↓、対小型は対配下艦↑/対旗艦↓、点防御は両方控えめ")]
+        public WeaponType weaponType = WeaponType.ビーム;
 
         [Header("ミサイル攻撃設定")]
         [Tooltip("ミサイルの残弾数（0で通常攻撃に移行）")]
@@ -30,6 +32,23 @@ namespace Ginei
 
         [Tooltip("手動攻撃目標を追尾する際、射程のこの割合まで接近したら停止して交戦する")]
         public float pursuitStopRatio = 0.9f;
+
+        [Header("ランチェスター集中効果（会戦ダメージ）")]
+        [Tooltip("一定範囲内の局所火力差でダメージを増減する（ランチェスター二乗則）")]
+        public bool enableLanchester = true;
+        [Tooltip("局所火力を集計する半径（この範囲内の味方/敵旗艦の火力差で1発の重みが変わる）")]
+        public float lanchesterRange = 10f;
+        [Tooltip("局所火力集中倍率を再計算する間隔（秒・間引き）")]
+        public float lanchesterUpdateInterval = 0.4f;
+
+        /// <summary>直近に算出した局所火力集中倍率（部隊単位でキャッシュ＝配下艦も流用・終盤ラグ回避）。</summary>
+        public float LanchesterFactor { get; private set; } = 1f;
+        private float nextLanchesterTime;
+
+        // ダメージ内訳サンプリング（#2252）：プレイヤー勢力のみ・間引きで再利用（ホットパス無確保）。
+        private DamageBreakdown sampleBreakdown;
+        private float nextBreakdownSampleTime;
+        private const float BreakdownSampleInterval = 2.5f;
 
         [Header("演出設定")]
         public float beamWidth = 0.2f;
@@ -101,6 +120,16 @@ namespace Ginei
                 return;
             }
 
+            // 交戦規定（ROE・#2258）：射撃管制／退避スタンスは発砲停止。攻撃的／防御的は通常発砲。
+            if (myStrength != null && !RoeRules.CanFire(myStrength.stance))
+            {
+                IsInCombat = false;
+                return;
+            }
+
+            // ランチェスター集中倍率を間引きで再計算し部隊単位でキャッシュ（配下艦も流用＝終盤ラグ回避）。
+            UpdateLanchesterFactor();
+
             // 交戦状態の判定
             // 1. 直近 fireInterval 秒以内に発砲したか
             // 2. 射界内に敵がいるか
@@ -162,8 +191,12 @@ namespace Ginei
         private bool CheckEnemyInArc()
         {
             return ShipCombat.AnyEnemyInArc(transform.position, transform.up, myStrength.factionData, myStrength.faction,
-                weaponArc.range, weaponArc.halfAngle);
+                EffectiveRange(), weaponArc.halfAngle);
         }
+
+        /// <summary>地形（星雲/小惑星帯 #2181）による射程低下を反映した実効射程。</summary>
+        private float EffectiveRange()
+            => weaponArc.range * BattleTerrain.RangeFactorAt(transform.position);
 
         /// <summary>
         /// 攻撃ターゲットを手動で指定します（旗艦・配下艦のどちらも指定可）。null で解除。
@@ -264,7 +297,7 @@ namespace Ginei
         private void AttackNearestEnemyInArc()
         {
             IShipTarget nearest = ShipCombat.FindNearestEnemyInArc(transform.position, transform.up,
-                myStrength.factionData, myStrength.faction, weaponArc.range, weaponArc.halfAngle);
+                myStrength.factionData, myStrength.faction, EffectiveRange(), weaponArc.halfAngle);
 
             if (nearest != null)
             {
@@ -272,6 +305,31 @@ namespace Ginei
                 nextFireTime = Time.time + fireInterval;
                 PerformAttack(nearest);
             }
+        }
+
+        /// <summary>
+        /// 一定範囲内の局所火力差からランチェスター集中倍率を間引きで再計算し、部隊単位でキャッシュする。
+        /// 配下艦（EscortShip）はこの旗艦の値を流用するので、計算は旗艦1回／間隔ぶんに抑えられる（終盤ラグ回避）。
+        /// </summary>
+        private void UpdateLanchesterFactor()
+        {
+            if (!enableLanchester) { LanchesterFactor = 1f; return; }
+            if (Time.time < nextLanchesterTime) return;
+            nextLanchesterTime = Time.time + Mathf.Max(0.05f, lanchesterUpdateInterval);
+
+            ShipCombat.LocalFirepower(transform.position,
+                myStrength != null ? myStrength.factionData : null,
+                myStrength != null ? myStrength.faction : Faction.帝国,
+                lanchesterRange, out float friendly, out float enemy);
+            LanchesterFactor = LanchesterRules.ConcentrationFactor(friendly, enemy);
+        }
+
+        /// <summary>ダメージ内訳を今サンプリングするか（プレイヤー勢力の旗艦・間引き間隔経過時のみ）。</summary>
+        private bool ShouldSampleBreakdown()
+        {
+            if (myStrength == null || GameSettings.Instance == null) return false;
+            if (myStrength.faction != GameSettings.Instance.playerFaction) return false;
+            return Time.time >= nextBreakdownSampleTime;
         }
 
         /// <summary>
@@ -296,12 +354,61 @@ namespace Ginei
             }
             shotBeamColor = firedMissile ? missileBeamColor : beamColor;
 
-            // ダメージ計算（提督攻撃・士気・側背面を集約ヘルパーで算出）
+            // 軍団長の能力バフ/デバフ（CSG）：基準ダメージに乗算（既定1.0で挙動不変・実効値パターン）。
+            if (myStrength != null && myStrength.corpsAbilityFactor != 1f)
+                baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * Mathf.Max(0.1f, myStrength.corpsAbilityFactor)));
+
+            // 特殊指揮（#2175・一斉砲撃 等）：与ダメ倍率を乗算（既定1.0）。
+            if (myStrength != null && myStrength.activeAttackFactor != 1f)
+                baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * Mathf.Max(0.1f, myStrength.activeAttackFactor)));
+
+            // 不意打ち（索敵 #2180）：敵に発見されていない攻撃側は先制の利（与ダメ増）。
+            if (myStrength != null && myStrength.IsConcealed)
+                baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * DetectionRules.AmbushDamageFactor));
+
+            // 命中・回避（#2255）：攻撃側精度−防御側回避で命中判定。外れはかすり（揺らぎ）。
+            float accuracy = myStrength != null && myStrength.admiralData != null
+                ? (myStrength.admiralData.EffectiveIntelligence + myStrength.admiralData.EffectiveMobility) / 2f : 50f;
+            float hitFactor = AccuracyRules.HitFactor(AccuracyRules.HitChance(accuracy, ShipCombat.EvasionOf(target)), Random.value);
+            if (hitFactor < 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * hitFactor));
+
+            // 武器種適性（#2256）：標的が旗艦か配下艦かで与ダメを補正する（実効値パターン・基準値非破壊）。
+            bool targetIsFlagship = target is FleetStrength;
+            float aptitude = WeaponTypeRules.TargetAptitude(weaponType, targetIsFlagship);
+            if (aptitude != 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * aptitude));
+
+            // 特殊作戦部隊（#SOF）：出身提督は常時 +5% の戦闘力上昇（基準ダメージへ）。
+            bool isSof = myStrength != null && myStrength.admiralData != null && myStrength.admiralData.isSpecialForces;
+            if (isSof) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * SpecialForcesRules.AdmiralCombatFactor(true)));
+
+            // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・陣形相性#2177・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;
+            Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);
+            Formation myFormation = mySquadron != null ? mySquadron.currentFormation : Formation.紡錘陣;
+            float fAtk = FormationTraitRules.AttackFactor(myFormation);
+            // 陣形の相性（じゃんけん）：防御側の陣形に対する与ダメ補正を攻撃側陣形倍率に乗せる。
+            Squadron targetSquadron = ShipCombat.GetSquadronOf(target);
+            if (targetSquadron != null)
+                fAtk *= FormationMatchupRules.AttackFactor(myFormation, targetSquadron.currentFormation);
+
+            // ダメージ内訳のサンプリング（#2252・可視化）：プレイヤー勢力の注目ヒットだけ間引いて通知ログへ。
+            DamageBreakdown bd = ShouldSampleBreakdown() ? (sampleBreakdown ?? (sampleBreakdown = new DamageBreakdown())) : null;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
                 moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank,
-                myStrength != null ? myStrength.qualityFactor : 1f); // 軍の質（C4）
+                fAtk, LanchesterFactor,
+                myStrength != null ? myStrength.qualityFactor : 1f, // 軍の質（C4）
+                bd);
+
+            // 特殊作戦部隊（#SOF）：出身提督が艦隊単独の特殊作戦＝側背/包囲（後方かく乱・周りこみ）を行うと +20%。
+            if (isSof && isFlank)
+                finalDamage = Mathf.RoundToInt(finalDamage * SpecialForcesRules.SpecialOpFactor(true, true));
+            if (bd != null)
+            {
+                nextBreakdownSampleTime = Time.time + BreakdownSampleInterval;
+                if (isFlank || bd.WasClamped) // 側背 or クランプ発生＝学びがあるヒットだけ出す
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報, $"与ダメ内訳：{bd.Describe()}");
+            }
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

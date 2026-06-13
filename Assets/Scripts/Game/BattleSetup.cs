@@ -23,6 +23,15 @@ namespace Ginei
         [Tooltip("シナリオの生成位置を原点中心に拡大する倍率（大きいほど両軍が離れて開始＝いきなり交戦距離にしない）")]
         public float spawnSeparation = 2.5f;
 
+        [Header("増援（時間差投入・#2182）")]
+        [Tooltip("増援が出現する戦場端の半径")]
+        public float reinforcementEdgeRadius = 45f;
+
+        // 増援の時限スポーン（game-time で経過を計る＝倍速/ポーズ追従）。
+        private readonly System.Collections.Generic.List<ScenarioData.FleetEntry> pendingReinforcements = new System.Collections.Generic.List<ScenarioData.FleetEntry>();
+        private float reinforcementElapsed;
+        private Faction reinforcementPlayerFaction;
+
         [Header("惑星攻城（戦略マップから突入・#131）")]
         [Tooltip("アルテミスの首飾り射程＝接近限界リングの半径（艦隊はここまでしか近づけない）")]
         public float siegeApproachRadius = 5f;
@@ -48,6 +57,7 @@ namespace Ginei
             FleetRegistry.Clear();
             FleetRoster.Clear(); // 艦隊編制台帳(#146)も会戦ごとに作り直す（永続化は #108 で別途）
             OrderOfBattle.Clear(); // 編制ツリー(#147)も会戦ごとに作り直す
+            ShipNameRegistry.Clear(); // 旗艦名(#旗艦名)の払い出しも会戦ごとに初期化（永続化は別途）
 
             // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
             if (BattleHandoff.Pending)
@@ -80,9 +90,16 @@ namespace Ginei
 
             // 3. 各エントリから艦隊を生成
             Faction playerFaction = GameSettings.Instance.playerFaction;
+            reinforcementPlayerFaction = playerFaction; // 増援スポーン用に保持
             System.Collections.Generic.List<GameObject> spawnedFleets = new System.Collections.Generic.List<GameObject>();
             foreach (var entry in scenario.fleets)
             {
+                // 増援（#2182）：到着遅延>0は開戦時に出さず、時限スポーンへ回す。
+                if (entry != null && entry.reinforcementDelay > 0f)
+                {
+                    pendingReinforcements.Add(entry);
+                    continue;
+                }
                 GameObject fleet = SpawnFleet(entry, playerFaction);
                 if (fleet != null) spawnedFleets.Add(fleet);
             }
@@ -90,7 +107,52 @@ namespace Ginei
             // 4. 両軍が互いに正対するよう初期の向きを設定
             OrientFleetsToEnemy(spawnedFleets);
 
+            // 5. 軍団長の乗艦（CSG・打撃群指揮官）：軍団ごとに旗艦を1つ選び軍団長を乗艦させる。
+            EmbarkCorpsCommanders(spawnedFleets);
+
             Debug.Log($"BattleSetup: シナリオ「{scenario.scenarioName}」から {spawnedFleets.Count} 艦隊を生成しました。");
+        }
+
+        /// <summary>
+        /// 軍団ごとに軍団旗艦（最上位階級の艦隊）を選び、軍団長を乗艦させる（CSG＝打撃群指揮官モデル）。
+        /// `OrderOfBattle` の軍団に司令が配属されていればその人物を、無ければデモ既定として旗艦の艦隊司令を軍団長に充てる。
+        /// 軍団長は艦隊を持たず旗艦に同乗する＝乗艦艦の右クリックから軍団メニューを開け、軍団全体に能力/士気バフがかかる。
+        /// </summary>
+        private void EmbarkCorpsCommanders(System.Collections.Generic.List<GameObject> spawnedFleets)
+        {
+            var byCorps = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<FleetStrength>>();
+            foreach (var go in spawnedFleets)
+            {
+                if (go == null) continue;
+                FleetStrength fs = go.GetComponent<FleetStrength>();
+                if (fs == null || string.IsNullOrEmpty(fs.corpsName)) continue;
+                string key = fs.faction + "/" + fs.corpsName;
+                if (!byCorps.TryGetValue(key, out var list)) { list = new System.Collections.Generic.List<FleetStrength>(); byCorps[key] = list; }
+                list.Add(fs);
+            }
+
+            foreach (var kv in byCorps)
+            {
+                var list = kv.Value;
+                if (list.Count < 2) continue; // 単艦隊は軍団を成さない
+
+                // 旗艦＝最上位階級の艦隊。
+                FleetStrength flagship = list[0];
+                for (int i = 1; i < list.Count; i++)
+                {
+                    int t = list[i].admiralData != null ? list[i].admiralData.rankTier : 0;
+                    int bt = flagship.admiralData != null ? flagship.admiralData.rankTier : 0;
+                    if (t > bt) flagship = list[i];
+                }
+
+                // 軍団長：OrderOfBattle の軍団司令があればそれを、無ければデモ既定で旗艦の艦隊司令を充てる。
+                AdmiralData cc = null;
+                var corps = OrderOfBattle.GetOrCreate(EchelonType.軍団, flagship.faction, flagship.corpsName);
+                if (corps != null && corps.HasCommander) cc = corps.commander;
+                if (cc == null) cc = flagship.admiralData; // デモ既定（軍団長＝旗艦の司令を兼任）
+
+                flagship.corpsCommander = cc;
+            }
         }
 
         /// <summary>
@@ -125,6 +187,42 @@ namespace Ginei
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
                 f.transform.rotation = Quaternion.Euler(0f, 0f, angle);
             }
+        }
+
+        /// <summary>増援（#2182）：game-time で経過を計り、到着遅延に達したエントリを戦場端から時限スポーンする。</summary>
+        private void Update()
+        {
+            if (pendingReinforcements.Count == 0) return;
+            reinforcementElapsed += Time.deltaTime; // timeScale 追従＝ポーズで止まり倍速で速い
+
+            for (int i = pendingReinforcements.Count - 1; i >= 0; i--)
+            {
+                ScenarioData.FleetEntry e = pendingReinforcements[i];
+                if (e == null) { pendingReinforcements.RemoveAt(i); continue; }
+                if (!ReinforcementRules.IsDue(e.reinforcementDelay, reinforcementElapsed)) continue;
+                SpawnReinforcement(e);
+                pendingReinforcements.RemoveAt(i);
+            }
+        }
+
+        /// <summary>1隊の増援を戦場端から出現させ、戦場中央（敵方向）へ向ける。</summary>
+        private void SpawnReinforcement(ScenarioData.FleetEntry entry)
+        {
+            GameObject fleet = SpawnFleet(entry, reinforcementPlayerFaction);
+            if (fleet == null) return;
+
+            // 自陣側の戦場端へ配置し直す（時間差で駆けつける）。
+            Vector2 edge = ReinforcementRules.EdgePosition(entry.faction, entry.spawnPosition.y, reinforcementEdgeRadius);
+            fleet.transform.position = new Vector3(edge.x, edge.y, 0f);
+
+            // 戦場中央（おおむね敵方向）へ正対させる。
+            Vector2 toCenter = -edge;
+            if (toCenter.sqrMagnitude > 0.0001f)
+                fleet.transform.up = toCenter.normalized;
+
+            string who = entry.admiral != null ? entry.admiral.admiralName : "増援部隊";
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                $"増援到着：{who} 隊が戦場に駆けつけた（{entry.faction}）");
         }
 
         /// <summary>
@@ -202,6 +300,13 @@ namespace Ginei
                 // 旗幟（#817 関ヶ原型）：忠誠/調略浸透を反映（既定 1/0＝従来動作）
                 strength.loyalty = Mathf.Clamp01(entry.loyalty);
                 strength.intrigue = Mathf.Clamp01(entry.intrigue);
+
+                // 旗艦名（#旗艦名）を払い出す。提督に専用旗艦名（例：ヤン→ヒューベリオン）があれば優先、
+                // 取れなければ世界遺産プールから払い出す。重複なし＝部隊の固有名として頭上に表示。
+                string signature = SignatureShipRegistry.Resolve(entry.admiral);
+                strength.shipName = (!string.IsNullOrEmpty(signature) && ShipNameRegistry.TryAssignSpecific(signature))
+                    ? signature
+                    : ShipNameRegistry.Assign();
 
                 // 反映した勢力で色を再適用
                 FactionColor color = fleet.GetComponent<FactionColor>();

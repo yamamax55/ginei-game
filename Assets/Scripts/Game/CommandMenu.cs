@@ -26,6 +26,7 @@ namespace Ginei
 
         private Vector2 lastClickWorldPos;
         private Selectable lastClickedFleet;
+        private bool corpsFormationMode; // 陣形サブメニューを軍団モードで使うか（軍団陣形）
 
         // 陣形サブメニューの配置制御用（Start でキャッシュ）
         private RectTransform formationSubRect;
@@ -182,7 +183,35 @@ namespace Ginei
                 // 3. 陣形変更
                 CreateButton("陣形変更", ToggleFormationSubMenu);
                 buttonCount++;
+
+                // 3c. 軍団陣形（軍団長が乗艦している軍団旗艦の選択時のみ＝CSG・乗艦している艦からのみ軍団指揮）。
+                FleetStrength sel0 = commander.SelectedFleets[0] != null ? commander.SelectedFleets[0].GetComponent<FleetStrength>() : null;
+                if (sel0 != null && sel0.IsCorpsFlagship)
+                {
+                    CreateButton("軍団陣形", ToggleCorpsFormationSubMenu);
+                    buttonCount++;
+                    CreateButton("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); });
+                    buttonCount++;
+                }
                 
+                // 3d. 特殊指揮（アクティブ指揮 #2175）：選択中の全艦隊へ発令（クールダウン制）。
+                CreateButton("一斉砲撃", () => { IssueActiveCommand(ActiveCommand.一斉砲撃); CloseMenu(); });
+                buttonCount++;
+                CreateButton("突撃", () => { IssueActiveCommand(ActiveCommand.突撃); CloseMenu(); });
+                buttonCount++;
+                CreateButton("不退転", () => { IssueActiveCommand(ActiveCommand.不退転); CloseMenu(); });
+                buttonCount++;
+
+                // 3e. 交戦規定（ROE・#2258）：選択中の全艦隊へスタンスを設定する。
+                CreateButton("ROE:攻撃的", () => { SetStanceAll(EngagementStance.攻撃的); CloseMenu(); });
+                buttonCount++;
+                CreateButton("ROE:防御的", () => { SetStanceAll(EngagementStance.防御的); CloseMenu(); });
+                buttonCount++;
+                CreateButton("ROE:射撃管制", () => { SetStanceAll(EngagementStance.射撃管制); CloseMenu(); });
+                buttonCount++;
+                CreateButton("ROE:退避", () => { SetStanceAll(EngagementStance.退避); CloseMenu(); });
+                buttonCount++;
+
                 // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
                 Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];
                 CreateButton("情報", () => { ShowFleetInfo(infoTarget); CloseMenu(); });
@@ -328,6 +357,17 @@ namespace Ginei
         /// <summary>陣形サブメニューの開閉。開くときはメインメニューの脇（画面端と反対側）へ配置する。</summary>
         private void ToggleFormationSubMenu()
         {
+            corpsFormationMode = false; // 通常＝艦隊の陣形変更
+            if (formationSubMenu == null) return;
+            bool show = !formationSubMenu.activeSelf;
+            formationSubMenu.SetActive(show);
+            if (show) PositionFormationSubMenu();
+        }
+
+        /// <summary>軍団陣形サブメニューの開閉。陣形を選ぶと選択艦隊の軍団を集結させ陣形を組む（軍団長は後方）。</summary>
+        private void ToggleCorpsFormationSubMenu()
+        {
+            corpsFormationMode = true; // 同じサブメニューを軍団モードで使う
             if (formationSubMenu == null) return;
             bool show = !formationSubMenu.activeSelf;
             formationSubMenu.SetActive(show);
@@ -369,8 +409,61 @@ namespace Ginei
             }
         }
 
+        /// <summary>選択中の全艦隊へ特殊指揮（#2175）を発令。発令できた数を通知する。</summary>
+        private void IssueActiveCommand(ActiveCommand cmd)
+        {
+            if (commander == null) return;
+            int issued = 0, total = 0;
+            for (int i = 0; i < commander.SelectedFleets.Count; i++)
+            {
+                Selectable sel = commander.SelectedFleets[i];
+                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+                if (fs == null) continue;
+                total++;
+                if (ActiveCommandState.Issue(fs, cmd)) issued++;
+            }
+            if (total > 0 && issued == 0)
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    $"特殊指揮『{cmd}』は今は使えません（クールダウン/効果中）");
+        }
+
+        /// <summary>
+        /// 選択中の全艦隊へ交戦規定スタンスを一括設定する（ROE・#2258）。
+        /// </summary>
+        private void SetStanceAll(EngagementStance newStance)
+        {
+            if (commander == null) return;
+            for (int i = 0; i < commander.SelectedFleets.Count; i++)
+            {
+                Selectable sel = commander.SelectedFleets[i];
+                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+                if (fs != null) fs.stance = newStance;
+            }
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                $"交戦規定を「{newStance}」に設定しました");
+        }
+
         public void ChangeFormation(int formationIdx)
         {
+            if (corpsFormationMode)
+            {
+                // 軍団陣形：選択中の艦隊（どの隷下艦隊を含めるか＝プレイヤーの選択）で陣形を組む。
+                // 1隊だけ選択ならその軍団を自動集結。敗走中の艦隊は CorpsFormation 側で除外。
+                if (commander != null && CorpsFormation.Instance != null && commander.SelectedFleets.Count > 0)
+                {
+                    var members = new List<FleetStrength>(commander.SelectedFleets.Count);
+                    for (int i = 0; i < commander.SelectedFleets.Count; i++)
+                    {
+                        FleetStrength fs = commander.SelectedFleets[i] != null
+                            ? commander.SelectedFleets[i].GetComponent<FleetStrength>() : null;
+                        if (fs != null) members.Add(fs);
+                    }
+                    CorpsFormation.Instance.FormCorpsFromSelection(members, (Formation)formationIdx);
+                }
+                corpsFormationMode = false;
+                CloseMenu();
+                return;
+            }
             // 陣形変更の実体は FleetCommander に集約（重複排除）。ここではメニューを閉じるだけ担当。
             if (commander != null) commander.ChangeFormation(formationIdx);
             CloseMenu();

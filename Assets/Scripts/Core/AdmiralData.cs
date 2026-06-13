@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
@@ -41,6 +42,10 @@ namespace Ginei
         [Tooltip("呼称・愛称（短縮表示の最優先）。空なら 姓→名→admiralName の順でフォールバック")]
         public string callName = "";
 
+        [Tooltip("専用旗艦名（#旗艦名・任意）。この提督が乗艦すると必ずこの名の旗艦になる（例：ヤン→ヒューベリオン）。" +
+                 "空なら SignatureShipRegistry の既定表→世界遺産プールの順で解決。愛着を持てる専用艦の出所")]
+        public string signatureShipName = "";
+
         [Header("主人公（アンカー・GON-6・任意）")]
         [Tooltip("この提督を主人公（動かない光源）とするか。true＝陣営に関わらず常にプレイヤー操作（FleetAI 非制御）。" +
                  "既定 false＝従来どおり（後方互換）。判定は ProtagonistRules を参照すること")]
@@ -71,6 +76,22 @@ namespace Ginei
         [Tooltip("索敵・回避等に影響（将来用）")]
         public int intelligence = 80;  // 情報
 
+        [Tooltip("部下への態度（謙虚さ 0..100・既定50＝中庸）。高い＝部下を尊重し信望厚い／低い＝尊大。" +
+                 "統率と併せ、敗走時に配下艦が島津の捨てがまり（殿）で旗艦を守るか散り散りに逃げるかを決める（SutegamariRules）")]
+        [Range(0, 100)]
+        public int humility = 50;      // 部下への態度（謙虚さ）
+
+        [Tooltip("功名心（手柄を求める気持ち 0..100・既定50）。高い提督は軍団陣形で前線を志願しやすい（史実＝功を焦る武将）。CorpsDeploymentRules が参照")]
+        [Range(0, 100)]
+        public int ambition = 50;      // 功名心（前線志願）
+
+        [Tooltip("特殊作戦部隊（SOF）出身か（#SOF）。出身者は提督として常時+5%、艦隊単独の特殊作戦〔側背/包囲＝後方かく乱・周りこみ〕で+20%。SpecialForcesRules")]
+        public bool isSpecialForces = false; // 特殊作戦部隊出身
+
+        [Tooltip("軍神（限界突破型・#軍神＝上杉謙信型）。天地人（天の時/地の利/人の和）が揃ったときに限り能力上限100を超えて成長する。" +
+                 "既定 false＝並の提督は100で頭打ち（後方互換）。TenchijinRules が解決")]
+        public bool isTranscendent = false; // 軍神＝限界突破型
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]
@@ -99,6 +120,11 @@ namespace Ginei
         [Tooltip("参謀の能力が実効能力に寄与する割合 (0〜1)。例:0.2 なら参謀の能力の20%を補完")]
         [Range(0f, 1f)]
         public float staffBonusRatio = 0.2f;
+
+        [Header("特技・戦法（本作オリジナル・信長の野望/三国志を参考）")]
+        [Tooltip("この提督が所持する特技・戦法（TalentCatalog の id＋格）。空＝特技なし＝従来動作。" +
+                 "効果は TalentRules が素養（実効能力）と格で解き、戦闘は AdmiralSkillRules#137-140 等へ橋渡しする")]
+        public List<Talent> talents = new List<Talent>();
 
         /// <summary>参謀の最大人数。</summary>
         public const int MaxStaff = 3;

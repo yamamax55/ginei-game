@@ -87,7 +87,16 @@ namespace Ginei
                         orgFragmented = fs.organization.fragmented,
                         commHope = fs.community.hope,
                         commRepression = fs.community.repression,
-                        commDissent = fs.community.dissent
+                        commDissent = fs.community.dissent,
+                        treasury = fs.treasury,
+                        taxRate = fs.taxRate,
+                        budgetMilitary = fs.budget != null ? fs.budget.military : 0f,
+                        budgetShipbuilding = fs.budget != null ? fs.budget.shipbuilding : 0f,
+                        budgetAdministration = fs.budget != null ? fs.budget.administration : 0f,
+                        budgetWelfare = fs.budget != null ? fs.budget.welfare : 0f,
+                        budgetResearch = fs.budget != null ? fs.budget.research : 0f,
+                        budgetDiplomacy = fs.budget != null ? fs.budget.diplomacy : 0f,
+                        fiscalDebt = fs.fiscal != null ? fs.fiscal.debt : 0f
                     });
                 }
             }
@@ -155,6 +164,18 @@ namespace Ginei
                 fs.community.hope = fss.commHope;
                 fs.community.repression = fss.commRepression;
                 fs.community.dissent = fss.commDissent;
+                fs.treasury = fss.treasury;
+                fs.taxRate = fss.taxRate;
+                if (fs.budget != null)
+                {
+                    fs.budget.military = fss.budgetMilitary;
+                    fs.budget.shipbuilding = fss.budgetShipbuilding;
+                    fs.budget.administration = fss.budgetAdministration;
+                    fs.budget.welfare = fss.budgetWelfare;
+                    fs.budget.research = fss.budgetResearch;
+                    fs.budget.diplomacy = fss.budgetDiplomacy;
+                }
+                if (fs.fiscal != null) fs.fiscal.debt = fss.fiscalDebt;
                 state.states.Add(fs);
             }
             return state;
@@ -229,6 +250,131 @@ namespace Ginei
                 if (p != null) list.Add(p);
             }
             return list;
+        }
+
+        // ===== 戦略艦隊（盤面の駒）の往復 =====
+
+        /// <summary>戦略艦隊レジストリを保存データへ書き込む（既存 fleets をクリア）。回廊上の精密位置は保存しない。</summary>
+        public static void WriteFleets(CampaignSaveData save, StrategicFleetRegistry reg)
+        {
+            if (save == null) return;
+            save.fleets.Clear();
+            if (reg == null || reg.fleets == null) return;
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null) continue;
+                save.fleets.Add(new StrategicFleetSave
+                {
+                    id = f.id, faction = (int)f.faction, strength = f.strength,
+                    supply = f.supply, warpSpeed = f.warpSpeed, sublightFactor = f.sublightFactor,
+                    currentSystemId = f.currentSystemId, destinationSystemId = f.destinationSystemId,
+                    moving = f.IsMoving, engaged = f.engaged
+                });
+            }
+        }
+
+        /// <summary>保存データから戦略艦隊レジストリを復元する（停泊星系に再構築・移動中は目的地へ再ワープ）。</summary>
+        public static StrategicFleetRegistry ReadFleets(CampaignSaveData save, GalaxyMap map)
+        {
+            var reg = new StrategicFleetRegistry(map);
+            if (save == null || save.fleets == null) return reg;
+            for (int i = 0; i < save.fleets.Count; i++)
+            {
+                StrategicFleetSave d = save.fleets[i];
+                if (d == null) continue;
+                var f = new StrategicFleet(d.id, d.currentSystemId, (Faction)d.faction, d.warpSpeed)
+                {
+                    strength = d.strength, supply = d.supply, sublightFactor = d.sublightFactor
+                };
+                if (d.moving && d.destinationSystemId > 0 && map != null) f.WarpTo(map, d.destinationSystemId);
+                f.engaged = d.engaged;
+                reg.Add(f);
+            }
+            return reg;
+        }
+
+        // ===== 惑星内政（Province）の往復（#109/#759） =====
+
+        /// <summary>惑星内政（systemId→Province）を保存データへ書き込む（既存 provinces をクリア）。
+        /// 人口動態/職業/技能の細部（demographics/workforce/skills）は保存せずロード後に再構築（マクロ背景＝再安定する）。</summary>
+        public static void WriteProvinces(CampaignSaveData save, System.Collections.Generic.Dictionary<int, Province> provinces)
+        {
+            if (save == null) return;
+            save.provinces.Clear();
+            if (provinces == null) return;
+            foreach (var kv in provinces)
+            {
+                Province p = kv.Value;
+                if (p == null) continue;
+                save.provinces.Add(new ProvinceSave
+                {
+                    systemId = p.systemId,
+                    nativeIdeology = p.nativeIdeology,
+                    systemType = (int)p.systemType,
+                    population = p.population,
+                    wageIndex = p.wageIndex,
+                    livingStandard = p.livingStandard,
+                    foodShortage = p.foodShortage,
+                    hasStrategicResource = p.hasStrategicResource,
+                    strategicResource = (int)p.strategicResource,
+                    strategicAbundance = p.strategicAbundance,
+                    stability = p.stability,
+                    integration = p.integration
+                });
+            }
+        }
+
+        /// <summary>保存データから惑星内政（systemId→Province）を復元する（空/null は空辞書）。
+        /// demographics/workforce/skills は null のまま（ロード後に再構築＝後方互換）。</summary>
+        public static System.Collections.Generic.Dictionary<int, Province> ReadProvinces(CampaignSaveData save)
+        {
+            var dict = new System.Collections.Generic.Dictionary<int, Province>();
+            if (save == null || save.provinces == null) return dict;
+            for (int i = 0; i < save.provinces.Count; i++)
+            {
+                ProvinceSave d = save.provinces[i];
+                if (d == null) continue;
+                var p = new Province
+                {
+                    systemId = d.systemId,
+                    nativeIdeology = d.nativeIdeology ?? "",
+                    systemType = (SystemType)d.systemType,
+                    population = d.population,
+                    wageIndex = d.wageIndex <= 0f ? 1f : d.wageIndex,
+                    livingStandard = d.livingStandard,
+                    foodShortage = d.foodShortage,
+                    hasStrategicResource = d.hasStrategicResource,
+                    strategicResource = (StrategicResourceType)d.strategicResource,
+                    strategicAbundance = d.strategicAbundance,
+                    stability = d.stability,
+                    integration = d.integration
+                };
+                dict[p.systemId] = p;
+            }
+            return dict;
+        }
+
+        // ===== 統一時間（GameClock） =====
+
+        /// <summary>クロックを保存データへ。</summary>
+        public static void WriteClock(CampaignSaveData save, GameClock clock)
+        {
+            if (save == null || clock == null) return;
+            save.clockElapsed = clock.elapsedSeconds;
+            save.clockSpeed = clock.speed;
+        }
+
+        /// <summary>保存データからクロックを復元（新規 GameClock を返す）。</summary>
+        public static GameClock ReadClock(CampaignSaveData save)
+        {
+            var clock = new GameClock();
+            if (save != null)
+            {
+                clock.elapsedSeconds = save.clockElapsed;
+                clock.speed = save.clockSpeed <= 0f ? 1f : save.clockSpeed;
+            }
+            return clock;
         }
 
         // ===== JSON 文字列 =====

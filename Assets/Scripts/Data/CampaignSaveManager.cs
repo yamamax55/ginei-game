@@ -37,6 +37,42 @@ namespace Ginei
             return CampaignSerializer.ReadPeople(save);
         }
 
+        /// <summary>
+        /// 戦役の<b>全状態</b>（銀河/勢力/財政/政体/人物/戦略艦隊/統一時間）を保存する（continue・全永続化）。
+        /// </summary>
+        public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock, Dictionary<int, Province> provinces = null)
+        {
+            if (campaign == null) return;
+            CampaignSaveData save = CampaignSerializer.ToSaveData(campaign);
+            CampaignSerializer.WritePeople(save, people);
+            CampaignSerializer.WriteFleets(save, reg);
+            CampaignSerializer.WriteProvinces(save, provinces);
+            CampaignSerializer.WriteClock(save, clock);
+            File.WriteAllText(SavePath, JsonUtility.ToJson(save, true));
+        }
+
+        /// <summary>
+        /// セーブから全状態を <see cref="StrategySession"/> へ復元する（Map/Reg/Campaign/Clock＋人物は PendingPeople へ）。
+        /// 呼び出し側が Strategy シーンを再ロードして盤面を再構築する。成功で true。
+        /// Province 内政（安定度/統合/経済/希少資源）も復元する（demographics/workforce/skills の細部は再構築）。
+        /// </summary>
+        public static bool LoadSession()
+        {
+            if (!File.Exists(SavePath)) return false;
+            CampaignSaveData save = CampaignSerializer.Parse(File.ReadAllText(SavePath));
+            if (save == null) return false;
+
+            CampaignState campaign = CampaignSerializer.FromSaveData(save);
+            ResolveFactionData(campaign, save);
+            StrategySession.Map = campaign.map;
+            StrategySession.Reg = CampaignSerializer.ReadFleets(save, campaign.map);
+            StrategySession.Campaign = campaign;
+            StrategySession.Clock = CampaignSerializer.ReadClock(save);
+            StrategySession.Provinces = CampaignSerializer.ReadProvinces(save); // 内政を復元（空=後方互換）
+            StrategySession.PendingPeople = CampaignSerializer.ReadPeople(save);
+            return true;
+        }
+
         /// <summary>セーブが存在するか。</summary>
         public static bool HasSave() => File.Exists(SavePath);
 

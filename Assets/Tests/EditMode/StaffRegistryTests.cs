@@ -32,8 +32,7 @@ namespace Ginei.Tests
             var g2 = StaffRegistry.GetOrCreateGeneralStaff(Faction.同盟);
             Assert.AreNotSame(g1, g2);
             Assert.AreEqual(2, StaffRegistry.GeneralStaffCount);
-            Assert.IsNull(StaffRegistry.GeneralStaff(Faction.帝国) == null ? null : "ok"); // 取得できる
-            Assert.IsNotNull(StaffRegistry.GeneralStaff(Faction.帝国));
+            Assert.IsNotNull(StaffRegistry.GeneralStaff(Faction.帝国)); // 取得できる（反転アサーションの誤りを修正）
         }
 
         [Test]

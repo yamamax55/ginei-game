@@ -76,6 +76,12 @@ namespace Ginei
         /// <summary>占領統合度（0＝占領直後/未統合 .. 1＝完全統合）。未統合ぶんが安定を押し下げる。</summary>
         public float integration = 1f;
 
+        /// <summary>住民の信仰（#172-175・null=未配線=後方互換）。`ReligionTickRules` が年次で進める。</summary>
+        public Religion religion = null;
+
+        /// <summary>住民の文化・民族（#194・null=未配線=後方互換）。`CultureTickRules` が年次で進める。</summary>
+        public Culture culture = null;
+
         public Province() { }
 
         public Province(int systemId, string nativeIdeology, float population = 100f)

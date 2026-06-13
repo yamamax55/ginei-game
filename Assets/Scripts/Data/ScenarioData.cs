@@ -17,7 +17,9 @@ namespace Ginei
         殲滅,      // 敵旗艦を全滅させた側が勝利（従来動作）
         時間防衛,  // 防衛側(objectiveFaction)が timeLimit 秒生き残れば勝利
         旗艦撃破,  // 敵VIP旗艦(targetAdmiral)を撃破で勝利。時間切れまで生存なら守備側勝利
-        護衛       // 護衛対象(targetAdmiral)を timeLimit 秒守り切れば勝利。喪失で敗北
+        護衛,      // 護衛対象(targetAdmiral)を timeLimit 秒守り切れば勝利。喪失で敗北
+        突破,      // 指定勢力(objectiveFaction)の旗艦が戦場端(battlefieldRadius)へ到達したら勝利（離脱成功）
+        拠点保持,  // 指定勢力(objectiveFaction)が objectivePoint を objectiveRadius 内で holdDuration 秒保持したら勝利
     }
 
     [CreateAssetMenu(fileName = "NewScenario", menuName = "Ginei/Scenario Data")]
@@ -39,6 +41,19 @@ namespace Ginei
 
         [Tooltip("旗艦撃破/護衛で対象となるVIP提督（このAdmiralDataを持つ旗艦が撃破/喪失されると決着）")]
         public AdmiralData targetAdmiral;
+
+        [Header("突破/拠点保持 条件")]
+        [Tooltip("突破の判定半径（世界座標）。objectiveFaction の旗艦がこの半径外に出たら突破成功。0以下で無効")]
+        public float battlefieldRadius = 20f;
+
+        [Tooltip("拠点保持の中心点（XY平面）")]
+        public Vector2 objectivePoint = Vector2.zero;
+
+        [Tooltip("拠点保持の判定半径（世界座標）。この半径内に旗艦が1隻以上いれば保持中")]
+        public float objectiveRadius = 5f;
+
+        [Tooltip("拠点保持で必要な連続保持時間（秒・game-time）")]
+        public float holdDuration = 30f;
 
         [Header("出撃艦隊")]
         [Tooltip("この会戦に登場する全艦隊のエントリ（帝国・同盟を混在させてよい）")]
@@ -101,6 +116,9 @@ namespace Ginei
             [Tooltip("敵の調略の浸透 0..1（#817。高いほど劣勢時に寝返りやすい）")]
             [Range(0f, 1f)]
             public float intrigue = 0f;
+
+            [Tooltip("増援の到着遅延（秒・game-time。0＝開戦時から在場＝従来動作。>0で戦場端から時間差投入 #2182）")]
+            public float reinforcementDelay = 0f;
         }
     }
 }

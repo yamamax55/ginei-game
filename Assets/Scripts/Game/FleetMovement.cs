@@ -276,6 +276,17 @@ namespace Ginei
                 m.Mul(Mathf.Max(0.1f, preferredFormationMobilityBonus));
             }
 
+            // 陣形の戦術特性（#72）：陣形ごとの機動倍率（紡錘=機動高／方陣/円陣=鈍重）。
+            if (squadron != null)
+                m.Mul(Mathf.Max(0.1f, FormationTraitRules.MobilityFactor(squadron.currentFormation)));
+
+            // 特殊指揮（#2175・突撃=速い 等）：機動倍率（既定1.0）。
+            if (strength != null && strength.activeSpeedFactor != 1f)
+                m.Mul(Mathf.Max(0.1f, strength.activeSpeedFactor));
+
+            // 戦場の地形（#2181・小惑星帯=減速）：その地点の機動倍率（既定1.0）。
+            m.Mul(Mathf.Max(0.1f, BattleTerrain.SpeedFactorAt(transform.position)));
+
             // 減速ペナルティを2系統で算出して合算（下限つき）：
             //  ・混雑(GetCongestionFactor)＝全陣営対象の物理的密集
             //  ・ZOC(GetZocFactor)＝敵対部隊の支配領域（敵の素通り・離脱の妨害）

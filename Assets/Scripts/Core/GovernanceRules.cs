@@ -86,10 +86,13 @@ namespace Ginei
         public static float EquilibriumStability(float integration, float ideologyMod, bool supplyOk, bool atWar)
             => EquilibriumStability(integration, ideologyMod, supplyOk, atWar, GovernancePolicy.民生);
 
-        /// <summary>統治政策(#112)を含めた安定度の目標値（純関数）。民生は基準＝従来と同値。</summary>
-        public static float EquilibriumStability(float integration, float ideologyMod, bool supplyOk, bool atWar, GovernancePolicy policy)
+        /// <summary>
+        /// 統治政策(#112)を含めた安定度の目標値（純関数）。民生は基準＝従来と同値。
+        /// <paramref name="adminBonus"/>＝在任宰相の行政寄与（<see cref="AdministrationRules"/>・既定0＝従来と同値・名実の乖離で減衰済み）。
+        /// </summary>
+        public static float EquilibriumStability(float integration, float ideologyMod, bool supplyOk, bool atWar, GovernancePolicy policy, float adminBonus = 0f)
         {
-            float target = BaseStability + ideologyMod + PolicyStabilityModifier(policy);
+            float target = BaseStability + ideologyMod + PolicyStabilityModifier(policy) + adminBonus;
             if (!supplyOk) target -= SupplyPenalty;
             if (atWar) target -= WarPenalty;
             // 未統合ぶんの占領不満（integration=1 で消える）
@@ -126,8 +129,11 @@ namespace Ginei
         public static void Tick(Province p, FactionData ownerData, bool supplyOk, bool atWar, float deltaTime)
             => Tick(p, ownerData, supplyOk, atWar, deltaTime, GovernancePolicy.民生);
 
-        /// <summary>統治政策(#112)を反映した1tick内政更新。政策が統合速度と安定度目標へ波及する。民生は従来と同値。</summary>
-        public static void Tick(Province p, FactionData ownerData, bool supplyOk, bool atWar, float deltaTime, GovernancePolicy policy)
+        /// <summary>
+        /// 統治政策(#112)を反映した1tick内政更新。政策が統合速度と安定度目標へ波及する。民生は従来と同値。
+        /// <paramref name="adminBonus"/>＝在任宰相の行政寄与（<see cref="AdministrationRules"/>・既定0＝従来と同値）。
+        /// </summary>
+        public static void Tick(Province p, FactionData ownerData, bool supplyOk, bool atWar, float deltaTime, GovernancePolicy policy, float adminBonus = 0f)
         {
             if (p == null || deltaTime <= 0f) return;
 
@@ -135,7 +141,7 @@ namespace Ginei
             p.integration = Mathf.Clamp01(p.integration + IntegrationRate * PolicyIntegrationMultiplier(policy) * deltaTime);
 
             float mod = IdeologyModifier(ownerData, p.nativeIdeology);
-            float target = EquilibriumStability(p.integration, mod, supplyOk, atWar, policy);
+            float target = EquilibriumStability(p.integration, mod, supplyOk, atWar, policy, adminBonus);
             p.stability = Mathf.MoveTowards(p.stability, target, StabilitySpeed * deltaTime);
             p.stability = Mathf.Clamp(p.stability, 0f, MaxStability);
         }

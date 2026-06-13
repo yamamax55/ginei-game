@@ -18,11 +18,17 @@ namespace Ginei
         [Tooltip("提督名")]
         public string admiralName = "ラインハルト";
 
+        [Tooltip("旗艦名（#旗艦名・世界遺産由来。BattleSetup が ShipNameRegistry から払い出す。空＝無名）")]
+        public string shipName = "";
+
         [Tooltip("現在の兵力")]
         public int strength = 10000;
 
         [Tooltip("最大兵力")]
         public int maxStrength = 10000;
+
+        [Tooltip("軍の質の戦闘力倍率（下士官団/新兵練度/即応の合成＝ForceQualityRules.CombatMultiplier。1.0=従来動作。戦略から BattleHandoff 経由で設定）")]
+        public float qualityFactor = 1f;
 
         [Tooltip("艦隊の基準兵力＝艦艇数の単一の出所（RANKCMD-1 #1711）。0＝提督側 baseStrength へフォールバック（非推奨・後方互換）。" +
                  "ApplyAdmiralData が統率で補正して maxStrength を決める基準値")]
@@ -35,6 +41,9 @@ namespace Ginei
         public int EffectiveBaseStrength =>
             baseStrength > 0 ? baseStrength
             : (admiralData != null ? admiralData.baseStrength : maxStrength);
+
+        /// <summary>残存兵力比（0..1）。人物 archetype の劣勢/決死/逆転（#日本一の兵/#魔術師）の入力に使う。</summary>
+        public float HpRatio => maxStrength > 0 ? Mathf.Clamp01((float)strength / maxStrength) : 1f;
 
         [Header("陣営設定")]
         public Faction faction;
@@ -61,6 +70,12 @@ namespace Ginei
         /// <summary>実際に戦うか（静観＝フリーライダー #820 は発砲しない）。</summary>
         public bool IsFighting => battleStance != Stance.静観;
 
+        // ── 交戦規定（ROE・#2258）──────────────────────────────
+        [Header("交戦規定（ROE・#2258）")]
+        [Tooltip("この部隊の持続的な交戦規定スタンス。攻撃的（既定）＝従来挙動。RoeRules が発砲/追尾/前進の可否を返す唯一の窓口。")]
+        public EngagementStance stance = EngagementStance.攻撃的;
+        // ─────────────────────────────────────────────────────────
+
         [Header("艦隊編制（#146・任意）")]
         [Tooltip("艦隊番号（0＝未指定＝従来どおり提督名のみ表示）")]
         public int fleetNumber = 0;
@@ -69,6 +84,30 @@ namespace Ginei
 
         [Tooltip("所属軍団名（#147・表示用。空＝なし）")]
         public string corpsName = "";
+
+        [Header("軍団長の乗艦（CSG・打撃群指揮官モデル）")]
+        [Tooltip("この艦隊（軍団旗艦）に乗艦している軍団長。軍団長は艦隊を持たず旗艦に同乗する（艦の操艦は admiralData＝艦長）。" +
+                 "null＝軍団長は乗っていない。これが非nullの艦隊だけ右クリックで軍団メニューを開ける（CommandMenu）")]
+        public AdmiralData corpsCommander;
+
+        /// <summary>軍団長が乗艦している軍団旗艦か（CSG＝打撃群指揮官の乗る空母に相当）。</summary>
+        public bool IsCorpsFlagship => corpsCommander != null;
+
+        /// <summary>軍団長のバフ/デバフ（士気）。`BattlefieldCommandManager` が軍団ごとに設定。FleetMorale が乗算。</summary>
+        public float corpsMoraleFactor = 1f;
+
+        /// <summary>軍団長のバフ/デバフ（能力＝攻撃）。`BattlefieldCommandManager` が設定。FleetWeapon/EscortShip が乗算。</summary>
+        public float corpsAbilityFactor = 1f;
+
+        [Header("特殊指揮（アクティブ指揮 #2175・ActiveCommandState が設定）")]
+        /// <summary>特殊指揮の与ダメ倍率（FleetWeapon/EscortShip が乗算・既定1.0）。</summary>
+        public float activeAttackFactor = 1f;
+        /// <summary>特殊指揮の被ダメ倍率（TakeDamage が乗算・既定1.0）。</summary>
+        public float activeDamageTakenFactor = 1f;
+        /// <summary>特殊指揮の機動倍率（FleetMovement が乗算・既定1.0）。</summary>
+        public float activeSpeedFactor = 1f;
+        /// <summary>特殊指揮の不退転（敗走しない・FleetMorale が参照）。</summary>
+        public bool activeMoraleLock = false;
         [Tooltip("所属軍集団名（#147・表示用。空＝なし）")]
         public string armyGroupName = "";
 
@@ -102,6 +141,30 @@ namespace Ginei
         [Tooltip("旗艦喪失（艦艇数0）時に離脱する距離")]
         public float retreatDistance = 50f;
 
+        [Header("旗艦の堅牢さ・撃墜（島津の捨てがまり）")]
+        [Tooltip("旗艦は固い：旗艦本体への被ダメージ軽減率（0=従来／0.3で30%カット）。配下艦の楯と併せ容易に撃墜されないようにする。実効値パターン＝基準ダメージ非破壊")]
+        [Range(0f, 0.9f)]
+        public float flagshipDamageReduction = 0.3f;
+
+        [Tooltip("捨てがまり判定：この距離内に敵がいれば『追われている』とみなす（敵が追ってきている時だけ殿＝捨てがまりが発動）")]
+        public float pursuitDetectRange = 12f;
+
+        [Header("挟撃／包囲（#2178）")]
+        [Tooltip("挟撃判定の範囲（この距離内の敵対旗艦の方位分布から包囲度を算定）")]
+        public float envelopmentRange = 14f;
+        [Tooltip("挟撃の再計算間隔（秒・間引き）")]
+        public float envelopmentUpdateInterval = 0.5f;
+        /// <summary>この部隊が受けている包囲度（0..1）。`EnvelopmentRules` が算定し被ダメに乗る。</summary>
+        public float EnvelopmentFactor { get; private set; }
+        private float nextEnvelopmentTime;
+        private static readonly List<float> envelopScratch = new List<float>(16);
+
+        [Header("索敵（fog of war #2180）")]
+        [Tooltip("索敵範囲の基準（情報能力で増減）。武器射程より広めに採るのが通常")]
+        public float detectionBaseRange = 18f;
+        /// <summary>敵に発見されていない（=不意打ちできる）か。`DetectionRules` が間引き算定。</summary>
+        public bool IsConcealed { get; private set; }
+
         [Header("得意陣形ボーナス（#104）")]
         [Tooltip("提督の得意陣形と現在陣形が一致する間の被ダメージ軽減率（0=無効, 0.15で被ダメージ15%カット）。実効値パターン＝基準ダメージ・防御計算は非破壊")]
         [Range(0f, 0.9f)]
@@ -117,6 +180,12 @@ namespace Ginei
 
         /// <summary>旗艦を失い退却中か（true なら戦闘・カウントから除外）。</summary>
         public bool IsRetreating { get; private set; }
+
+        /// <summary>旗艦が撃墜されたか（敗走時に配下艦が散り、または配下艦なしで殿が立たず本体が破壊）。</summary>
+        public bool IsDestroyed { get; private set; }
+
+        /// <summary>島津の捨てがまり中か＝配下艦が殿を務め旗艦の離脱を援護中（EscortShip/Squadron が参照）。</summary>
+        public bool SutegamariActive { get; private set; }
 
         /// <summary>この部隊（旗艦＋配下艦）が敵に与えた累計ダメージ。リザルトのMVP集計用。</summary>
         public int DamageDealt { get; private set; }
@@ -134,7 +203,7 @@ namespace Ginei
         public Transform Transform => transform;
         public Faction Faction => faction;
         public FactionData FactionData => factionData;
-        public bool IsAlive => !IsRetreating;
+        public bool IsAlive => !IsRetreating && !IsDestroyed;
 
         private void Awake()
         {
@@ -200,6 +269,48 @@ namespace Ginei
             FleetRegistry.Unregister(this);
         }
 
+        private void Update()
+        {
+            // 挟撃（包囲度）を間引きで再計算しキャッシュ（被ダメに乗る）。退却・撃墜後は不要。
+            if (IsRetreating || IsDestroyed) return;
+            if (Time.time < nextEnvelopmentTime) return;
+            nextEnvelopmentTime = Time.time + Mathf.Max(0.1f, envelopmentUpdateInterval);
+            UpdateEnvelopment();
+        }
+
+        /// <summary>
+        /// 敵対旗艦を1巡し、包囲度（#2178）と被発見（索敵 #2180）を同時に算定してキャッシュする。
+        /// 包囲＝範囲内の敵の方位分布。被発見＝いずれかの敵の索敵範囲（敵の情報能力依存）に入っているか。
+        /// </summary>
+        private void UpdateEnvelopment()
+        {
+            envelopScratch.Clear();
+            float envR2 = envelopmentRange * envelopmentRange;
+            Vector2 me = transform.position;
+            bool detected = false;
+            IReadOnlyList<FleetStrength> flags = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flags.Count; i++)
+            {
+                FleetStrength f = flags[i];
+                if (f == null || f == this || !f.IsAlive) continue;
+                if (!FactionRelations.IsHostile(this, f)) continue;
+                Vector2 d = (Vector2)f.transform.position - me;
+                float distSq = d.sqrMagnitude;
+
+                if (distSq <= envR2)
+                    envelopScratch.Add(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+
+                if (!detected)
+                {
+                    float intel = f.admiralData != null ? f.admiralData.EffectiveIntelligence : 50f;
+                    float dr = DetectionRules.DetectionRange(intel, f.detectionBaseRange);
+                    if (distSq <= dr * dr) detected = true; // この敵の索敵範囲に入っている＝発見されている
+                }
+            }
+            EnvelopmentFactor = EnvelopmentRules.EncirclementFactor(envelopScratch);
+            IsConcealed = !detected; // どの敵にも捉えられていなければ不意打ち可能
+        }
+
 
 
         /// <summary>
@@ -232,12 +343,16 @@ namespace Ginei
         /// <param name="rawDamage">元のダメージ量</param>
         public void TakeDamage(int rawDamage)
         {
-            if (IsRetreating) return;
+            if (IsRetreating || IsDestroyed) return;
 
             // 防御力によるダメージ軽減（参謀補完を反映した実効防御）
             float defenseValue = admiralData != null ? admiralData.EffectiveDefense : 0f;
             // 防御100でダメージ50%カット（公式は CombatModifiers に集約・DefenseDamageFactor(0)=1.0 で軽減なし）
             int finalDamage = Mathf.RoundToInt(rawDamage * CombatModifiers.DefenseDamageFactor(defenseValue));
+
+            // 旗艦は固い：旗艦本体への被ダメージをさらに軽減（容易に撃墜されないように・実効値パターン）。
+            if (flagshipDamageReduction > 0f)
+                finalDamage = Mathf.RoundToInt(finalDamage * (1f - Mathf.Clamp(flagshipDamageReduction, 0f, 0.9f)));
 
             // 得意陣形ボーナス：現在陣形が提督の得意陣形と一致する間だけ被ダメージをさらに軽減（実効値パターン）
             if (admiralData != null && squadron != null
@@ -246,6 +361,23 @@ namespace Ginei
             {
                 finalDamage = Mathf.RoundToInt(finalDamage * (1f - Mathf.Clamp(preferredFormationDamageReduction, 0f, 0.9f)));
             }
+
+            // 陣形の戦術特性（#72）：防御側陣形の被ダメージ倍率（円陣/方陣=堅い＜1／横陣/鶴翼=脆い＞1）。
+            if (squadron != null)
+                finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, FormationTraitRules.DamageTakenFactor(squadron.currentFormation)));
+
+            // 挟撃／包囲（#2178）：複数方向から囲まれているほど被ダメ増（最大+25%）。
+            if (EnvelopmentFactor > 0f)
+                finalDamage = Mathf.RoundToInt(finalDamage * EnvelopmentRules.DamageFactor(EnvelopmentFactor));
+
+            // 特殊指揮（#2175・突撃=脆い／不退転=堅い）：被ダメ倍率を乗算（既定1.0）。
+            if (activeDamageTakenFactor != 1f)
+                finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, activeDamageTakenFactor));
+
+            // 人物 archetype（#猛将の猪突=脆い／#半身の端正な陣形=堅い 等）：被ダメ倍率（フラグ無しは1.0＝後方互換）。
+            float archDmg = AdmiralArchetypeModifiers.DamageTakenFactor(admiralData);
+            if (archDmg != 1f)
+                finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, archDmg));
 
             strength -= finalDamage;
             
@@ -262,8 +394,102 @@ namespace Ginei
             AudioManager.Instance.PlayHit();
             if (strength <= 0)
             {
-                BeginRetreat();
+                ResolveFlagshipDown();
             }
+        }
+
+        /// <summary>
+        /// 旗艦喪失（艦艇数0）の解決（島津の捨てがまり #史実）。配下艦が残り、提督と部下の関係性（統率×部下への態度）が
+        /// 厚ければ<b>捨てがまり＝配下艦が殿を務め旗艦は離脱（生存）</b>。無能/尊大な提督や配下艦皆無なら
+        /// <b>配下艦は散り散りに逃げ旗艦は撃墜される</b>。`SutegamariRules`（Core）が献身度を判定する。
+        /// </summary>
+        private void ResolveFlagshipDown()
+        {
+            if (IsRetreating || IsDestroyed) return;
+
+            // 捨てがまりは「敵が追ってきている場合」のみ発動。追手がいなければ部隊は安全に退却する（配下艦も帯同）。
+            if (!IsBeingPursued())
+            {
+                // 一隊が戦線を離れる＝近傍の味方士気に軽い衝撃（#2176）。
+                MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.敗走);
+                BeginRetreat();
+                return;
+            }
+
+            int escorts = squadron != null ? squadron.LivingEscortCount() : 0;
+            float leadership = admiralData != null ? admiralData.EffectiveLeadership : 50f;
+            float humility = admiralData != null ? admiralData.humility : 50f;
+            float devotion = SutegamariRules.Devotion(leadership, humility);
+
+            if (escorts > 0 && SutegamariRules.WillPerformSutegamari(devotion))
+            {
+                // 捨てがまり：配下艦が殿（しんがり）を務め、旗艦＝提督は離脱（生存）。
+                SutegamariActive = true;
+                if (squadron != null) squadron.BeginSutegamari();
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    $"{admiralName} 隊：島津の捨てがまり！配下艦が殿を務め旗艦は離脱");
+                // 殿の奮戦が近傍の味方を奮い立たせる（#2176 高揚）。
+                MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.捨てがまり成功);
+                BeginRetreat(); // 旗艦は退却（生存）。配下艦は殿として戦い続ける。
+            }
+            else
+            {
+                // 散り散り（無能/尊大な提督）または配下艦皆無 → 旗艦撃墜。
+                DestroyFlagship(escorts > 0);
+            }
+        }
+
+        /// <summary>追手がいるか＝`pursuitDetectRange` 内に敵対する生存艦（旗艦/配下艦）がいるか。捨てがまり発動条件。</summary>
+        private bool IsBeingPursued()
+        {
+            IReadOnlyList<IShipTarget> all = FleetRegistry.AllTargets;
+            float r2 = pursuitDetectRange * pursuitDetectRange;
+            for (int i = 0; i < all.Count; i++)
+            {
+                IShipTarget t = all[i];
+                if (t == null || !t.IsAlive) continue;
+                if (!FactionRelations.IsHostile(this, t)) continue;
+                if (((Vector2)(t.Transform.position - transform.position)).sqrMagnitude <= r2) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 旗艦撃墜（本体破壊）。退却（生存）と異なり部隊は失われる。配下艦が残っていれば散り散りに逃がす。
+        /// </summary>
+        private void DestroyFlagship(bool escortsScatter)
+        {
+            if (IsDestroyed || IsRetreating) return;
+            IsDestroyed = true;
+            strength = 0;
+            UpdateDisplay();
+
+            FleetRegistry.Unregister(this);
+
+            // 撃沈した旗艦の名は永久欠番（#旗艦名・史実の艦名継承の重み）。
+            if (!string.IsNullOrEmpty(shipName)) ShipNameRegistry.Retire(shipName);
+
+            // 配下艦を散らす（殿が立たなかった＝主君を見捨てて逃散）。本体破棄の前に切り離して逃がす。
+            if (squadron != null) squadron.ScatterEscorts();
+
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.警告,
+                escortsScatter
+                    ? $"{admiralName} 隊：配下艦は散り散りに逃げ、旗艦は撃墜された"
+                    : $"{admiralName} 隊：旗艦撃墜");
+
+            // 旗艦撃墜＝近傍の味方はパニック、敵は高揚（#2176 士気の連鎖崩壊）。
+            MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.旗艦撃墜);
+
+            FleetAI ai = GetComponent<FleetAI>();
+            if (ai != null) ai.enabled = false;
+
+            AudioManager.Instance.PlayExplosion();
+            SpawnExplosion(transform.position);
+            CameraController cam = Object.FindAnyObjectByType<CameraController>();
+            if (cam != null) cam.Shake();
+
+            Debug.Log($"{admiralName} 提督の旗艦 ({faction}) は撃墜された。");
+            Destroy(gameObject); // 旗艦本体を破棄（撃墜）。切り離した配下艦は生き残って逃散する。
         }
 
         /// <summary>
@@ -339,6 +565,8 @@ namespace Ginei
             if (strengthDisplay != null)
             {
                 string head = HasFleetNumber ? $"{FleetLabel} {admiralName}" : admiralName;
+                // 旗艦名（#旗艦名）があれば提督名の前に「《名》」で前置（無名は従来表示）。
+                if (!string.IsNullOrEmpty(shipName)) head = $"《{shipName}》{head}";
                 strengthDisplay.text = IsRetreating
                     ? $"{head}\n退却"
                     : $"{head}\n兵力: {Mathf.Max(0, strength)}";
@@ -396,6 +624,17 @@ namespace Ginei
             }
 
             Debug.Log($"{admiralName} 提督の艦隊 ({faction}) は旗艦を失い退却した。");
+
+            // #2260 会戦結果のメタ反映：提督の運命（捕虜/戦死/離脱）を決定し人事通知へ記録する。
+            // 乱数は Game 層で生成し Core(BattleMetaRules) へ注入（決定論設計・基準値非破壊）。
+            if (admiralData != null)
+            {
+                float cmdFactor = BattleMetaRules.CommandFactorFromStat(admiralData.EffectiveAttack);
+                float moraleF = moraleComponent != null ? moraleComponent.GetMoraleFactor() : 0.5f;
+                CommanderFate fate = BattleMetaRules.ResolveCommanderFate(cmdFactor, moraleF, UnityEngine.Random.value);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                    $"{admiralName}：旗艦喪失 → {fate}（#2260）");
+            }
         }
 
         /// <summary>

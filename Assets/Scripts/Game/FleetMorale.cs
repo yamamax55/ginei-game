@@ -14,18 +14,34 @@ namespace Ginei
         public float maxMorale = 100f;
 
         [Tooltip("非交戦時の自然回復速度 (ポイント/秒)")]
-        public float recoveryRate = 0.5f;
+        public float recoveryRate = 0.7f;
 
         [Tooltip("交戦中の自然低下速度 (ポイント/秒)")]
-        public float combatDrainRate = 0.2f;
+        public float combatDrainRate = 0.1f;
 
         [Tooltip("ダメージ100あたりの士気低下量")]
-        public float damageDrainFactor = 0.1f;
+        public float damageDrainFactor = 0.05f;
 
         [Tooltip("敗走から回復を始めるまでの『交戦が無い』継続時間（秒）")]
-        public float routedRecoveryDelay = 5f;
+        public float routedRecoveryDelay = 4f;
+
+        [Tooltip("交戦の自然低下が下げ止まる士気の床（最大士気に対する割合）＝交戦だけでは敗走しない・崩れるのは被弾のみ #会戦改善")]
+        public float combatMoraleFloor = 0.2f;
+
+        [Tooltip("1回の被弾で減る士気の上限（最大士気に対する割合）＝一撃で即敗走させない #会戦改善")]
+        public float maxSingleHitMoraleFraction = 0.1f;
+
+        // #2263 名誉→士気の底上げ（勲章の名誉点スケール・上限）。
+        private const float PrestigeMoraleScale = 250f;     // 名誉点÷これ＝士気倍率の加算（50点で+20%）
+        private const float MaxPrestigeMoraleBonus = 0.20f; // 名誉による士気底上げの上限
 
         public bool IsRouted => morale <= 0;
+
+        /// <summary>士気を増減する（士気の連鎖崩壊／高揚 #2176）。0〜maxMorale にクランプ。負で衝撃、正で高揚。</summary>
+        public void ApplyMoraleDelta(float delta)
+        {
+            morale = Mathf.Clamp(morale + delta, 0f, Mathf.Max(1f, maxMorale));
+        }
 
         private FleetStrength strength;
         private FleetWeapon weapon;
@@ -113,12 +129,20 @@ namespace Ginei
                 // 最大士気は提督の統率力に依存 (例: 統率と同じ値)。0以下にはしない（ゼロ除算防止）
                 // 参謀補完を反映した実効統率を使用（基準値は非破壊）
                 maxMorale = Mathf.Max(1f, strength.admiralData.EffectiveLeadership);
+
+                // #2263 名誉：勲章を持つ提督は名望で士気が底上げされる（前戦の叙勲が次戦に効く）。実効値パターン。
+                float prestige = MedalRegistry.Prestige(strength.admiralData.GetInstanceID());
+                if (prestige > 0f) maxMorale *= 1f + Mathf.Min(prestige / PrestigeMoraleScale, MaxPrestigeMoraleBonus);
+
                 morale = maxMorale;
             }
         }
 
         private void UpdateMorale()
         {
+            // 特殊指揮『不退転』（#2175）：効果中は敗走しない＝士気を最低1に保つ。
+            if (strength != null && strength.activeMoraleLock && morale < 1f) morale = 1f;
+
             bool inCombat = (weapon != null && weapon.IsInCombat);
             if (inCombat) lastCombatTime = Time.time;
 
@@ -134,8 +158,10 @@ namespace Ginei
 
             if (inCombat)
             {
-                // 交戦中による低下
-                ChangeMorale(-combatDrainRate * Time.deltaTime);
+                // 交戦中による低下。ただし床（combatMoraleFloor）までで止まる＝交戦だけでは敗走しない（崩れるのは被弾のみ）。
+                float floor = maxMorale * Mathf.Clamp01(combatMoraleFloor);
+                if (morale > floor)
+                    morale = Mathf.Max(floor, morale - combatDrainRate * Time.deltaTime);
             }
             else
             {
@@ -150,6 +176,9 @@ namespace Ginei
         public void OnTakeDamage(int damageAmount)
         {
             float drain = damageAmount * damageDrainFactor;
+            // 一撃で即敗走させない＝1回の被弾で減る士気を上限でクランプ（#会戦改善）。
+            float cap = maxMorale * Mathf.Clamp01(maxSingleHitMoraleFraction);
+            if (cap > 0f) drain = Mathf.Min(drain, cap);
             ChangeMorale(-drain);
         }
 
@@ -174,8 +203,13 @@ namespace Ginei
             return ApplySustainment(factor);
         }
 
-        /// <summary>継戦ペナルティ（ORBAT-4・任意）を乗せる。コンポーネント無し/opt-in OFF/継戦OK なら 1.0 倍＝挙動不変。</summary>
+        /// <summary>継戦ペナルティ（ORBAT-4・任意）＋軍団長の士気バフ/デバフ（CSG）を乗せる。既定1.0で挙動不変。</summary>
         private float ApplySustainment(float factor)
-            => sustainment != null ? factor * sustainment.EffectiveFactor : factor;
+        {
+            if (sustainment != null) factor *= sustainment.EffectiveFactor;
+            if (strength != null) factor *= Mathf.Max(0.1f, strength.corpsMoraleFactor); // 軍団長のバフ/デバフ
+            if (strength != null) factor *= AdmiralArchetypeModifiers.MoraleFactor(strength.admiralData); // 黄金の獅子#覇王（フラグ無しは1.0）
+            return factor;
+        }
     }
 }

@@ -15,6 +15,30 @@ namespace Ginei
         public List<StarSystemSave> systems = new List<StarSystemSave>();
         public List<CorridorSave> corridors = new List<CorridorSave>();
         public List<FactionStateSave> states = new List<FactionStateSave>();
+        public List<PersonSave> people = new List<PersonSave>(); // ネームド人物ロスター（提督/文官・空=後方互換）
+        public List<StrategicFleetSave> fleets = new List<StrategicFleetSave>(); // 戦略艦隊（盤面の駒・空=後方互換）
+        public List<ProvinceSave> provinces = new List<ProvinceSave>(); // 惑星内政（#109/#759・空=後方互換）
+        // 統一時間（GameClock）。0=未設定（後方互換＝既定クロック）。
+        public double clockElapsed;
+        public float clockSpeed = 1f;
+        // 朝廷の権威（官僚制基盤・名実の乖離）。既定0.35＝旧セーブに欠落していても武家政権相当で復元（後方互換）。
+        public float courtAuthority = 0.35f;
+    }
+
+    /// <summary>惑星内政（<see cref="Province"/>）のセーブ平データ。安定度/統合/経済/希少資源の継続。
+    /// 人口動態/職業/技能の細部（demographics/workforce/skills）はロード後に再構築（マクロ背景＝再安定する）。</summary>
+    [Serializable]
+    public class ProvinceSave
+    {
+        public int systemId;
+        public string nativeIdeology;
+        public int systemType;        // (int)SystemType
+        public float population;
+        public float wageIndex, livingStandard, foodShortage;
+        public bool hasStrategicResource;
+        public int strategicResource; // (int)StrategicResourceType
+        public float strategicAbundance;
+        public float stability, integration;
     }
 
     /// <summary>星系のセーブ平データ。所有 SO は名前で持つ（復元時に Resources/Factions から解決）。</summary>
@@ -57,6 +81,7 @@ namespace Ginei
     {
         public int faction;
         public float inclusiveness;
+        public int governmentForm; // (int)GovernmentForm（政体形態 #117・既定0=首長制＝旧セーブ前方互換）
         // Regime
         public float regimeLegitimacy, regimeCorruption, regimeVirtue;
         // Polity
@@ -68,5 +93,60 @@ namespace Ginei
         // Community
         public float commHope, commRepression;
         public bool commDissent;
+        // 財政（在席フロー＝全永続化方針で保存）：国庫/税率/予算分野配分/形式債務。
+        public float treasury, taxRate;
+        public float budgetMilitary, budgetShipbuilding, budgetAdministration, budgetWelfare, budgetResearch, budgetDiplomacy;
+        public float fiscalDebt;
+    }
+
+    /// <summary>戦略艦隊（盤面の駒）のセーブ平データ。回廊上の精密位置（私有）は保存せず、停泊星系に再構築（移動中は目的地へ再ワープ）。</summary>
+    [Serializable]
+    public class StrategicFleetSave
+    {
+        public int id;
+        public int faction;             // (int)Faction
+        public int strength;
+        public float supply, warpSpeed, sublightFactor;
+        public int currentSystemId;     // 停泊星系（移動中は出発元）
+        public int destinationSystemId; // 移動中の目的地（0以下=停泊）
+        public bool moving;             // 移動中だったか（ロードで再ワープ）
+        public bool engaged;            // 交戦固着
+    }
+
+    /// <summary>ネームド人物（<see cref="Person"/>）の平データ（軍人/文民ロスターの永続化）。enum は int で持つ（JsonUtility 安全・前方互換）。</summary>
+    [System.Serializable]
+    public class PersonSave
+    {
+        public int id;
+        public string name;
+        public int faction;          // (int)Faction
+        public int role;             // (int)PersonRole
+        public int rankTier;
+        public int sex;              // (int)Sex
+        public bool isPolitician;
+        public bool isSovereign;
+        public int financialTrait;   // (int)FinancialTrait
+        public float wealth;
+        public int birthYear, deathYear;
+        public int captiveStatus;    // (int)CaptiveStatus
+        public int heldBy;           // (int)Faction
+        // 経歴・学歴・在役（#155/#156/#530/#SCHOOL-AGE）
+        public int hammockNumber, graduationYear, schoolId, examRank;
+        public int militaryDegree;   // (int)MilitaryDegree
+        public int examDegree;       // (int)ExamDegree
+        public int schoolPostingUntilYear, warCollegeRank;
+        public int serviceStatus;    // (int)ServiceStatus
+        // 能力（軍才/文才/技術才）
+        public int leadership, attack, defense, mobility, operation, intelligence;
+        public int research, engineering, planning, production;
+        // 官僚制（位階・考課・官僚制基盤）。既定は無位/未評定＝旧セーブ後方互換（欠落フィールドは初期化値を保持）。
+        public int courtRank = (int)CourtRank.無位;  // (int)CourtRank（既定=無位＝0=正一位の誤復元を防ぐ）
+        public bool hasMerit;                         // 考課記録の有無（false=未評定＝merit は null 復元）
+        public int meritEvaluations;
+        public float meritCumulative;
+        public int meritConsecutiveTop, meritConsecutivePoor;
+        public float meritIntegrity = 0.7f;
+        public int meritLastRating = (int)MeritRating.中中; // (int)MeritRating（hasMerit のときのみ有効）
     }
 }
+

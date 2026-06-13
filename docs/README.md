@@ -33,7 +33,8 @@
 ## 自動化（留守中でも実装が前進する）
 - [`auto-implement-workflow.md`](./auto-implement-workflow.md) — **自動実装ワークフロー**（`agent-ready` ラベルの issue を拾い→実装→TestHarness検証→draft PR）。`worldview-epic`（設計＋issue化）の実装版。安全装置・向き不向き・調整ポイントを記載。
 - [`playtest-harness.md`](./playtest-harness.md) — **自動プレイテストharness**（AI対AIで会戦を速回し→不変条件で所見＝バグ/改善点を機械判定→JSONレポート）。Core判定(`PlaytestInvariants`)＋Game殻(`PlaytestRunner`)。GameCI(headless Unity)で無人実行する土台。
-- [`gameci-setup.md`](./gameci-setup.md) — **GameCI セットアップ**（headless Unity を GitHub Actions で動かす）。Personal ライセンスのアクティベーション手順＋`unity-activation`/`unity-test` ワークフロー。Game層のコンパイル＋Unityテストを無人検証する。
+- [`gameci-setup.md`](./gameci-setup.md) — **GameCI セットアップ**（headless Unity を GitHub Actions で動かす）。ローカルの `Unity_lic.ulf` を `UNITY_LICENSE` Secret に貼る現行手順＋`unity-test` ワークフロー。Game層のコンパイル＋Unityテストを無人検証する。
+- [`unity-build-automation.md`](./unity-build-automation.md) — **Unity Build Automation 調査**（GameCIの**ライセンス不要**な代替）。`.ulf` が取れない間でも実Unityで EditMode/PlayMode テストを回せる。ダッシュボード設定＋GameCIとのトレードオフ。
 
 ## 開発ログ（dev-log/）
 - [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。

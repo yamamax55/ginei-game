@@ -869,6 +869,43 @@ namespace Ginei
                     { enrollment = highSchools[i].enrollmentRate; quality = highSchools[i].quality; return; }
         }
 
+        // 叙勲の配線パラメータ（#2263・デモ既定）
+        private const int MaxMedalsPerCommander = 5;  // 1人あたり叙勲数の上限（乱発防止）
+        private const int CommissionAge = 22;          // 任官年齢（在役年数の起点）
+
+        /// <summary>
+        /// 戦略の年次叙勲（#2263）。武勲ある将官（中将以上）へ階級に応じて叙勲し、
+        /// 恩給見込み（`RetirementRules.PensionFactor` × 勲章の `MedalRegistry.PensionFactor`）と名誉を通知する。
+        /// 史実：勲章は恩給（年金）と名誉を増す。乱発防止に1人あたり上限＋階級依存の決定論抽選。
+        /// </summary>
+        private void RunAnnualMedalTick()
+        {
+            if (commanders == null) return;
+            var rp = RetirementRules.RetireParams.Default;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.IsDeceased) continue;
+                if (c.rankTier < 7) continue;                                  // 中将以上の将官が対象
+                if (MedalRegistry.Count(c.id) >= MaxMedalsPerCommander) continue; // 上限
+
+                // 階級が高いほど叙勲されやすい（決定論抽選）。
+                float roll = Mathf.Abs(Mathf.Sin(c.id * 12.9898f + campaignYear * 78.233f));
+                roll -= Mathf.Floor(roll);
+                if (roll > c.rankTier / 20f) continue;
+
+                MedalKind kind = c.rankTier >= 9 ? MedalKind.勲功章 : MedalKind.武功章;
+                float merit = Mathf.Clamp(c.rankTier * 10f, 0f, 100f);
+                Decoration d = MedalRegistry.Award(c.id, kind, merit, campaignYear, $"{c.name} の武勲");
+
+                int age = LifecycleRules.Age(c, campaignYear);
+                int years = Mathf.Max(0, age - CommissionAge);
+                float pension = RetirementRules.PensionFactor(years, rp) * MedalRegistry.PensionFactor(c.id);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{c.faction} {c.name} に{kind}{d.grade}を叙勲。恩給見込み {pension:0.00}（勲章×{MedalRegistry.PensionFactor(c.id):0.00}）・名誉{MedalRegistry.Prestige(c.id):0}");
+            }
+        }
+
         // 宗教/文化の配線パラメータ（#172-175/#194・デモ既定）
         private const float RulerFaithDevotion = 0.6f;      // 支配勢力の信仰の強さ（デモ既定）
         private const float ReligionStabilityScale = 10f;   // 信仰の社会効果→安定度への反映スケール
@@ -963,6 +1000,9 @@ namespace Ginei
 
             // 法の支配と法と秩序（LAW-6・#2126）：勢力の法の支配＋惑星の治安を解き、安定へ反映・抑圧を通知。
             RunLawTick();
+
+            // 叙勲（#2263）：武勲ある将官へ年次で叙勲し、恩給見込み（勲章で増）・名誉を通知。
+            RunAnnualMedalTick();
 
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(

@@ -83,6 +83,16 @@ namespace Ginei
 
         /// <summary>軍団長のバフ/デバフ（能力＝攻撃）。`BattlefieldCommandManager` が設定。FleetWeapon/EscortShip が乗算。</summary>
         public float corpsAbilityFactor = 1f;
+
+        [Header("特殊指揮（アクティブ指揮 #2175・ActiveCommandState が設定）")]
+        /// <summary>特殊指揮の与ダメ倍率（FleetWeapon/EscortShip が乗算・既定1.0）。</summary>
+        public float activeAttackFactor = 1f;
+        /// <summary>特殊指揮の被ダメ倍率（TakeDamage が乗算・既定1.0）。</summary>
+        public float activeDamageTakenFactor = 1f;
+        /// <summary>特殊指揮の機動倍率（FleetMovement が乗算・既定1.0）。</summary>
+        public float activeSpeedFactor = 1f;
+        /// <summary>特殊指揮の不退転（敗走しない・FleetMorale が参照）。</summary>
+        public bool activeMoraleLock = false;
         [Tooltip("所属軍集団名（#147・表示用。空＝なし）")]
         public string armyGroupName = "";
 
@@ -324,6 +334,10 @@ namespace Ginei
             // 挟撃／包囲（#2178）：複数方向から囲まれているほど被ダメ増（最大+25%）。
             if (EnvelopmentFactor > 0f)
                 finalDamage = Mathf.RoundToInt(finalDamage * EnvelopmentRules.DamageFactor(EnvelopmentFactor));
+
+            // 特殊指揮（#2175・突撃=脆い／不退転=堅い）：被ダメ倍率を乗算（既定1.0）。
+            if (activeDamageTakenFactor != 1f)
+                finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, activeDamageTakenFactor));
 
             strength -= finalDamage;
             

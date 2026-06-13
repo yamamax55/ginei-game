@@ -280,6 +280,10 @@ namespace Ginei
             if (squadron != null)
                 m.Mul(Mathf.Max(0.1f, FormationTraitRules.MobilityFactor(squadron.currentFormation)));
 
+            // 特殊指揮（#2175・突撃=速い 等）：機動倍率（既定1.0）。
+            if (strength != null && strength.activeSpeedFactor != 1f)
+                m.Mul(Mathf.Max(0.1f, strength.activeSpeedFactor));
+
             // 減速ペナルティを2系統で算出して合算（下限つき）：
             //  ・混雑(GetCongestionFactor)＝全陣営対象の物理的密集
             //  ・ZOC(GetZocFactor)＝敵対部隊の支配領域（敵の素通り・離脱の妨害）

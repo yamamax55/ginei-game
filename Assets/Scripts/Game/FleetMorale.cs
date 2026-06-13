@@ -131,6 +131,9 @@ namespace Ginei
 
         private void UpdateMorale()
         {
+            // 特殊指揮『不退転』（#2175）：効果中は敗走しない＝士気を最低1に保つ。
+            if (strength != null && strength.activeMoraleLock && morale < 1f) morale = 1f;
+
             bool inCombat = (weapon != null && weapon.IsInCombat);
             if (inCombat) lastCombatTime = Time.time;
 

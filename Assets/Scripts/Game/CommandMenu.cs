@@ -194,6 +194,14 @@ namespace Ginei
                     buttonCount++;
                 }
                 
+                // 3d. 特殊指揮（アクティブ指揮 #2175）：選択中の全艦隊へ発令（クールダウン制）。
+                CreateButton("一斉砲撃", () => { IssueActiveCommand(ActiveCommand.一斉砲撃); CloseMenu(); });
+                buttonCount++;
+                CreateButton("突撃", () => { IssueActiveCommand(ActiveCommand.突撃); CloseMenu(); });
+                buttonCount++;
+                CreateButton("不退転", () => { IssueActiveCommand(ActiveCommand.不退転); CloseMenu(); });
+                buttonCount++;
+
                 // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
                 Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];
                 CreateButton("情報", () => { ShowFleetInfo(infoTarget); CloseMenu(); });
@@ -389,6 +397,24 @@ namespace Ginei
                 formationSubRect.pivot = new Vector2(0f, 1f);
                 formationSubRect.anchoredPosition = new Vector2(gap, 0f);
             }
+        }
+
+        /// <summary>選択中の全艦隊へ特殊指揮（#2175）を発令。発令できた数を通知する。</summary>
+        private void IssueActiveCommand(ActiveCommand cmd)
+        {
+            if (commander == null) return;
+            int issued = 0, total = 0;
+            for (int i = 0; i < commander.SelectedFleets.Count; i++)
+            {
+                Selectable sel = commander.SelectedFleets[i];
+                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+                if (fs == null) continue;
+                total++;
+                if (ActiveCommandState.Issue(fs, cmd)) issued++;
+            }
+            if (total > 0 && issued == 0)
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    $"特殊指揮『{cmd}』は今は使えません（クールダウン/効果中）");
         }
 
         public void ChangeFormation(int formationIdx)

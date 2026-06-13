@@ -1066,6 +1066,9 @@ namespace Ginei
 
             // 文官の官歴（官僚制基盤）：文民ネームドに位階を叙し、考課で叙位・五位の壁を回す（朝廷の権威で効く）。
             RunBureaucracyTick();
+
+            // 文官の銓衡配属（官僚制基盤）：叙位された文官を官位相当＋考課で宰相（文官要職）へ任命する（式部省の選叙）。
+            RunCivilAppointmentTick();
         }
 
         /// <summary>
@@ -1272,6 +1275,11 @@ namespace Ginei
 
         // --- 人事の空席補充（#152）と捕虜の処遇（#154）の配線 ---
         private Office[] commandOffices; // 勢力ごとの要職（DemoFactions と並行・null=未設定）
+        private Office[] civilOffices;   // 勢力ごとの文官要職＝宰相（銓衡で配属・DemoFactions と並行）
+        private const CourtRank PremierRequiredRank = CourtRank.従五位下; // 宰相の官位相当＝五位以上（貴族）
+
+        /// <summary>文官要職（観測用・人物名鑑が在任を表示）。</summary>
+        public IReadOnlyList<Office> CivilOffices => civilOffices;
 
         /// <summary>勢力の現役（生存・自由・現役）司令を後任候補として集める。</summary>
         private System.Collections.Generic.List<ICharacter> ActiveCommanders(Faction f)
@@ -1311,6 +1319,51 @@ namespace Ginei
                 { militaryOnly = true, requiredTier = 8 };
                 commandOffices[f] = office;
                 VacancyRules.FillVacancy(fac, office, ActiveCommanders(fac)); // 初任命
+            }
+            // 文官要職＝宰相（内政・文民専用）。位階の要求は官位相当（PremierRequiredRank）で別途効かせる＝requiredTier=0。
+            // 初任は空席のまま（文民は年を追って卒業・叙位される）。年次の RunCivilAppointmentTick が銓衡で埋める。
+            civilOffices = new Office[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                civilOffices[f] = new Office(910 + f, $"{fac}宰相", OfficeScope.国家, OfficeDomain.内政)
+                { civilianOnly = true, requiredTier = 0 };
+            }
+        }
+
+        /// <summary>勢力の文民ネームドを集める（銓衡候補）。</summary>
+        private List<Person> CiviliansOf(Faction f)
+        {
+            var list = new List<Person>();
+            if (civilians == null) return list;
+            for (int i = 0; i < civilians.Count; i++)
+                if (civilians[i] != null && civilians[i].faction == f) list.Add(civilians[i]);
+            return list;
+        }
+
+        /// <summary>
+        /// 文官の銓衡配属（官僚制基盤＝<see cref="CivilAppointmentRules"/> へ委譲）。死亡/捕虜・官位相当を割った在任者を解任し、
+        /// 叙位された文官から考課＋位階で最適者を宰相へ任命する（式部省の選叙）。就任は人事通知へ。
+        /// </summary>
+        private void RunCivilAppointmentTick()
+        {
+            SeedCommandOffices(); // 冪等＝文官要職もここで用意される
+            if (civilOffices == null || civilians == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Office office = civilOffices[f];
+                if (office == null) continue;
+                Faction fac = DemoFactions[f];
+                var holder = GovernmentRegistry.GetHolder(office) as Person;
+                if (holder != null && (!holder.IsAvailable
+                    || JapaneseCourtRankRules.Compare(holder.courtRank, PremierRequiredRank) < 0))
+                    GovernmentRegistry.Dismiss(office, holder); // 官位相当を割った（位階喪失）／死亡・捕虜
+                ICharacter before = GovernmentRegistry.GetHolder(office);
+                Person appointed = CivilAppointmentRules.FillVacancy(
+                    fac, office, PremierRequiredRank, CiviliansOf(fac), CivilServiceRules.AppointmentParams.Default);
+                if (appointed != null && appointed != before)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{fac} {office.officeName} に {appointed.name}（{JapaneseCourtRankRules.Name(appointed.courtRank)}）が就任");
             }
         }
 

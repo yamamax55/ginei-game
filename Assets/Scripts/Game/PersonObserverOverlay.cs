@@ -107,19 +107,34 @@ namespace Ginei
             sb.Append($"<color=#8aa0b0>朝廷の権威 {authority:0.00}（{RitsuryoFormalizationRules.PhaseOf(authority)}）＝官位の実権はこの権威で減衰</color>\n");
 
             int shown = Mathf.Min(civs.Count, maxPersons);
-            for (int i = 0; i < shown; i++) AppendCivil(sb, civs[i]);
+            for (int i = 0; i < shown; i++) AppendCivil(sb, civs[i], gv);
             if (civs.Count > shown) sb.Append($"\n<color=#8aa0b0>…他 {civs.Count - shown} 名</color>");
             sb.Append($"\n<color=#8aa0b0>文官 計 {civs.Count} 名</color>");
         }
 
-        private void AppendCivil(StringBuilder sb, Person p)
+        private void AppendCivil(StringBuilder sb, Person p, GalaxyView gv)
         {
             if (p == null) return;
             string ikai = JapaneseCourtRankRules.Name(p.courtRank);
             string kou = p.merit != null ? p.merit.lastRating.ToString() : "未評定";
             string noble = JapaneseCourtRankRules.IsNobility(p.courtRank) ? "　<color=#ffd54a>貴族</color>" : "";
-            sb.Append($"\n<color=#bfe9c0>◆ {ikai} {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　考第:{kou}{noble}\n");
+            string post = OfficeHeldBy(gv, p);
+            string postPart = string.IsNullOrEmpty(post) ? "" : $"　<color=#ffd54a>在任:{post}</color>";
+            sb.Append($"\n<color=#bfe9c0>◆ {ikai} {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　考第:{kou}{noble}{postPart}\n");
             sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}\n");
+        }
+
+        /// <summary>その文官が就いている文官要職名（無ければ空）。GovernmentRegistry を read-only で照会。</summary>
+        private string OfficeHeldBy(GalaxyView gv, Person p)
+        {
+            var offices = gv != null ? gv.CivilOffices : null;
+            if (offices == null || p == null) return "";
+            for (int i = 0; i < offices.Count; i++)
+            {
+                if (offices[i] == null) continue;
+                if (GovernmentRegistry.GetHolder(offices[i]) is Person h && h.id == p.id) return offices[i].officeName;
+            }
+            return "";
         }
 
         private void AppendPerson(StringBuilder sb, AdmiralData a)

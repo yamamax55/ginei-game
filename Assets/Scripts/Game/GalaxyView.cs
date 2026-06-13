@@ -68,6 +68,8 @@ namespace Ginei
         private readonly Dictionary<int, SpriteRenderer> systemDots = new Dictionary<int, SpriteRenderer>();
         private readonly List<LineRenderer> corridorLines = new List<LineRenderer>();
         private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetMarks = new Dictionary<StrategicFleet, SpriteRenderer>();
+        // 勢力別の艦隊スプライト（帝国/同盟）。未登録の勢力はマル（disc）のまま。Start で Resources から読み込む。
+        private readonly Dictionary<Faction, Sprite> fleetSprites = new Dictionary<Faction, Sprite>();
         private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetRings = new Dictionary<StrategicFleet, SpriteRenderer>();
         private readonly Dictionary<StrategicFleet, TextMesh> fleetEta = new Dictionary<StrategicFleet, TextMesh>();
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
@@ -158,6 +160,7 @@ namespace Ginei
 
             disc = MakeDiscSprite(64);
             lineMat = new Material(Shader.Find("Sprites/Default"));
+            LoadFleetSprites();
 
             BuildDemoGalaxy();
             SetupGovernance();
@@ -533,8 +536,15 @@ namespace Ginei
                 var go = new GameObject($"Fleet_{f.id}");
                 go.transform.SetParent(transform, false);
                 go.transform.localScale = Vector3.one * fleetScale;
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = disc; sr.color = FactionColor(f.faction); sr.sortingOrder = 4;
+
+                // 本体スプライト（移動方向へ回転する子）。リング/ETA ラベルは回らないよう親（go）直下に置く。
+                var bodyGo = new GameObject("Body");
+                bodyGo.transform.SetParent(go.transform, false);
+                var sr = bodyGo.AddComponent<SpriteRenderer>();
+                Sprite fs = FleetSpriteFor(f.faction);
+                if (fs != null) { sr.sprite = fs; sr.color = Color.white; }            // 専用画像：陣営色で着色しない
+                else { sr.sprite = disc; sr.color = FactionColor(f.faction); }          // 画像が無い勢力はマル
+                sr.sortingOrder = 4;
                 fleetMarks[f] = sr;
 
                 // 選択リング（子・既定オフ）
@@ -2896,7 +2906,7 @@ namespace Ginei
             if (gone != null)
                 foreach (var f in gone)
                 {
-                    if (fleetMarks[f] != null) Destroy(fleetMarks[f].gameObject);
+                    if (fleetMarks[f] != null) Destroy(fleetMarks[f].transform.parent.gameObject);
                     fleetMarks.Remove(f); fleetRings.Remove(f); fleetEta.Remove(f); selectedFleets.Remove(f);
                 }
 
@@ -2929,8 +2939,14 @@ namespace Ginei
             {
                 StrategicFleet f = kv.Key;
                 if (f == null || kv.Value == null) continue;
-                kv.Value.transform.position = FleetWorldPos(f);
-                kv.Value.color = FactionColor(f.faction);
+                var anchor = kv.Value.transform.parent;                      // 移動アンカー（go）。本体（kv.Value）は子。
+                anchor.position = FleetWorldPos(f);
+
+                bool hasSprite = fleetSprites.ContainsKey(f.faction);
+                kv.Value.color = hasSprite ? Color.white : FactionColor(f.faction);
+                // 移動方向（回廊の向き）へ本体だけ回す。停泊中は最後の向きを保つ。専用画像のみ回転。
+                if (hasSprite && TryFleetHeading(f, out var dir))
+                    kv.Value.transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
 
                 if (fleetRings.TryGetValue(f, out var ring)) ring.enabled = selectedFleets.Contains(f);
                 if (fleetEta.TryGetValue(f, out var eta))
@@ -3534,6 +3550,33 @@ namespace Ginei
 
         private Color OwnerColor(Faction f) => (f == Faction.帝国) ? empireColor : allianceColor;
         private Color FactionColor(Faction f) => Color.Lerp((f == Faction.帝国) ? empireColor : allianceColor, Color.white, 0.35f);
+
+        /// <summary>勢力別の艦隊スプライトを Resources から読み込む（帝国/同盟）。無い勢力はマルのまま。</summary>
+        private void LoadFleetSprites()
+        {
+            fleetSprites.Clear();
+            var imperial = Resources.Load<Sprite>("Ships/ImperialFlagship");
+            if (imperial != null) fleetSprites[Faction.帝国] = imperial;
+            var alliance = Resources.Load<Sprite>("Ships/AllianceFlagship");
+            if (alliance != null) fleetSprites[Faction.同盟] = alliance;
+        }
+
+        /// <summary>この勢力の艦隊スプライト（無ければ null＝マル表示）。</summary>
+        private Sprite FleetSpriteFor(Faction f) => fleetSprites.TryGetValue(f, out var s) ? s : null;
+
+        /// <summary>艦隊の進行方向（回廊の向き）。回廊上のときだけ true。停泊中は向きを変えない。</summary>
+        private bool TryFleetHeading(StrategicFleet f, out Vector2 dir)
+        {
+            dir = Vector2.zero;
+            if (f == null || map == null || !f.IsOnCorridor) return false;
+            StarSystem cur = map.GetSystem(f.currentSystemId);
+            StarSystem dst = map.GetSystem(f.destinationSystemId);
+            if (cur == null || dst == null) return false;
+            Vector2 d = dst.position - cur.position;
+            if (d.sqrMagnitude < 1e-6f) return false;
+            dir = d.normalized;
+            return true;
+        }
 
         private LineRenderer NewLine(string name, int order)
         {

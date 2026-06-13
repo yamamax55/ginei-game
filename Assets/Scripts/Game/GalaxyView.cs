@@ -136,6 +136,8 @@ namespace Ginei
         public float idleCalendarCompression = 30f;
         [Tooltip("暦流速の減速/再加速のなめらかさ（1秒あたりの倍率変化）")]
         public float calendarEaseRate = 8f;
+        [Tooltip("PERF（死のスパイラル防止）：1フレームで進める実時間の上限(秒)。ヒッチ/alt-tab/GCストールで巨大化した deltaTime が暦圧縮(最大idleCalendarCompression倍)で増幅され、年/日境界が一気に大量発火→重い社会シミュが1フレームで数百回走り管理ヒープが数GBへ膨張するのを防ぐ。スケーラビリティ規律#2。")]
+        public float maxFrameDt = 0.1f;
         private float calendarCompression = 1f; // 現在の暦流速倍率（1=実時間。起動時は実時間から立ち上げる）
 
         // 内政（#109・#759）：星系ごとの統治状態。デモは所有勢力の思想で安定度が動く。
@@ -217,14 +219,18 @@ namespace Ginei
             // クロックを駆動し、galaxySpeed/paused はそれをミラーする（日付HUD・時間連続性・自動解決の出所）。
             GameClock clock = StrategySession.Clock;
             if (clock != null) { galaxySpeed = (float)clock.speed; paused = clock.paused; }
-            float dt = paused ? 0f : Time.deltaTime * Mathf.Max(0f, galaxySpeed);
+            // PERF（死のスパイラル防止）：ヒッチ/alt-tab/GCストールで巨大化した Time.deltaTime を上限クランプ。
+            // 暦圧縮(calendarCompression・最大 idleCalendarCompression 倍)で増幅されるため、生のまま使うと
+            // 1フレームで年/日境界が大量発火→重い社会シミュが数百回走り管理ヒープが数GBへ膨張する（スケーラビリティ規律#2）。
+            float frameDt = Mathf.Min(Time.deltaTime, maxFrameDt);
+            float dt = paused ? 0f : frameDt * Mathf.Max(0f, galaxySpeed);
 
             // TIME-7（#959）：暦は自動スロー。平時は暦を圧縮して速く流し（年が分単位）、会戦の生起など「観るべき瞬間」は
             // 実時間へ減速する。実時間アクション（艦隊移動・自動解決・攻城）は dt のまま＝暦だけ伸縮する（観られる速さは不変）。
             var flow = new TimeFlowRules.TimeFlowParams(idleCalendarCompression, 1f, calendarEaseRate);
             calendarCompression = TimeFlowRules.Ease(
-                calendarCompression, TimeFlowRules.TargetCompression(IsActionSalient(), flow), flow, Time.deltaTime);
-            if (clock != null) clock.Advance(Time.deltaTime * calendarCompression);
+                calendarCompression, TimeFlowRules.TargetCompression(IsActionSalient(), flow), flow, frameDt);
+            if (clock != null) clock.Advance(frameDt * calendarCompression);
             reg.Tick(dt);
 
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。

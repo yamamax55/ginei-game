@@ -486,6 +486,13 @@ namespace Ginei
             arena.planetOwner = BattleHandoff.planetOwner;
             arena.initialDefenseRatio = BattleHandoff.planetDefenseRatio;
             arena.initialInvasionRatio = BattleHandoff.planetInvasionRatio;
+            // 守備隊の引き継ぎ（#131 第4段）。戦略の惑星が守備隊を持つときだけ上書き（0＝アリーナ既定＝後方互換）。
+            if (BattleHandoff.planetMaxGarrison > 0)
+            {
+                arena.maxGroundGarrison = BattleHandoff.planetMaxGarrison;
+                arena.initialGarrisonRatio = BattleHandoff.planetGarrisonRatio;
+                arena.initialGarrisonMorale = BattleHandoff.planetGarrisonMorale;
+            }
             arena.Build();
 
             // 攻城艦隊を惑星の周囲に円環状に配置（首飾り射程の外・惑星へ正対）。突入した艦隊はプレイヤー操作。

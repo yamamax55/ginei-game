@@ -35,8 +35,10 @@ namespace Ginei
         public int groundTroopsPerFleet = 3000;
         [Tooltip("惑星の地上守備隊（名）。ドメイン・ダウン後の地上戦で侵攻に抵抗。攻撃側がこれを上回るぶんだけ侵略が進む（劣勢なら停滞）。0＝守備隊なし＝従来動作")]
         public int maxGroundGarrison = 12000;
-        [Tooltip("突入時の守備隊残り割合(0..1)。将来は戦略の惑星から引き継ぐ")]
+        [Tooltip("突入時の守備隊残り割合(0..1)。戦略の惑星から引き継ぐ")]
         public float initialGarrisonRatio = 1f;
+        [Tooltip("突入時の守備隊士気(0..1)。戦略の惑星から引き継ぐ")]
+        public float initialGarrisonMorale = 1f;
 
         [Header("対空砲火（守備隊→包囲艦）")]
         [Tooltip("地上守備隊が包囲艦へ撃つ対空火線の本数（演出＝火力分散の単位）")]
@@ -116,6 +118,8 @@ namespace Ginei
         /// <summary>地上守備隊の士気(0..1)。</summary>
         public float GarrisonMoraleRatio => planet != null ? Mathf.Clamp01(planet.garrisonMorale) : 0f;
         public bool Captured => captured;
+        /// <summary>四面楚歌で守備隊が降伏して落ちたか（占領の内訳・戦略へ書き戻す）。</summary>
+        public bool Surrendered => garrisonSurrendered;
 
         /// <summary>BattleSetup が値を設定した後に呼ぶ。ビジュアルと攻城状態を構築する。</summary>
         public void Build()
@@ -133,6 +137,7 @@ namespace Ginei
             // 地上守備隊（二者化 #131）。0＝守備隊なし＝従来の一方的侵攻。
             planet.maxGroundGarrison = Mathf.Max(0, maxGroundGarrison);
             planet.groundGarrison = Mathf.Clamp01(initialGarrisonRatio) * planet.maxGroundGarrison;
+            planet.garrisonMorale = Mathf.Clamp01(initialGarrisonMorale);
 
             BuildPlanet();
             BuildRing();

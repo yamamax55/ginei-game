@@ -176,9 +176,11 @@ namespace Ginei
             // arena が無くても必ず resolve して受け渡しを完結させる（Pending の残留防止）。
             SiegeArena arena = FindFirstObjectByType<SiegeArena>();
             if (arena != null)
-                BattleHandoff.SetSiegeResult(arena.DefenseRatio, arena.InvasionRatio, arena.Captured);
+                BattleHandoff.SetSiegeResult(arena.DefenseRatio, arena.InvasionRatio, arena.Captured,
+                    arena.GarrisonRatio, arena.GarrisonMoraleRatio, arena.Surrendered);
             else
-                BattleHandoff.SetSiegeResult(BattleHandoff.planetDefenseRatio, BattleHandoff.planetInvasionRatio, false);
+                BattleHandoff.SetSiegeResult(BattleHandoff.planetDefenseRatio, BattleHandoff.planetInvasionRatio, false,
+                    BattleHandoff.planetGarrisonRatio, BattleHandoff.planetGarrisonMorale, false);
 
             string ret = BattleHandoff.returnScene;
             Time.timeScale = 1f;

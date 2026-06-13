@@ -43,6 +43,11 @@ namespace Ginei
         public static Faction besiegerFaction;  // 攻城側（突入する艦隊）
         public static int besiegerStrength;      // 攻城側の戦略兵力
 
+        // 守備隊の引き継ぎ（#131 第4段・戦略の惑星→戦術アリーナ）。maxGarrison 0＝守備隊なし＝従来動作。
+        public static int planetMaxGarrison;        // 守備隊の最大（名）
+        public static float planetGarrisonRatio = 1f; // 突入時の守備隊残り割合(0..1)
+        public static float planetGarrisonMorale = 1f; // 突入時の守備隊士気(0..1)
+
         // ===== システムビュー（戦闘中でなくても星系をダブルクリックで戦術マップへ入る・恒星系の閲覧）=====
         public static bool IsSystemView;        // この受け渡しが非戦闘のシステムビューか
         public static int systemViewId;         // 入場する星系ID
@@ -54,6 +59,9 @@ namespace Ginei
         public static float siegeResultDefense;  // 残った制空権の割合(0..1)
         public static float siegeResultInvasion; // 侵略値の割合(0..1)
         public static bool siegeResultCaptured;  // 戦術マップで占領まで至ったか
+        public static float siegeResultGarrison = 1f;  // 残った守備隊割合(0..1)
+        public static float siegeResultMorale = 1f;    // 残った守備隊士気(0..1)
+        public static bool siegeResultSurrendered;     // 四面楚歌で降伏して落ちたか
 
         /// <summary>戦術マップでの攻城進捗を結果として書き込む（割合・占領フラグ）。</summary>
         public static void SetSiegeResult(float defenseRatio, float invasionRatio, bool captured)
@@ -64,12 +72,23 @@ namespace Ginei
             siegeResolved = true;
         }
 
+        /// <summary>守備隊（割合・士気・降伏）も含めて攻城結果を書き込む（#131 第4段）。</summary>
+        public static void SetSiegeResult(float defenseRatio, float invasionRatio, bool captured,
+                                          float garrisonRatio, float garrisonMorale, bool surrendered)
+        {
+            SetSiegeResult(defenseRatio, invasionRatio, captured);
+            siegeResultGarrison = Mathf.Clamp01(garrisonRatio);
+            siegeResultMorale = Mathf.Clamp01(garrisonMorale);
+            siegeResultSurrendered = surrendered;
+        }
+
         /// <summary>
         /// 惑星攻城を戦術マップへ予約する（惑星中心・攻城艦隊が包囲・首飾り射程の外まで接近）。
         /// </summary>
         public static void QueuePlanetSiege(int systemId, string name, Faction owner, float defenseRatio,
             float invasionRatio, Faction besieger, int strength, string returnScene,
-            Planet.SiegeTargetKind kind = Planet.SiegeTargetKind.惑星)
+            Planet.SiegeTargetKind kind = Planet.SiegeTargetKind.惑星,
+            int maxGarrison = 0, float garrisonRatio = 1f, float garrisonMorale = 1f)
         {
             IsPlanetSiege = true;
             IsSystemView = false;
@@ -81,6 +100,10 @@ namespace Ginei
             planetInvasionRatio = invasionRatio;
             besiegerFaction = besieger;
             besiegerStrength = strength;
+            // 守備隊（#131 第4段）。maxGarrison 0＝守備隊なし＝従来動作。
+            planetMaxGarrison = Mathf.Max(0, maxGarrison);
+            planetGarrisonRatio = Mathf.Clamp01(garrisonRatio);
+            planetGarrisonMorale = Mathf.Clamp01(garrisonMorale);
             BattleHandoff.returnScene = returnScene;
             siegeResolved = false;
             Pending = true;

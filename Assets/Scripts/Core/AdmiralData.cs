@@ -112,6 +112,10 @@ namespace Ginei
                  "既定 false＝従来動作。ThreeDayReignRules が解決")]
         public bool isThreeDayRuler = false; // 三日天下型＝明智光秀型（中央通・謀反成功・短命）
 
+        [Tooltip("寝返り型（#寝返り＝小早川秀秋型）。調略・圧力に屈し布陣後に寝返る。決定的だが布陣後の寝返りはご法度ゆえ名誉が大幅に下がる。" +
+                 "既定 false＝従来動作。TurncoatRules が解決")]
+        public bool isTurncoat = false; // 寝返り型＝小早川秀秋型（布陣後の寝返り・名誉大幅減）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

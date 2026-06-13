@@ -1078,9 +1078,14 @@ namespace Ginei
 
         // --- 陸軍大学校のエリート街道（#SCHOOL-AGE 配線） ---
 
-        /// <summary>勢力ごとの昇進ドクトリン（デモ＝帝国は学閥主義／同盟は実力主義＝米軍対比）。</summary>
+        /// <summary>勢力の昇進ドクトリンを現在の政体形態から導く（民主＝実力主義／専制・君主・共産＝学閥主義＝政体が軍人事に効く）。</summary>
         private static PromotionDoctrine WarCollegeDoctrine(Faction f)
-            => f == Faction.帝国 ? PromotionDoctrine.学閥主義 : PromotionDoctrine.実力主義;
+        {
+            var camp = StrategySession.Campaign;
+            FactionState s = camp != null ? CampaignRules.GetState(camp, f) : null;
+            if (s != null) return GovernmentFormRules.PromotionDoctrineOf(s.governmentForm);
+            return f == Faction.帝国 ? PromotionDoctrine.学閥主義 : PromotionDoctrine.実力主義; // フォールバック
+        }
 
         /// <summary>
         /// 大学校入学→学校配属（艦隊配属不可）→卒業で大学校卒=参謀＝恩賜の軍刀組→昇進優遇 を年次で回す（#SCHOOL-AGE）。
@@ -1268,9 +1273,14 @@ namespace Ginei
             return list;
         }
 
-        /// <summary>デモの政体（文民統制型）：帝国＝君主統帥／同盟＝文民統制。捕虜処遇 DefaultDisposition に使う。</summary>
+        /// <summary>勢力の軍政型を現在の政体形態から導く（捕虜処遇 DefaultDisposition 等が政体に追従＝共産化で処断的に等）。</summary>
         private static CivilianControlType FactionControl(Faction f)
-            => f == Faction.帝国 ? CivilianControlType.君主統帥 : CivilianControlType.文民統制;
+        {
+            var camp = StrategySession.Campaign;
+            FactionState s = camp != null ? CampaignRules.GetState(camp, f) : null;
+            if (s != null) return GovernmentFormRules.ControlTypeOf(s.governmentForm);
+            return f == Faction.帝国 ? CivilianControlType.君主統帥 : CivilianControlType.文民統制; // フォールバック
+        }
 
         private static Faction EnemyOf(Faction f) => f == Faction.帝国 ? Faction.同盟 : Faction.帝国;
 

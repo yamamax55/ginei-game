@@ -81,6 +81,13 @@ namespace Ginei
         /// <summary>独裁主義か（共産/指導者独裁）。</summary>
         public static bool IsAutocratic(GovernmentForm form) => form == GovernmentForm.共産主義 || form == GovernmentForm.指導者独裁;
 
+        /// <summary>
+        /// 形態→軍人事ドクトリン（#MILEDU-SWORD への橋渡し）。<b>民主主義（立憲君主制/共和制）は実力主義</b>＝開かれた社会は
+        /// merit で出世／<b>それ以外（首長制/君主制/共産主義/指導者独裁）は学閥主義</b>＝credential/閥が人事を握る。
+        /// </summary>
+        public static PromotionDoctrine PromotionDoctrineOf(GovernmentForm form)
+            => IsDemocratic(form) ? PromotionDoctrine.実力主義 : PromotionDoctrine.学閥主義;
+
         /// <summary>軸の束→形態の分類（合成ビュー）。国有＝共産、立憲＋選挙＝民主（君主有無で立憲君主/共和）、ほかは軍政型で分ける。</summary>
         public static GovernmentForm Classify(bool sovereign, bool constitutional, bool elections, Ownership ownership, CivilianControlType control)
         {

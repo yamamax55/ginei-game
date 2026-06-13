@@ -56,6 +56,17 @@ namespace Ginei.Tests
             Assert.IsFalse(GovernmentFormRules.IsDemocratic(GovernmentForm.君主制));
         }
 
+        [Test]
+        public void PromotionDoctrine_DemocraciesAreMeritocratic()
+        {
+            // 民主主義は実力主義／それ以外は学閥主義（政体が軍人事に効く）
+            Assert.AreEqual(PromotionDoctrine.実力主義, GovernmentFormRules.PromotionDoctrineOf(GovernmentForm.立憲君主制));
+            Assert.AreEqual(PromotionDoctrine.実力主義, GovernmentFormRules.PromotionDoctrineOf(GovernmentForm.共和制));
+            Assert.AreEqual(PromotionDoctrine.学閥主義, GovernmentFormRules.PromotionDoctrineOf(GovernmentForm.君主制));
+            Assert.AreEqual(PromotionDoctrine.学閥主義, GovernmentFormRules.PromotionDoctrineOf(GovernmentForm.共産主義));
+            Assert.AreEqual(PromotionDoctrine.学閥主義, GovernmentFormRules.PromotionDoctrineOf(GovernmentForm.指導者独裁));
+        }
+
         // ===== 進化グラフ（合法遷移） =====
 
         [Test]

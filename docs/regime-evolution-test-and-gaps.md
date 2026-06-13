@@ -7,7 +7,7 @@
 
 ## 0. 結論（先に）
 
-> **状態：§4 の最小設計を実装済**＝`GovernmentForm`／`GovernmentFormRules`（Core・test-first `GovernmentFormRulesTests`）＋`FactionState.governmentForm`＋`GalaxyView.RunRegimeEvolutionTick`（年次・帝国=君主制/同盟=共和制シード→社会シグナルで分岐進化・通知）。形態は軸（軍政/所有）へ `ControlTypeOf`/`OwnershipOf` で橋渡し。**政変による形態転換も実装済**＝`PoliticalUpheavalRules`（`CivilianControlRules.WouldCoup`→`CoupRules`→成功で `FormAfterCoup`＝軍部→指導者独裁/革命→共産主義or共和制/宮廷→不変）を `RunRegimeEvolutionTick` が年次で回す（政変が無ければ緩やかな `NextForm` 進化）。**残＝形態差の常時帰結**（任免資格 `CivilianControlRules.DefaultMilitaryOnly`／所有 `OwnershipOf`→企業利潤先／選挙の有無）を統治の各所が `governmentForm` から読む接続。下記は当初のギャップ分析（記録）。
+> **状態：§4 の最小設計を実装済**＝`GovernmentForm`／`GovernmentFormRules`（Core・test-first `GovernmentFormRulesTests`）＋`FactionState.governmentForm`＋`GalaxyView.RunRegimeEvolutionTick`（年次・帝国=君主制/同盟=共和制シード→社会シグナルで分岐進化・通知）。形態は軸（軍政/所有）へ `ControlTypeOf`/`OwnershipOf` で橋渡し。**政変による形態転換も実装済**＝`PoliticalUpheavalRules`（`CivilianControlRules.WouldCoup`→`CoupRules`→成功で `FormAfterCoup`＝軍部→指導者独裁/革命→共産主義or共和制/宮廷→不変）を `RunRegimeEvolutionTick` が年次で回す（政変が無ければ緩やかな `NextForm` 進化）。**形態差の常時帰結も一部実装**＝(a) **捕虜処遇** が政体に追従（`FactionControl`→`ControlTypeOf`＝共産化で処断的・民主は解放・`ResolveCaptives`）／(b) **軍人事ドクトリン** が政体で変わる（`WarCollegeDoctrine`→`PromotionDoctrineOf`＝民主=実力主義/専制=学閥主義＝恩賜の軍刀組の効きが政体で変化）。**残＝企業利潤先（`OwnershipOf`→`EnterpriseRules` 国有/私有・要・企業の盤面配線）／任免資格（`DefaultMilitaryOnly`→`OfficeRules`・要・役職システム拡充）／選挙（要・`LeadershipElectionRules` 配線）**。下記は当初のギャップ分析（記録）。
 
 **（当初の不足）政体の「形態」を表す統一型と、形態間の遷移グラフが存在しなかった。** あるのは**軸がバラバラの部品**だけ：
 

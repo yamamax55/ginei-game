@@ -204,8 +204,12 @@ namespace Ginei
 
         private void Update()
         {
-            // 星系情報パネル／イベント提示モーダル／艦隊編成画面 表示中は戦略マップの入力・進行を止める（各パネルがポーズ＆入力を処理）。
-            if (SystemDetailPanel.IsOpen || StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen || CampaignEndOverlay.IsOpen) return;
+            // イベント提示モーダル／艦隊編成画面／決裁／終了画面 表示中は戦略マップの入力・進行を止める。
+            // SystemDetailPanel は非モーダル窓化したので塞がない（開いたままマップ操作・進行が続く）。
+            if (StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen || CampaignEndOverlay.IsOpen) return;
+
+            // 盤面が未構築（Start 前・リロード途中）なら何もしない＝reg/map の null 参照を全面ガード。
+            if (map == null || reg == null) return;
 
             HandleKeys();
 
@@ -3401,8 +3405,8 @@ namespace Ginei
             if (sysId < 0 || d > systemClickRadius) return false;
             StarSystem s = map.GetSystem(sysId);
             if (s == null) return false;
-            BattleHandoff.QueueSystemView(s.id, s.systemName, s.owner, "Strategy");
-            SceneManager.LoadScene("Battle");
+            // 全画面のシステムビュー（Battleシーン）へ遷移せず、その場で恒星系マップ窓を開く（非モーダル）。
+            SystemMapWindow.Show(s.id, s.systemName, s.owner);
             return true;
         }
 
@@ -3423,6 +3427,7 @@ namespace Ginei
         /// <summary>交戦中（engaged）の艦隊が1隻でも居るか。</summary>
         private bool AnyEngaged()
         {
+            if (reg == null || reg.fleets == null) return false; // リロード途中など未初期化時の保険
             foreach (var f in reg.fleets) if (f != null && f.engaged) return true;
             return false;
         }

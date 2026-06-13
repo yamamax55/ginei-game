@@ -291,6 +291,11 @@ namespace Ginei
 
         // ===== 目標（勝利進捗＋次の一手）＝B：目的可視化 =====
 
+        /// <summary>現在の難易度（GameSettings）に応じた制覇しきい値（進捗バーのマーカー/着色に使う）。</summary>
+        private static float ActiveDominationFraction()
+            => CampaignDifficultyRules.VictoryParams(
+                GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通).dominationFraction;
+
         private void BuildObjectiveRow(Transform bar)
         {
             var row = new GameObject("ObjectiveRow").AddComponent<RectTransform>();
@@ -313,8 +318,8 @@ namespace Ginei
             var fillImg = objectiveFillRT.gameObject.AddComponent<Image>();
             fillImg.color = new Color(0.35f, 0.7f, 0.95f, 0.9f); fillImg.raycastTarget = false;
 
-            // 勝利しきい値（既定60%）の縦マーカー。
-            float winMark = CampaignVictoryRules.CampaignVictoryParams.Default.dominationFraction;
+            // 勝利しきい値（難易度連動）の縦マーカー。
+            float winMark = ActiveDominationFraction();
             var mark = new GameObject("WinMark").AddComponent<RectTransform>();
             mark.transform.SetParent(barBg, false);
             mark.anchorMin = new Vector2(winMark, 0f); mark.anchorMax = new Vector2(winMark, 1f);
@@ -341,7 +346,7 @@ namespace Ginei
             int total = CampaignVictoryRules.TotalSystems(map);
             int owned = CampaignVictoryRules.OwnedCount(map, pf);
             float frac = CampaignVictoryRules.OwnedFraction(map, pf);
-            float winFrac = CampaignVictoryRules.CampaignVictoryParams.Default.dominationFraction;
+            float winFrac = ActiveDominationFraction();
             bool rivalsRemain = CampaignVictoryRules.RivalSystemsRemain(map, pf);
 
             objectiveFillRT.anchorMax = new Vector2(Mathf.Clamp01(frac), 1f);

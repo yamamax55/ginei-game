@@ -101,6 +101,17 @@ namespace Ginei
         private List<Person> civilians;
         private const int CivilRosterCap = 80; // 文民名簿の上限（PERF）
 
+        // 朝廷の権威（律令の形骸化・官僚制基盤）。封建の世＝既に低め（武家政権相当）＝官職は名誉職化方向。
+        // 文官ネームドの考課・叙位（五位の壁）はこの権威で効く（BureaucracyCareerRules / RitsuryoFormalizationRules）。
+        private CourtAuthority courtAuthority; // 実体は StrategySession.CourtAuthority（SetupPersonnel で共有＝Battle往復/セーブで永続）
+
+        /// <summary>朝廷の権威（観測用・read-only 参照）。</summary>
+        public CourtAuthority Court => courtAuthority;
+        /// <summary>文民ネームドのロスター（観測用・人物名鑑が読む）。</summary>
+        public IReadOnlyList<Person> CivilianRoster => civilians;
+        /// <summary>武官ネームドのロスター（観測用・人物名鑑が読む）。</summary>
+        public IReadOnlyList<Person> CommanderRoster => commanders;
+
         // 幼稚園/小学校/中学校/高校（#155-157 の土台）：勢力ごとの就学前〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
         private List<Kindergarten> kindergartens;
         private List<ElementarySchool> elementarySchools;
@@ -194,7 +205,7 @@ namespace Ginei
         private void Update()
         {
             // 星系情報パネル／イベント提示モーダル／艦隊編成画面 表示中は戦略マップの入力・進行を止める（各パネルがポーズ＆入力を処理）。
-            if (SystemDetailPanel.IsOpen || StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen) return;
+            if (SystemDetailPanel.IsOpen || StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen || CampaignEndOverlay.IsOpen) return;
 
             HandleKeys();
 
@@ -284,6 +295,29 @@ namespace Ginei
             // 国家状態（#817 旗幟の基準忠誠の出所）：Battle 往復で失わないよう StrategySession に持たせる。
             if (StrategySession.Campaign == null) StrategySession.Campaign = new CampaignState(map);
             CampaignRules.EnsureStates(StrategySession.Campaign);
+
+            AnnounceCampaignObjective(); // 遊べる縦スライス：目標と初手をプレイヤーに提示（オンボーディング）
+        }
+
+        // --- オンボーディング（目標提示＋初手ガイド） ---
+        private static bool objectiveAnnounced;
+
+        /// <summary>現在の難易度（GameSettings）に応じた勝敗しきい値。盤面/勝敗/目標表示の単一窓口。</summary>
+        private static CampaignVictoryRules.CampaignVictoryParams ActiveVictoryParams()
+            => CampaignDifficultyRules.VictoryParams(
+                GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通);
+
+        /// <summary>キャンペーン開始時に勝利目標と最初の操作を通知で提示する（セッション一度きり）。勝敗は <see cref="CampaignVictoryRules"/>。</summary>
+        private void AnnounceCampaignObjective()
+        {
+            if (objectiveAnnounced) return;
+            objectiveAnnounced = true;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            int pct = Mathf.RoundToInt(ActiveVictoryParams().dominationFraction * 100f);
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
+                $"【目標】{player} で銀河の {pct}% を支配せよ（敵を全制圧でも勝利／全星系を失えば敗北）");
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
+                "操作：星系を右クリックで進軍 → 前線で接触 → 交戦中の回廊をダブルクリックで潜行（会戦へ）。Space/1-3=速度、H=ヘルプ。");
         }
 
         private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)
@@ -312,8 +346,36 @@ namespace Ginei
                 }
 
                 FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
-                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s), deltaTime: dt);
+                // 文官行政（総督＝地方＋宰相＝中央）が安定度目標を押し上げる＝名実の乖離で朝廷の権威ぶん減衰（権威0なら効かない）。
+                // ＋経済・民心（創発ループ配線）：高税/債務スパイラル/民心崩壊が安定度を下げ反乱を誘発、繁栄は安定を支える。
+                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s),
+                    deltaTime: dt, policy: GovernancePolicy.民生, adminBonus: SystemAdminBonus(s) + EconomyStabilityBonus(s.owner));
             }
+        }
+
+        /// <summary>所有勢力の在任宰相による安定度寄与（名実の乖離＝朝廷の権威で減衰・<see cref="AdministrationRules"/>）。空席/非デモ勢力は0。</summary>
+        private float PremierAdminBonus(Faction owner)
+        {
+            if (civilOffices == null) return 0f;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                if (DemoFactions[f] != owner) continue;
+                Office office = civilOffices[f];
+                if (office == null) return 0f;
+                var premier = GovernmentRegistry.GetHolder(office) as Person;
+                float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+                return AdministrationRules.StabilityContribution(premier, authority, AdministrationRules.AdminParams.Default);
+            }
+            return 0f;
+        }
+
+        /// <summary>所有勢力の経済・民心が安定度へ与える±補正（創発ループ＝高税/債務/低民心で反乱を誘発・<see cref="GovernanceEconomyRules"/>）。国家状態が無ければ0。</summary>
+        private float EconomyStabilityBonus(Faction owner)
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null) return 0f;
+            FactionState fs = CampaignRules.GetState(camp, owner);
+            return fs == null ? 0f : GovernanceEconomyRules.StabilityModifier(fs);
         }
 
         /// <summary>その星系に所有勢力と敵対する戦略艦隊が停泊しているか（戦時ペナルティ判定）。</summary>
@@ -368,21 +430,23 @@ namespace Ginei
             // 戦略↔実会戦の往復で世界状態を保持（あれば再利用）
             if (StrategySession.HasState) { map = StrategySession.Map; reg = StrategySession.Reg; return; }
 
+            // 開始は帝国3:同盟3＝50:50（勝利/敗北しきい値70%＝開始時はどちらも未達＝開幕で決着しない）。
+            // 帝国＝右クラスタ{0,2,3}／同盟＝左クラスタ{1,4,5}。中央ドラコ(3)が唯一の前線ハブ。
             map = new GalaxyMap();
             map.AddSystem(new StarSystem(0, "アスタ", new Vector2(0f, 3f), Faction.帝国));
             map.AddSystem(new StarSystem(1, "ベガ", new Vector2(-5f, -3f), Faction.同盟));
             map.AddSystem(new StarSystem(2, "ケレス", new Vector2(5f, 3f), Faction.帝国));
             map.AddSystem(new StarSystem(3, "ドラコ", new Vector2(0f, -0.5f), Faction.帝国));
             map.AddSystem(new StarSystem(4, "エリス", new Vector2(-2.5f, 1f), Faction.同盟));
-            map.AddSystem(new StarSystem(5, "フェニクス", new Vector2(3.5f, -2.5f), Faction.帝国));
+            map.AddSystem(new StarSystem(5, "フェニクス", new Vector2(-3.5f, -2.5f), Faction.同盟));
 
             map.AddCorridor(new Corridor(2, 0, 4f, CorridorType.要衝));
             map.AddCorridor(new Corridor(0, 3, 5f));
-            map.AddCorridor(new Corridor(3, 1, 4f));
-            map.AddCorridor(new Corridor(3, 4, 3f));
+            map.AddCorridor(new Corridor(3, 1, 4f));  // 前線：帝国ドラコ ⟷ 同盟ベガ
+            map.AddCorridor(new Corridor(3, 4, 3f));  // 前線：帝国ドラコ ⟷ 同盟エリス
             map.AddCorridor(new Corridor(4, 1, 2f));
-            map.AddCorridor(new Corridor(0, 5, 3f));
-            map.AddCorridor(new Corridor(5, 3, 2f));
+            map.AddCorridor(new Corridor(1, 5, 2f));
+            map.AddCorridor(new Corridor(4, 5, 3f));
 
             // 帝国星系は惑星（制空権持ち）で防衛＝同盟は停泊だけでは占領できず攻城が要る（#131）。
             // 同盟星系は無防備（planet 無し）＝従来どおり停泊で占領（両方の挙動をデモ）。
@@ -405,6 +469,15 @@ namespace Ginei
             reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300 });
             reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f) { strength = 150 });
             reg.Add(new StrategicFleet(4, 3, Faction.帝国, 1.3f) { strength = 200 }); // ドラコ防衛・前線で衝突用
+
+            // 難易度の開始戦力傾き（易しい＝自軍強め/敵弱め）。プレイヤー勢力以外を敵として倍率を掛ける（基準は等倍＝普通）。
+            CampaignDifficulty diff = GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通;
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            float pFac = CampaignDifficultyRules.PlayerStrengthFactor(diff);
+            float eFac = CampaignDifficultyRules.EnemyStrengthFactor(diff);
+            foreach (var f in reg.fleets)
+                if (f != null)
+                    f.strength = Mathf.Max(1, Mathf.RoundToInt(f.strength * (f.faction == pf ? pFac : eFac)));
 
             StrategySession.Set(map, reg);
         }
@@ -577,6 +650,7 @@ namespace Ginei
                 if (yard == null) continue;
                 provinces.TryGetValue(yard.systemId, out var prov);
                 float factor = ShipyardRules.ProductionFactor(prov); // BUILD-2：安定度比例＝支配≠即建艦
+                factor *= ShipbuildingFundingFactor(yard.faction);   // G3：建艦予算の出資度が建艦速度に効く（#163→#884）
                 var done = ShipyardRules.Tick(yard, secondsPerDay, factor);
                 for (int j = 0; j < done.Count; j++)
                 {
@@ -598,15 +672,40 @@ namespace Ginei
         private void SetupPersonnel()
         {
             campaignYear = TimeDisplay.StartYear; // 開始暦（宇宙暦SE796）と揃える
+            // 朝廷の権威は StrategySession に持たせ Battle 往復・セーブで永続（無ければ既定0.35＝武家政権相当で起こす）。
+            courtAuthority = StrategySession.CourtAuthority ?? (StrategySession.CourtAuthority = new CourtAuthority(0.35f));
             commanders = new List<Person>();
-            int y = campaignYear;
-            int id = 1;
-            // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
-            commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
-            commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
-            commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
-            commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
-            nextPersonId = id; // 卒業生はこの続き番号で採番
+            civilians = new List<Person>();
+            if (StrategySession.PendingPeople != null)
+            {
+                // ロード復元：保存済みロスターを採用（軍人=提督名簿／文民=文官名簿に振り分け）。
+                var loaded = StrategySession.PendingPeople;
+                int maxId = 0;
+                for (int i = 0; i < loaded.Count; i++)
+                {
+                    Person p = loaded[i];
+                    if (p == null) continue;
+                    if (p.role == PersonRole.軍人) commanders.Add(p); else civilians.Add(p);
+                    if (p.id > maxId) maxId = p.id;
+                }
+                nextPersonId = maxId + 1;
+                StrategySession.PendingPeople = null; // 消費（再構築は一度きり）
+            }
+            else
+            {
+                int y = campaignYear;
+                int id = 1;
+                // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
+                commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
+                commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
+                commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
+                commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+                id = SeedFoundingYouth(id, y); // 世代交代ループの種＝結婚適齢の若者（男女）
+                nextPersonId = id; // 卒業生はこの続き番号で採番
+            }
+
+            // 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに候補を多段の苛烈な選抜で篩い、認定者を SOF 出身にする。
+            RunSofSelection();
 
             // 士官学校（#155 LIFE-5）：各勢力に1校。質に差を付ける（名門は良将を出す）。
             academies = new List<Academy>
@@ -616,7 +715,7 @@ namespace Ginei
             };
 
             // 大学（#156/#157 LIFE-6/7）：各勢力に文官大学＋帝国に工科大学（テクノクラート）。文民/技術者を輩出。
-            civilians = new List<Person>();
+            // civilians は上で初期化済（ロード復元 or 空）。ここでは再生成しない。
             universities = new List<University>
             {
                 new University(schoolId: 3, faction: Faction.帝国, name: "帝国大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
@@ -839,6 +938,78 @@ namespace Ginei
                     { enrollment = highSchools[i].enrollmentRate; quality = highSchools[i].quality; return; }
         }
 
+        /// <summary>
+        /// 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに軍人候補を選抜スコアで多段に篩い（基礎→地獄週→卒業）、
+        /// 認定者を SOF 出身にする（提督として能力上昇＝戦闘で常時+5%・側背/包囲で+20%）。開始時に一度。
+        /// </summary>
+        private void RunSofSelection()
+        {
+            if (commanders == null) return;
+            var byFaction = new Dictionary<Faction, List<SofCandidate>>();
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.role != PersonRole.軍人) continue;
+                float score = SpecialForcesRules.SelectionScore(c.leadership, c.mobility, c.attack);
+                if (!byFaction.TryGetValue(c.faction, out var list)) { list = new List<SofCandidate>(); byFaction[c.faction] = list; }
+                list.Add(new SofCandidate(c.id, score));
+            }
+            foreach (var kv in byFaction)
+            {
+                List<int> passed = SpecialForcesRules.Funnel(kv.Value);
+                for (int j = 0; j < passed.Count; j++)
+                {
+                    Person p = ResolveCommander(passed[j]);
+                    if (p == null) continue;
+                    p.isSpecialForces = true;
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{p.faction} {p.name} が特殊作戦部隊の選抜を突破（SOF認定）");
+                }
+            }
+        }
+
+        // 叙勲の配線パラメータ（#2263・デモ既定）
+        private const int MaxMedalsPerCommander = 5;  // 1人あたり叙勲数の上限（乱発防止）
+        private const int CommissionAge = 22;          // 任官年齢（在役年数の起点）
+
+        /// <summary>
+        /// 戦略の年次叙勲（#2263）。武勲ある将官（中将以上）へ階級に応じて叙勲し、
+        /// 恩給見込み（`RetirementRules.PensionFactor` × 勲章の `MedalRegistry.PensionFactor`）と名誉を通知する。
+        /// 史実：勲章は恩給（年金）と名誉を増す。乱発防止に1人あたり上限＋階級依存の決定論抽選。
+        /// </summary>
+        private void RunAnnualMedalTick()
+        {
+            if (commanders == null) return;
+            var rp = RetirementRules.RetireParams.Default;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.IsDeceased) continue;
+                if (c.rankTier < 7) continue;                                  // 中将以上の将官が対象
+                if (MedalRegistry.Count(c.id) >= MaxMedalsPerCommander) continue; // 上限
+
+                // 階級が高いほど叙勲されやすい（決定論抽選）。
+                float roll = Mathf.Abs(Mathf.Sin(c.id * 12.9898f + campaignYear * 78.233f));
+                roll -= Mathf.Floor(roll);
+                if (roll > c.rankTier / 20f) continue;
+
+                MedalKind kind = c.rankTier >= 9 ? MedalKind.勲功章 : MedalKind.武功章;
+                float merit = Mathf.Clamp(c.rankTier * 10f, 0f, 100f);
+                Decoration d = MedalRegistry.Award(c.id, kind, merit, campaignYear, $"{c.name} の武勲");
+
+                int age = LifecycleRules.Age(c, campaignYear);
+                int years = Mathf.Max(0, age - CommissionAge);
+                float pension = RetirementRules.PensionFactor(years, rp) * MedalRegistry.PensionFactor(c.id);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{c.faction} {c.name} に{kind}{d.grade}を叙勲。恩給見込み {pension:0.00}（勲章×{MedalRegistry.PensionFactor(c.id):0.00}）・名誉{MedalRegistry.Prestige(c.id):0}");
+            }
+        }
+
+        // 宗教/文化の配線パラメータ（#172-175/#194・デモ既定）
+        private const float RulerFaithDevotion = 0.6f;      // 支配勢力の信仰の強さ（デモ既定）
+        private const float ReligionStabilityScale = 10f;   // 信仰の社会効果→安定度への反映スケール
+        private const float SeparatismStabilityScale = 5f;  // 分離主義→安定度低下スケール
+
         private void RunAnnualLifecycleTick()
         {
             campaignYear++;
@@ -878,6 +1049,25 @@ namespace Ginei
                     float popC = kv.Value.population;
                     PopConsumptionTickRules.TickYear(kv.Value, kv.Value.wageIndex,
                         popC * outFactor, popC * outFactor * 0.4f, popC * outFactor * 0.15f);
+
+                    // 宗教(#172-175 配線)：住民の信仰を1年ぶん進め、信仰の社会効果を安定度へ緩やかに反映。
+                    // 統合が進んだ惑星は支配勢力の信仰と親和（affinityMatch）。基準値はTick側で非破壊。
+                    bool affinity = kv.Value.integration > 0.5f;
+                    ReligionTickRules.TickYear(kv.Value, RulerFaithDevotion, affinity);
+                    kv.Value.stability = Mathf.Clamp(
+                        kv.Value.stability + (ReligionTickRules.SocialFactor(kv.Value) - 1f) * ReligionStabilityScale,
+                        0f, 100f);
+
+                    // 文化・民族(#194 配線)：同化/分離を1年ぶん進め、分離主義が安定度を蝕む。
+                    // 戦時(前線)・低統合は分離を促す。亡命#194 の移住と相補的。
+                    bool atWarHere = sys != null && HasHostileFleetAt(sys);
+                    CultureTickRules.TickYear(kv.Value, kv.Value.integration > 0.5f, atWarHere);
+                    float separatism = CultureTickRules.SeparatismRisk(kv.Value);
+                    if (separatism > 0f)
+                        kv.Value.stability = Mathf.Clamp(kv.Value.stability - separatism * SeparatismStabilityScale, 0f, 100f);
+                    if (separatism > 0.6f && sys != null)
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                            $"{sys.systemName}：分離主義が高まっている（{separatism:0.0}）");
                 }
 
             // POP の引っ越し（移住・#194）：隣接星系間で住みよい星系（安定/統合が高い）へ住民が流れる＝荒れた星系は流出で痩せる。
@@ -910,6 +1100,30 @@ namespace Ginei
             // 法の支配と法と秩序（LAW-6・#2126）：勢力の法の支配＋惑星の治安を解き、安定へ反映・抑圧を通知。
             RunLawTick();
 
+            // 叙勲（#2263）：武勲ある将官へ年次で叙勲し、恩給見込み（勲章で増）・名誉を通知。
+            RunAnnualMedalTick();
+
+            // 財政の年（#161-163 配線）：予算編成→形式財政（債務/利払い）で予算と執行の1年を閉じる。
+            RunFiscalYearTick();
+
+            // 政体進化（#117 配線）：首長制→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ社会シグナルで分岐進化。
+            RunRegimeEvolutionTick();
+
+            // 政党政治（#159 配線）：民主政治の勢力で政党制が成熟度に応じ二大政党へ収束し、衆参の選挙が回り、分断危機を通知。
+            RunPoliticsTick();
+
+            // 反乱（内政→戦略の創発ループ）：慢性的な不穏が積もると星系が離反＝内政の失敗が領土喪失に直結。
+            RunRebellionTick();
+
+            // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡/敵制覇で敗北。決着で時計を止めて終了画面。
+            RunCampaignVictoryCheck();
+
+            // 年境界の自動保存（決着後は保存しない＝終了状態で上書きしない）。閉じても進行が消えない。
+            if (!campaignDecided) AutoSaveCampaign();
+
+            // 世代交代（#159 配線）：成年が結婚し夫婦が子をなして名簿に加わる＝血統が年々更新される（死は下の老衰で）。
+            RunGenerationTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -918,6 +1132,13 @@ namespace Ginei
                 Person d = deceased[i];
                 int age = LifecycleRules.Age(d, campaignYear);
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{d.faction} {d.name} 提督 死去（享年 {age}）");
+
+                // 配偶者を死別（生存配偶者の婚姻を解除）。
+                if (d.spouseId >= 0)
+                {
+                    Person spouse = commanders.Find(x => x != null && x.id == d.spouseId);
+                    PersonMarriageRules.Widow(spouse);
+                }
 
                 // ネームド資産の相続/没収（NASSET-4/6・#2063）：故人の固有資産を同勢力の最高位の存命司令へ相続、不在なら国家へ没収。
                 var estate = NamedAssetRegistry.OwnedByPerson(d.id);
@@ -1003,8 +1224,824 @@ namespace Ginei
                 for (int i = 0; i < academies.Count; i++)
                     if (academies[i] != null) RunMilitaryAcademy(academies[i]);
 
+            // 退役（#530-536 配線）：階級別の停年に達した現役将校を退役へ（元帥は終身）。退役者は昇進・入校の対象外＝以後は老衰で退場。
+            RunRetirementTick();
+
+            // 陸軍大学校のエリート街道（#SCHOOL-AGE 配線）：現役将校を大学校へ入校（学校配属＝艦隊配属不可）→卒業で参謀＝恩賜の軍刀組→昇進優遇。
+            RunWarCollegeCareerTick();
+
+            // 人事の空席補充（#152）と捕虜の処遇（#154）：死亡/退役/捕虜で空いた要職を後任補充、捕虜は解放/登用/処断で処遇。
+            RunPersonnelTurnoverTick();
+
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
+
+            // 朝廷の権威の動態（官僚制基盤）：戦乱で武家台頭＝権威↓（戦国化）／平時は律令が回復。以後の考課・銓衡・内政に効く。
+            RunCourtAuthorityTick();
+
+            // 文官の官歴（官僚制基盤）：文民ネームドに位階を叙し、考課で叙位・五位の壁を回す（朝廷の権威で効く）。
+            RunBureaucracyTick();
+
+            // 文官の銓衡配属（官僚制基盤）：叙位された文官を官位相当＋考課で宰相（文官要職）へ任命する（式部省の選叙）。
+            RunCivilAppointmentTick();
+
+            // 総督（地方官）の銓衡配属（官僚制基盤）：所有星系ごとに官位相当の文官を配属＝受領/国司。
+            RunGovernorAppointmentTick();
+
+            // 省庁の配属（官僚制基盤・二官八省）：文民を省庁へ配属し、その行政が内政（中央監督）に効く。
+            RunMinistryStaffingTick();
+        }
+
+        /// <summary>
+        /// 退役（#530-536 配線）：現役将校が階級別の停年に達したら退役へ編入（元帥 tier は終身＝対象外）。
+        /// 退役者はロスターに残り（資産・老衰死の対象）、昇進・大学校入校からは外れる＝現役→退役→死亡 の一方向。
+        /// </summary>
+        private void RunRetirementTick()
+        {
+            if (commanders == null) return;
+            var prm = RetirementRules.RetireParams.Default;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.deathYear != 0) continue;
+                if (c.serviceStatus != ServiceStatus.現役) continue;
+                int age = LifecycleRules.Age(c, campaignYear);
+                if (RetirementRules.ShouldRetireByAge(age, c.rankTier, prm))
+                {
+                    c.serviceStatus = ServiceStatus.退役;
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{c.faction} {c.name} 退役（停年・享年 {age}）");
+                }
+            }
+        }
+
+        // --- 陸軍大学校のエリート街道（#SCHOOL-AGE 配線） ---
+
+        /// <summary>勢力の昇進ドクトリンを現在の政体形態から導く（民主＝実力主義／専制・君主・共産＝学閥主義＝政体が軍人事に効く）。</summary>
+        private static PromotionDoctrine WarCollegeDoctrine(Faction f)
+        {
+            var camp = StrategySession.Campaign;
+            FactionState s = camp != null ? CampaignRules.GetState(camp, f) : null;
+            if (s != null) return GovernmentFormRules.PromotionDoctrineOf(s.governmentForm);
+            return f == Faction.帝国 ? PromotionDoctrine.学閥主義 : PromotionDoctrine.実力主義; // フォールバック
+        }
+
+        /// <summary>
+        /// 大学校入学→学校配属（艦隊配属不可）→卒業で大学校卒=参謀＝恩賜の軍刀組→昇進優遇 を年次で回す（#SCHOOL-AGE）。
+        /// 数式・状態遷移は <see cref="WarCollegeCareerRules"/>（Core）へ委譲し、ここは起きた事象を通知へ流すだけ。
+        /// </summary>
+        private void RunWarCollegeCareerTick()
+        {
+            if (commanders == null) return;
+            var events = new List<CareerEvent>();
+            WarCollegeCareerRules.TickYear(commanders, campaignYear, WarCollegeDoctrine, events);
+            for (int i = 0; i < events.Count; i++)
+            {
+                CareerEvent e = events[i];
+                string rank = RankSystem.ResolveRankNameOrDefault(null, e.rankTier);
+                switch (e.kind)
+                {
+                    case CareerEventKind.入校:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{e.faction} {e.personName} 陸軍大学校へ入校（学校配属＝艦隊配属を離れる）");
+                        break;
+                    case CareerEventKind.卒業:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{e.faction} {e.personName} 陸軍大学校を卒業（参謀＝星）");
+                        break;
+                    case CareerEventKind.恩賜の軍刀:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{e.faction} {e.personName} 恩賜の軍刀組（大学校卒首席級）＝エリート街道へ");
+                        break;
+                    case CareerEventKind.昇進:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{e.faction} {e.personName} {rank}へ昇進");
+                        break;
+                }
+            }
+        }
+
+        // --- 財政の年（#161-163 配線）：予算編成→執行→債務で1年を閉じる ---
+
+        /// <summary>
+        /// 年次の財政：①予算編成（歳入レート×支出性向を分野重みで配分）②形式財政（債務/利払い）③債務スパイラル通知。
+        /// 現金の執行は日次 <see cref="CampaignRules.TickBudgetDay"/> が予算総額を国庫から引いて行う（予算が満ちて初めて執行が動く）。
+        /// 数式は <see cref="BudgetRules"/>/<see cref="FiscalRules"/>/<see cref="CampaignRules"/> へ委譲。
+        /// </summary>
+        private void RunFiscalYearTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            // ① 予算編成（帝国＝軍拡で赤字気味／同盟＝均衡・内政厚め）。重みは 軍事/建艦/内政/社会保障/研究/外交。
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null || s.budget == null) continue;
+                float revenueRate = FiscalRules.TaxRevenue(CampaignRules.EconomyBase(s), s.taxRate);
+                float propensity = s.faction == Faction.帝国 ? 1.1f : 1.0f;
+                float[] weights = s.faction == Faction.帝国
+                    ? new float[] { 3, 2, 1, 1, 1, 1 }
+                    : new float[] { 1, 1, 2, 2, 1, 1 };
+                BudgetRules.AllocateByWeights(s.budget, revenueRate * propensity, weights);
+            }
+
+            // ② 形式財政：赤字→国債→利払い→翌年（債務繰り越し）。
+            CampaignRules.TickFiscalYear(camp, 1f);
+
+            // ③ 帰結（出資度→実効・G3/G5）：社会保障→希望／財政健全度→希望／内政→安定度／債務スパイラル通知。
+            var p = FiscalRules.FiscalParams.Default;
+            var adminBonusByFaction = new System.Collections.Generic.Dictionary<Faction, float>();
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null || s.budget == null || s.fiscal == null) continue;
+                float economy = CampaignRules.EconomyBase(s);
+                float revenueRate = FiscalRules.TaxRevenue(economy, s.taxRate);
+
+                // 社会保障の希望加点（＋）と財政難の希望毀損（−）＝民心へ
+                if (s.community != null)
+                {
+                    float welfareBonus = BudgetRules.WelfareHopeBonus(s.budget, revenueRate * 0.15f); // ±0.3
+                    float health = economy > 0f ? FiscalRules.FiscalHealthFactor(s.fiscal, economy, p) : 1f;
+                    float hopeDelta = welfareBonus * 0.1f - (1f - health) * 0.05f;
+                    s.community.hope = Mathf.Clamp01(s.community.hope + hopeDelta);
+                }
+
+                // 内政の安定度加点（所有 Province へ後段で反映）
+                adminBonusByFaction[s.faction] = BudgetRules.AdministrationStabilityBonus(s.budget, revenueRate * 0.2f); // ±10
+
+                if (FiscalRules.IsDebtSpiral(s.fiscal, economy, p))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 債務スパイラル（債務 {s.fiscal.debt:0}）");
+            }
+
+            // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。
+            if (map != null)
+                foreach (var sys in map.systems)
+                {
+                    if (sys == null || !provinces.TryGetValue(sys.id, out var prov) || prov == null) continue;
+                    if (adminBonusByFaction.TryGetValue(sys.owner, out float ab))
+                        prov.stability = Mathf.Clamp(prov.stability + ab, 0f, 100f);
+                }
+        }
+
+        // --- 政体進化（#117 配線）：首長制→民主/独裁→下位形態 ---
+        private bool regimeFormsSeeded;
+
+        // --- キャンペーン勝敗（遊べる縦スライスの核） ---
+        private bool campaignDecided;
+
+        /// <summary>
+        /// プレイヤー勢力の戦略的決着を年次で判定し、勝利/敗北したら時計を止めて終了画面を出す（一度きり）。
+        /// 判定は <see cref="CampaignVictoryRules"/>（制覇=支配率/全制圧/滅亡）。終了画面は <see cref="CampaignEndOverlay"/>。
+        /// </summary>
+        private void RunCampaignVictoryCheck()
+        {
+            if (campaignDecided || map == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            CampaignOutcome outcome = CampaignVictoryRules.Evaluate(map, player, ActiveVictoryParams());
+            if (outcome == CampaignOutcome.継続) return;
+
+            campaignDecided = true;
+            if (StrategySession.Clock != null) StrategySession.Clock.Pause(); // 進行を止める
+            int frac = Mathf.RoundToInt(CampaignVictoryRules.OwnedFraction(map, player) * 100f);
+            bool win = outcome == CampaignOutcome.勝利;
+            string msg = win
+                ? $"【勝利】{player} が銀河を制覇（支配 {frac}%）"
+                : $"【敗北】{player} は星系をすべて失った";
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.警告, msg);
+            CampaignEndOverlay.Show(win, player, CampaignVictoryRules.OwnedFraction(map, player)); // 終了画面（遊べる縦スライスの締め）
+        }
+
+        /// <summary>
+        /// 戦役を跨いで残る static 状態をリセットする（終了画面「タイトルへ戻る」/新規キャンペーン開始時）。
+        /// 同一アプリ実行内で2周目を始めても目標提示が再び出るよう、オンボーディングのフラグを戻す。
+        /// </summary>
+        public static void ResetCampaignStatics()
+        {
+            objectiveAnnounced = false;
+        }
+
+        /// <summary>
+        /// タイトルから新規キャンペーンを始める前処理（戦略の世界状態を破棄＝Strategy シーンで一から構築される）。
+        /// `TitleManager` が呼んでから "Strategy" シーンへ遷移する。
+        /// </summary>
+        public static void BeginNewCampaign()
+        {
+            StrategySession.Clear();
+            BattleHandoff.Clear();
+            ResetCampaignStatics();
+        }
+
+        // 反乱（内政→戦略の創発ループ）：星系ごとの不穏スコア累積と「兆し」警告の既出フラグ。
+        private readonly Dictionary<int, float> rebellionScore = new Dictionary<int, float>();
+        private readonly HashSet<int> rebellionWarned = new HashSet<int>();
+
+        /// <summary>
+        /// 反乱を年次で解決する：所有星系の不穏スコアを更新し、閾値超過で<b>離反</b>（隣接する敵対勢力へ寝返り／無ければ対勢力へ）。
+        /// 高税/債務/占領直後の低統合/補給切れ → 安定度低下 → 反乱 → 星系喪失、という台本なしの因果を作る（数値は `RebellionRules` へ委譲）。
+        /// 兆し域では一度だけ警告して猶予を与える（プレイヤーは G の国策などで安定を立て直せる）。
+        /// </summary>
+        private void RunRebellionTick()
+        {
+            if (map == null || provinces == null) return;
+            foreach (var s in map.systems)
+            {
+                if (s == null || !provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                rebellionScore.TryGetValue(s.id, out float score);
+                score = RebellionRules.NextScore(score, prov);
+
+                if (RebellionRules.ShouldRevolt(score))
+                {
+                    Faction old = s.owner;
+                    Faction rebel = RebelTargetFaction(s);
+                    s.owner = rebel;
+                    if (s.planet != null) s.planet.owner = rebel; // 惑星防衛も新所有者へ
+                    rebellionScore[s.id] = 0f;
+                    rebellionWarned.Remove(s.id);
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.systemName} が離反！（{old}→{rebel}）内政の乱れが反乱を招いた");
+                    // 占領扱い：次の TickGovernance が所有変化を検知し OnOccupied で新所有者にも不安定を課す。
+                }
+                else
+                {
+                    rebellionScore[s.id] = score;
+                    if (RebellionRules.IsBrewing(score) && rebellionWarned.Add(s.id))
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                            $"{s.systemName} で反乱の兆し（安定度を立て直さねば離反する）");
+                    else if (!RebellionRules.IsBrewing(score))
+                        rebellionWarned.Remove(s.id);
+                }
+            }
+        }
+
+        /// <summary>離反先の勢力：隣接する敵対勢力があればそこへ寝返る（無ければ legacy の対勢力）。</summary>
+        private Faction RebelTargetFaction(StarSystem s)
+        {
+            if (map != null && s != null)
+                foreach (int nid in map.Neighbors(s.id))
+                {
+                    StarSystem n = map.GetSystem(nid);
+                    if (n != null && n.owner != s.owner) return n.owner;
+                }
+            return (s != null && s.owner == Faction.帝国) ? Faction.同盟 : Faction.帝国;
+        }
+
+        /// <summary>
+        /// 政体進化を年次で回す（#117）：初期形態をシード（帝国=君主制/同盟=共和制/他=首長制）し、社会シグナル
+        /// （正統性/腐敗/合意/希望/包摂）から `GovernmentFormRules.NextForm` で年1回1遷移を進めて通知する。数式は Core へ委譲。
+        /// </summary>
+        private void RunRegimeEvolutionTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            if (!regimeFormsSeeded)
+            {
+                for (int i = 0; i < camp.states.Count; i++)
+                {
+                    FactionState s = camp.states[i];
+                    if (s == null || s.governmentForm != GovernmentForm.首長制) continue;
+                    s.governmentForm = s.faction == Faction.帝国 ? GovernmentForm.君主制
+                                     : s.faction == Faction.同盟 ? GovernmentForm.共和制
+                                     : GovernmentForm.首長制; // 他勢力は首長制スタート
+                }
+                regimeFormsSeeded = true;
+            }
+
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null) continue;
+
+                // (1) 政変（C1 Tier A）：統制が弱いとクーデター/革命が発火し、成功で政体が転換する。
+                CoupContext ctx = PoliticalUpheavalRules.ContextOf(s);
+                UpheavalResult up = PoliticalUpheavalRules.ResolveUpheaval(s.governmentForm, ctx, UnityEngine.Random.value);
+                if (up.attempted)
+                {
+                    if (s.regime != null) s.regime.legitimacy = up.newLegitimacy; // 事後正統性（成功/粛清/内戦）
+                    if (up.formChanged)
+                    {
+                        GovernmentForm from = s.governmentForm;
+                        GovernmentFormRules.Apply(s, up.newForm);
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告, $"{s.faction} {up.type}クーデター成功＝政体が {from} → {up.newForm} へ");
+                    }
+                    else
+                    {
+                        string note = up.outcome == CoupOutcome.内戦 ? "内戦化" : "未遂（鎮圧）";
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} {up.type}クーデター {note}");
+                    }
+                    continue; // 政変があった年は緩やかな進化はスキップ
+                }
+
+                // (2) 緩やかな進化：社会シグナルで合法な遷移を1段進める。
+                RegimeSignals signals = GovernmentFormRules.SignalsOf(s);
+                GovernmentForm next = GovernmentFormRules.NextForm(s.governmentForm, signals);
+                if (next != s.governmentForm)
+                {
+                    GovernmentForm prev = s.governmentForm;
+                    GovernmentFormRules.Apply(s, next);
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} 政体が {prev} → {next} へ移行");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 政党政治の年次 Tick（#159 配線）：民主政治の勢力ごとに、成熟度に応じて政党制を二大政党へ収束させ、
+        /// 衆参の選挙日程を回し、分断危機の立ち上がりを通知する。数値は <see cref="PoliticsTickRules"/>（→PartySystemRules/ElectionScheduleRules）へ委譲。
+        /// </summary>
+        private void RunPoliticsTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null) continue;
+                if (!ElectoralSystemRules.IsElectoral(s.governmentForm)) continue; // 民主政治のみ（寡頭/君主/独裁は選挙なし）
+
+                if (s.politics == null || s.politics.parties.Count == 0) SeedDemoParties(s);
+
+                var r = PoliticsTickRules.TickYear(s, campaignYear);
+
+                if (r.lowerHouseElection)
+                {
+                    Party ruling = PartyRules.RulingParty(s.politics.parties);
+                    string rn = ruling != null ? ruling.partyName : "—";
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                        $"{s.faction} 下院総選挙（衆議院相当・任期4年）＝第一党 {rn}");
+                }
+                if (r.upperHouseElection)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                        $"{s.faction} 上院通常選挙（参議院相当・半数改選）");
+                if (r.dividedCrisisOnset)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.faction} 二大政党化で社会の分断が深刻化（有効政党数 {r.effectiveParties:0.0}）");
+            }
+        }
+
+        /// <summary>
+        /// 世代交代の年次 Tick（#159 配線）：名簿（commanders）の成年が結婚し、夫婦が子をなして名簿に加わる。
+        /// 数値は <see cref="GenerationTickRules"/>（→PersonMarriageRules/ChildbirthRules/HeredityRules）へ委譲。死（老衰）は下流の ProcessMortality が担う。
+        /// </summary>
+        private void RunGenerationTick()
+        {
+            if (commanders == null) return;
+            var res = GenerationTickRules.TickYear(
+                commanders, campaignYear,
+                () => nextPersonId++,
+                () => UnityEngine.Random.value,
+                new GenerationTickRules.GenerationParams(0.4f, OfficerRosterCap),
+                ChildbirthRules.FertilityParams.Default,
+                HeredityRules.HeredityParams.Default);
+
+            if (res.marriages > 0 || res.births > 0)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"世代交代：{res.marriages} 組が結婚・{res.births} 人誕生（名簿 {commanders.Count} 名）");
+        }
+
+        /// <summary>世代交代ループの種＝結婚適齢の若者（男女）を勢力ごとに数名置く。これが結婚→出産→加齢→死で世代が回る。</summary>
+        private int SeedFoundingYouth(int startId, int year)
+        {
+            int id = startId;
+            Faction[] facs = { Faction.帝国, Faction.同盟 };
+            for (int fi = 0; fi < facs.Length; fi++)
+            {
+                Faction fac = facs[fi];
+                for (int k = 0; k < 4; k++) // 男2・女2
+                {
+                    Sex sex = (k % 2 == 0) ? Sex.男性 : Sex.女性;
+                    commanders.Add(new Person(id++, $"{fac}の士{k + 1}", fac, PersonRole.軍人)
+                    {
+                        sex = sex,
+                        birthYear = year - (20 + k), // 成年（20〜23歳）
+                        rankTier = 0,
+                        leadership = 45, attack = 45, defense = 45, mobility = 45, operation = 45, intelligence = 45,
+                    });
+                }
+            }
+            return id;
+        }
+
+        /// <summary>デモ用の政党シード：多党乱立から出発させる（成熟が上がると二大政党へ収束する＝#159）。</summary>
+        private void SeedDemoParties(FactionState s)
+        {
+            if (s == null) return;
+            if (s.politics == null) s.politics = new PoliticsState();
+            if (s.politics.parties.Count > 0) return;
+
+            string[] names = s.faction == Faction.帝国
+                ? new[] { "立憲党", "自由党", "国民党", "革新党" }
+                : new[] { "民政党", "進歩党", "中道党", "急進党" };
+            int baseId = (int)s.faction * 100;
+            float share = 1f / names.Length;
+            for (int i = 0; i < names.Length; i++)
+            {
+                Party p = PartyOrganizationRules.Create(baseId + i + 1, names[i], s.faction, founderId: -1);
+                p.support = share;
+                s.politics.parties.Add(p);
+            }
+        }
+
+        /// <summary>建艦の出資度（G3）＝建艦予算/必要額。歳入の2割を満額基準とする（不足で建艦が遅れる）。</summary>
+        private float ShipbuildingFundingFactor(Faction f)
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null) return 1f;
+            FactionState s = CampaignRules.GetState(camp, f);
+            if (s == null || s.budget == null) return 1f;
+            float need = FiscalRules.TaxRevenue(CampaignRules.EconomyBase(s), s.taxRate) * 0.2f;
+            if (need <= 0f) return 1f;
+            return BudgetRules.ShipbuildingFactor(s.budget, need);
+        }
+
+        // --- 人事の空席補充（#152）と捕虜の処遇（#154）の配線 ---
+        private Office[] commandOffices; // 勢力ごとの要職（DemoFactions と並行・null=未設定）
+        private Office[] civilOffices;   // 勢力ごとの文官要職＝宰相（銓衡で配属・DemoFactions と並行）
+        private Office[] governorOffices; // 勢力ごとの総督職（OfficeScope.星系・scopeKey=星系id で星系別に配属）
+        private const CourtRank PremierRequiredRank = CourtRank.従五位下; // 宰相の官位相当＝五位以上（貴族）
+        private const CourtRank GovernorRequiredRank = CourtRank.正六位上; // 総督（受領/国司）の官位相当＝六位以上
+        private const int MaxGovernedSystems = 16;   // 総督を置く星系の上限（PERF＝無制限配属を防ぐ）
+        private const float CentralOversightShare = 0.3f; // 中央（宰相）が地方へ及ぼす監督の効き（薄く全土へ）
+        private List<Ministry>[] ministries;          // 勢力ごとの省庁ツリー（二官八省・DemoFactions と並行）
+        private int[] ministryTopId;                  // 勢力ごとの太政官（最上位省）id
+
+        /// <summary>文官要職（観測用・人物名鑑が在任を表示）。</summary>
+        public IReadOnlyList<Office> CivilOffices => civilOffices;
+
+        /// <summary>DemoFactions 内の番号（非デモ勢力は −1）。</summary>
+        private int FactionIndex(Faction f)
+        {
+            for (int i = 0; i < DemoFactions.Length; i++) if (DemoFactions[i] == f) return i;
+            return -1;
+        }
+
+        /// <summary>その文官が就いている文官官職名（宰相＝中央 or ◯◯総督＝地方）。無ければ空（観測用・人物名鑑が読む）。</summary>
+        public string CivilPostOf(Person p)
+        {
+            if (p == null) return "";
+            if (civilOffices != null)
+                for (int f = 0; f < civilOffices.Length; f++)
+                    if (civilOffices[f] != null && GovernmentRegistry.GetHolder(civilOffices[f]) is Person h && h.id == p.id)
+                        return civilOffices[f].officeName;
+            if (governorOffices != null && map != null)
+                for (int i = 0; i < map.systems.Count; i++)
+                {
+                    StarSystem s = map.systems[i];
+                    if (s == null) continue;
+                    int fIdx = FactionIndex(s.owner);
+                    if (fIdx < 0 || governorOffices[fIdx] == null) continue;
+                    if (GovernmentRegistry.GetHolder(governorOffices[fIdx], s.id) is Person g && g.id == p.id)
+                        return $"{s.systemName}総督";
+                }
+            return MinistryOf(p); // 要職に無ければ省庁の配属を返す（無ければ空）
+        }
+
+        /// <summary>勢力の現役（生存・自由・現役）司令を後任候補として集める。</summary>
+        private System.Collections.Generic.List<ICharacter> ActiveCommanders(Faction f)
+        {
+            var list = new System.Collections.Generic.List<ICharacter>();
+            if (commanders == null) return list;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c != null && c.faction == f && c.IsAvailable && c.serviceStatus == ServiceStatus.現役)
+                    list.Add(c);
+            }
+            return list;
+        }
+
+        /// <summary>勢力の軍政型を現在の政体形態から導く（捕虜処遇 DefaultDisposition 等が政体に追従＝共産化で処断的に等）。</summary>
+        private static CivilianControlType FactionControl(Faction f)
+        {
+            var camp = StrategySession.Campaign;
+            FactionState s = camp != null ? CampaignRules.GetState(camp, f) : null;
+            if (s != null) return GovernmentFormRules.ControlTypeOf(s.governmentForm);
+            return f == Faction.帝国 ? CivilianControlType.君主統帥 : CivilianControlType.文民統制; // フォールバック
+        }
+
+        private static Faction EnemyOf(Faction f) => f == Faction.帝国 ? Faction.同盟 : Faction.帝国;
+
+        /// <summary>要職をシード（冪等）：勢力ごとに「宇宙艦隊司令長官」を1つ作り、最先任の現役へ任命。</summary>
+        private void SeedCommandOffices()
+        {
+            if (commandOffices != null) return;
+            GovernmentRegistry.Clear();
+            commandOffices = new Office[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var office = new Office(900 + f, $"{fac}宇宙艦隊司令長官", OfficeScope.国家, OfficeDomain.軍事)
+                { militaryOnly = true, requiredTier = 8 };
+                commandOffices[f] = office;
+                VacancyRules.FillVacancy(fac, office, ActiveCommanders(fac)); // 初任命
+            }
+            // 文官要職＝宰相（内政・文民専用）。位階の要求は官位相当（PremierRequiredRank）で別途効かせる＝requiredTier=0。
+            // 初任は空席のまま（文民は年を追って卒業・叙位される）。年次の RunCivilAppointmentTick が銓衡で埋める。
+            civilOffices = new Office[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                civilOffices[f] = new Office(910 + f, $"{fac}宰相", OfficeScope.国家, OfficeDomain.内政)
+                { civilianOnly = true, requiredTier = 0 };
+            }
+            // 文官の地方官＝総督（受領/国司・OfficeScope.星系）。同一 Office を scopeKey=星系id で星系別に使う。
+            governorOffices = new Office[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                governorOffices[f] = new Office(920 + f, $"{fac}総督", OfficeScope.星系, OfficeDomain.内政)
+                { civilianOnly = true, requiredTier = 0 };
+            }
+        }
+
+        /// <summary>勢力の文民ネームドを集める（銓衡候補）。</summary>
+        private List<Person> CiviliansOf(Faction f)
+        {
+            var list = new List<Person>();
+            if (civilians == null) return list;
+            for (int i = 0; i < civilians.Count; i++)
+                if (civilians[i] != null && civilians[i].faction == f) list.Add(civilians[i]);
+            return list;
+        }
+
+        /// <summary>
+        /// 文官の銓衡配属（官僚制基盤＝<see cref="CivilAppointmentRules"/> へ委譲）。死亡/捕虜・官位相当を割った在任者を解任し、
+        /// 叙位された文官から考課＋位階で最適者を宰相へ任命する（式部省の選叙）。就任は人事通知へ。
+        /// </summary>
+        private void RunCivilAppointmentTick()
+        {
+            SeedCommandOffices(); // 冪等＝文官要職もここで用意される
+            if (civilOffices == null || civilians == null) return;
+            // 名実の乖離を選抜にも効かせる＝権威が低いほど門閥人事（位階＝家柄）が実績を上書きする。
+            var prm = CivilServiceRules.ParamsForAuthority(
+                courtAuthority != null ? courtAuthority.authority : 0f, CivilServiceRules.AppointmentParams.Default);
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Office office = civilOffices[f];
+                if (office == null) continue;
+                Faction fac = DemoFactions[f];
+                var holder = GovernmentRegistry.GetHolder(office) as Person;
+                if (holder != null && (!holder.IsAvailable
+                    || JapaneseCourtRankRules.Compare(holder.courtRank, PremierRequiredRank) < 0))
+                    GovernmentRegistry.Dismiss(office, holder); // 官位相当を割った（位階喪失）／死亡・捕虜
+                ICharacter before = GovernmentRegistry.GetHolder(office);
+                Person appointed = CivilAppointmentRules.FillVacancy(
+                    fac, office, PremierRequiredRank, CiviliansOf(fac), prm);
+                if (appointed != null && appointed != before)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{fac} {office.officeName} に {appointed.name}（{JapaneseCourtRankRules.Name(appointed.courtRank)}）が就任");
+            }
+        }
+
+        /// <summary>勢力の文民から、既に他の官職に就いている者（<paramref name="assigned"/>）を除いた銓衡候補。一人一職を保つ。</summary>
+        private List<Person> CiviliansOfExcluding(Faction f, HashSet<int> assigned)
+        {
+            var list = new List<Person>();
+            if (civilians == null) return list;
+            for (int i = 0; i < civilians.Count; i++)
+            {
+                Person c = civilians[i];
+                if (c != null && c.faction == f && (assigned == null || !assigned.Contains(c.id))) list.Add(c);
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// 総督（地方官）の銓衡配属（官僚制基盤）。所有星系ごとに、官位相当（六位以上）の文官を考課＋位階で配属する
+        /// ＝受領/国司。中央の宰相とは別人（一人一職）。PERF＝<see cref="MaxGovernedSystems"/> 件で打ち止め。
+        /// </summary>
+        private void RunGovernorAppointmentTick()
+        {
+            SeedCommandOffices();
+            if (governorOffices == null || civilians == null || map == null) return;
+
+            // 名実の乖離を選抜にも効かせる＝権威が低いほど門閥人事（位階＝家柄）が実績を上書きする。
+            var prm = CivilServiceRules.ParamsForAuthority(
+                courtAuthority != null ? courtAuthority.authority : 0f, CivilServiceRules.AppointmentParams.Default);
+            var assigned = new HashSet<int>();
+            if (civilOffices != null) // 宰相（中央）は総督に重ねない
+                for (int f = 0; f < civilOffices.Length; f++)
+                    if (civilOffices[f] != null && GovernmentRegistry.GetHolder(civilOffices[f]) is Person pm) assigned.Add(pm.id);
+
+            int governed = 0;
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                if (governed >= MaxGovernedSystems) break;
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                int fIdx = FactionIndex(s.owner);
+                if (fIdx < 0) continue; // デモ勢力の領のみ
+                Office office = governorOffices[fIdx];
+                if (office == null) continue;
+
+                var holder = GovernmentRegistry.GetHolder(office, s.id) as Person;
+                if (holder != null && (!holder.IsAvailable
+                    || JapaneseCourtRankRules.Compare(holder.courtRank, GovernorRequiredRank) < 0))
+                {
+                    GovernmentRegistry.Dismiss(office, holder, s.id);
+                    holder = null;
+                }
+                ICharacter before = holder;
+                Person gov = CivilAppointmentRules.FillVacancy(
+                    s.owner, office, GovernorRequiredRank, CiviliansOfExcluding(s.owner, assigned),
+                    prm, scopeKey: s.id);
+                if (gov == null) continue;
+
+                assigned.Add(gov.id);
+                governed++;
+                if (gov != before)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{s.owner} {s.systemName}総督 に {gov.name}（{JapaneseCourtRankRules.Name(gov.courtRank)}）が就任");
+            }
+        }
+
+        /// <summary>
+        /// 星系の内政に効く文官行政寄与＝<b>総督（地方・その星系）＋宰相（中央・薄く監督）</b>。いずれも名実の乖離で
+        /// 朝廷の権威ぶん減衰（<see cref="AdministrationRules"/>）。総督が空席なら中央の監督のみが薄く届く。
+        /// </summary>
+        private float SystemAdminBonus(StarSystem s)
+        {
+            if (s == null) return 0f;
+            float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+            float gov = 0f;
+            int fIdx = FactionIndex(s.owner);
+            if (fIdx >= 0 && governorOffices != null && governorOffices[fIdx] != null)
+            {
+                var governor = GovernmentRegistry.GetHolder(governorOffices[fIdx], s.id) as Person;
+                gov = AdministrationRules.StabilityContribution(governor, authority, AdministrationRules.AdminParams.Default);
+            }
+            // 中央＝宰相＋省庁（民部省/太政官の行政）が監督として薄く全土へ及ぶ。
+            float central = PremierAdminBonus(s.owner) + MinistryCentralBonus(s.owner);
+            return gov + central * CentralOversightShare;
+        }
+
+        // ===== 省庁ツリー（二官八省・GOV-5 #158 配線） =====
+
+        /// <summary>勢力ごとの省庁ツリーをシード（冪等）：太政官 ⊃ 式部省/民部省/大蔵省/兵部省。</summary>
+        private void SeedMinistries()
+        {
+            if (ministries != null) return;
+            ministries = new List<Ministry>[DemoFactions.Length];
+            ministryTopId = new int[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                int baseId = 1000 + f * 10;
+                var tree = new List<Ministry>
+                {
+                    new Ministry(baseId + 0, $"{fac}太政官", OfficeDomain.内政) { staffSlots = 2 },
+                    new Ministry(baseId + 1, $"{fac}式部省", OfficeDomain.内政) { staffSlots = 4 }, // 人事
+                    new Ministry(baseId + 2, $"{fac}民部省", OfficeDomain.内政) { staffSlots = 4 }, // 内政
+                    new Ministry(baseId + 3, $"{fac}大蔵省", OfficeDomain.財政) { staffSlots = 3 }, // 財政
+                    new Ministry(baseId + 4, $"{fac}兵部省", OfficeDomain.軍事) { staffSlots = 3 }, // 軍政
+                };
+                for (int c = 1; c <= 4; c++) MinistryRules.AttachChild(tree, baseId + 0, baseId + c);
+                ministries[f] = tree;
+                ministryTopId[f] = baseId + 0;
+            }
+        }
+
+        /// <summary>
+        /// 省庁の配属（年次・官僚制基盤）：死亡/捕虜の官僚を外し、空き定員を勢力の文民で埋める（有能な順・一人一省＝兼任しない）。
+        /// 数値ロジックは <see cref="MinistryRules"/>/<see cref="MinistryAdminRules"/> へ委譲。
+        /// </summary>
+        private void RunMinistryStaffingTick()
+        {
+            SeedMinistries();
+            if (ministries == null || civilians == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                List<Ministry> tree = ministries[f];
+                if (tree == null) continue;
+                Faction fac = DemoFactions[f];
+
+                // 死亡/捕虜の官僚を一掃
+                for (int m = 0; m < tree.Count; m++)
+                {
+                    var mn = tree[m];
+                    if (mn == null) continue;
+                    for (int i = mn.staffIds.Count - 1; i >= 0; i--)
+                    {
+                        Person held = FindCivilian(mn.staffIds[i]);
+                        if (held == null || !held.IsAvailable) mn.staffIds.RemoveAt(i);
+                    }
+                }
+
+                // 既配属を除いた候補（有能順）
+                var staffed = new HashSet<int>(MinistryRules.AllOfficialsUnder(tree, ministryTopId[f]));
+                var pool = new List<Person>();
+                for (int i = 0; i < civilians.Count; i++)
+                {
+                    Person c = civilians[i];
+                    if (c != null && c.faction == fac && c.IsAvailable && !staffed.Contains(c.id)) pool.Add(c);
+                }
+                pool.Sort((a, b) => b.CivilAptitude.CompareTo(a.CivilAptitude));
+
+                int next = 0;
+                for (int m = 0; m < tree.Count && next < pool.Count; m++)
+                {
+                    var mn = tree[m];
+                    if (mn == null) continue;
+                    while (mn.HasVacancy && next < pool.Count)
+                        if (MinistryRules.AssignOfficial(tree, mn.id, pool[next++].id)) { } // 単一所属は MinistryRules が保証
+                }
+            }
+        }
+
+        /// <summary>勢力の省庁（太政官ツリー）の内政寄与＝名実の乖離で朝廷の権威ぶん減衰（<see cref="MinistryAdminRules"/>）。</summary>
+        private float MinistryCentralBonus(Faction owner)
+        {
+            int f = FactionIndex(owner);
+            if (f < 0 || ministries == null || ministries[f] == null) return 0f;
+            float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+            Ministry top = MinistryRules.Get(ministries[f], ministryTopId[f]);
+            return MinistryAdminRules.AdministrativeBonus(top, ministries[f], FindCivilian, authority, MinistryAdminRules.MinistryParams.Default);
+        }
+
+        /// <summary>その文官が配属されている省庁名（無ければ空・観測用）。</summary>
+        private string MinistryOf(Person p)
+        {
+            if (p == null || ministries == null) return "";
+            for (int f = 0; f < ministries.Length; f++)
+            {
+                List<Ministry> tree = ministries[f];
+                if (tree == null) continue;
+                for (int m = 0; m < tree.Count; m++)
+                    if (tree[m] != null && tree[m].staffIds.Contains(p.id)) return tree[m].ministryName;
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// 後任補充（VacancyRules・#152）＋捕虜の処遇（CaptivityRules・#154）を年次で回す。数式/状態遷移は Core 窓口へ委譲。
+        /// </summary>
+        private void RunPersonnelTurnoverTick()
+        {
+            if (commanders == null) return;
+            ResolveCaptives();   // 既存捕虜を処遇（解放/登用/処断）
+            MaybeCapture();      // 敵対勢力により低確率で捕虜化
+            FillCommandVacancies(); // 要職の空席を後任補充
+        }
+
+        /// <summary>捕虜を捕獲側の政体に従って処遇：登用（寝返り・稀）→さもなくば解放/処断。</summary>
+        private void ResolveCaptives()
+        {
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.captiveStatus != CaptiveStatus.捕虜) continue;
+                Faction captor = c.heldBy;
+
+                // まず登用（寝返り＝調略）を試みる（思想差・処遇で決まる稀な成立）。
+                float recruitChance = CaptivityRules.RecruitChance(0.5f, 0.5f);
+                if (UnityEngine.Random.value < recruitChance && CaptivityRules.Recruit(c, captor))
+                {
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{c.name} {captor} へ登用（寝返り）");
+                    continue;
+                }
+
+                // さもなくば捕獲側の政体の既定処遇（処断 or 解放）。
+                CaptiveDisposition dispo = CaptivityRules.DefaultDisposition(FactionControl(captor));
+                if (dispo == CaptiveDisposition.処断 && CaptivityRules.Execute(c, campaignYear))
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.警告, $"{c.name} 処断（捕虜）");
+                else if (CaptivityRules.Release(c))
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{c.name} 解放され帰還");
+            }
+        }
+
+        /// <summary>敵対勢力により低確率で中堅以下の現役将校を捕虜化（前線での捕獲のデモ）。</summary>
+        private void MaybeCapture()
+        {
+            if (UnityEngine.Random.value > 0.15f) return; // 年あたりの捕獲生起（控えめ）
+            var pool = new System.Collections.Generic.List<Person>();
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c != null && c.IsAvailable && c.serviceStatus == ServiceStatus.現役 && c.rankTier < 8)
+                    pool.Add(c); // 最高位は捕らえにくい＝中堅以下
+            }
+            if (pool.Count == 0) return;
+            Person target = pool[UnityEngine.Random.Range(0, pool.Count)];
+            Faction captor = EnemyOf(target.faction);
+            if (CaptivityRules.Capture(target, captor, campaignYear))
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{target.faction} {target.name} {captor} の捕虜に");
+        }
+
+        /// <summary>要職の保持者が死亡/捕虜/退役なら解任し、現役の有資格者で後任補充（VacancyRules・#152）。</summary>
+        private void FillCommandVacancies()
+        {
+            SeedCommandOffices();
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Office office = commandOffices[f];
+                if (office == null) continue;
+                Faction fac = DemoFactions[f];
+                var holder = GovernmentRegistry.GetHolder(office) as Person;
+                if (holder != null && (!holder.IsAvailable || holder.serviceStatus == ServiceStatus.退役))
+                    GovernmentRegistry.Dismiss(office, holder);
+                ICharacter before = GovernmentRegistry.GetHolder(office);
+                VacancyRules.FillVacancy(fac, office, ActiveCommanders(fac));
+                ICharacter after = GovernmentRegistry.GetHolder(office);
+                if (after != null && after != before)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{fac} {office.officeName} に {after.CharacterName} が就任");
+            }
         }
 
         // --- ネームド資産（NASSET・#2063 デモ配線） ---
@@ -1609,6 +2646,74 @@ namespace Ginei
                     if (vocationalSchools[i] != null) RunVocationalSchool(vocationalSchools[i]);
         }
 
+        /// <summary>
+        /// 文官の官歴を1年ぶん回す（官僚制基盤＝<see cref="BureaucracyCareerRules"/> へ委譲）。文民ネームドに位階を叙し、
+        /// 考課（能×徳×績）で叙位／貶位する。<b>五位の壁</b>は朝廷の権威が高いとき（律令が機能）だけ越えられる
+        /// ＝封建の世（権威低）では門閥以外は貴族へ上がれない。叙位の節目（五位突破）は通知へ。
+        /// </summary>
+        private void RunBureaucracyTick()
+        {
+            if (civilians == null || civilians.Count == 0) return;
+            var changes = new List<BureaucracyCareerRules.CareerChange>();
+            BureaucracyCareerRules.TickYear(
+                civilians, courtAuthority != null ? courtAuthority.authority : 0f,
+                campaignYear, BureaucracyCareerRules.CareerParams.Default, changes);
+
+            for (int i = 0; i < changes.Count; i++)
+            {
+                if (changes[i].kind != BureaucracyCareerRules.CareerEventKind.五位突破) continue;
+                Person p = FindCivilian(changes[i].personId);
+                if (p == null) continue;
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{p.faction} {p.name} 叙従五位下＝貴族に列す（{JapaneseCourtRankRules.Name(changes[i].from)}→{JapaneseCourtRankRules.Name(changes[i].to)}）");
+            }
+
+            // 清廉度の動態（汚職）：監督（朝廷の権威）が弱いほど汚職が育つ＝名誉職化が腐敗を生む（考課の徳・内政に跳ね返る）。
+            float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+            for (int i = 0; i < civilians.Count; i++)
+            {
+                Person c = civilians[i];
+                if (c == null || c.role != PersonRole.文民 || c.merit == null) continue;
+                c.merit.integrity = OfficialIntegrityRules.Tick(
+                    c.merit.integrity, authority, OfficialIntegrityRules.IntegrityParams.Default);
+            }
+        }
+
+        /// <summary>戦乱度＝前線/交戦の広がり（敵対艦隊が停泊する星系の割合）。朝廷の権威の動態の入力。</summary>
+        private float WarIntensity()
+        {
+            if (map == null || map.systems.Count == 0) return 0f;
+            int war = 0, total = 0;
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                total++;
+                if (HasHostileFleetAt(s)) war++;
+            }
+            return total > 0 ? (float)war / total : 0f;
+        }
+
+        /// <summary>朝廷の権威を1年ぶん動かす（戦乱で武家台頭↓／平時は律令回復↑）。形骸化の段階が変われば通知。</summary>
+        private void RunCourtAuthorityTick()
+        {
+            if (courtAuthority == null) return;
+            RitsuryoPhase before = RitsuryoFormalizationRules.PhaseOf(courtAuthority.authority);
+            CourtAuthorityRules.TickYear(courtAuthority, WarIntensity(), CourtAuthorityRules.AuthorityParams.Default);
+            RitsuryoPhase after = RitsuryoFormalizationRules.PhaseOf(courtAuthority.authority);
+            if (after != before)
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"朝廷の権威が変動：{before}→{after}（官職の名実が{((int)after > (int)before ? "乖離" : "一致")}へ）");
+        }
+
+        private Person FindCivilian(int id)
+        {
+            if (civilians == null) return null;
+            for (int i = 0; i < civilians.Count; i++)
+                if (civilians[i] != null && civilians[i].id == id) return civilians[i];
+            return null;
+        }
+
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
         private void RunImperialExam(University u)
         {
@@ -1964,6 +3069,216 @@ namespace Ginei
                 if (kb.digit3Key.wasPressedThisFrame) { clock.SetSpeed(2f); clock.Resume(); }
             }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
+
+            // 外交コマンド（#2119 操作化）：対立勢力へ 7=宣戦 / 8=講和 / 9=同盟。自勢力の外交はプレイヤーが握る。
+            if (kb.digit7Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.宣戦布告);
+            if (kb.digit8Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.講和);
+            if (kb.digit9Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.同盟);
+
+            // ミッションコマンド（任務戦術）：C＝マウス直下の敵対星系へ攻略任務／V＝対立勢力を攻略（参謀本部が目標選定・必要兵力を見積もり自動動員）。
+            if (kb.cKey.wasPressedThisFrame) IssueMissionAtMouse();
+            if (kb.vKey.wasPressedThisFrame) IssueCampaignAgainstRival();
+
+            // セーブ/ロード（continue・全永続化）：F5=保存／F9=読込（読込後 Strategy を再ロードして再構築）。
+            if (kb.f5Key.wasPressedThisFrame) SaveCampaign();
+            if (kb.f9Key.wasPressedThisFrame) LoadCampaign();
+        }
+
+        /// <summary>対立勢力（プレイヤー以外の最初のデモ勢力）へ外交コマンドを発令。発令不可なら通知。</summary>
+        private void IssueDiplomacyToRival(DiplomaticAction action)
+        {
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            Faction rival = player;
+            for (int i = 0; i < DemoFactions.Length; i++)
+                if (DemoFactions[i] != player) { rival = DemoFactions[i]; break; }
+            if (rival == player) return; // 対立勢力なし
+            if (!IssuePlayerDiplomacy(rival, action))
+                NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{action} は今は発令できません（{rival} との現状態）");
+        }
+
+        /// <summary>
+        /// ミッションコマンド（任務戦術）：マウス直下の敵対星系へ「攻略せよ」と任務を下す。
+        /// 参謀本部（自勢力の最有能指揮官の文才）が必要兵力を見積もり、遊休艦隊から必要十分を自動動員して進軍させる。
+        /// 必要規模は参謀本部の実力で可変＝有能なら無駄なく軍団/軍集団を、無能なら過小動員のまま発動する。
+        /// </summary>
+        private void IssueMissionAtMouse()
+        {
+            if (cam == null || map == null || reg == null) return;
+            Vector2 w = WorldMouse();
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > 1.2f) return;
+            ExecuteMission(map.GetSystem(sysId));
+        }
+
+        /// <summary>
+        /// ミッションコマンド（任務戦術）：「◯◯勢力を攻略せよ」＝対立勢力を相手に攻撃目標を参謀本部が選定し任務を下す。
+        /// 避実撃虚で到達可能な最も攻めやすい敵星系を選び（兵力を分散させず一点に集中）、`ExecuteMission` で自動動員・進軍させる。
+        /// </summary>
+        private void IssueCampaignAgainstRival()
+        {
+            if (map == null || reg == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            Faction rival = player;
+            for (int i = 0; i < DemoFactions.Length; i++)
+                if (DemoFactions[i] != player) { rival = DemoFactions[i]; break; }
+            if (rival == player) return; // 対立勢力なし
+
+            // 敵勢力の星系を攻撃目標候補に。守備兵力＝在席敵対艦隊／到達可否＝自勢力星系から経路あり。
+            var targets = new List<CampaignTarget>();
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                if (!FactionRelations.IsHostile(null, player, s.ownerData, s.owner)) continue; // 敵対星系のみ
+                float garrison = 0f;
+                var here = reg.FleetsAt(s.id);
+                if (here != null)
+                    for (int k = 0; k < here.Count; k++)
+                        if (here[k] != null && FactionRelations.IsHostile(null, player, null, here[k].faction)) garrison += here[k].strength;
+                bool defended = s.planet != null && !s.planet.Captured;
+                targets.Add(new CampaignTarget(s.id, garrison, defended, ReachableByFaction(player, s.id)));
+            }
+
+            int targetId = MissionCommandRules.SelectCampaignTarget(targets);
+            if (targetId < 0)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.情報,
+                    $"{rival} 攻略：到達可能な攻撃目標がありません");
+                return;
+            }
+            ExecuteMission(map.GetSystem(targetId));
+        }
+
+        /// <summary>その勢力のいずれかの所有星系から目標星系へ回廊経路で到達可能か（避実撃虚の到達可否）。</summary>
+        private bool ReachableByFaction(Faction faction, int goalId)
+        {
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.owner != faction) continue;
+                if (s.id == goalId) return true;
+                if (GalaxyPathfinder.FindPath(map, s.id, goalId).Count > 0) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 任務の実行：参謀本部が必要兵力を見積もり、遊休艦隊から必要十分を自動動員して進軍させる。
+        /// 必要規模は参謀本部の実力で可変。<b>戦力の集中が満たせなければ逐次投入せず「集中待機」する（孫子）</b>。
+        /// </summary>
+        private void ExecuteMission(StarSystem s)
+        {
+            if (s == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+
+            // 自国/友軍星系には攻略任務を出さない（敵対星系のみ）。
+            if (!FactionRelations.IsHostile(null, player, s.ownerData, s.owner))
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.情報,
+                    $"{s.systemName} は攻略対象外（自国/友軍）");
+                return;
+            }
+
+            // 敵戦力＝目標星系に在席する敵対艦隊の合計。防衛惑星があれば攻者三倍の対象（defended）。
+            float enemyStrength = 0f;
+            var here = reg.FleetsAt(s.id);
+            if (here != null)
+                for (int i = 0; i < here.Count; i++)
+                {
+                    StrategicFleet g = here[i];
+                    if (g != null && FactionRelations.IsHostile(null, player, null, g.faction)) enemyStrength += g.strength;
+                }
+            bool defended = s.planet != null && !s.planet.Captured;
+
+            // 参謀本部の実力（0..1）＝自勢力の最有能指揮官の文才（運営/情報）。
+            float staff = StaffCompetence(player);
+
+            // 動員候補＝自勢力の遊休（停泊中・非交戦）艦隊。
+            var avail = new List<MissionForce>();
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || f.faction != player) continue;
+                if (f.IsOnCorridor || f.engaged) continue;          // 移動中/交戦中は動員しない
+                if (f.currentSystemId == s.id) continue;             // 既に目標星系に居る艦は除く
+                avail.Add(new MissionForce(f.id, f.strength));
+            }
+
+            MissionPlan plan = MissionCommandRules.PlanMission(
+                s.id, MissionType.星系攻略, player, enemyStrength, defended, staff, avail);
+
+            if (plan.fleetIds.Count == 0)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
+                    $"{s.systemName} 攻略任務：動員可能な遊休艦隊がありません");
+                return;
+            }
+
+            // 兵力の集中（孫子＝戦力の逐次投入をしない）：集中が満たせない有能な参謀本部は発動せず待機する。
+            if (!plan.launched)
+            {
+                NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
+                    $"任務：{s.systemName} 攻略は戦力集中まで待機（逐次投入を避ける）。動員可能{plan.committedStrength:0}/必要{plan.requiredStrength:0}");
+                return;
+            }
+
+            // 動員した艦隊を目標星系へ進軍させる（どう動くかは各艦の経路探索に委ねる＝任務戦術）。
+            for (int i = 0; i < plan.fleetIds.Count; i++)
+            {
+                StrategicFleet f = reg.GetFleet(plan.fleetIds[i]);
+                if (f != null) f.WarpTo(map, s.id);
+            }
+
+            string scale = plan.echelon.ToString();
+            string note = plan.piecemeal ? "（逐次投入＝兵力不足のまま発動）" : "";
+            NotificationCenter.Push(NotificationCategory.占領,
+                plan.piecemeal ? NotificationSeverity.注意 : NotificationSeverity.情報,
+                $"任務：{s.systemName} 攻略。{scale}を集中動員（{plan.fleetIds.Count}隊・兵力{plan.committedStrength:0}/{plan.requiredStrength:0}）{note}");
+        }
+
+        /// <summary>参謀本部の実力（0..1）＝その勢力の最有能指揮官の文才（運営/情報の平均）を正規化。指揮官不在は中庸0.5。</summary>
+        private float StaffCompetence(Faction faction)
+        {
+            if (commanders == null) return 0.5f;
+            float best = -1f;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.faction != faction || c.IsDeceased) continue;
+                if (c.CivilAptitude > best) best = c.CivilAptitude;
+            }
+            return best < 0f ? 0.5f : Mathf.Clamp01(best / 100f);
+        }
+
+        /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間/内政）をファイルへ書き出す共通処理。</summary>
+        private void WriteCampaignSave()
+        {
+            var people = new System.Collections.Generic.List<Person>();
+            if (commanders != null) people.AddRange(commanders);
+            if (civilians != null) people.AddRange(civilians);
+            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces, StrategySession.CourtAuthority);
+        }
+
+        /// <summary>戦役の全状態をファイルへ保存する（F5・手動）。</summary>
+        private void SaveCampaign()
+        {
+            WriteCampaignSave();
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");
+        }
+
+        /// <summary>年境界ごとの自動保存（閉じても進行が消えないように）。F9/タイトルの「戦役を再開」で復帰できる。</summary>
+        private void AutoSaveCampaign()
+        {
+            WriteCampaignSave();
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "オートセーブ");
+        }
+
+        /// <summary>セーブから全状態を StrategySession へ復元し、Strategy シーンを再ロードして盤面を再構築する（F9）。</summary>
+        private void LoadCampaign()
+        {
+            if (!CampaignSaveManager.HasSave()) { NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意, "セーブがありません"); return; }
+            if (CampaignSaveManager.LoadSession())
+                SceneManager.LoadScene("Strategy");
         }
 
         private void HandleMouse()
@@ -2044,6 +3359,11 @@ namespace Ginei
                 if (sa != null) { BattleHandoff.loyaltyA = FactionLoyaltyRules.BaselineLoyalty(sa); BattleHandoff.intrigueA = FactionLoyaltyRules.BribeSusceptibility(sa); }
                 if (sb != null) { BattleHandoff.loyaltyB = FactionLoyaltyRules.BaselineLoyalty(sb); BattleHandoff.intrigueB = FactionLoyaltyRules.BribeSusceptibility(sb); }
             }
+
+            // 軍の質（C4）：降下する艦隊の補給（弾薬即応）を戦闘力倍率へ＝干上がった艦隊は会戦で弱い。
+            // 下士官団/新兵練度はユニット未attribute（#210）ゆえ既定（null/0.5中立）。
+            BattleHandoff.qualityA = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(a.supply));
+            BattleHandoff.qualityB = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(b.supply));
 
             SceneManager.LoadScene("Battle");
             return true;

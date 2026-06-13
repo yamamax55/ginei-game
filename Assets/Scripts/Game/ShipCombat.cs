@@ -149,6 +149,18 @@ namespace Ginei
             return nearest;
         }
 
+        /// <summary>
+        /// 標的の回避値（0..100目安・命中判定#2255 用）。旗艦＝提督の実効機動／配下艦＝艦種速度倍率で素早いほど高い。
+        /// </summary>
+        public static float EvasionOf(IShipTarget t)
+        {
+            if (t is FleetStrength fs)
+                return fs.admiralData != null ? fs.admiralData.EffectiveMobility : 50f;
+            if (t is EscortShip es)
+                return Mathf.Clamp(50f * es.SpeedMultiplier, 0f, 100f); // 駆逐艦など速い配下艦は避けやすい
+            return 50f;
+        }
+
         /// <summary>個艦(旗艦/配下艦)が属する部隊(Squadron)を返す。判別できなければ null。</summary>
         public static Squadron GetSquadronOf(IShipTarget t)
         {
@@ -184,22 +196,65 @@ namespace Ginei
         /// <param name="targetTf">被弾側の Transform（向きで側背面判定）</param>
         /// <param name="flankMultiplier">真後ろでの最大倍率</param>
         /// <param name="isFlank">側背面ヒットだったか</param>
-        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank)
+        /// <param name="formationAttackFactor">陣形の攻撃倍率（#72）</param>
+        /// <param name="lanchesterFactor">局所火力集中倍率（ランチェスター二乗則・一定範囲内の火力差）</param>
+        /// <param name="qualityFactor">軍の質の戦闘力倍率（下士官団/新兵練度/即応の合成＝<see cref="ForceQualityRules.CombatMultiplier"/>。既定1.0＝従来動作）</param>
+        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor = 1f, float lanchesterFactor = 1f, float qualityFactor = 1f)
+            => ComputeDamage(baseDamage, admiral, moraleFactor, attackerPos, targetTf, flankMultiplier, out isFlank, formationAttackFactor, lanchesterFactor, qualityFactor, null);
+
+        /// <summary>
+        /// ダメージ計算（#2252・可視化版）。<paramref name="breakdown"/> に内訳を記録する（null＝記録なし＝ホットパス無確保）。
+        /// 総合倍率は <see cref="DamageClampRules"/> でクランプし、修飾子が積み上がっても与ダメが発散しない。
+        /// </summary>
+        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor, float lanchesterFactor, float qualityFactor, DamageBreakdown breakdown)
         {
-            // 提督の攻撃力補正（攻撃50で1.0倍, 100で1.5倍, 0で0.5倍）
-            // 参謀補完を反映した実効攻撃を使用（基準値は非破壊）
-            float attackBonus = 1.0f;
-            if (admiral != null)
-            {
-                attackBonus = CombatModifiers.AbilityFactor(admiral.EffectiveAttack);
-            }
+            // 提督の攻撃力補正（攻撃50で1.0倍, 100で1.5倍, 0で0.5倍）。実効攻撃（参謀補完）・基準値非破壊。
+            float attackBonus = admiral != null ? CombatModifiers.AbilityFactor(admiral.EffectiveAttack) : 1.0f;
 
             // 側背面ボーナス：被弾側の正面(up)と攻撃者方向の内積で倍率を補間
             Vector2 toAttacker = ((Vector2)(attackerPos - targetTf.position)).normalized;
             float dot = Vector2.Dot(targetTf.up, toAttacker);
-            float multiplier = CombatModifiers.FlankFactor(dot, flankMultiplier, out isFlank);
+            float flank = CombatModifiers.FlankFactor(dot, flankMultiplier, out isFlank);
 
-            return Mathf.RoundToInt(baseDamage * attackBonus * moraleFactor * multiplier);
+            float fForm = Mathf.Max(0f, formationAttackFactor); // 陣形特性#72＋相性#2177（呼び出し側で合成）
+            float fLan = Mathf.Max(0f, lanchesterFactor);        // ランチェスター集中
+            float fQual = Mathf.Max(0f, qualityFactor);          // 軍の質（C4・ForceQualityRules）
+
+            // 総合倍率をクランプ（#2252）＝修飾子の乗算スタックが暴れない。
+            float total = attackBonus * moraleFactor * flank * fForm * fLan * fQual;
+            float clamped = DamageClampRules.Clamp(total);
+
+            if (breakdown != null)
+            {
+                breakdown.Reset(baseDamage);
+                breakdown.Add("攻撃", attackBonus);
+                breakdown.Add("士気", moraleFactor);
+                breakdown.Add(isFlank ? "側背" : "正面", flank);
+                breakdown.Add("陣形", fForm);
+                breakdown.Add("集中", fLan);
+                breakdown.Add("軍質", fQual);
+            }
+            return Mathf.Max(0, Mathf.RoundToInt(baseDamage * clamped));
+        }
+
+        /// <summary>
+        /// pos を中心に range 内の旗艦の火力（兵力）を味方/敵に分けて集計する（ランチェスター集中倍率の入力）。
+        /// 味方＝自分に敵対しない側（自軍含む）／敵＝敵対する側。<see cref="FleetRegistry.AllFlagships"/> を走査（個艦単位ではなく旗艦＝部隊単位で集計＝終盤ラグ回避）。
+        /// </summary>
+        public static void LocalFirepower(Vector3 pos, FactionData myData, Faction myLegacy, float range, out float friendly, out float enemy)
+        {
+            friendly = 0f; enemy = 0f;
+            float r2 = range * range;
+            IReadOnlyList<FleetStrength> flags = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flags.Count; i++)
+            {
+                FleetStrength f = flags[i];
+                if (f == null || !f.IsAlive) continue;
+                if (((Vector2)(f.transform.position - pos)).sqrMagnitude > r2) continue;
+                float power = Mathf.Max(0, f.strength);
+                if (FactionRelations.IsHostile(myData, myLegacy, f)) enemy += power;
+                else friendly += power;
+            }
         }
 
         /// <summary>

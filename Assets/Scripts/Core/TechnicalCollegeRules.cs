@@ -12,7 +12,7 @@ namespace Ginei
     /// </summary>
     public static class TechnicalCollegeRules
     {
-        public const int GraduationAge = 20;       // 5年制＝大学卒(24)より若い
+        public static readonly int GraduationAge = SchoolAgeRules.GraduationAge(SchoolType.高専); // 卒業年齢=20（中学から5年制＝大学卒22より若い・出所＝SchoolAgeRules）
         public const float TechSecondary = 0.8f;   // 研究/計画は実技よりやや低い（実務志向）
         public const float CivilEmphasis = 0.5f;   // 文才（運営/情報）は低い
 

@@ -19,7 +19,7 @@ namespace Ginei
     public class StrategyMapWindow : MonoBehaviour
     {
         [Header("上部メニューバー")]
-        public float menuBarFrac = 0.088f;
+        public float menuBarFrac = 0.10f; // 目標(勝利進捗)行を足したぶん少し高く
 
         [Header("マップ窓")]
         [Tooltip("窓タイトルバーの高さ（ピクセル）")]
@@ -33,7 +33,7 @@ namespace Ginei
         public Color desktopColor = new Color(0.02f, 0.02f, 0.05f, 1f);
 
         // マップ窓の正規化矩形（画面全体を 0〜1 とした位置/大きさ）。camera.rect と窓UIの両方に使う＝必ず一致。
-        private Rect mapRect = new Rect(0.02f, 0.03f, 0.96f, 0.84f);
+        private Rect mapRect = new Rect(0.02f, 0.03f, 0.96f, 0.83f);
 
         private Camera cam;
         private Camera bgCam;
@@ -45,6 +45,13 @@ namespace Ginei
         private RectTransform edgeLeft, edgeRight, edgeBottom;
         private TextMeshProUGUI clockLabel;
         private TextMeshProUGUI statsLabel;
+
+        // 目標（勝利進捗＋次の一手）— B：目的可視化（#遊べる縦スライス）
+        private RectTransform objectiveFillRT;
+        private TextMeshProUGUI objectiveLabel;
+        private TextMeshProUGUI hintLabel;
+        private float objectiveTimer;
+        private const float ObjectiveInterval = 0.5f; // 毎フレーム再計算しない（終盤ラグ規律）
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -89,6 +96,10 @@ namespace Ginei
                 clockLabel.color = color;
             }
             UpdateStatsLabel();
+
+            // 目標（勝利進捗＋次の一手）は間引いて更新（毎フレーム再計算しない＝終盤ラグ規律）。
+            objectiveTimer += Time.unscaledDeltaTime;
+            if (objectiveTimer >= ObjectiveInterval) { objectiveTimer = 0f; UpdateObjective(); }
         }
 
         private void LateUpdate() => ApplyLayout();
@@ -191,7 +202,7 @@ namespace Ginei
 
             var top = new GameObject("TopRow").AddComponent<RectTransform>();
             top.transform.SetParent(bar.transform, false);
-            top.anchorMin = new Vector2(0f, 0.48f); top.anchorMax = new Vector2(1f, 1f);
+            top.anchorMin = new Vector2(0f, 0.66f); top.anchorMax = new Vector2(1f, 1f);
             top.offsetMin = Vector2.zero; top.offsetMax = Vector2.zero;
 
             var title = AddText(top, "≡ 戦略", 20f, accentColor, TextAlignmentOptions.Left);
@@ -204,9 +215,12 @@ namespace Ginei
             clockLabel = AddText(top, "", 16f, new Color(0.95f, 0.92f, 0.7f), TextAlignmentOptions.Right);
             SetAnchors(clockLabel.rectTransform, new Vector2(0.74f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-20f, 0f));
 
+            // 目標行（勝利進捗バー＋次の一手）＝プレイ中の行動指針（B：目的可視化）。
+            BuildObjectiveRow(bar.transform);
+
             var cmd = new GameObject("CommandRow").AddComponent<RectTransform>();
             cmd.transform.SetParent(bar.transform, false);
-            cmd.anchorMin = new Vector2(0f, 0f); cmd.anchorMax = new Vector2(1f, 0.48f);
+            cmd.anchorMin = new Vector2(0f, 0f); cmd.anchorMax = new Vector2(1f, 0.32f);
             cmd.offsetMin = new Vector2(16f, 4f); cmd.offsetMax = new Vector2(-16f, -2f);
             var hlg = cmd.gameObject.AddComponent<HorizontalLayoutGroup>();
             hlg.spacing = 4f; hlg.childAlignment = TextAnchor.MiddleLeft;
@@ -273,6 +287,110 @@ namespace Ginei
             float stab = CampaignRules.EffectiveStability(campaign, pf);
             statsLabel.text = $"税率 {s.taxRate * 100f:0}%　国庫 {s.treasury:0}　民心 {hope * 100f:0}%　安定度 {stab * 100f:0}%";
             statsLabel.color = hope < 0.2f ? new Color(1f, 0.55f, 0.45f) : new Color(0.85f, 0.9f, 0.7f);
+        }
+
+        // ===== 目標（勝利進捗＋次の一手）＝B：目的可視化 =====
+
+        /// <summary>現在の難易度（GameSettings）に応じた制覇しきい値（進捗バーのマーカー/着色に使う）。</summary>
+        private static float ActiveDominationFraction()
+            => CampaignDifficultyRules.VictoryParams(
+                GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通).dominationFraction;
+
+        private void BuildObjectiveRow(Transform bar)
+        {
+            var row = new GameObject("ObjectiveRow").AddComponent<RectTransform>();
+            row.transform.SetParent(bar, false);
+            row.anchorMin = new Vector2(0f, 0.34f); row.anchorMax = new Vector2(1f, 0.64f);
+            row.offsetMin = new Vector2(20f, 0f); row.offsetMax = new Vector2(-20f, 0f);
+
+            // 勝利進捗バー（左）：背景＋フィル＋しきい値マーカー。上に進捗テキストを重ねる。
+            var barBg = new GameObject("VictoryBarBg").AddComponent<RectTransform>();
+            barBg.transform.SetParent(row, false);
+            SetAnchors(barBg, new Vector2(0f, 0.12f), new Vector2(0.46f, 0.88f), Vector2.zero, Vector2.zero);
+            var bgImg = barBg.gameObject.AddComponent<Image>();
+            bgImg.color = new Color(0f, 0f, 0f, 0.5f); bgImg.raycastTarget = false;
+
+            objectiveFillRT = new GameObject("Fill").AddComponent<RectTransform>();
+            objectiveFillRT.transform.SetParent(barBg, false);
+            objectiveFillRT.anchorMin = new Vector2(0f, 0f);
+            objectiveFillRT.anchorMax = new Vector2(0f, 1f); // 幅は UpdateObjective で支配率に
+            objectiveFillRT.offsetMin = Vector2.zero; objectiveFillRT.offsetMax = Vector2.zero;
+            var fillImg = objectiveFillRT.gameObject.AddComponent<Image>();
+            fillImg.color = new Color(0.35f, 0.7f, 0.95f, 0.9f); fillImg.raycastTarget = false;
+
+            // 勝利しきい値（難易度連動）の縦マーカー。
+            float winMark = ActiveDominationFraction();
+            var mark = new GameObject("WinMark").AddComponent<RectTransform>();
+            mark.transform.SetParent(barBg, false);
+            mark.anchorMin = new Vector2(winMark, 0f); mark.anchorMax = new Vector2(winMark, 1f);
+            mark.pivot = new Vector2(0.5f, 0.5f); mark.sizeDelta = new Vector2(2f, 0f);
+            var markImg = mark.gameObject.AddComponent<Image>();
+            markImg.color = new Color(1f, 0.84f, 0.36f, 0.9f); markImg.raycastTarget = false;
+
+            objectiveLabel = AddText(barBg, "", 14f, Color.white, TextAlignmentOptions.Center);
+            SetAnchors(objectiveLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            // 次の一手ヒント（右）。
+            hintLabel = AddText(row, "", 15f, new Color(0.95f, 0.9f, 0.6f), TextAlignmentOptions.Left);
+            SetAnchors(hintLabel.rectTransform, new Vector2(0.48f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), Vector2.zero);
+        }
+
+        /// <summary>勝利進捗バー＋次の一手を更新する（盤面シグナルから・間引き）。</summary>
+        private void UpdateObjective()
+        {
+            if (objectiveFillRT == null) return;
+            GalaxyMap map = StrategySession.Map;
+            if (map == null) { if (objectiveLabel != null) objectiveLabel.text = ""; if (hintLabel != null) hintLabel.text = ""; return; }
+
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            int total = CampaignVictoryRules.TotalSystems(map);
+            int owned = CampaignVictoryRules.OwnedCount(map, pf);
+            float frac = CampaignVictoryRules.OwnedFraction(map, pf);
+            float winFrac = ActiveDominationFraction();
+            bool rivalsRemain = CampaignVictoryRules.RivalSystemsRemain(map, pf);
+
+            objectiveFillRT.anchorMax = new Vector2(Mathf.Clamp01(frac), 1f);
+            var fillImg = objectiveFillRT.GetComponent<Image>();
+            if (fillImg != null)
+            {
+                // 勝利目前=金／守勢(支配≦15%)=赤／通常=青。
+                fillImg.color = frac >= winFrac - 0.1f ? new Color(1f, 0.84f, 0.36f, 0.95f)
+                    : frac <= 0.15f ? new Color(0.95f, 0.45f, 0.4f, 0.95f)
+                    : new Color(0.35f, 0.7f, 0.95f, 0.9f);
+            }
+            if (objectiveLabel != null)
+                objectiveLabel.text = $"制覇 {Mathf.RoundToInt(frac * 100f)}% / {Mathf.RoundToInt(winFrac * 100f)}%（{pf} {owned} / {total} 星系）";
+
+            // 次の一手（Core が選び、Game が文言＋キーへ）。
+            CountFleetSignals(pf, out bool hasEngagement, out int idleFleets);
+            CampaignHint hint = CampaignGuidanceRules.NextAction(hasEngagement, idleFleets, rivalsRemain);
+            if (hintLabel != null) hintLabel.text = "▶ " + HintText(hint);
+        }
+
+        /// <summary>プレイヤー艦隊の交戦中の有無・遊休数を数える（次の一手のシグナル）。</summary>
+        private void CountFleetSignals(Faction pf, out bool hasEngagement, out int idleFleets)
+        {
+            hasEngagement = false; idleFleets = 0;
+            StrategicFleetRegistry reg = StrategySession.Reg;
+            if (reg == null || reg.fleets == null) return;
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || f.faction != pf) continue;
+                if (f.engaged) hasEngagement = true;
+                else if (!f.IsMoving && f.strength > 0) idleFleets++;
+            }
+        }
+
+        private static string HintText(CampaignHint hint)
+        {
+            switch (hint)
+            {
+                case CampaignHint.前線へ潜行: return "交戦中の回廊をダブルクリックで潜行（手動指揮）";
+                case CampaignHint.任務を発令: return "C: 攻略任務を発令 ／ B: 艦隊を編成";
+                case CampaignHint.領土を広げよ: return "艦隊を選んで右クリックで敵星系へ進軍";
+                default: return "好機を待つ";
+            }
         }
 
         // ===== 部品 =====

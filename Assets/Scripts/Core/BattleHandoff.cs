@@ -26,6 +26,7 @@ namespace Ginei
         // 旗幟（#817 関ヶ原型）：国家状態由来の基準忠誠/調略浸透を会戦へ運ぶ（既定 1/0＝従来動作）
         public static float loyaltyA = 1f, loyaltyB = 1f;
         public static float intrigueA = 0f, intrigueB = 0f;
+        public static float qualityA = 1f, qualityB = 1f; // 軍の質の戦闘力倍率（C4・ForceQualityRules。既定1.0＝従来動作）
 
         // 出力：結果
         public static bool sideAWon;
@@ -113,6 +114,7 @@ namespace Ginei
             factionB = b.faction; strengthB = b.strength; fleetIdB = b.id; admiralB = null;
             loyaltyA = loyaltyB = 1f;   // 旗幟は既定＝完全忠誠（戦略側が国家状態から上書きする・#817）
             intrigueA = intrigueB = 0f;
+            qualityA = qualityB = 1f;   // 軍の質は既定＝1.0（戦略側が補給/練度から上書きする・C4）
             BattleHandoff.returnScene = returnScene;
             Pending = true;
             Resolved = false;

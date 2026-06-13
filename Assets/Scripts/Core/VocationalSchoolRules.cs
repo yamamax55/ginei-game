@@ -11,7 +11,7 @@ namespace Ginei
     /// </summary>
     public static class VocationalSchoolRules
     {
-        public const int GraduationAge = 20;
+        public static readonly int GraduationAge = SchoolAgeRules.GraduationAge(SchoolType.専門学校); // 卒業年齢=20（高校卒後2年・出所＝SchoolAgeRules）
 
         public static int Intake(VocationalSchool s, float candidatePool)
         {

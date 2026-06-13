@@ -36,7 +36,20 @@ namespace Ginei
         [Tooltip("注視中心（本体相対）。右の惑星情報ラベルも入るよう少し右へ寄せる")]
         public Vector2 viewCenter = new Vector2(2.5f, 0f);
 
+        [Header("操作（ホイールズーム／右ドラッグでパン）")]
+        [Tooltip("ズームの最小（寄り）／最大（引き）orthographicSize")]
+        public float minViewSize = 5f;
+        public float maxViewSize = 22f;
+        [Tooltip("ホイール1ノッチあたりのズーム量")]
+        public float zoomStep = 1.5f;
+        [Tooltip("パンで中心からどこまで離れられるか（ワールド単位・±）")]
+        public float panRange = 14f;
+
         private bool isOpen;
+        private float liveViewSize;     // 現在のズーム（viewSize を実行時に上書きせず別持ち＝実効値パターン）
+        private Vector2 viewBaseCenter; // パンの基準中心（クランプ用）
+        private bool panActive;
+        private Vector3 panGrabWorld;   // つかんだワールド点（グラブ式パンの碇）
         private GameObject root;
         private RawImage mapImage;
         private RectTransform mapRT;
@@ -120,7 +133,7 @@ namespace Ginei
             UIDragMove drag = bar.AddComponent<UIDragMove>();
             drag.target = windowRT;
 
-            titleCap = CreateText(bar.transform, "≡ 星系図　（ドラッグで移動）", 15f, new Color(1f, 0.84f, 0.36f), TextAlignmentOptions.Left);
+            titleCap = CreateText(bar.transform, "≡ 星系図　（ホイールでズーム／右ドラッグで移動）", 15f, new Color(1f, 0.84f, 0.36f), TextAlignmentOptions.Left);
             RectTransform crt = titleCap.rectTransform;
             crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one;
             crt.offsetMin = new Vector2(12f, 0f); crt.offsetMax = new Vector2(-42f, 0f);
@@ -174,7 +187,12 @@ namespace Ginei
             viewCam.cullingMask = ~0;
             viewCam.targetTexture = rt; // アスペクトは RT 寸法から自動導出（RawImage と一致）
 
-            if (titleCap != null) titleCap.text = $"≡ {systemName} 星系図　（惑星クリックで内政／ドラッグで移動）";
+            // ズーム/パンの初期化（窓を開くたびに既定の俯瞰へ戻す）
+            liveViewSize = viewSize;
+            viewBaseCenter = new Vector2(viewOffset.x + viewCenter.x, viewOffset.y + viewCenter.y);
+            panActive = false;
+
+            if (titleCap != null) titleCap.text = $"≡ {systemName} 星系図　（惑星クリックで内政／ホイールでズーム／右ドラッグで移動）";
 
             isOpen = true;
             if (root != null) root.SetActive(true);
@@ -205,24 +223,65 @@ namespace Ginei
         {
             if (!isOpen) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) { Close(); return; }
+            if (Mouse.current == null || viewCam == null || mapRT == null) return;
 
-            // マップ上の左クリック → 専用カメラのワールド点へ写し、最寄り惑星を選択。
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame
-                && systemView != null && viewCam != null && mapRT != null)
+            bool overMap = TryCursorWorld(out Vector3 cursorWorld);
+
+            // ① ホイールズーム（カーソル中心＝カーソル下のワールド点を保ったまま寄る/引く）。
+            if (overMap)
             {
-                Vector2 sp = Mouse.current.position.ReadValue();
-                if (RectTransformUtility.RectangleContainsScreenPoint(mapRT, sp, null)
-                    && RectTransformUtility.ScreenPointToLocalPointInRectangle(mapRT, sp, null, out Vector2 local))
+                float scroll = Mouse.current.scroll.ReadValue().y;
+                if (Mathf.Abs(scroll) > 0.01f)
                 {
-                    Rect r = mapRT.rect;
-                    float vx = Mathf.Clamp01((local.x - r.xMin) / Mathf.Max(1e-4f, r.width));
-                    float vy = Mathf.Clamp01((local.y - r.yMin) / Mathf.Max(1e-4f, r.height));
-                    float depth = -viewCam.transform.position.z; // z=0 面までの距離
-                    Vector3 world = viewCam.ViewportToWorldPoint(new Vector3(vx, vy, depth));
-                    world.z = 0f;
-                    systemView.SelectPlanetAtWorld(world);
+                    Vector3 before = cursorWorld;
+                    liveViewSize = Mathf.Clamp(liveViewSize - Mathf.Sign(scroll) * zoomStep, minViewSize, maxViewSize);
+                    viewCam.orthographicSize = liveViewSize;
+                    if (TryCursorWorld(out Vector3 after))
+                    {
+                        Vector3 shift = before - after;
+                        MoveCam(viewCam.transform.position + new Vector3(shift.x, shift.y, 0f));
+                    }
                 }
             }
+
+            // ② 右/中ドラッグでパン（グラブ式＝つかんだ点をカーソルへ貼り付ける）。左クリックは惑星選択に温存。
+            bool dragHeld = Mouse.current.rightButton.isPressed || Mouse.current.middleButton.isPressed;
+            bool dragStart = Mouse.current.rightButton.wasPressedThisFrame || Mouse.current.middleButton.wasPressedThisFrame;
+            if (dragStart && overMap) { panActive = true; panGrabWorld = cursorWorld; }
+            if (!dragHeld) panActive = false;
+            if (panActive && dragHeld && TryCursorWorld(out Vector3 nowWorld))
+            {
+                Vector3 d = panGrabWorld - nowWorld; // つかんだ点が動いたぶんカメラを逆へ寄せる
+                MoveCam(viewCam.transform.position + new Vector3(d.x, d.y, 0f));
+            }
+
+            // ③ 左クリック → 最寄り惑星を選択（マップ領域内のみ）。
+            if (Mouse.current.leftButton.wasPressedThisFrame && overMap && systemView != null)
+                systemView.SelectPlanetAtWorld(cursorWorld);
+        }
+
+        /// <summary>カーソルがマップ領域内なら、専用カメラの z=0 面でのワールド点を返す。</summary>
+        private bool TryCursorWorld(out Vector3 world)
+        {
+            world = Vector3.zero;
+            Vector2 sp = Mouse.current.position.ReadValue();
+            if (!RectTransformUtility.RectangleContainsScreenPoint(mapRT, sp, null)) return false;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(mapRT, sp, null, out Vector2 local)) return false;
+            Rect r = mapRT.rect;
+            float vx = Mathf.Clamp01((local.x - r.xMin) / Mathf.Max(1e-4f, r.width));
+            float vy = Mathf.Clamp01((local.y - r.yMin) / Mathf.Max(1e-4f, r.height));
+            float depth = -viewCam.transform.position.z; // z=0 面までの距離
+            world = viewCam.ViewportToWorldPoint(new Vector3(vx, vy, depth));
+            world.z = 0f;
+            return true;
+        }
+
+        /// <summary>描画カメラを基準中心 ±panRange にクランプして移動（z は維持＝虚空へ飛ばさない）。</summary>
+        private void MoveCam(Vector3 pos)
+        {
+            float cx = Mathf.Clamp(pos.x, viewBaseCenter.x - panRange, viewBaseCenter.x + panRange);
+            float cy = Mathf.Clamp(pos.y, viewBaseCenter.y - panRange, viewBaseCenter.y + panRange);
+            viewCam.transform.position = new Vector3(cx, cy, pos.z);
         }
 
         private void OnDestroy()

@@ -101,6 +101,9 @@ namespace Ginei
             [Tooltip("敵の調略の浸透 0..1（#817。高いほど劣勢時に寝返りやすい）")]
             [Range(0f, 1f)]
             public float intrigue = 0f;
+
+            [Tooltip("増援の到着遅延（秒・game-time。0＝開戦時から在場＝従来動作。>0で戦場端から時間差投入 #2182）")]
+            public float reinforcementDelay = 0f;
         }
     }
 }

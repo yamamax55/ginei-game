@@ -23,6 +23,15 @@ namespace Ginei
         [Tooltip("シナリオの生成位置を原点中心に拡大する倍率（大きいほど両軍が離れて開始＝いきなり交戦距離にしない）")]
         public float spawnSeparation = 2.5f;
 
+        [Header("増援（時間差投入・#2182）")]
+        [Tooltip("増援が出現する戦場端の半径")]
+        public float reinforcementEdgeRadius = 45f;
+
+        // 増援の時限スポーン（game-time で経過を計る＝倍速/ポーズ追従）。
+        private readonly System.Collections.Generic.List<ScenarioData.FleetEntry> pendingReinforcements = new System.Collections.Generic.List<ScenarioData.FleetEntry>();
+        private float reinforcementElapsed;
+        private Faction reinforcementPlayerFaction;
+
         [Header("惑星攻城（戦略マップから突入・#131）")]
         [Tooltip("アルテミスの首飾り射程＝接近限界リングの半径（艦隊はここまでしか近づけない）")]
         public float siegeApproachRadius = 5f;
@@ -80,9 +89,16 @@ namespace Ginei
 
             // 3. 各エントリから艦隊を生成
             Faction playerFaction = GameSettings.Instance.playerFaction;
+            reinforcementPlayerFaction = playerFaction; // 増援スポーン用に保持
             System.Collections.Generic.List<GameObject> spawnedFleets = new System.Collections.Generic.List<GameObject>();
             foreach (var entry in scenario.fleets)
             {
+                // 増援（#2182）：到着遅延>0は開戦時に出さず、時限スポーンへ回す。
+                if (entry != null && entry.reinforcementDelay > 0f)
+                {
+                    pendingReinforcements.Add(entry);
+                    continue;
+                }
                 GameObject fleet = SpawnFleet(entry, playerFaction);
                 if (fleet != null) spawnedFleets.Add(fleet);
             }
@@ -170,6 +186,42 @@ namespace Ginei
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
                 f.transform.rotation = Quaternion.Euler(0f, 0f, angle);
             }
+        }
+
+        /// <summary>増援（#2182）：game-time で経過を計り、到着遅延に達したエントリを戦場端から時限スポーンする。</summary>
+        private void Update()
+        {
+            if (pendingReinforcements.Count == 0) return;
+            reinforcementElapsed += Time.deltaTime; // timeScale 追従＝ポーズで止まり倍速で速い
+
+            for (int i = pendingReinforcements.Count - 1; i >= 0; i--)
+            {
+                ScenarioData.FleetEntry e = pendingReinforcements[i];
+                if (e == null) { pendingReinforcements.RemoveAt(i); continue; }
+                if (!ReinforcementRules.IsDue(e.reinforcementDelay, reinforcementElapsed)) continue;
+                SpawnReinforcement(e);
+                pendingReinforcements.RemoveAt(i);
+            }
+        }
+
+        /// <summary>1隊の増援を戦場端から出現させ、戦場中央（敵方向）へ向ける。</summary>
+        private void SpawnReinforcement(ScenarioData.FleetEntry entry)
+        {
+            GameObject fleet = SpawnFleet(entry, reinforcementPlayerFaction);
+            if (fleet == null) return;
+
+            // 自陣側の戦場端へ配置し直す（時間差で駆けつける）。
+            Vector2 edge = ReinforcementRules.EdgePosition(entry.faction, entry.spawnPosition.y, reinforcementEdgeRadius);
+            fleet.transform.position = new Vector3(edge.x, edge.y, 0f);
+
+            // 戦場中央（おおむね敵方向）へ正対させる。
+            Vector2 toCenter = -edge;
+            if (toCenter.sqrMagnitude > 0.0001f)
+                fleet.transform.up = toCenter.normalized;
+
+            string who = entry.admiral != null ? entry.admiral.admiralName : "増援部隊";
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                $"増援到着：{who} 隊が戦場に駆けつけた（{entry.faction}）");
         }
 
         /// <summary>

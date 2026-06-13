@@ -35,9 +35,12 @@ namespace Ginei
             return Mathf.Clamp01(Mathf.Pow(h, WeightHeaven) * Mathf.Pow(e, WeightEarth) * Mathf.Pow(p, WeightPerson));
         }
 
-        /// <summary>天地人が揃ったか（整合がしきい値以上）。</summary>
+        /// <summary>境界比較の許容誤差（pow を分けて掛けるため、等価要素でも僅かに誤差が出る＝しきい値ちょうどを取りこぼさない）。</summary>
+        public const float AlignmentEpsilon = 1e-4f;
+
+        /// <summary>天地人が揃ったか（整合がしきい値以上・浮動小数の境界を許容）。</summary>
         public static bool IsAligned(Tenchijin t, float threshold = AlignmentThreshold)
-            => Alignment(t) >= threshold;
+            => Alignment(t) >= threshold - AlignmentEpsilon;
 
         /// <summary>
         /// この提督・この天地人での能力上限。軍神型は 100 + round(上乗せ×整合) を 100..<see cref="TranscendCeiling"/> でクランプ。

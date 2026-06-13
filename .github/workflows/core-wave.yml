@@ -13,8 +13,8 @@ name: Core Wave 自動量産
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '7 * * * *'   # 毎時7分（実測1Wave≈13分＝毎時1Waveで十分回る）
+  # schedule:  # 一時停止（Claude Flow 最大並列へ集中）
+    # - cron: '7 * * * *'   # 毎時7分（実測1Wave≈13分＝毎時1Waveで十分回る）
 
 # 多重実行を禁止（前のWaveが終わるまで次を始めない・キャンセルもしない）
 concurrency:

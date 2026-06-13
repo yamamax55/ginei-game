@@ -325,8 +325,26 @@ namespace Ginei
                 }
 
                 FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
-                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s), deltaTime: dt);
+                // 在任宰相の行政が安定度目標を押し上げる＝ただし名実の乖離で朝廷の権威ぶん減衰（権威0なら効かない）。
+                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s),
+                    deltaTime: dt, policy: GovernancePolicy.民生, adminBonus: PremierAdminBonus(s.owner));
             }
+        }
+
+        /// <summary>所有勢力の在任宰相による安定度寄与（名実の乖離＝朝廷の権威で減衰・<see cref="AdministrationRules"/>）。空席/非デモ勢力は0。</summary>
+        private float PremierAdminBonus(Faction owner)
+        {
+            if (civilOffices == null) return 0f;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                if (DemoFactions[f] != owner) continue;
+                Office office = civilOffices[f];
+                if (office == null) return 0f;
+                var premier = GovernmentRegistry.GetHolder(office) as Person;
+                float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+                return AdministrationRules.StabilityContribution(premier, authority, AdministrationRules.AdminParams.Default);
+            }
+            return 0f;
         }
 
         /// <summary>その星系に所有勢力と敵対する戦略艦隊が停泊しているか（戦時ペナルティ判定）。</summary>

@@ -1219,6 +1219,9 @@ namespace Ginei
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
 
+            // 朝廷の権威の動態（官僚制基盤）：戦乱で武家台頭＝権威↓（戦国化）／平時は律令が回復。以後の考課・銓衡・内政に効く。
+            RunCourtAuthorityTick();
+
             // 文官の官歴（官僚制基盤）：文民ネームドに位階を叙し、考課で叙位・五位の壁を回す（朝廷の権威で効く）。
             RunBureaucracyTick();
 
@@ -1592,6 +1595,9 @@ namespace Ginei
         {
             SeedCommandOffices(); // 冪等＝文官要職もここで用意される
             if (civilOffices == null || civilians == null) return;
+            // 名実の乖離を選抜にも効かせる＝権威が低いほど門閥人事（位階＝家柄）が実績を上書きする。
+            var prm = CivilServiceRules.ParamsForAuthority(
+                courtAuthority != null ? courtAuthority.authority : 0f, CivilServiceRules.AppointmentParams.Default);
             for (int f = 0; f < DemoFactions.Length; f++)
             {
                 Office office = civilOffices[f];
@@ -1603,7 +1609,7 @@ namespace Ginei
                     GovernmentRegistry.Dismiss(office, holder); // 官位相当を割った（位階喪失）／死亡・捕虜
                 ICharacter before = GovernmentRegistry.GetHolder(office);
                 Person appointed = CivilAppointmentRules.FillVacancy(
-                    fac, office, PremierRequiredRank, CiviliansOf(fac), CivilServiceRules.AppointmentParams.Default);
+                    fac, office, PremierRequiredRank, CiviliansOf(fac), prm);
                 if (appointed != null && appointed != before)
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                         $"{fac} {office.officeName} に {appointed.name}（{JapaneseCourtRankRules.Name(appointed.courtRank)}）が就任");
@@ -1632,6 +1638,9 @@ namespace Ginei
             SeedCommandOffices();
             if (governorOffices == null || civilians == null || map == null) return;
 
+            // 名実の乖離を選抜にも効かせる＝権威が低いほど門閥人事（位階＝家柄）が実績を上書きする。
+            var prm = CivilServiceRules.ParamsForAuthority(
+                courtAuthority != null ? courtAuthority.authority : 0f, CivilServiceRules.AppointmentParams.Default);
             var assigned = new HashSet<int>();
             if (civilOffices != null) // 宰相（中央）は総督に重ねない
                 for (int f = 0; f < civilOffices.Length; f++)
@@ -1658,7 +1667,7 @@ namespace Ginei
                 ICharacter before = holder;
                 Person gov = CivilAppointmentRules.FillVacancy(
                     s.owner, office, GovernorRequiredRank, CiviliansOfExcluding(s.owner, assigned),
-                    CivilServiceRules.AppointmentParams.Default, scopeKey: s.id);
+                    prm, scopeKey: s.id);
                 if (gov == null) continue;
 
                 assigned.Add(gov.id);
@@ -2385,6 +2394,43 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                     $"{p.faction} {p.name} 叙従五位下＝貴族に列す（{JapaneseCourtRankRules.Name(changes[i].from)}→{JapaneseCourtRankRules.Name(changes[i].to)}）");
             }
+
+            // 清廉度の動態（汚職）：監督（朝廷の権威）が弱いほど汚職が育つ＝名誉職化が腐敗を生む（考課の徳・内政に跳ね返る）。
+            float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+            for (int i = 0; i < civilians.Count; i++)
+            {
+                Person c = civilians[i];
+                if (c == null || c.role != PersonRole.文民 || c.merit == null) continue;
+                c.merit.integrity = OfficialIntegrityRules.Tick(
+                    c.merit.integrity, authority, OfficialIntegrityRules.IntegrityParams.Default);
+            }
+        }
+
+        /// <summary>戦乱度＝前線/交戦の広がり（敵対艦隊が停泊する星系の割合）。朝廷の権威の動態の入力。</summary>
+        private float WarIntensity()
+        {
+            if (map == null || map.systems.Count == 0) return 0f;
+            int war = 0, total = 0;
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                total++;
+                if (HasHostileFleetAt(s)) war++;
+            }
+            return total > 0 ? (float)war / total : 0f;
+        }
+
+        /// <summary>朝廷の権威を1年ぶん動かす（戦乱で武家台頭↓／平時は律令回復↑）。形骸化の段階が変われば通知。</summary>
+        private void RunCourtAuthorityTick()
+        {
+            if (courtAuthority == null) return;
+            RitsuryoPhase before = RitsuryoFormalizationRules.PhaseOf(courtAuthority.authority);
+            CourtAuthorityRules.TickYear(courtAuthority, WarIntensity(), CourtAuthorityRules.AuthorityParams.Default);
+            RitsuryoPhase after = RitsuryoFormalizationRules.PhaseOf(courtAuthority.authority);
+            if (after != before)
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"朝廷の権威が変動：{before}→{after}（官職の名実が{((int)after > (int)before ? "乖離" : "一致")}へ）");
         }
 
         private Person FindCivilian(int id)

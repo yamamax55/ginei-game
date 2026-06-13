@@ -57,6 +57,19 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 朝廷の権威に応じた銓衡パラメータ＝<b>名実の乖離を選抜にも効かせる</b>。権威が低い（律令の形骸化）ほど
+        /// 実績（考課）の重みが家柄（位階＝蔭位の門閥）へ移る＝<b>門閥人事</b>。権威が高いと実力本位（式部省の選叙）。
+        /// 重みの総和は保存する（実績ぶんが位階ぶんへ移るだけ）。
+        /// </summary>
+        public static AppointmentParams ParamsForAuthority(float courtAuthority, AppointmentParams baseParams)
+        {
+            float a = Mathf.Clamp01(courtAuthority);
+            float merit = baseParams.meritWeight * a;                          // 権威が低いほど実績が効かない
+            float tier = baseParams.tierWeight + baseParams.meritWeight * (1f - a); // 移った分は位階（門閥）へ
+            return new AppointmentParams(tier, merit, baseParams.fitTolerance);
+        }
+
+        /// <summary>
         /// 登用経路ごとの実力の重み（0..1。高いほど実力本位＝1なら考課だけで決まり、0なら門閥だけ）。
         /// 史実（日本）：貢挙＝試験の実力本位（だが衰退）、雑任＝実務の叩き上げ、譜第＝家の世襲、蔭位＝門閥本位。
         /// </summary>

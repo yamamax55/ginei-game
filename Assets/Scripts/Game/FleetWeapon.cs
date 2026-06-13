@@ -395,7 +395,10 @@ namespace Ginei
             DamageBreakdown bd = ShouldSampleBreakdown() ? (sampleBreakdown ?? (sampleBreakdown = new DamageBreakdown())) : null;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk, LanchesterFactor, bd);
+                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank,
+                fAtk, LanchesterFactor,
+                myStrength != null ? myStrength.qualityFactor : 1f, // 軍の質（C4）
+                bd);
 
             // 特殊作戦部隊（#SOF）：出身提督が艦隊単独の特殊作戦＝側背/包囲（後方かく乱・周りこみ）を行うと +20%。
             if (isSof && isFlank)

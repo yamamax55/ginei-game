@@ -135,7 +135,7 @@ namespace Ginei
                 p.operation = sub; p.intelligence = sub;
                 p.schoolId = a.schoolId;
                 p.graduationYear = year;
-                p.birthYear = year - OfficerAcademyRules.GraduationAge;
+                p.birthYear = year - OfficerAcademyRules.GraduationAge; // 暫定（Funnel 後に学歴別へ精緻化）
                 cadets.Add(p);
             }
 
@@ -144,6 +144,8 @@ namespace Ginei
             {
                 Person p = cadets[i];
                 p.name = $"{DegreeTitle(p.militaryDegree)}{year}-{p.id}";
+                // 学歴別に生年を精緻化（史実）：大学校卒=参謀は約31歳・士官学校卒22・幼年学校卒/退校16＝同年卒でも到達学歴が高いほど年長
+                p.birthYear = year - SchoolAgeRules.GraduationAgeForDegree(p.militaryDegree);
             }
             return cadets;
         }

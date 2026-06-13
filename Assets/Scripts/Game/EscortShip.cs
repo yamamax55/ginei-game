@@ -196,7 +196,9 @@ namespace Ginei
             float lanchester = flagshipWeapon != null ? flagshipWeapon.LanchesterFactor : 1f;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 flagship != null ? flagship.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank, fAtk, lanchester);
+                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank,
+                fAtk, lanchester,
+                flagship != null ? flagship.qualityFactor : 1f); // 軍の質（C4・配下艦は旗艦の質に従う）
 
             // 特殊作戦部隊（#SOF）：側背/包囲（後方かく乱・周りこみ）時は +20%。
             if (isSof && isFlank)

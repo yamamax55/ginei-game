@@ -59,6 +59,52 @@ namespace Ginei
             TickEconomy(c, secondsPerDay);
         }
 
+        /// <summary>
+        /// 予算の時間進行（国家予算の基盤）：各勢力の歳出総額（<see cref="BudgetRules.Total"/>）を国庫から引く＝
+        /// 歳入（<see cref="TickEconomy"/>）の対＝歳出。国庫は赤字（マイナス＝国債相当）を許容し、過剰歳出が可視化される。
+        /// budget が空（既定）なら歳出0＝無変化（後方互換）。null/dt&lt;=0 は無効。
+        /// </summary>
+        public static void TickBudget(CampaignState c, float dt)
+        {
+            if (c == null || dt <= 0f) return;
+            for (int i = 0; i < c.states.Count; i++)
+            {
+                FactionState s = c.states[i];
+                if (s == null || s.budget == null) continue;
+                s.treasury -= BudgetRules.Total(s.budget) * dt;
+            }
+        }
+
+        /// <summary>予算を <b>1 game-day ぶん</b>進める（TIME-6＝暦の日境界で1回）。連続版 <see cref="TickBudget"/> を
+        /// 1日の秒数で積分した量と一致（離散化しても暦比で同じ帰結）。secondsPerDay&lt;=0 は無効。</summary>
+        public static void TickBudgetDay(CampaignState c, float secondsPerDay)
+        {
+            if (secondsPerDay <= 0f) return;
+            TickBudget(c, secondsPerDay);
+        }
+
+        /// <summary>
+        /// 形式財政を1年ぶん進める（#161/#163 配線）：各勢力で 歳入＝税収レート・歳出＝予算総額（<see cref="BudgetRules.ApplyToFiscalState"/>）
+        /// を <see cref="FiscalState"/> に反映し、<see cref="FiscalRules.Tick"/> で赤字→国債／黒字→減債を進める＝
+        /// <b>債務が翌年へ繰り越し利払いが乗る</b>。現金 <see cref="TickEconomy"/>/<see cref="TickBudget"/>（日次）の対＝年次の形式財政。
+        /// 予算が空（既定）なら歳出0＝黒字で減債のみ（後方互換）。null/dt&lt;=0 は無効。
+        /// </summary>
+        public static void TickFiscalYear(CampaignState c, float dt)
+        {
+            if (c == null || dt <= 0f) return;
+            var p = FiscalRules.FiscalParams.Default;
+            for (int i = 0; i < c.states.Count; i++)
+            {
+                FactionState s = c.states[i];
+                if (s == null) continue;
+                if (s.fiscal == null) s.fiscal = new FiscalState();
+                float economy = EconomyBase(s);
+                s.fiscal.revenue = FiscalRules.TaxRevenue(economy, s.taxRate);
+                BudgetRules.ApplyToFiscalState(s.budget, s.fiscal); // 歳出＝予算総額
+                FiscalRules.Tick(s.fiscal, economy, dt, p);          // 赤字→増債／黒字→減債（利払い込み）
+            }
+        }
+
         /// <summary>盤面に1星系以上を所有する勢力それぞれに FactionState を用意する（無ければ追加）。</summary>
         public static void EnsureStates(CampaignState c)
         {

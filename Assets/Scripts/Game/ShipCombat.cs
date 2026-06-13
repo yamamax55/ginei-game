@@ -198,14 +198,15 @@ namespace Ginei
         /// <param name="isFlank">側背面ヒットだったか</param>
         /// <param name="formationAttackFactor">陣形の攻撃倍率（#72）</param>
         /// <param name="lanchesterFactor">局所火力集中倍率（ランチェスター二乗則・一定範囲内の火力差）</param>
-        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor = 1f, float lanchesterFactor = 1f)
-            => ComputeDamage(baseDamage, admiral, moraleFactor, attackerPos, targetTf, flankMultiplier, out isFlank, formationAttackFactor, lanchesterFactor, null);
+        /// <param name="qualityFactor">軍の質の戦闘力倍率（下士官団/新兵練度/即応の合成＝<see cref="ForceQualityRules.CombatMultiplier"/>。既定1.0＝従来動作）</param>
+        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor = 1f, float lanchesterFactor = 1f, float qualityFactor = 1f)
+            => ComputeDamage(baseDamage, admiral, moraleFactor, attackerPos, targetTf, flankMultiplier, out isFlank, formationAttackFactor, lanchesterFactor, qualityFactor, null);
 
         /// <summary>
         /// ダメージ計算（#2252・可視化版）。<paramref name="breakdown"/> に内訳を記録する（null＝記録なし＝ホットパス無確保）。
         /// 総合倍率は <see cref="DamageClampRules"/> でクランプし、修飾子が積み上がっても与ダメが発散しない。
         /// </summary>
-        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor, float lanchesterFactor, DamageBreakdown breakdown)
+        public static int ComputeDamage(int baseDamage, AdmiralData admiral, float moraleFactor, Vector3 attackerPos, Transform targetTf, float flankMultiplier, out bool isFlank, float formationAttackFactor, float lanchesterFactor, float qualityFactor, DamageBreakdown breakdown)
         {
             // 提督の攻撃力補正（攻撃50で1.0倍, 100で1.5倍, 0で0.5倍）。実効攻撃（参謀補完）・基準値非破壊。
             float attackBonus = admiral != null ? CombatModifiers.AbilityFactor(admiral.EffectiveAttack) : 1.0f;
@@ -217,9 +218,10 @@ namespace Ginei
 
             float fForm = Mathf.Max(0f, formationAttackFactor); // 陣形特性#72＋相性#2177（呼び出し側で合成）
             float fLan = Mathf.Max(0f, lanchesterFactor);        // ランチェスター集中
+            float fQual = Mathf.Max(0f, qualityFactor);          // 軍の質（C4・ForceQualityRules）
 
             // 総合倍率をクランプ（#2252）＝修飾子の乗算スタックが暴れない。
-            float total = attackBonus * moraleFactor * flank * fForm * fLan;
+            float total = attackBonus * moraleFactor * flank * fForm * fLan * fQual;
             float clamped = DamageClampRules.Clamp(total);
 
             if (breakdown != null)
@@ -230,6 +232,7 @@ namespace Ginei
                 breakdown.Add(isFlank ? "側背" : "正面", flank);
                 breakdown.Add("陣形", fForm);
                 breakdown.Add("集中", fLan);
+                breakdown.Add("軍質", fQual);
             }
             return Mathf.Max(0, Mathf.RoundToInt(baseDamage * clamped));
         }

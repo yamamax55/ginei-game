@@ -27,6 +27,9 @@ namespace Ginei
         [Tooltip("最大兵力")]
         public int maxStrength = 10000;
 
+        [Tooltip("軍の質の戦闘力倍率（下士官団/新兵練度/即応の合成＝ForceQualityRules.CombatMultiplier。1.0=従来動作。戦略から BattleHandoff 経由で設定）")]
+        public float qualityFactor = 1f;
+
         [Tooltip("艦隊の基準兵力＝艦艇数の単一の出所（RANKCMD-1 #1711）。0＝提督側 baseStrength へフォールバック（非推奨・後方互換）。" +
                  "ApplyAdmiralData が統率で補正して maxStrength を決める基準値")]
         public int baseStrength = 0;

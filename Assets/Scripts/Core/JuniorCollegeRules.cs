@@ -13,7 +13,7 @@ namespace Ginei
     {
         public const int StatFloor = 28;
         public const int MidStatCeil = 65;   // 2年制＝大学(78)より低い天井（中堅）
-        public const int GraduationAge = 20;
+        public static readonly int GraduationAge = SchoolAgeRules.GraduationAge(SchoolType.短大); // 卒業年齢=20（高校卒後2年・出所＝SchoolAgeRules）
 
         public static int Intake(JuniorCollege c, float candidatePool)
         {

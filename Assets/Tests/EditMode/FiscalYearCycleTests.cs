@@ -163,6 +163,17 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void FiscalHealth_FullWhenSafe_ZeroAtCrisis_LinearBetween()
+        {
+            var p = FiscalRules.FiscalParams.Default; // safe 0.6 / crisis 2.0
+            Assert.AreEqual(1f, FiscalRules.FiscalHealthFactor(new FiscalState(300f, 250f, 0f), Economy, p), 1e-3f);      // 無債務＝健全
+            Assert.AreEqual(0f, FiscalRules.FiscalHealthFactor(new FiscalState(300f, 250f, 2500f), Economy, p), 1e-3f);  // 危機（比2.5）
+            float mid = FiscalRules.FiscalHealthFactor(new FiscalState(300f, 250f, 1300f), Economy, p);                  // 比1.3
+            Assert.Greater(mid, 0f);
+            Assert.Less(mid, 1f); // 高債務ほど健全度↓＝希望/安定度を蝕む（GalaxyView で配線）
+        }
+
+        [Test]
         public void TickFiscalYear_EmptyBudget_NoDeficit_NoDebt()
         {
             var s = new FactionState(Faction.同盟);

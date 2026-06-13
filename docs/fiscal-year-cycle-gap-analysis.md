@@ -71,9 +71,14 @@
 - **G5 帰結（通知）**：`FiscalRules.IsDebtSpiral` を年次で判定し債務スパイラルを警告。
 - **G3 建艦**：`TickShipyard` の生産係数に `ShipbuildingFundingFactor`（建艦予算/必要額）を乗算＝**建艦予算を絞ると建艦が遅れ、厚くすると速まる**（#163→#884）。
 
-**残（G3 の他分野）**：`AdministrationStabilityBonus`→`GovernanceRules`／`WelfareHopeBonus`→`HopeRules`／`MilitaryReadinessFactor`→戦闘#106／`DiplomacyOpinionBonus`→#189 は窓口は用意済み・接続は今後（同パターンで1行）。`FiscalHealthFactor`→安定度/交易（G5 残り）も同様。
+**追加配線（G3 帰結・G5 健全度）**：`RunFiscalYearTick` の年次帰結で
+- **社会保障→民心**：`WelfareHopeBonus` を `community.hope` へ（＋）。
+- **財政健全度→民心**：`FiscalHealthFactor`（高債務で低下）で `community.hope` を蝕む（−）＝G5 を実効化。
+- **内政→安定度**：`AdministrationStabilityBonus`（±10）を所有星系の `Province.stability`（0..100）へ年次反映（過剰で安定↑・不足で↓）。
 
-**結果**：歳入(日次)→予算編成(年次)→執行(日次で現金が動く)→形式財政(年次で債務繰り越し)→翌年 が回る。建艦予算は建艦速度に効く。配線テスト＝`FiscalYearCycleTests.TickFiscalYear_*`。
+**残（接続点が会戦/外交側で要検討）**：`MilitaryReadinessFactor`→戦闘#106（会戦解決に勢力即応の注入点が無い）／`DiplomacyOpinionBonus`→#189（`DiplomacyState` の opinion 直接加点窓口が要る）。窓口（出資度計算）は用意済みで、注入点を足せば同パターンで接続できる。
+
+**結果**：歳入(日次)→予算編成(年次)→執行(日次で現金が動く)→形式財政(年次で債務繰り越し)→帰結(建艦速度・民心・安定度)→翌年 が回る。**予算配分の選択（軍拡/均衡・社会保障厚め/薄め）が建艦速度・民心・安定度・債務に効く**。配線テスト＝`FiscalYearCycleTests.TickFiscalYear_*`/`FiscalHealth_*`。
 
 ---
 

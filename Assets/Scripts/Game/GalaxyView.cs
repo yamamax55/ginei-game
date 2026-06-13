@@ -1138,15 +1138,40 @@ namespace Ginei
             // ② 形式財政：赤字→国債→利払い→翌年（債務繰り越し）。
             CampaignRules.TickFiscalYear(camp, 1f);
 
-            // ③ 帰結（通知）：債務スパイラルを警告。
+            // ③ 帰結（出資度→実効・G3/G5）：社会保障→希望／財政健全度→希望／内政→安定度／債務スパイラル通知。
             var p = FiscalRules.FiscalParams.Default;
+            var adminBonusByFaction = new System.Collections.Generic.Dictionary<Faction, float>();
             for (int i = 0; i < camp.states.Count; i++)
             {
                 FactionState s = camp.states[i];
-                if (s == null || s.fiscal == null) continue;
-                if (FiscalRules.IsDebtSpiral(s.fiscal, CampaignRules.EconomyBase(s), p))
+                if (s == null || s.budget == null || s.fiscal == null) continue;
+                float economy = CampaignRules.EconomyBase(s);
+                float revenueRate = FiscalRules.TaxRevenue(economy, s.taxRate);
+
+                // 社会保障の希望加点（＋）と財政難の希望毀損（−）＝民心へ
+                if (s.community != null)
+                {
+                    float welfareBonus = BudgetRules.WelfareHopeBonus(s.budget, revenueRate * 0.15f); // ±0.3
+                    float health = economy > 0f ? FiscalRules.FiscalHealthFactor(s.fiscal, economy, p) : 1f;
+                    float hopeDelta = welfareBonus * 0.1f - (1f - health) * 0.05f;
+                    s.community.hope = Mathf.Clamp01(s.community.hope + hopeDelta);
+                }
+
+                // 内政の安定度加点（所有 Province へ後段で反映）
+                adminBonusByFaction[s.faction] = BudgetRules.AdministrationStabilityBonus(s.budget, revenueRate * 0.2f); // ±10
+
+                if (FiscalRules.IsDebtSpiral(s.fiscal, economy, p))
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 債務スパイラル（債務 {s.fiscal.debt:0}）");
             }
+
+            // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。
+            if (map != null)
+                foreach (var sys in map.systems)
+                {
+                    if (sys == null || !provinces.TryGetValue(sys.id, out var prov) || prov == null) continue;
+                    if (adminBonusByFaction.TryGetValue(sys.owner, out float ab))
+                        prov.stability = Mathf.Clamp(prov.stability + ab, 0f, 100f);
+                }
         }
 
         /// <summary>建艦の出資度（G3）＝建艦予算/必要額。歳入の2割を満額基準とする（不足で建艦が遅れる）。</summary>

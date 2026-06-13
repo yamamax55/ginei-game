@@ -3,12 +3,19 @@ name: unity-test
 # 実 Unity（GameCI headless）でプロジェクト全体をコンパイルし EditMode テストを回す。
 # 価値：dotnet TestHarness では検証できない Game 層（MonoBehaviour/UI＝PlaytestRunner 等）の
 #       コンパイル＋Unity Test Framework 検証がここで効く。
-# 前提：GitHub Secrets に UNITY_LICENSE（Personal の .ulf 中身）。未設定なら自動スキップ。
-#       設定手順は docs/gameci-setup.md。
+#
+# ライセンス（いずれか・docs/gameci-setup.md）：
+#   A) Personal（新ライセンス方式で .ulf が作られない場合）＝ UNITY_EMAIL + UNITY_PASSWORD（Unity ID）。
+#      GameCI v4 が毎回アクティベートする。serial 不要。
+#   B) .ulf が手に入る場合＝ UNITY_LICENSE（.ulf 中身）。
+#   C) Pro/Plus＝ UNITY_EMAIL + UNITY_PASSWORD + UNITY_SERIAL。
+# いずれも未設定なら自動スキップ（PR を止めない）。
+#
+# 注意：Personal のメール/パスワード方式は CI 実行ごとに seat をアクティベートする。
+#       アクティベーション回数の上限に当たらないよう、定期 cron は付けず PR＋手動のみにしている
+#       （頻度を上げたい/Pro を入れたら schedule を足す）。
 on:
   pull_request:
-  schedule:
-    - cron: '37 */6 * * *'   # 6時間ごと :37（他 cron :3/:23/:43/:47 と衝突回避）
   workflow_dispatch: {}
 
 concurrency:
@@ -22,19 +29,22 @@ jobs:
     timeout-minutes: 40
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Guard — UNITY_LICENSE が設定されているか
+      - name: Guard — ライセンス情報が設定されているか
         id: guard
         run: |
-          if [ -n "${UNITY_LICENSE}" ]; then
+          if [ -n "${UNITY_LICENSE}" ] || { [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ]; }; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::UNITY_LICENSE 未設定のため Unity テストをスキップします（docs/gameci-setup.md 参照）。dotnet TestHarness は別ワークフローで実行されます。"
+            echo "::notice::Unity ライセンス未設定のためスキップ（UNITY_EMAIL+UNITY_PASSWORD か UNITY_LICENSE。docs/gameci-setup.md 参照）。dotnet TestHarness は別ワークフローで実行されます。"
           fi
 
       - name: Cache Library
@@ -51,6 +61,9 @@ jobs:
         uses: game-ci/unity-test-runner@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
           testMode: editmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}

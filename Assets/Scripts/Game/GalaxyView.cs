@@ -286,6 +286,24 @@ namespace Ginei
             // 国家状態（#817 旗幟の基準忠誠の出所）：Battle 往復で失わないよう StrategySession に持たせる。
             if (StrategySession.Campaign == null) StrategySession.Campaign = new CampaignState(map);
             CampaignRules.EnsureStates(StrategySession.Campaign);
+
+            AnnounceCampaignObjective(); // 遊べる縦スライス：目標と初手をプレイヤーに提示（オンボーディング）
+        }
+
+        // --- オンボーディング（目標提示＋初手ガイド） ---
+        private static bool objectiveAnnounced;
+
+        /// <summary>キャンペーン開始時に勝利目標と最初の操作を通知で提示する（セッション一度きり）。勝敗は <see cref="CampaignVictoryRules"/>。</summary>
+        private void AnnounceCampaignObjective()
+        {
+            if (objectiveAnnounced) return;
+            objectiveAnnounced = true;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            int pct = Mathf.RoundToInt(CampaignVictoryRules.CampaignVictoryParams.Default.dominationFraction * 100f);
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
+                $"【目標】{player} で銀河の {pct}% を支配せよ（敵を全制圧でも勝利／全星系を失えば敗北）");
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
+                "操作：星系を右クリックで進軍 → 前線で接触 → 交戦中の回廊をダブルクリックで潜行（会戦へ）。Space/1-3=速度、H=ヘルプ。");
         }
 
         private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)

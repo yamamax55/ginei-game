@@ -62,16 +62,17 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void AttachFleet_RejectsMixingCombatAndNonCombat()
+        public void AttachFleet_AllowsCombinedArms()
         {
+            // #883 混成禁止は撤回（ORBAT-3）＝諸兵科連合：戦闘艦隊＋非戦闘艦隊を同一梯団に混在できる
             Fleet(Faction.帝国, 1, ShipRole.戦闘艦);
             Fleet(Faction.帝国, 2, ShipRole.輸送艦);
             var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
 
-            Assert.IsTrue(OrderOfBattle.AttachFleet(corps.id, 1));   // 戦闘艦隊
-            Assert.IsFalse(OrderOfBattle.CanAttachFleet(corps.id, 2)); // 輸送は混成NG
-            Assert.IsFalse(OrderOfBattle.AttachFleet(corps.id, 2));
-            Assert.AreEqual(1, OrderOfBattle.CountFleetsUnder(corps.id)); // 編入されない
+            Assert.IsTrue(OrderOfBattle.AttachFleet(corps.id, 1));    // 戦闘艦隊
+            Assert.IsTrue(OrderOfBattle.CanAttachFleet(corps.id, 2)); // 輸送も編入可（諸兵科連合）
+            Assert.IsTrue(OrderOfBattle.AttachFleet(corps.id, 2));
+            Assert.AreEqual(2, OrderOfBattle.CountFleetsUnder(corps.id)); // 両方編入される
         }
 
         [Test]
@@ -87,7 +88,7 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void RejectedMove_KeepsFleetInOriginalFormation()
+        public void CombinedArmsMove_TransfersFromOriginalFormation()
         {
             Fleet(Faction.帝国, 1, ShipRole.戦闘艦);
             Fleet(Faction.帝国, 2, ShipRole.輸送艦);
@@ -96,10 +97,10 @@ namespace Ginei.Tests
             OrderOfBattle.AttachFleet(combatCorps.id, 1);
             OrderOfBattle.AttachFleet(convoy.id, 2);
 
-            // 輸送(2)を戦闘軍団へ移そうとしても拒否され、元の船団に残る（混成で剥がさない）
-            Assert.IsFalse(OrderOfBattle.AttachFleet(combatCorps.id, 2));
-            Assert.AreEqual(1, OrderOfBattle.CountFleetsUnder(convoy.id));
-            Assert.AreEqual(1, OrderOfBattle.CountFleetsUnder(combatCorps.id));
+            // 輸送(2)を戦闘軍団へ移せる（諸兵科連合・#883撤回）＝単一所属で元の船団から剥がれる（中身流動）
+            Assert.IsTrue(OrderOfBattle.AttachFleet(combatCorps.id, 2));
+            Assert.AreEqual(0, OrderOfBattle.CountFleetsUnder(convoy.id));      // 元から剥がれた
+            Assert.AreEqual(2, OrderOfBattle.CountFleetsUnder(combatCorps.id)); // 戦闘＋輸送の諸兵科連合
         }
 
         [Test]

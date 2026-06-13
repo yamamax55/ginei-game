@@ -37,6 +37,8 @@ namespace Ginei
         public FactionData playerFactionData;
         public string scenarioName = "アスターテ会戦";
         public string selectedAdmiral = "ラインハルト";
+        [Tooltip("キャンペーン難易度（新規戦役の設定画面で選択。勝敗しきい値と開始戦力の傾きに反映）")]
+        public CampaignDifficulty campaignDifficulty = CampaignDifficulty.普通;
         
         [Header("システム設定")]
         [Range(0f, 1f)]

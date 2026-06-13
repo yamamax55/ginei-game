@@ -2,96 +2,27 @@ using UnityEngine;
 
 namespace Ginei
 {
-    /// <summary>儀礼・式典の調整係数（戴冠・凱旋・観艦式）。</summary>
-    public readonly struct CeremonyParams
-    {
-        /// <summary>盛大さ最大の式典が正統性に返す最大ボーナス。</summary>
-        public readonly float legitimacyScale;
-        /// <summary>盛大さ最大の式典が士気に返す最大ボーナス。</summary>
-        public readonly float moraleScale;
-        /// <summary>盛大さ1あたりの財政コスト。</summary>
-        public readonly float costPerGrandeur;
-        /// <summary>空疎な式典と判定される情勢の閾値（warSituation がこれ未満＝敗勢での豪華な式典は逆効果）。</summary>
-        public readonly float hollowThreshold;
-
-        public CeremonyParams(float legitimacyScale, float moraleScale, float costPerGrandeur, float hollowThreshold)
-        {
-            this.legitimacyScale = Mathf.Max(0f, legitimacyScale);
-            this.moraleScale = Mathf.Max(0f, moraleScale);
-            this.costPerGrandeur = Mathf.Max(0f, costPerGrandeur);
-            this.hollowThreshold = Mathf.Clamp01(hollowThreshold);
-        }
-
-        /// <summary>既定＝正統性0.15・士気0.2・費用100/盛大さ・空疎閾値0.3。</summary>
-        public static CeremonyParams Default => new CeremonyParams(0.15f, 0.2f, 100f, 0.3f);
-    }
-
     /// <summary>
-    /// 儀礼・式典の純ロジック（戴冠・凱旋・観艦式）。盛大な演出は正統性と士気を買うが財政を食い、
-    /// 効果は情勢（warSituation 0..1）に裏打ちされる＝勝っている政権の凱旋は輝き、敗勢下の豪華な式典は
-    /// 空疎で逆効果（現実との落差が露呈する）。天命の実体は <see cref="DynastyRules"/>、殉教の動員は
-    /// バックログ別テーマが扱い、ここは演出の損益のみ。乱数なし・決定論。
-    /// 純ロジック（非 MonoBehaviour・test-first）。
+    /// 葬祭・冠婚（儀礼サービス）のロジック（業種細分化・サービス #2024 の儀礼サブ業種・#2025・純ロジック・唯一の窓口）：高単価低頻度の施行収入（CER-1）／
+    /// 互助会の前受金（CER-2＝積立で需要を囲い込む）／高粗利率（CER-3）／利益（CER-4）。
+    /// 一生に数度の高単価・低頻度サービス＝互助会の前受金（負債だが資金繰りを支える）で顧客を囲い込み高粗利で稼ぐ。人口動態（#153・高齢化）に連動。マクロ近似。test-first。
     /// </summary>
     public static class CeremonyRules
     {
-        /// <summary>式典の財政コスト＝盛大さ(0..1)×単価。</summary>
-        public static float Cost(float grandeur, CeremonyParams p)
-        {
-            return Mathf.Clamp01(grandeur) * p.costPerGrandeur;
-        }
+        /// <summary>施行収入＝施行件数×平均単価（葬儀・婚礼など一件あたりの単価が高い）。</summary>
+        public static float CeremonyRevenue(int ceremonies, float avgUnitPrice)
+            => Mathf.Max(0, ceremonies) * Mathf.Max(0f, avgUnitPrice);
 
-        public static float Cost(float grandeur) => Cost(grandeur, CeremonyParams.Default);
+        /// <summary>互助会前受金＝会員数×月掛金×積立月数（将来の施行を前払いで囲い込む＝負債だが資金源）。</summary>
+        public static float PrepaidDeposits(int members, float monthlyDeposit, int months)
+            => Mathf.Max(0, members) * Mathf.Max(0f, monthlyDeposit) * Mathf.Max(0, months);
 
-        /// <summary>空疎な式典か＝情勢が閾値未満なのに盛大さが情勢を上回る（実態なき演出）。</summary>
-        public static bool IsHollow(float grandeur, float warSituation, CeremonyParams p)
-        {
-            float situation = Mathf.Clamp01(warSituation);
-            return situation < p.hollowThreshold && Mathf.Clamp01(grandeur) > situation;
-        }
+        /// <summary>高粗利率＝(単価−直接原価)/単価（儀礼は付加価値が高く高粗利）。単価0以下は0。</summary>
+        public static float HighMarginRate(float unitPrice, float directCost)
+            => unitPrice <= 0f ? 0f : (unitPrice - Mathf.Max(0f, directCost)) / unitPrice;
 
-        public static bool IsHollow(float grandeur, float warSituation)
-            => IsHollow(grandeur, warSituation, CeremonyParams.Default);
-
-        /// <summary>
-        /// 式典の正統性効果。健全なら盛大さ×情勢×scale のプラス、空疎なら盛大さに比例した
-        /// マイナス（豪華なほど落差が痛い）。
-        /// </summary>
-        public static float LegitimacyEffect(float grandeur, float warSituation, CeremonyParams p)
-        {
-            float g = Mathf.Clamp01(grandeur);
-            if (IsHollow(g, warSituation, p))
-                return -g * p.legitimacyScale; // 演出と現実の落差が露呈＝逆効果
-            return g * Mathf.Clamp01(warSituation) * p.legitimacyScale;
-        }
-
-        public static float LegitimacyEffect(float grandeur, float warSituation)
-            => LegitimacyEffect(grandeur, warSituation, CeremonyParams.Default);
-
-        /// <summary>式典の士気効果（同じ形・士気スケール）。</summary>
-        public static float MoraleEffect(float grandeur, float warSituation, CeremonyParams p)
-        {
-            float g = Mathf.Clamp01(grandeur);
-            if (IsHollow(g, warSituation, p))
-                return -g * p.moraleScale;
-            return g * Mathf.Clamp01(warSituation) * p.moraleScale;
-        }
-
-        public static float MoraleEffect(float grandeur, float warSituation)
-            => MoraleEffect(grandeur, warSituation, CeremonyParams.Default);
-
-        /// <summary>
-        /// 費用対効果（正統性＋士気の合計効果÷コスト）。コスト0（やらない）は0。
-        /// 空疎な式典は負＝「やらないほうがまし」が数値で出る。
-        /// </summary>
-        public static float Efficiency(float grandeur, float warSituation, CeremonyParams p)
-        {
-            float cost = Cost(grandeur, p);
-            if (cost <= 0f) return 0f;
-            return (LegitimacyEffect(grandeur, warSituation, p) + MoraleEffect(grandeur, warSituation, p)) / cost;
-        }
-
-        public static float Efficiency(float grandeur, float warSituation)
-            => Efficiency(grandeur, warSituation, CeremonyParams.Default);
+        /// <summary>儀礼サービス利益＝施行収入−直接原価−固定費（式場の固定費を高単価で回収）。</summary>
+        public static float CeremonyProfit(float revenue, float directCost, float fixedCost)
+            => revenue - Mathf.Max(0f, directCost) - Mathf.Max(0f, fixedCost);
     }
 }

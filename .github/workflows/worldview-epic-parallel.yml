@@ -1,0 +1,112 @@
+name: worldview-epic-parallel
+on:
+  schedule:
+    - cron: '3,23,43 * * * *'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '1サイクルの並列数'
+        default: '5'
+concurrency:
+  group: worldview-epic
+  cancel-in-progress: false
+permissions:
+  contents: write
+  issues: write
+  id-token: write
+  actions: read
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.out.outputs.matrix }}
+      any: ${{ steps.out.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Select works and assign prefixes
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
+          claude_args: '--allowedTools "Bash,Read,Grep,Glob"'
+          prompt: |
+            docs/reference-epic-backlog.md の表で状態「未」の先頭から最大5件を選ぶ。
+            各作品について：(1) gh issue list --state all --limit 5 --search "in:title <作品名の主要部>" で既存EPICが無いことを確認（あれば除外）。(2) 意味のある3〜4字の英大文字プレフィックスを割当（例 VEN/LEAR）。docs/roadmap.md と docs/*-reference-design.md を grep し5件が互いにも既存にも重複しないこと。
+            結果を /tmp/matrix.json に JSON配列で書く: [{"work":"<作品名そのまま>","prefix":"<PFX>"}]。未が無い・全て既存なら []。issue起票やファイル編集はしない。
+      - name: Emit matrix
+        id: out
+        run: |
+          if [ ! -s /tmp/matrix.json ]; then echo "any=false" >> "$GITHUB_OUTPUT"; echo "matrix=[]" >> "$GITHUB_OUTPUT"; exit 0; fi
+          M=$(jq -c . /tmp/matrix.json 2>/dev/null || echo "[]")
+          CNT=$(jq -r 'length' /tmp/matrix.json 2>/dev/null || echo 0)
+          if [ "$CNT" -gt 0 ]; then echo "any=true" >> "$GITHUB_OUTPUT"; else echo "any=false" >> "$GITHUB_OUTPUT"; fi
+          echo "matrix=$M" >> "$GITHUB_OUTPUT"
+  epicize:
+    needs: select
+    if: needs.select.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      max-parallel: 5
+      fail-fast: false
+      matrix:
+        item: ${{ fromJson(needs.select.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Epicize one work
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORK: ${{ matrix.item.work }}
+          PREFIX: ${{ matrix.item.prefix }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
+          claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"'
+          prompt: |
+            担当作品＝環境変数 WORK、プレフィックス＝環境変数 PREFIX（必ずこの字種を使う）。docs/reference-epic-pipeline.md と実例 docs/spice-and-wolf-reference-design.md を読む。
+            手順（この作品だけ）：(1)調査→CLAUDE.md「テスト基盤」節の既存純ロジックと突き合わせ欠落軸分析。(2)設計書 docs/<slug>-reference-design.md 作成（§0なぜ役立つか/§1視点/§2メカニクス★優先度＋接続先＋不採用表/§3子Issue表＋着手順）。(3)gh で EPIC 起票（[EPIC][分野] WORK 参考 — 要約・label type:epic,type:design,area:worldbuilding,area:strategy）。(4)子issue を直列起票（[PREFIX-n]・label type:feature,priority:med,area:strategy・本文＝親EPIC #n／設計§2＋狙い/接続先/完了条件・純ロジック新設は完了条件にEditModeテスト必須）。(5)EPIC本文と設計書§3に子番号反映。
+            ★制約：docs/roadmap.md と docs/reference-epic-backlog.md は編集しない。git commit/push しない。
+            ★成果物：mkdir -p /tmp/out; cp docs/<slug>-reference-design.md /tmp/out/; さらに /tmp/out/fragment.json に {"prefix":"PREFIX","work":"WORKと完全一致","epic":<番号>,"roadmap_line":"  - **WORK 参考：#EPIC＋PREFIX-1〜N（#a〜#b）** ＝要約","backlog_done":"| 済 | WORK | 着眼点 | #EPIC |"} を書く。
+            著作権：固有名・文章・キャラ不使用、構造のみ。重複新設しない。タイクン化回避。
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.item.prefix }}
+          path: /tmp/out
+          if-no-files-found: warn
+  integrate:
+    needs: epicize
+    if: always() && needs.epicize.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/artifacts
+      - name: Integrate fragments
+        run: |
+          set -e
+          git config user.name "worldview-epic-bot"
+          git config user.email "actions@users.noreply.github.com"
+          echo 'aW1wb3J0IG9zLGdsb2IsanNvbixzaHV0aWwKZm9yIGQgaW4gc29ydGVkKGdsb2IuZ2xvYigiL3RtcC9hcnRpZmFjdHMvcmVzdWx0LSoiKSk6CiAgICBmPW9zLnBhdGguam9pbihkLCJmcmFnbWVudC5qc29uIikKICAgIGlmIG5vdCBvcy5wYXRoLmV4aXN0cyhmKSBvciBvcy5wYXRoLmdldHNpemUoZik9PTA6IGNvbnRpbnVlCiAgICBmcmFnPWpzb24ubG9hZChvcGVuKGYsZW5jb2Rpbmc9InV0Zi04IikpCiAgICBmb3IgbWQgaW4gZ2xvYi5nbG9iKG9zLnBhdGguam9pbihkLCIqLm1kIikpOiBzaHV0aWwuY29weShtZCwiZG9jcy8iKQogICAgcmxpbmU9ZnJhZy5nZXQoInJvYWRtYXBfbGluZSIsIiIpOyB3b3JrPWZyYWcuZ2V0KCJ3b3JrIiwiIik7IGJkb25lPWZyYWcuZ2V0KCJiYWNrbG9nX2RvbmUiLCIiKQogICAgaWYgcmxpbmU6CiAgICAgICAgcnA9ImRvY3Mvcm9hZG1hcC5tZCI7IEw9b3BlbihycCxlbmNvZGluZz0idXRmLTgiKS5yZWFkKCkuc3BsaXQoIlxuIikKICAgICAgICBmb3IgaSxsIGluIGVudW1lcmF0ZShMKToKICAgICAgICAgICAgaWYgInJlZmVyZW5jZS1lcGljLWF1dG8tYW5jaG9yIiBpbiBsOiBMLmluc2VydChpLHJsaW5lKTsgYnJlYWsKICAgICAgICBvcGVuKHJwLCJ3IixlbmNvZGluZz0idXRmLTgiKS53cml0ZSgiXG4iLmpvaW4oTCkpCiAgICBpZiBiZG9uZSBhbmQgd29yazoKICAgICAgICBicD0iZG9jcy9yZWZlcmVuY2UtZXBpYy1iYWNrbG9nLm1kIjsgQj1vcGVuKGJwLGVuY29kaW5nPSJ1dGYtOCIpLnJlYWQoKS5zcGxpdCgiXG4iKQogICAgICAgIGRvbmU9RmFsc2UKICAgICAgICBmb3IgaSxsIGluIGVudW1lcmF0ZShCKToKICAgICAgICAgICAgaWYgbm90IGRvbmUgYW5kIGwuc3RhcnRzd2l0aCgifCDmnKogfCIpIGFuZCB3b3JrIGluIGw6IEJbaV09YmRvbmU7IGRvbmU9VHJ1ZQogICAgICAgIGlmIG5vdCBkb25lOgogICAgICAgICAgICBmb3IgaSxsIGluIGVudW1lcmF0ZShCKToKICAgICAgICAgICAgICAgIGlmIGwuc3RhcnRzd2l0aCgiPCEtLSIpOiBCLmluc2VydChpLGJkb25lKTsgZG9uZT1UcnVlOyBicmVhawogICAgICAgIG9wZW4oYnAsInciLGVuY29kaW5nPSJ1dGYtOCIpLndyaXRlKCJcbiIuam9pbihCKSkKcHJpbnQoImludGVncmF0ZWQiKQ==' | base64 -d > /tmp/integ.py
+          python3 /tmp/integ.py
+          git add docs/
+          if git diff --cached --quiet; then
+            echo "no changes to integrate"
+          else
+            git commit -m "docs: 並列EPIC化サイクル（自動・集約）"
+            git push origin HEAD:auto/worldview-epics
+          fi

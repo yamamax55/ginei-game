@@ -35,3 +35,7 @@ GeneratedAssets/
 
 # Assets 内に紛れたバックアップ zip（Unity が資産として取り込むため追跡しない・手動削除推奨）
 /Assets/**/*.zip
+/Assets/**/*.zip.meta
+
+# Unity crash recovery artifacts
+/Assets/_Recovery/

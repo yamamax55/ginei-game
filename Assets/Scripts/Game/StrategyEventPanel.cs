@@ -21,6 +21,13 @@ namespace Ginei
         /// <summary>モーダルが開いているか（GalaxyView/PauseManager が入力を譲るのに使う）。</summary>
         public static bool IsOpen => instance != null && instance.root != null && instance.root.activeSelf;
 
+        /// <summary>
+        /// 旧イベントモーダルの ON/OFF（既定 ON）。false の間は <see cref="Show"/> が無効＝中央モーダルを出さない。
+        /// 決裁デスク（DESK #1628）へ移行中は <see cref="DecisionDeck"/> が OFF にし、イベントを右下スタックへ集約する。
+        /// DESK-6（イベント/目安箱の合流）完了後はこのパネル自体を廃止予定。
+        /// </summary>
+        public static bool Enabled = true;
+
         private GameObject root;
         private TextMeshProUGUI titleText;
         private TextMeshProUGUI bodyText;
@@ -33,6 +40,7 @@ namespace Ginei
         /// </summary>
         public static void Show(string title, string body, IList<(string label, Action onClick)> choices)
         {
+            if (!Enabled) return; // ON/OFF トグル：OFF の間は旧モーダルを出さない（決裁デスクへ集約）
             if (instance == null)
             {
                 GameObject go = new GameObject("StrategyEventPanel");

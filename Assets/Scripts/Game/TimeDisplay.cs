@@ -18,8 +18,10 @@ namespace Ginei
         /// <summary>速度の段階（+/- で行き来する）。</summary>
         private static readonly float[] SpeedSteps = { 0.5f, 1f, 2f, 3f, 5f };
 
+        /// <summary>暦の既定パラメータ（1日=60秒・帝国暦オフセット309）。表示整形の単一ソース。</summary>
+        public static GameDate.DateParams DateParams => new GameDate.DateParams(60d, 30, 12, 309);
+
         private TextMeshProUGUI label;
-        private GameDate.DateParams dateParams;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -31,10 +33,14 @@ namespace Ginei
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => TryCreate(scene);
 
-        /// <summary>戦略/会戦シーンに TimeDisplay が無ければ生成する（重複生成ガード）。</summary>
+        /// <summary>
+        /// 会戦シーンに TimeDisplay が無ければ生成する（重複生成ガード）。
+        /// <b>戦略では生成しない</b>＝時刻は <see cref="StrategyMapWindow"/> の上メニュー（タイトルバー）に表示する
+        /// （整形/速度入力は下記 static を再利用＝二重実装しない）。
+        /// </summary>
         private static void TryCreate(Scene scene)
         {
-            if (scene.name != "Strategy" && scene.name != "Battle") return;
+            if (scene.name != "Battle") return;
             if (UnityEngine.Object.FindAnyObjectByType<TimeDisplay>() != null) return;
             GameObject go = new GameObject("TimeDisplay");
             go.AddComponent<TimeDisplay>();
@@ -42,28 +48,37 @@ namespace Ginei
 
         private void Awake()
         {
-            // 帝国暦オフセット＝宇宙暦−309（SE796 ⇒ IC487）。1日=60秒の既定暦。
-            dateParams = new GameDate.DateParams(60d, 30, 12, 309);
             BuildUI();
         }
 
         private void Update()
         {
-            HandleSpeedInput();
+            StepSpeedInput();
             if (label == null) return;
-            GameClock clock = StrategySession.Clock;
-            if (clock == null) { label.text = ""; return; }
+            if (TryFormatNow(out string text, out Color color)) { label.text = text; label.color = color; }
+            else label.text = "";
+        }
 
-            GameDate date = GameDate.FromSeconds(clock.ElapsedSeconds, StartYear, dateParams);
-            string time = GameDate.TimeString(clock.ElapsedSeconds, dateParams.secondsPerDay);
-            string speed = clock.paused ? "⏸ 停止" : $"× {clock.speed:0.#}";
-            // 右上：日付（宇宙暦/帝国暦）＋時刻＋速度（右寄せ・改行で2段）
-            label.text = $"{date.ToDualString(dateParams)}\n{time}　{speed}";
-            label.color = clock.paused ? new Color(0.8f, 0.8f, 0.85f) : new Color(0.95f, 0.92f, 0.7f);
+        /// <summary>
+        /// 統一クロックを表示文字列（日付2段＋時刻＋速度）と色へ整形する単一窓口。
+        /// 戦略の上メニュー（<see cref="StrategyMapWindow"/>）も会戦の右上HUDもこれを使う。
+        /// </summary>
+        public static bool TryFormatNow(out string text, out Color color)
+        {
+            text = ""; color = Color.white;
+            GameClock clock = StrategySession.Clock;
+            if (clock == null) return false;
+            GameDate.DateParams dp = DateParams;
+            GameDate date = GameDate.FromSeconds(clock.ElapsedSeconds, StartYear, dp);
+            string time = GameDate.TimeString(clock.ElapsedSeconds, dp.secondsPerDay);
+            string speed = clock.paused ? "■ 停止" : $"× {clock.speed:0.#}";
+            text = $"{date.ToDualString(dp)}\n{time}　{speed}";
+            color = clock.paused ? new Color(0.8f, 0.8f, 0.85f) : new Color(0.95f, 0.92f, 0.7f);
+            return true;
         }
 
         /// <summary>+/-（=/-キー）で時間速度を段階変更する（全シーン共通・クロックを駆動）。</summary>
-        private void HandleSpeedInput()
+        public static void StepSpeedInput()
         {
             // イベントモーダル表示中は速度操作を受けない（誤操作防止）。
             if (StrategyEventPanel.IsOpen) return;

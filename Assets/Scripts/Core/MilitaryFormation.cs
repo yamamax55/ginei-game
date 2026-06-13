@@ -2,8 +2,16 @@ using System.Collections.Generic;
 
 namespace Ginei
 {
-    /// <summary>梯団の種別（#147）。序列は 艦隊 &lt; 軍団 &lt; 軍集団。艦隊は #146 FleetUnitData が葉。</summary>
-    public enum EchelonType { 艦隊, 軍団, 軍集団 }
+    /// <summary>
+    /// 梯団の種別（#147・現実準拠の多段化・ORBAT-1 #1717／RANKCMD-4 #1714）。
+    /// 序列は 戦隊 &lt; 分艦隊 &lt; 艦隊 &lt; 軍団 &lt; 軍 &lt; 軍集団 &lt; 宇宙艦隊（enum の並び順＝低い段から高い段）。
+    /// 現実の軍隊編制（軍隊の編制 Wikipedia・軍-組）を宇宙艦隊系へ写す：
+    /// 戦隊（大隊・大佐相当）⊂ 分艦隊（旅団/連隊・少将/准将）⊂ <b>艦隊</b>（師団相当＝基幹単位・約1.2〜1.5万隻・中将/大将）
+    /// ⊂ 軍団（大将/中将）⊂ 軍（軍・元帥〜中将）⊂ 軍集団＝方面軍（元帥〜上級大将）⊂ 宇宙艦隊＝総軍（元帥）。
+    /// 艦隊は #146 FleetUnitData が葉。必要階級は <see cref="OrderOfBattle.RequiredTier"/>、階級→自然な段は <see cref="CommandCapacityRules.EchelonForTier"/>。
+    /// 階級↔梯団↔規模の対応表の精緻化は ORBAT-2 #1718（ここは段の多段化が主眼）。<b>軍集団は方面軍を兼ねる段</b>（既存名を維持＝後方互換）。
+    /// </summary>
+    public enum EchelonType { 戦隊, 分艦隊, 艦隊, 軍団, 軍, 軍集団, 宇宙艦隊 }
 
     /// <summary>
     /// 上位梯団（軍団・軍集団）のノード（#147）。艦隊(#146 FleetUnitData)を束ねる木構造の中間/上位ノード。

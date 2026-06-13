@@ -1,0 +1,77 @@
+name: unity-test
+
+# 実 Unity（GameCI headless）でプロジェクト全体をコンパイルし EditMode テストを回す。
+# 価値：dotnet TestHarness では検証できない Game 層（MonoBehaviour/UI＝PlaytestRunner 等）の
+#       コンパイル＋Unity Test Framework 検証がここで効く。
+#
+# ライセンス（いずれか・docs/gameci-setup.md）：
+#   A) Personal（新ライセンス方式で .ulf が作られない場合）＝ UNITY_EMAIL + UNITY_PASSWORD（Unity ID）。
+#      GameCI v4 が毎回アクティベートする。serial 不要。
+#   B) .ulf が手に入る場合＝ UNITY_LICENSE（.ulf 中身）。
+#   C) Pro/Plus＝ UNITY_EMAIL + UNITY_PASSWORD + UNITY_SERIAL。
+# いずれも未設定なら自動スキップ（PR を止めない）。
+#
+# 注意：Personal のメール/パスワード方式は CI 実行ごとに seat をアクティベートする。
+#       アクティベーション回数の上限に当たらないよう、定期 cron は付けず PR＋手動のみにしている
+#       （頻度を上げたい/Pro を入れたら schedule を足す）。
+on:
+  pull_request:
+  workflow_dispatch: {}
+
+concurrency:
+  group: unity-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: EditMode (real Unity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Guard — ライセンス情報が設定されているか
+        id: guard
+        run: |
+          if [ -n "${UNITY_LICENSE}" ] || { [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Unity ライセンス未設定のためスキップ（UNITY_EMAIL+UNITY_PASSWORD か UNITY_LICENSE。docs/gameci-setup.md 参照）。dotnet TestHarness は別ワークフローで実行されます。"
+          fi
+
+      - name: Cache Library
+        if: steps.guard.outputs.ok == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      - name: Run EditMode tests
+        if: steps.guard.outputs.ok == 'true'
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          testMode: editmode
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload test results
+        if: always() && steps.guard.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-test-results
+          path: artifacts
+          if-no-files-found: ignore

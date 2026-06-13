@@ -1,0 +1,101 @@
+name: worldview-backlog-refill
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch: {}
+concurrency:
+  group: worldview-epic
+  cancel-in-progress: false
+permissions:
+  contents: write
+  issues: read
+  id-token: write
+  actions: read
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      needed: ${{ steps.gate.outputs.needed }}
+      matrix: ${{ steps.gate.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Gate and build axis matrix
+        id: gate
+        run: |
+          REMAIN=$(grep -c '^| 未 |' docs/reference-epic-backlog.md || echo 0)
+          echo "backlog 未: $REMAIN"
+          if [ "$REMAIN" -ge 16 ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+          echo 'aW1wb3J0IGpzb24Kcm93cz1bXQpmb3IgbCBpbiBvcGVuKCJkb2NzL3JlZmVyZW5jZS1lcGljLWNhdGVnb3JpZXMubWQiLGVuY29kaW5nPSJ1dGYtOCIpOgogICAgbD1sLnJzdHJpcCgiXG4iKQogICAgaWYgbm90IGwuc3RhcnRzd2l0aCgifCAiKSBvciAiPCEtLSIgaW4gbDogY29udGludWUKICAgIGNlbGxzPVtjLnN0cmlwKCkgZm9yIGMgaW4gbC5zdHJpcCgpLnN0cmlwKCJ8Iikuc3BsaXQoInwiKV0KICAgIGlmIGxlbihjZWxscyk8MjogY29udGludWUKICAgIGF4aXMsaGludD1jZWxsc1swXSxjZWxsc1sxXQogICAgaWYgYXhpcz09Iui7uCIgb3Igc2V0KGF4aXMpPD1zZXQoIi06ICIpIG9yIG5vdCBheGlzOiBjb250aW51ZQogICAgcm93cy5hcHBlbmQoeyJheGlzIjpheGlzLCJoaW50IjpoaW50fSkKcHJpbnQoanNvbi5kdW1wcyhyb3dzLGVuc3VyZV9hc2NpaT1GYWxzZSkp' | base64 -d > /tmp/m.py
+          M=$(python3 /tmp/m.py)
+          echo "matrix=$M" >> "$GITHUB_OUTPUT"
+  discover:
+    needs: gate
+    if: needs.gate.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      max-parallel: 6
+      fail-fast: false
+      matrix:
+        item: ${{ fromJson(needs.gate.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Discover candidates on one axis
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AXIS: ${{ matrix.item.axis }}
+          HINT: ${{ matrix.item.hint }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
+          claude_args: '--allowedTools "Bash,Read,Grep,Glob,WebSearch"'
+          prompt: |
+            探索軸＝環境変数 AXIS、探索指示＝環境変数 HINT。この軸で「本システム（銀英伝風の星間国家戦略＋思想/歴史/経済/群像シミュ）」の欠落軸に効くネタを最大3件発掘する。
+            手順：(1)重複除外（必須）＝docs/reference-epic-backlog.md の既存行（済/未/吸収）・docs/*-reference-design.md がある題材・gh issue list --state all --label type:epic --limit 100 のタイトル・CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念、と重なるものは選ばない。(2)数合わせをしない＝確信あるものだけ（最大3件・0件可）・分野の偏りを避ける。(3)各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：| 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
+            0件なら lines.txt は作らない。issue起票・他ファイル編集・git操作はしない。著作権：固有名・教義・実在人物の表象は使わず構造のみ（宗教・人物軸は特に「風」モチーフ厳守）。
+      - name: Upload axis candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: discover-${{ strategy.job-index }}
+          path: /tmp/out
+          if-no-files-found: ignore
+  integrate:
+    needs: discover
+    if: always() && needs.discover.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/worldview-epics
+          fetch-depth: 0
+      - name: Download all axis candidates
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/disc
+      - name: Integrate (dedup + single push)
+        run: |
+          set -e
+          git config user.name "worldview-epic-bot"
+          git config user.email "actions@users.noreply.github.com"
+          echo 'aW1wb3J0IGdsb2IscmUKcD0iZG9jcy9yZWZlcmVuY2UtZXBpYy1iYWNrbG9nLm1kIgpsaW5lcz1vcGVuKHAsZW5jb2Rpbmc9InV0Zi04IikucmVhZCgpLnNwbGl0KCJcbiIpCmRlZiBrZXkocm93KToKICAgIGNlbGxzPVtjLnN0cmlwKCkgZm9yIGMgaW4gcm93LnN0cmlwKCkuc3RyaXAoInwiKS5zcGxpdCgifCIpXQogICAgaWYgbGVuKGNlbGxzKTwyOiByZXR1cm4gTm9uZQogICAgcmV0dXJuIHJlLnN1YihyJ15cW1teXF1dKlxdXHMqJywnJyxjZWxsc1sxXSkuc3RyaXAoKQpleGlzdGluZz1zZXQoKQpmb3IgbCBpbiBsaW5lczoKICAgIGlmIGwuc3RhcnRzd2l0aCgifCDmnKogfCIpIG9yIGwuc3RhcnRzd2l0aCgifCDmuIggfCIpIG9yIGwuc3RhcnRzd2l0aCgifCDlkLjlj44gfCIpOgogICAgICAgIGs9a2V5KGwpCiAgICAgICAgaWYgazogZXhpc3RpbmcuYWRkKGspCm5ld3Jvd3M9W10KZm9yIGYgaW4gc29ydGVkKGdsb2IuZ2xvYigiL3RtcC9kaXNjLyovbGluZXMudHh0IikpOgogICAgZm9yIGwgaW4gb3BlbihmLGVuY29kaW5nPSJ1dGYtOCIpOgogICAgICAgIGw9bC5yc3RyaXAoIlxuIikKICAgICAgICBpZiBub3QgbC5zdGFydHN3aXRoKCJ8IOacqiB8Iik6IGNvbnRpbnVlCiAgICAgICAgaz1rZXkobCkKICAgICAgICBpZiBub3QgayBvciBrIGluIGV4aXN0aW5nOiBjb250aW51ZQogICAgICAgIGV4aXN0aW5nLmFkZChrKTsgbmV3cm93cy5hcHBlbmQobCkKaWYgbmV3cm93czoKICAgIG91dD1bXTsgaW5zPUZhbHNlCiAgICBmb3IgbCBpbiBsaW5lczoKICAgICAgICBpZiBub3QgaW5zIGFuZCBsLnN0YXJ0c3dpdGgoIjwhLS0iKTogb3V0LmV4dGVuZChuZXdyb3dzKTsgaW5zPVRydWUKICAgICAgICBvdXQuYXBwZW5kKGwpCiAgICBpZiBub3QgaW5zOiBvdXQuZXh0ZW5kKG5ld3Jvd3MpCiAgICBvcGVuKHAsInciLGVuY29kaW5nPSJ1dGYtOCIpLndyaXRlKCJcbiIuam9pbihvdXQpKQogICAgcHJpbnQoImFkZGVkICVkIiVsZW4obmV3cm93cykpCmVsc2U6IHByaW50KCJhZGRlZCAwIik=' | base64 -d > /tmp/refill.py
+          python3 /tmp/refill.py
+          git add docs/reference-epic-backlog.md
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "docs: 補充ループ multi-modal発掘（自動・N軸並列・dedup集約）"
+            git push origin HEAD:auto/worldview-epics
+          fi

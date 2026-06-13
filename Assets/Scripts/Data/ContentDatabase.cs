@@ -42,9 +42,9 @@ namespace Ginei
         {
             factions.Clear(); scenarios.Clear(); admirals.Clear();
             IndexFactions(Resources.LoadAll<FactionData>("Factions"));
+            // シナリオの索引化が、参照する提督（Assets/Data/Admirals・Resources外）も索引へ拾う（RegisterScenario）。
             IndexScenarios(Resources.LoadAll<ScenarioData>(""));
-            // 提督アセットは Resources 外（Assets/Data/Admirals）に置く方針＝ScenarioData 等から直接参照される。
-            // Resources 配下に置かれた分があれば拾う（任意）。
+            // 念のため Resources 直下に提督が置かれていれば拾う（任意・上書き安全）。
             IndexAdmirals(Resources.LoadAll<AdmiralData>(""));
             built = true;
         }
@@ -97,7 +97,23 @@ namespace Ginei
 
         public static void RegisterScenario(ScenarioData s)
         {
-            if (s != null && !string.IsNullOrEmpty(s.scenarioName)) { scenarios[s.scenarioName] = s; built = true; }
+            if (s == null || string.IsNullOrEmpty(s.scenarioName)) return;
+            scenarios[s.scenarioName] = s;
+            built = true;
+
+            // シナリオが参照する提督（と参謀）も索引化する。提督アセットは Resources 外（Assets/Data/Admirals）に置き、
+            // ここで参照グラフ経由で拾う＝Resources を肥大化させずに AllAdmirals を完全にする（ベストプラクティス）。
+            if (s.fleets == null) return;
+            for (int i = 0; i < s.fleets.Count; i++)
+            {
+                var fe = s.fleets[i];
+                if (fe == null) continue;
+                RegisterAdmiral(fe.admiral);
+                var a = fe.admiral;
+                if (a != null && a.staffOfficers != null)
+                    for (int k = 0; k < a.staffOfficers.Length; k++)
+                        RegisterAdmiral(a.staffOfficers[k]);
+            }
         }
 
         public static void RegisterAdmiral(AdmiralData a)

@@ -3,19 +3,14 @@ using System.Collections.Generic;
 namespace Ginei
 {
     /// <summary>
-    /// 編制ツリーの台帳（#147・オーダー・オブ・バトル）。軍集団⊃軍団⊃艦隊(#146)の梯団ツリーを束ね、
-    /// 「司令部固定・中身流動」（艦隊/下位梯団の attach/detach）・梯団別の司令配属（階級ゲート #14）・
+    /// 編制ツリーの台帳（#147・オーダー・オブ・バトル）。現実準拠の多段（戦隊⊂分艦隊⊂艦隊⊂軍団⊂軍⊂軍集団⊂宇宙艦隊・ORBAT-1 #1717）の
+    /// 梯団ツリーを束ね、「司令部固定・中身流動」（艦隊/下位梯団の attach/detach）・梯団別の司令配属（階級ゲート #14）・
     /// 配下集計を管理する唯一の窓口。艦隊そのものは #146 <see cref="FleetRoster"/> が持ち、ここは番号で参照する
     /// （別レジストリを作らず #146 を木構造へ拡張する方針）。会戦中の艦在庫 <see cref="FleetRegistry"/> とは別物。
-    /// 司令配属の階級ゲートは #14 既定ラダー（中将7/大将8/元帥10）で判定する。②直轄投資・③任務戦術は後段。
+    /// 司令配属の階級ゲートは #14 既定ラダーで判定する（梯団別の必要 tier は <see cref="RequiredTier"/>）。②直轄投資・③任務戦術は後段。
     /// </summary>
     public static class OrderOfBattle
     {
-        // 梯団別の必要階級 tier（#14 既定ラダー：中将7/大将8/元帥10）。マジックナンバー禁止＝const に集約。
-        public const int FleetCommanderTier = 7;       // 艦隊司令＝中将
-        public const int CorpsCommanderTier = 8;        // 軍団司令＝大将
-        public const int ArmyGroupCommanderTier = 10;   // 軍集団司令＝元帥
-
         private static readonly Dictionary<int, MilitaryFormation> formations = new Dictionary<int, MilitaryFormation>();
         private static int nextId = 1;
 
@@ -51,13 +46,13 @@ namespace Ginei
 
         /// <summary>
         /// 艦隊(#146 番号)を梯団へ編入する。単一所属＝既に別梯団に居れば移す（中身流動）。
-        /// **戦闘艦隊と非戦闘艦隊は混成しない(#883)**＝編入先の既存艦隊と運用区分が違えば拒否（移動もしない）。
+        /// <b>諸兵科連合</b>：戦闘艦隊と非戦闘艦隊を同一梯団に混在できる（#883 混成禁止は撤回・ORBAT-3）。
         /// </summary>
         public static bool AttachFleet(int formationId, int fleetNumber)
         {
             var f = Get(formationId);
             if (f == null || fleetNumber <= 0) return false;
-            if (!CanAttachFleet(formationId, fleetNumber)) return false; // 混成編成は不可
+            if (!CanAttachFleet(formationId, fleetNumber)) return false; // 妥当性（梯団存在・番号>0）
             // 同勢力の他梯団から外して単一所属を保つ
             foreach (var other in formations.Values)
                 if (other.faction == f.faction) other.fleetNumbers.Remove(fleetNumber);
@@ -66,28 +61,13 @@ namespace Ginei
         }
 
         /// <summary>
-        /// その艦隊を梯団へ編入できるか（#883 混成禁止の事前判定）。梯団が既に持つ艦隊と運用区分（戦闘/非戦闘）が
-        /// 揃っていれば true。役割は <see cref="FleetRoster"/> から解決（未登録は戦闘艦扱い＝後方互換）。
+        /// その艦隊を梯団へ編入できるか＝梯団が存在し fleetNumber が正なら true。
+        /// <b>#883 混成禁止は撤回（ORBAT-3）</b>＝諸兵科連合（戦闘＋非戦闘の混在）を許可するため、運用区分では拒否しない。
         /// </summary>
         public static bool CanAttachFleet(int formationId, int fleetNumber)
         {
             var f = Get(formationId);
-            if (f == null || fleetNumber <= 0) return false;
-            ShipRole candidate = ResolveRole(f.faction, fleetNumber);
-            for (int i = 0; i < f.fleetNumbers.Count; i++)
-            {
-                int num = f.fleetNumbers[i];
-                if (num == fleetNumber) continue; // 既に居る自分自身は無視
-                if (!ShipRoleRules.AreCompatible(candidate, ResolveRole(f.faction, num))) return false;
-            }
-            return true;
-        }
-
-        /// <summary>艦隊の運用区分を台帳から解決する（未登録は戦闘艦＝後方互換）。</summary>
-        private static ShipRole ResolveRole(Faction faction, int fleetNumber)
-        {
-            FleetUnitData unit = FleetRoster.GetFleet(faction, fleetNumber);
-            return unit != null ? unit.shipRole : ShipRole.戦闘艦;
+            return f != null && fleetNumber > 0;
         }
 
         public static bool DetachFleet(int formationId, int fleetNumber)
@@ -120,26 +100,32 @@ namespace Ginei
 
         // ===== 司令配属（階級ゲート #14） =====
 
-        /// <summary>梯団種別ごとの必要階級 tier（艦隊7/軍団8/軍集団10）。</summary>
-        public static int RequiredTier(EchelonType echelon)
-        {
-            switch (echelon)
-            {
-                case EchelonType.軍集団: return ArmyGroupCommanderTier;
-                case EchelonType.軍団: return CorpsCommanderTier;
-                default: return FleetCommanderTier;
-            }
-        }
+        /// <summary>
+        /// 梯団種別ごとの必要階級 tier（戦隊4/分艦隊6/艦隊7/軍団8/軍9/軍集団10/宇宙艦隊10・ORBAT-1 #1717）。
+        /// 出所は <see cref="CommandCapacityRules.CommanderTierFor"/>（ORBAT-2 #1718 の一表＝二重定義しない）。
+        /// </summary>
+        public static int RequiredTier(EchelonType echelon) => CommandCapacityRules.CommanderTierFor(echelon);
 
         /// <summary>その提督がこの梯団を指揮できる階級か（rankTier ≥ 必要tier）。</summary>
         public static bool CanCommand(AdmiralData admiral, EchelonType echelon)
             => admiral != null && admiral.rankTier >= RequiredTier(echelon);
 
-        /// <summary>梯団へ司令を配属する。階級ゲートを満たさなければ false（現状維持）。</summary>
+        /// <summary>
+        /// その提督がこの梯団を率いられるか（RANKCMD-3 #1713）。梯団種別の<b>階級ゲート（#14）＋配下兵力が指揮可能規模内</b>の両方。
+        /// 配下兵力＝<see cref="StrengthUnder"/>（台帳の baseStrength 合計）。台帳未登録/兵力0（RANKCMD-1 未完）は規模0扱い＝従来どおり階級ゲートのみ（後方互換）。
+        /// </summary>
+        public static bool CanCommand(AdmiralData admiral, int formationId)
+        {
+            var f = Get(formationId);
+            if (f == null || !CanCommand(admiral, f.echelon)) return false;             // 階級ゲート（#14）
+            return CommandCapacityRules.CanCommand(admiral.rankTier, StrengthUnder(formationId)); // 指揮可能規模（RANKCMD-2）
+        }
+
+        /// <summary>梯団へ司令を配属する。階級ゲートと指揮可能規模（RANKCMD-3）を満たさなければ false（現状維持）。</summary>
         public static bool AssignCommander(int formationId, AdmiralData admiral)
         {
             var f = Get(formationId);
-            if (f == null || !CanCommand(admiral, f.echelon)) return false;
+            if (f == null || !CanCommand(admiral, formationId)) return false;
             f.commander = admiral;
             return true;
         }
@@ -163,6 +149,24 @@ namespace Ginei
 
         /// <summary>その梯団の配下にある艦隊数（再帰）。</summary>
         public static int CountFleetsUnder(int formationId) => AllFleetNumbersUnder(formationId).Count;
+
+        /// <summary>
+        /// その梯団の配下にある全艦隊(#146)の兵力合計（<see cref="FleetUnitData.baseStrength"/> の総和・再帰）。
+        /// 指揮可能規模ゲート（RANKCMD-3 <see cref="CanCommand(AdmiralData,int)"/>）の入力。台帳未登録の番号は0として無視。
+        /// </summary>
+        public static int StrengthUnder(int formationId)
+        {
+            var f = Get(formationId);
+            if (f == null) return 0;
+            int sum = 0;
+            IReadOnlyList<int> nums = AllFleetNumbersUnder(formationId);
+            for (int i = 0; i < nums.Count; i++)
+            {
+                FleetUnitData unit = FleetRoster.GetFleet(f.faction, nums[i]);
+                if (unit != null) sum += unit.baseStrength;
+            }
+            return sum;
+        }
 
         private static void Collect(int formationId, List<int> acc, HashSet<int> visited)
         {

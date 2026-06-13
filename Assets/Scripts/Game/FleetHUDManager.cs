@@ -42,7 +42,7 @@ namespace Ginei
         // ===== コード生成HUDの要素 =====
         private Canvas hudCanvas;
         private GameObject hudPanel;
-        private TextMeshProUGUI hudAdmiral, hudFaction, hudStrengthLabel, hudMoraleLabel, hudShips, hudFormation;
+        private TextMeshProUGUI hudAdmiral, hudFaction, hudStrengthLabel, hudMoraleLabel, hudShips, hudFormation, hudSustainment;
         private GameObject hudStrengthRow, hudMoraleRow, hudShipsObj;
         private Image hudStrengthFill, hudMoraleFill;
         private bool hudBuilt;
@@ -119,6 +119,7 @@ namespace Ginei
             hudShips = CreateText("Ships", 18f, FontStyles.Normal);
             hudShipsObj = hudShips.gameObject;
             hudFormation = CreateText("Formation", 20f, FontStyles.Normal);
+            hudSustainment = CreateText("Sustainment", 18f, FontStyles.Normal); // 継戦（ORBAT-4・観測）
 
             hudBuilt = true;
         }
@@ -267,6 +268,20 @@ namespace Ginei
                 hudFormation.gameObject.SetActive(true);
             }
             else hudFormation.gameObject.SetActive(false);
+
+            // 継戦（ORBAT-4・観測）：梯団区分（戦略/作戦/戦術）と継戦状態。孤立した戦術単位は赤＝継戦不可。
+            FleetSustainment sustain = (strength != null) ? firstSelected.GetComponent<FleetSustainment>() : null;
+            if (sustain != null)
+            {
+                bool ok = sustain.IsSustained;
+                string penalty = (!ok && sustain.applyPenalty) ? $"（戦闘力×{sustain.Factor:0.##}）" : "";
+                hudSustainment.text = ok
+                    ? $"継戦: {sustain.OrgClass}単位・自立"
+                    : $"継戦: {sustain.OrgClass}単位・<b>孤立</b>{penalty}";
+                hudSustainment.color = ok ? new Color(0.7f, 0.85f, 0.9f) : new Color(1f, 0.45f, 0.4f);
+                hudSustainment.gameObject.SetActive(true);
+            }
+            else hudSustainment.gameObject.SetActive(false);
         }
 
         /// <summary>塗りの幅（0..1）と色を設定する。</summary>

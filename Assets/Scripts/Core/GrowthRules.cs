@@ -73,6 +73,15 @@ namespace Ginei
         /// さらに base+bonus が <see cref="AdmiralData.MaxStatValue"/> を超えないよう抑える。基準値は変えない。
         /// </summary>
         public static int EffectiveStatBonus(Growth growth, int baseStat)
+            => EffectiveStatBonus(growth, baseStat, StatCeiling);
+
+        /// <summary>
+        /// 上限を指定して実効能力ボーナス分を返す（<see cref="TenchijinRules"/> の軍神＝限界突破用）。
+        /// 通常は <see cref="StatCeiling"/>（=100）。天地人が揃った軍神型はこれが100超になり、base+bonus が100を超えられる。
+        /// アーキタイプ天井（p.ceiling）は据え置き＝伸びしろの形は変えず、到達できる上限だけを上げる。基準非破壊。
+        /// <paramref name="statCeiling"/> が StatCeiling 未満でも下限は StatCeiling（限界突破専用＝従来挙動を弱めない）。
+        /// </summary>
+        public static int EffectiveStatBonus(Growth growth, int baseStat, int statCeiling)
         {
             if (growth == null) return 0;
             GrowthParams p = ForArchetype(growth.archetype);
@@ -85,9 +94,10 @@ namespace Ginei
             // アーキタイプ天井でクランプ。
             int bonus = Mathf.Clamp(Mathf.RoundToInt(raw), 0, p.ceiling);
 
-            // base+bonus が能力上限を超えないよう抑える（基準非破壊）。
-            int b = Mathf.Clamp(baseStat, 0, StatCeiling);
-            int allowed = StatCeiling - b;
+            // base+bonus が上限を超えないよう抑える（基準非破壊）。下限は従来上限。
+            int ceiling = Mathf.Max(StatCeiling, statCeiling);
+            int b = Mathf.Clamp(baseStat, 0, ceiling);
+            int allowed = ceiling - b;
             return Mathf.Clamp(bonus, 0, allowed);
         }
     }

@@ -57,8 +57,8 @@ namespace Ginei
         public float combatSmoothTime = 1.2f;
 
         [Header("配下艦")]
-        [Tooltip("部隊の配下艦数（旗艦中心に展開）")]
-        public int escortCount = 50;
+        [Tooltip("部隊の配下艦数（旗艦中心に展開）。旗艦を守る楯＝多めにして容易に旗艦を撃墜させない")]
+        public int escortCount = 80;
 
         [Tooltip("配下艦1隻あたりの艦艇数（合計兵力が過大にならないよう調整。旗艦は別途多め）")]
         public int escortShipCount = 200;
@@ -142,6 +142,11 @@ namespace Ginei
             if (GetComponent<FlagshipMarker>() == null)
             {
                 gameObject.AddComponent<FlagshipMarker>();
+            }
+            // 継戦状態（ORBAT-4・観測＋opt-in）も自動付与。既定値（艦隊・applyPenalty=false）ゆえ挙動不変。
+            if (GetComponent<FleetSustainment>() == null)
+            {
+                gameObject.AddComponent<FleetSustainment>();
             }
         }
 
@@ -439,12 +444,46 @@ namespace Ginei
             UpdateShipPositions();
         }
 
+        /// <summary>島津の捨てがまり中か＝配下艦が殿を務め旗艦の離脱を援護中（FleetStrength が設定）。</summary>
+        public bool SutegamariActive { get; private set; }
+
+        /// <summary>生存している配下艦の数（旗艦の状態に依らず＝敗走解決の判定用）。</summary>
+        public int LivingEscortCount()
+        {
+            int n = 0;
+            for (int i = 0; i < memberEscorts.Count; i++)
+                if (memberEscorts[i] != null && memberEscorts[i].IsLiving) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// 捨てがまりを開始＝配下艦は殿としてその場に踏みとどまり戦い続ける（旗艦は退却）。
+        /// 退却する旗艦に追従しないよう、殿の配下艦を旗艦から切り離し世界座標で踏みとどまらせる。
+        /// </summary>
+        public void BeginSutegamari()
+        {
+            SutegamariActive = true;
+            for (int i = 0; i < memberEscorts.Count; i++)
+                if (memberEscorts[i] != null && memberEscorts[i].IsLiving)
+                    memberEscorts[i].transform.SetParent(null, true); // 世界座標を保って切り離す
+        }
+
+        /// <summary>配下艦を散り散りに逃がす（旗艦撃墜時・主君を見捨てて逃散）。各配下艦を切り離して退避させる。</summary>
+        public void ScatterEscorts()
+        {
+            for (int i = 0; i < memberEscorts.Count; i++)
+                if (memberEscorts[i] != null) memberEscorts[i].Scatter();
+        }
+
         /// <summary>
         /// 陣形に基づいた各艦の目標座標を計算し、SmoothDampで追従させます。
         /// #69：速度上限（ワープ防止）・進行方向への回頭・分離（重なり防止）で動きを現実的にする。
         /// </summary>
         private void UpdateShipPositions()
         {
+            // 捨てがまり中は配下艦は殿（しんがり）としてその場に踏みとどまる＝旗艦を追って退却しない。
+            if (SutegamariActive) return;
+
             EnsureSlots();
 
             // 交戦中はゆっくり追従（穴埋め移動も緩やかに）。非交戦時は従来の機敏さ。

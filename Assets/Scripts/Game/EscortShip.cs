@@ -45,6 +45,12 @@ namespace Ginei
         private Squadron parentSquadron;
         private bool isDead = false;
 
+        // 散り散りに逃散中か（旗艦撃墜で主君を見捨てて逃げる）。逃散中は戦闘除外＋一定方向へ退避し時間で消滅。
+        private bool scattering = false;
+        private Vector2 scatterDir;
+        private const float ScatterSpeed = 4f;
+        private const float ScatterLifetime = 4f;
+
         // 攻撃クールダウン
         private float nextFireTime;
 
@@ -57,10 +63,15 @@ namespace Ginei
         public Squadron ParentSquadron => parentSquadron;
 
         // IShipTarget 実装。旗艦が退却したら部隊ごと戦闘除外（標的にならない）。
+        // ただし捨てがまり中は配下艦が殿として戦い続けるので、旗艦退却中でも生存（標的）扱いにする。
         public Transform Transform => transform;
         public Faction Faction => flagship != null ? flagship.faction : Faction.帝国;
         public FactionData FactionData => flagship != null ? flagship.factionData : null;
-        public bool IsAlive => !isDead && shipCount > 0 && (flagship == null || !flagship.IsRetreating);
+        public bool IsAlive => !isDead && !scattering && shipCount > 0
+            && (flagship == null || !flagship.IsRetreating || (parentSquadron != null && parentSquadron.SutegamariActive));
+
+        /// <summary>旗艦の状態に依らず、この配下艦自体が生存しているか（敗走解決の頭数判定用）。</summary>
+        public bool IsLiving => !isDead && !scattering && shipCount > 0;
 
         private void Awake()
         {
@@ -98,6 +109,13 @@ namespace Ginei
 
         private void Update()
         {
+            // 逃散中（旗艦撃墜で散り散り）：一定方向へ退避し続け、時間経過で消滅する（発砲しない）。
+            if (scattering)
+            {
+                transform.position += (Vector3)(scatterDir * ScatterSpeed * Time.deltaTime);
+                return;
+            }
+
             // 攻撃に必要な旗艦情報が無ければ撃たない
             if (flagshipWeapon == null || flagshipArc == null) return;
 
@@ -107,8 +125,13 @@ namespace Ginei
             // 静観（#817）の配下艦も発砲しない（旗艦の旗幟に従う）
             if (flagship != null && !flagship.IsFighting) return;
 
-            // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止
-            if (flagship != null && flagship.IsRetreating)
+            // 交戦規定（ROE・#2258）：旗艦の stance に従って配下艦も発砲停止（射撃管制／退避）。
+            if (flagship != null && !RoeRules.CanFire(flagship.stance)) return;
+
+            // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止。
+            // ただし捨てがまり（殿）中は配下艦が踏みとどまって戦い続ける＝ここでは停止しない。
+            bool sutegamari = parentSquadron != null && parentSquadron.SutegamariActive;
+            if (flagship != null && flagship.IsRetreating && !sutegamari)
             {
                 FleetRegistry.Unregister(this);
                 enabled = false;
@@ -121,8 +144,10 @@ namespace Ginei
             nextFireTime = Time.time + flagshipWeapon.fireInterval;
 
             // 標的優先度：第一＝射線の通る敵旗艦、第二＝敵配下艦（射線上の配下艦は旗艦を遮蔽する）
+            // 地形（星雲/小惑星帯 #2181）による射程低下を自分の位置で反映。
+            float effRange = flagshipArc.range * BattleTerrain.RangeFactorAt(transform.position);
             IShipTarget target = ShipCombat.FindPrioritizedEnemyInArc(transform.position, transform.up,
-                FactionData, Faction, flagshipArc.range, flagshipArc.halfAngle);
+                FactionData, Faction, effRange, flagshipArc.halfAngle);
 
             if (target != null)
             {
@@ -138,12 +163,53 @@ namespace Ginei
             float moraleFactor = flagshipMorale != null ? flagshipMorale.GetMoraleFactor() : 1.0f;
 
             // 艦種の火力倍率を実効値として基準ダメージに乗算（旗艦の基準値は非破壊）。
-            int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier));
+            float corpsAbility = flagship != null ? flagship.corpsAbilityFactor : 1f; // 軍団長の能力バフ/デバフ（CSG）
+            float activeAtk = flagship != null ? flagship.activeAttackFactor : 1f;     // 特殊指揮（#2175）
+            float ambush = (flagship != null && flagship.IsConcealed) ? DetectionRules.AmbushDamageFactor : 1f; // 不意打ち（#2180）
+            // 命中・回避（#2255）：攻撃側精度は旗艦提督、回避は標的。外れはかすり。
+            float acc = (flagship != null && flagship.admiralData != null)
+                ? (flagship.admiralData.EffectiveIntelligence + flagship.admiralData.EffectiveMobility) / 2f : 50f;
+            float hit = AccuracyRules.HitFactor(AccuracyRules.HitChance(acc, ShipCombat.EvasionOf(target)), Random.value);
+            int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier
+                * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk) * ambush * Mathf.Max(0.1f, hit)));
+
+            // 武器種適性（#2256）：旗艦の weaponType を流用し、標的種別で与ダメ補正（実効値パターン・基準値非破壊）。
+            if (flagshipWeapon != null)
+            {
+                bool aptTargetIsFlagship = target is FleetStrength;
+                float aptitude = WeaponTypeRules.TargetAptitude(flagshipWeapon.weaponType, aptTargetIsFlagship);
+                if (aptitude != 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * aptitude));
+            }
+
+            // 特殊作戦部隊（#SOF）：旗艦提督が SOF 出身なら配下艦も常時 +5%。
+            bool isSof = flagship != null && flagship.admiralData != null && flagship.admiralData.isSpecialForces;
+            if (isSof) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * SpecialForcesRules.AdmiralCombatFactor(true)));
 
             bool isFlank;
+            Formation myFormation = parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣;
+            float fAtk = FormationTraitRules.AttackFactor(myFormation);
+            // 陣形の相性（じゃんけん #2177）：防御側陣形に対する与ダメ補正。
+            Squadron targetSquadron = ShipCombat.GetSquadronOf(target);
+            if (targetSquadron != null)
+                fAtk *= FormationMatchupRules.AttackFactor(myFormation, targetSquadron.currentFormation);
+            // ランチェスター集中倍率は旗艦が部隊単位で算出した値を流用（配下艦ごとに再計算しない＝終盤ラグ回避）。
+            float lanchester = flagshipWeapon != null ? flagshipWeapon.LanchesterFactor : 1f;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 flagship != null ? flagship.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank);
+                moraleFactor, transform.position, target.Transform, flagshipWeapon.flankMultiplier, out isFlank,
+                fAtk, lanchester,
+                flagship != null ? flagship.qualityFactor : 1f); // 軍の質（C4・配下艦は旗艦の質に従う）
+
+            // 特殊作戦部隊（#SOF）：側背/包囲（後方かく乱・周りこみ）時は +20%。
+            if (isSof && isFlank)
+                finalDamage = Mathf.RoundToInt(finalDamage * SpecialForcesRules.SpecialOpFactor(true, true));
+
+            // 人物 archetype（配下艦は旗艦提督の archetype に従う）：与効果倍率（フラグ無しは1.0＝後方互換）。
+            if (flagship != null)
+            {
+                float archAtk = AdmiralArchetypeModifiers.AttackFactor(flagship.admiralData, flagship.HpRatio);
+                if (archAtk != 1f) finalDamage = Mathf.RoundToInt(finalDamage * archAtk);
+            }
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);
@@ -163,6 +229,10 @@ namespace Ginei
         {
             if (isDead) return;
 
+            // 挟撃／包囲（#2178）：所属部隊が囲まれているほど配下艦も被ダメ増。
+            if (flagship != null && flagship.EnvelopmentFactor > 0f)
+                damage = Mathf.RoundToInt(damage * EnvelopmentRules.DamageFactor(flagship.EnvelopmentFactor));
+
             shipCount -= damage;
             if (shipCount <= 0)
             {
@@ -178,6 +248,22 @@ namespace Ginei
             // 旗艦の配下艦リストからも自分を外す（陣形計算の対象から除外）
             if (parentSquadron != null) parentSquadron.RemoveMember(transform);
             Destroy(gameObject);
+        }
+
+        /// <summary>
+        /// 散り散りに逃散する（旗艦撃墜時・主君を見捨てて逃げる＝捨てがまりが立たなかった）。
+        /// 旗艦の破棄に道連れにされないよう切り離し、戦闘から外れて一定方向へ退避し、時間経過で消滅する。
+        /// </summary>
+        public void Scatter()
+        {
+            if (isDead || scattering) return;
+            scattering = true;
+            FleetRegistry.Unregister(this);        // 標的・索敵から外す（逃げ散る）
+            transform.SetParent(null, true);        // 旗艦本体の破棄から切り離す
+            float ang = Random.Range(0f, Mathf.PI * 2f);
+            scatterDir = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)); // 散り散り＝てんでに逃げる
+            enabled = true;                         // 退避移動のため Update を回す
+            Destroy(gameObject, ScatterLifetime);   // しばらく逃げてから消える
         }
 
         // ---- ビーム演出（FleetWeapon と同等。配下艦は自前の LineRenderer を持つ）----

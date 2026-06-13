@@ -1,0 +1,186 @@
+using System;
+using System.Collections.Generic;
+using NUnit.Framework;
+using Ginei;
+
+namespace Ginei.Tests
+{
+    /// <summary>
+    /// 出産（結婚と出産システム基盤）を固定する：父（男性）母（女性）から子の Person が生まれ、能力は両親と相関しつつばらつく。
+    /// <b>倫理ガード：優生学NG</b>＝出産可否は能力を参照せず、子を能力で間引く API も無い。子の能力は平均回帰＋乱数で
+    /// 決まり、有能な親同士でも上限に届かず（ラチェット無し）、きょうだいで違う。
+    /// </summary>
+    public class ChildbirthRulesTests
+    {
+        const int BirthYear = 805;
+
+        static Person Father(int id, int stat)
+            => new Person(id, "父", Faction.帝国, PersonRole.軍人)
+            { sex = Sex.男性, birthYear = BirthYear - 30,
+              leadership = stat, attack = stat, defense = stat, mobility = stat, operation = stat, intelligence = stat };
+
+        static Person Mother(int id, int stat)
+            => new Person(id, "母", Faction.同盟, PersonRole.軍人)
+            { sex = Sex.女性, birthYear = BirthYear - 25,
+              leadership = stat, attack = stat, defense = stat, mobility = stat, operation = stat, intelligence = stat };
+
+        static Func<float> Const(float v) => () => v;
+
+        [Test]
+        public void Conceive_ChildInheritsLineageAndPaternalFaction()
+        {
+            var f = Father(1, 60);
+            var m = Mother(2, 60);
+            var child = ChildbirthRules.Conceive(f, m, childId: 100, birthYear: BirthYear, sexRoll: 0.2f, roll: Const(0.5f));
+            Assert.IsNotNull(child);
+            Assert.AreEqual(1, child.fatherId);
+            Assert.AreEqual(2, child.motherId);
+            Assert.AreEqual(Faction.帝国, child.faction); // 父系
+            Assert.AreEqual(Sex.男性, child.sex);          // sexRoll<0.5
+            Assert.AreEqual(BirthYear, child.birthYear);
+        }
+
+        [Test]
+        public void Ability_CorrelatesButRegresses_NoEugenicRatchet()
+        {
+            // 親が二人とも全能力100でも、子は平均回帰で75（無ノイズ roll=0.5）＝100には届かない
+            var child = ChildbirthRules.Conceive(Father(1, 100), Mother(2, 100), 100, BirthYear, 0.6f, Const(0.5f));
+            Assert.IsNotNull(child);
+            Assert.AreEqual(75, child.leadership);
+            Assert.AreEqual(75, child.intelligence);
+            Assert.Less(child.attack, 100); // 上限に届かない＝品種改良のラチェットが効かない
+        }
+
+        [Test]
+        public void Siblings_VaryByRoll()
+        {
+            // 能力ごとに独立な乱数を引く＝同じ親でもきょうだいで能力が散る（10能力＋財産特性2＋劣性2 の順に roll を消費）
+            var seq = new Queue<float>(new[] { 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0.9f, 0.9f, 0.9f, 0.5f });
+            Func<float> roll = () => seq.Dequeue();
+            var child = ChildbirthRules.Conceive(Father(1, 100), Mother(2, 100), 100, BirthYear, 0.6f, roll);
+            Assert.IsNotNull(child);
+            Assert.AreEqual(63, child.leadership); // roll=0 → 75-12
+            Assert.AreEqual(87, child.attack);     // roll=1 → 75+12
+            Assert.AreEqual(63, child.defense);
+            Assert.AreNotEqual(child.leadership, child.attack); // きょうだい/能力でばらつく
+        }
+
+        [Test]
+        public void NoAbilityGate_LowStatParentsStillBear()
+        {
+            // 能力で出産を選別しない＝全能力0の両親でも必ず子が生まれる（優生学NG）
+            var child = ChildbirthRules.Conceive(Father(1, 0), Mother(2, 0), 100, BirthYear, 0.2f, Const(1f));
+            Assert.IsNotNull(child);
+            Assert.Greater(child.leadership, 0); // 上振れで親(0)を超える子もありうる
+        }
+
+        [Test]
+        public void CanConceive_RequiresOppositeSex_AndChildbearingAge()
+        {
+            Assert.IsTrue(ChildbirthRules.CanConceive(Father(1, 50), Mother(2, 50), BirthYear));
+            // 同性は出産不可（生物学的）
+            Assert.IsFalse(ChildbirthRules.CanConceive(Father(1, 50), Father(2, 50), BirthYear));
+            // 母が出産可能年齢を外れる（65歳）
+            var oldMother = new Person(3, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 65 };
+            Assert.IsFalse(ChildbirthRules.CanConceive(Father(1, 50), oldMother, BirthYear));
+            Assert.IsNull(ChildbirthRules.Conceive(Father(1, 50), oldMother, 100, BirthYear, 0.5f, Const(0.5f)));
+        }
+
+        [Test]
+        public void CloseKinParents_CannotConceive()
+        {
+            var f = Father(1, 50);
+            var sister = new Person(2, "妹", Faction.帝国, PersonRole.軍人)
+            { sex = Sex.女性, birthYear = BirthYear - 24 };
+            // 同じ父(9)を持つきょうだい＝近親
+            f.fatherId = 9;
+            sister.fatherId = 9;
+            Assert.IsFalse(ChildbirthRules.CanConceive(f, sister, BirthYear));
+            Assert.IsNull(ChildbirthRules.Conceive(f, sister, 100, BirthYear, 0.5f, Const(0.5f)));
+        }
+
+        [Test]
+        public void ConceptionChance_DeclinesWithAge()
+        {
+            var f = ChildbirthRules.FertilityParams.Default; // peak0.3 / 16..30 ピーク / 50で0
+            // 25歳（ピーク域）は最高、40歳は低下、55歳は0、15歳も0
+            Person young = new Person(1, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 25 };
+            Person mid = new Person(2, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 40 };
+            Person old = new Person(3, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 55 };
+            Person child = new Person(4, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 15 };
+
+            Assert.AreEqual(0.30f, ChildbirthRules.ConceptionChance(young, BirthYear, f), 1e-4f);
+            Assert.AreEqual(0.15f, ChildbirthRules.ConceptionChance(mid, BirthYear, f), 1e-4f); // 0.3×(50-40)/(50-30)
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(old, BirthYear, f), 1e-4f);
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(child, BirthYear, f), 1e-4f);
+            // 男性は0
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(Father(9, 50), BirthYear, f), 1e-4f);
+        }
+
+        [Test]
+        public void TryConceive_ProbabilisticByAge()
+        {
+            var f = Father(1, 50);
+            var m = Mother(2, 50); // 25歳→確率0.30
+            // 妊娠ロールが確率を下回れば授かる、上回れば授からない（毎年保証されない）
+            Assert.IsNotNull(ChildbirthRules.TryConceive(f, m, 100, BirthYear, conceptionRoll: 0.1f, sexRoll: 0.5f, roll: Const(0.5f)));
+            Assert.IsNull(ChildbirthRules.TryConceive(f, m, 100, BirthYear, conceptionRoll: 0.5f, sexRoll: 0.5f, roll: Const(0.5f)));
+        }
+
+        [Test]
+        public void RecessiveTalent_MaskedAbilityBloomsInChild()
+        {
+            // 凡庸な両親（全能力50）だが、父が血統に潜在能力90をマスクして持つ＝劣性が子で開花する
+            var f = Father(1, 50); f.recessiveTalent = 90;
+            var m = Mother(2, 50);
+            // 10能力(=0.5→全50)＋特性2(0.9,0.9)＋劣性[bloomRoll=0.0<0.08で発現, noise=0.5で±0]
+            var seq = new Queue<float>(new[]
+            { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.9f, 0.9f, 0.0f, 0.5f });
+            Func<float> roll = () => seq.Dequeue();
+
+            var child = ChildbirthRules.Conceive(f, m, 100, BirthYear, 0.2f, roll);
+            Assert.IsNotNull(child);
+            // 最強能力域（全50ゆえ先頭=統率）で潜在90が開花＝両親(50)を大きく超える
+            Assert.AreEqual(81, child.leadership); // carrier=90×0.9減衰=81 が開花値（noise0）
+            Assert.AreEqual(81, child.recessiveTalent); // 子も潜在を持ち越す（劣性として残る）
+        }
+
+        [Test]
+        public void RecessiveTalent_StaysMasked_WhenNoBloomRoll()
+        {
+            // 同じ潜在持ちでも、発現ロールが確率(0.08)を超えればマスクされたまま（凡庸＝50のまま）
+            var f = Father(1, 50); f.recessiveTalent = 90;
+            var m = Mother(2, 50);
+            var seq = new Queue<float>(new[]
+            { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.9f, 0.9f, 0.9f, 0.5f }); // bloomRoll=0.9≥0.08
+            Func<float> roll = () => seq.Dequeue();
+
+            var child = ChildbirthRules.Conceive(f, m, 100, BirthYear, 0.2f, roll);
+            Assert.AreEqual(50, child.leadership);        // 開花せず＝凡庸のまま
+            Assert.AreEqual(81, child.recessiveTalent);   // しかし潜在は受け継ぎ次代へ（埋もれて残る）
+        }
+
+        [Test]
+        public void ChildrenOf_FindsOffspring()
+        {
+            var roster = new List<Person>
+            {
+                new Person(1, "親", Faction.同盟, PersonRole.軍人),
+                new Person(10, "子A", Faction.同盟, PersonRole.軍人) { fatherId = 1 },
+                new Person(11, "子B", Faction.同盟, PersonRole.軍人) { motherId = 1 },
+                new Person(12, "他人", Faction.同盟, PersonRole.軍人) { fatherId = 9 },
+            };
+            Assert.AreEqual(2, ChildbirthRules.ChildCount(roster, 1));
+            Assert.AreEqual(0, ChildbirthRules.ChildCount(roster, 99));
+        }
+
+        [Test]
+        public void NullSafe()
+        {
+            Assert.IsFalse(ChildbirthRules.CanConceive(null, Mother(2, 50), BirthYear));
+            Assert.IsNull(ChildbirthRules.Conceive(null, Mother(2, 50), 1, BirthYear, 0.5f, null));
+            Assert.AreEqual(0, ChildbirthRules.ChildCount(null, 1));
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(null, BirthYear));
+        }
+    }
+}

@@ -202,6 +202,16 @@ namespace Ginei
                 CreateButton("不退転", () => { IssueActiveCommand(ActiveCommand.不退転); CloseMenu(); });
                 buttonCount++;
 
+                // 3e. 交戦規定（ROE・#2258）：選択中の全艦隊へスタンスを設定する。
+                CreateButton("ROE:攻撃的", () => { SetStanceAll(EngagementStance.攻撃的); CloseMenu(); });
+                buttonCount++;
+                CreateButton("ROE:防御的", () => { SetStanceAll(EngagementStance.防御的); CloseMenu(); });
+                buttonCount++;
+                CreateButton("ROE:射撃管制", () => { SetStanceAll(EngagementStance.射撃管制); CloseMenu(); });
+                buttonCount++;
+                CreateButton("ROE:退避", () => { SetStanceAll(EngagementStance.退避); CloseMenu(); });
+                buttonCount++;
+
                 // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
                 Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];
                 CreateButton("情報", () => { ShowFleetInfo(infoTarget); CloseMenu(); });
@@ -415,6 +425,22 @@ namespace Ginei
             if (total > 0 && issued == 0)
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
                     $"特殊指揮『{cmd}』は今は使えません（クールダウン/効果中）");
+        }
+
+        /// <summary>
+        /// 選択中の全艦隊へ交戦規定スタンスを一括設定する（ROE・#2258）。
+        /// </summary>
+        private void SetStanceAll(EngagementStance newStance)
+        {
+            if (commander == null) return;
+            for (int i = 0; i < commander.SelectedFleets.Count; i++)
+            {
+                Selectable sel = commander.SelectedFleets[i];
+                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+                if (fs != null) fs.stance = newStance;
+            }
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                $"交戦規定を「{newStance}」に設定しました");
         }
 
         public void ChangeFormation(int formationIdx)

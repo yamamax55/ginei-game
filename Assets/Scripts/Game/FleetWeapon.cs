@@ -120,6 +120,13 @@ namespace Ginei
                 return;
             }
 
+            // 交戦規定（ROE・#2258）：射撃管制／退避スタンスは発砲停止。攻撃的／防御的は通常発砲。
+            if (myStrength != null && !RoeRules.CanFire(myStrength.stance))
+            {
+                IsInCombat = false;
+                return;
+            }
+
             // ランチェスター集中倍率を間引きで再計算し部隊単位でキャッシュ（配下艦も流用＝終盤ラグ回避）。
             UpdateLanchesterFactor();
 

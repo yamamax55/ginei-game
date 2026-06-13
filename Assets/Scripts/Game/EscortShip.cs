@@ -125,6 +125,9 @@ namespace Ginei
             // 静観（#817）の配下艦も発砲しない（旗艦の旗幟に従う）
             if (flagship != null && !flagship.IsFighting) return;
 
+            // 交戦規定（ROE・#2258）：旗艦の stance に従って配下艦も発砲停止（射撃管制／退避）。
+            if (flagship != null && !RoeRules.CanFire(flagship.stance)) return;
+
             // 旗艦喪失で部隊退却中は索敵・発砲停止し、レジストリからも外して以降は休止。
             // ただし捨てがまり（殿）中は配下艦が踏みとどまって戦い続ける＝ここでは停止しない。
             bool sutegamari = parentSquadron != null && parentSquadron.SutegamariActive;

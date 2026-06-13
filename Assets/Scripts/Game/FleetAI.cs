@@ -213,6 +213,12 @@ if (Time.time >= nextSearchTime)
             // ── 静観（#817 関ヶ原型）：山上で動かない＝接近も交戦もしない（発砲停止は FleetWeapon 側）──
             if (strength != null && !strength.IsFighting) return;
 
+            // 交戦規定（ROE・#2258）：退避スタンスは前進停止（撤退相当の行動に委ねる）。
+            // AdvanceFactor は接近中の前進判定で参照（後述の 接近 case）。
+            if (strength != null && RoeRules.AdvanceFactor(strength.stance) <= 0f
+                && currentState != AIState.撤退)
+                return;
+
             if (targetEnemy == null && currentState != AIState.撤退)
             {
                 // 敵がいない場合は停止
@@ -229,6 +235,10 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
+                        // 交戦規定（ROE・#2258）：攻撃的以外は追尾（深追い）しない。
+                        // 防御的/射撃管制では前進を抑制（AdvanceFactor が0より大きければ接近するが距離は縮めすぎない）。
+                        if (strength != null && !RoeRules.CanPursue(strength.stance)) break;
+
                         // 敵に向かって移動（進路上のブラックホールは迂回）。
                         // 進路上の「交戦対象以外」の敵ZOCは避ける（対象のZOCは意図して踏み込むので無視）。
                         Vector2 dest = SteerAroundBlackHoles(pos, targetEnemy.transform.position);

@@ -61,6 +61,12 @@ namespace Ginei
         /// <summary>実際に戦うか（静観＝フリーライダー #820 は発砲しない）。</summary>
         public bool IsFighting => battleStance != Stance.静観;
 
+        // ── 交戦規定（ROE・#2258）──────────────────────────────
+        [Header("交戦規定（ROE・#2258）")]
+        [Tooltip("この部隊の持続的な交戦規定スタンス。攻撃的（既定）＝従来挙動。RoeRules が発砲/追尾/前進の可否を返す唯一の窓口。")]
+        public EngagementStance stance = EngagementStance.攻撃的;
+        // ─────────────────────────────────────────────────────────
+
         [Header("艦隊編制（#146・任意）")]
         [Tooltip("艦隊番号（0＝未指定＝従来どおり提督名のみ表示）")]
         public int fleetNumber = 0;

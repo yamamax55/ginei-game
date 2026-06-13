@@ -1,0 +1,72 @@
+name: Playtest Improve 自動ループ
+
+# 「遊べるゲームか」をコード監査で洗い出し→改善→再監査するループをセッション非依存で回す。
+# 1サイクル＝.claude/playtest-findings.md の [Core] 項目を test-first で実装し、
+# ブランチを切って PR を作成→自動マージする（検証ゲートは TestHarness のみ）。
+# Game層（Unity 実行が要る改変）は実装せず findings に記録するだけ＝自動マージしない。
+#
+# ★必要セットアップ：リポジトリ Settings → Secrets and variables → Actions の
+#   CLAUDE_CODE_OAUTH_TOKEN（core-wave.yml と同じトークン）。
+# ★schedule はこのファイルが master にあるときだけ発火。手動は workflow_dispatch。
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '27 */3 * * *'   # 3時間ごと:27（core-wave :07 / auto-implement :47 と分離）
+
+concurrency:
+  group: playtest-improve
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  playtest-improve:
+    name: /playtest-improve 1サイクル
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}   # gh CLI（PR 作成/マージ）に供給
+    steps:
+      - name: Checkout（master）
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Setup .NET 8（TestHarness 検証用）
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 改善候補の残数を確認
+        id: findings
+        run: |
+          count=$(grep -c '^- \[ \] \[Core\]' .claude/playtest-findings.md || true)
+          echo "count=${count:-0}" >> "$GITHUB_OUTPUT"
+          echo "[Core] 未着手: ${count:-0} 件"
+
+      - name: プレイアビリティ改善 1サイクル実行
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            .claude/commands/playtest-improve.md の手順に厳密に従い、プレイアビリティ改善ループを1サイクルだけ実行してください。
+            - 検証ゲートは TestHarness のみ（cd TestHarness && dotnet test）。green な変更だけをマージする。
+            - 実装してよいのは [Core]（純ロジック＋EditMode テスト）と既存配線点の極小な読み替えのみ。
+              Game層（MonoBehaviour/シーン/UI）の大きな改変は実装せず .claude/playtest-findings.md の [Game] に記録するだけ。
+            - [Core] 未着手が3件未満なら、コードを監査して findings を補充する。
+            - 実装したら auto/playtest-<日時> ブランチを master から切り、コミット→push→gh pr create（base master）
+              →TestHarness green を本文に明記→gh pr merge --merge で自動マージ。
+            - [Core] 候補が尽き監査でも新規が出ないなら、何も変更せず終了（無駄PRを作らない）。
+          claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep"'
+
+      - name: 結果サマリ
+        if: always()
+        run: |
+          echo "## Playtest Improve 結果" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 残 [Core] 改善候補: $(grep -c '^- \[ \] \[Core\]' .claude/playtest-findings.md || echo 0) 件" >> "$GITHUB_STEP_SUMMARY"
+          git log --oneline -3 >> "$GITHUB_STEP_SUMMARY"

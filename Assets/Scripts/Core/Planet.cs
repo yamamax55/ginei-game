@@ -50,6 +50,12 @@ namespace Ginei
         /// <summary>地上守備隊の最大（表示・割合の基準）。</summary>
         public float maxGroundGarrison;
 
+        /// <summary>
+        /// 地上守備隊の士気（0..1・既定1＝満）。包囲（四面楚歌）で削られ、低下すると守備隊は実効的に弱り、
+        /// 閾値を割ると降伏する（<see cref="SiegePostureRules"/> / <see cref="PsychologicalSiegeMoraleRules"/>）。
+        /// </summary>
+        public float garrisonMorale = 1f;
+
         /// <summary>地上守備隊が壊滅したか。</summary>
         public bool GarrisonDown => groundGarrison <= 0f;
 

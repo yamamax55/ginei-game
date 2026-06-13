@@ -44,6 +44,13 @@ namespace Ginei
     /// </summary>
     public static class GroundInvasionRules
     {
+        /// <summary>
+        /// 実効守備隊（名・≧0）＝守備隊×士気（0..1）。士気が崩れた守備隊は実効的に弱る（実効値パターン・基準非破壊）。
+        /// 包囲（四面楚歌）で士気を削れば、頭数を物理的に削らずとも守備が崩れる。
+        /// </summary>
+        public static float EffectiveGarrison(float garrison, float morale)
+            => Mathf.Max(0f, garrison) * Mathf.Clamp01(morale);
+
         /// <summary>攻撃側の純優勢（名・≧0）。攻撃側地上戦力が守備隊を上回るぶん。劣勢は0。</summary>
         public static float NetAdvantage(float attackerGround, float garrison)
             => Mathf.Max(0f, Mathf.Max(0f, attackerGround) - Mathf.Max(0f, garrison));

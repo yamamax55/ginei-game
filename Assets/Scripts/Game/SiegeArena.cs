@@ -44,6 +44,16 @@ namespace Ginei
         public float flakFireInterval = 0.5f;
         public Color flakBeamColor = new Color(1f, 0.62f, 0.32f);
 
+        [Header("攻城姿勢（プレイヤーの駆け引き #131 第3段）")]
+        [Tooltip("攻城姿勢。強襲＝速いが血を流す／包囲＝攻めず四面楚歌で守備隊の士気を折って降伏させる。T で切替")]
+        public SiegePosture posture = SiegePosture.強襲;
+        [Tooltip("守備隊が降伏する士気の閾値（四面楚歌）")]
+        public float garrisonSurrenderThreshold = 0.2f;
+        [Tooltip("守備隊士気の崩壊速度スケール（バランス調整）")]
+        public float siegeMoraleErosionScale = 1f;
+        [Tooltip("完全包囲とみなす包囲艦数（物理包囲度の基準）")]
+        public int encircleFullCount = 6;
+
         [Header("S-AV 演出")]
         public int savCraftCount = 18;
         public float savCraftSpeed = 7f;
@@ -88,6 +98,7 @@ namespace Ginei
         private float barWidth = 4f, barHeight = 0.3f;
         private TextMesh statusLabel;
         private bool captured;
+        private bool garrisonSurrendered; // 四面楚歌で守備隊が降伏したか（占領演出の出し分け）
         private GroundEchelonType groundEchelon = GroundEchelonType.師団; // 在席の攻城戦力が相当する地上梯団（表示用・ORBAT-5）
         private float attackerGroundCached; // 直近フレームの攻撃側地上戦力（名・表示用＝再計算回避）
 
@@ -102,6 +113,8 @@ namespace Ginei
         public float InvasionRatio => planet != null && siegeInvasionThreshold > 0f ? planet.invasionProgress / siegeInvasionThreshold : 0f;
         /// <summary>地上守備隊の残り割合(0..1)。守備隊なしは0。</summary>
         public float GarrisonRatio => planet != null && planet.maxGroundGarrison > 0f ? planet.groundGarrison / planet.maxGroundGarrison : 0f;
+        /// <summary>地上守備隊の士気(0..1)。</summary>
+        public float GarrisonMoraleRatio => planet != null ? Mathf.Clamp01(planet.garrisonMorale) : 0f;
         public bool Captured => captured;
 
         /// <summary>BattleSetup が値を設定した後に呼ぶ。ビジュアルと攻城状態を構築する。</summary>
@@ -434,33 +447,57 @@ namespace Ginei
             int alive = CountBesiegers();
             float dt = Time.deltaTime;
 
+            // 攻城姿勢の切替（強襲↔包囲・T）。
+            if (GameInput.WasPressed(GameAction.攻城戦術切替)) posture = SiegePostureRules.Toggle(posture);
+
             // 攻撃側の地上戦力（在席数×1隊あたり陸戦隊）。守備隊との二者消耗（#131・GroundInvasionRules）。
             float attackerGround = alive * Mathf.Max(0, groundTroopsPerFleet);
             attackerGroundCached = attackerGround;
             groundEchelon = GroundForceRules.LargestEchelonFor(Mathf.RoundToInt(attackerGround));
             var gprm = GroundInvasionParams.Default;
-            // 侵略速度係数＝攻撃側の純優勢（守備隊を上回るぶん）。守備が上回る間は0＝停滞（占領できない）。
-            float invadeFactor = GroundInvasionRules.InvasionRateFactor(attackerGround, planet.groundGarrison, gprm);
+            // 守備隊は士気で実効的に弱る（四面楚歌で崩せば頭数を削らずとも守備が崩れる）。
+            float effGarrison = GroundInvasionRules.EffectiveGarrison(planet.groundGarrison, planet.garrisonMorale);
+            // 侵略速度係数＝攻撃側の純優勢×姿勢倍率（包囲は地上強襲しない＝0）。守備が上回る間は0＝停滞。
+            float invadeFactor = GroundInvasionRules.InvasionRateFactor(attackerGround, effGarrison, gprm)
+                                 * SiegePostureRules.InvadeMultiplier(posture);
 
-            // 攻城進行：制空権の制圧は艦隊のS-AVで一定、ドメイン・ダウン後の侵攻は地上の純優勢で進む（timeScale 追従）。
             if (alive > 0 && !captured && dt > 0f)
             {
-                float sav = alive * siegeSpeedPerFleet;
+                // 軌道制圧（S-AV）も姿勢で変わる（包囲はほぼ攻めない）。
+                float sav = alive * siegeSpeedPerFleet * SiegePostureRules.SuppressMultiplier(posture);
                 var prm = new SiegeParams(1f, invadeFactor, 0f);
                 var r = PlanetSiegeRules.Tick(planet, besiegerFaction, sav, dt, prm);
                 if (r.captured) captured = true;
 
-                // 地上戦（ドメイン・ダウン後）：攻撃側の規模に応じて守備隊を削る。
-                if (planet.DomainDown && planet.groundGarrison > 0f)
+                // 四面楚歌：物理包囲×心理孤立で守備隊の士気を削る（包囲が主役）。閾値割れで降伏＝戦わずして占領。
+                if (!captured && planet.groundGarrison > 0f && planet.garrisonMorale > 0f)
                 {
-                    float loss = GroundInvasionRules.GarrisonLosses(attackerGround, planet.groundGarrison, gprm, dt);
+                    float erosion = SiegePostureRules.GarrisonMoraleErosion(
+                        PhysicalEncirclement(alive), PsychologicalIsolation(), posture, dt) * Mathf.Max(0f, siegeMoraleErosionScale);
+                    planet.garrisonMorale = Mathf.Clamp01(planet.garrisonMorale - erosion);
+
+                    if (SiegePostureRules.GarrisonSurrendered(planet.garrisonMorale, garrisonSurrenderThreshold))
+                    {
+                        planet.groundGarrison = 0f;
+                        planet.invasionProgress = planet.invasionThreshold; // 降伏＝占領
+                        captured = true;
+                        garrisonSurrendered = true;
+                    }
+                }
+
+                // 地上侵攻（ドメイン・ダウン後・強襲）：攻撃側の規模に応じて守備隊の頭数を削る。
+                if (!captured && planet.DomainDown && planet.groundGarrison > 0f)
+                {
+                    float loss = GroundInvasionRules.GarrisonLosses(attackerGround, planet.groundGarrison, gprm, dt)
+                                 * SiegePostureRules.GrindMultiplier(posture);
                     planet.groundGarrison = Mathf.Max(0f, planet.groundGarrison - loss);
                 }
             }
 
             UpdateDefense(dt);
-            // 守備隊の対空砲火で包囲艦に損害（残存守備隊に比例＝削れば弱まる）。
-            UpdateGarrisonFlak(GroundInvasionRules.AttackerCasualtyRate(planet.groundGarrison, gprm), dt);
+            // 守備隊の対空砲火で包囲艦に損害（残存実効守備隊に比例×姿勢倍率＝強襲ほど血を流す）。
+            UpdateGarrisonFlak(GroundInvasionRules.AttackerCasualtyRate(effGarrison, gprm)
+                               * SiegePostureRules.CasualtyMultiplier(posture), dt);
             UpdateGauges();
             UpdateCraft(alive);
         }
@@ -477,6 +514,22 @@ namespace Ginei
             return n;
         }
 
+        // 四面楚歌の入力（物理包囲度）：包囲艦が多いほど・ドメイン・ダウンで脱出路が断たれるほど高い。
+        private float PhysicalEncirclement(int besiegers)
+        {
+            float surrounded = encircleFullCount > 0 ? Mathf.Clamp01((float)besiegers / encircleFullCount) : 1f;
+            float escapeRoutes = planet != null && planet.DomainDown ? 0.1f : 0.4f; // ドメイン健在なら脱出余地
+            return PsychologicalSiegeMoraleRules.PhysicalEncirclement(surrounded, escapeRoutes);
+        }
+
+        // 四面楚歌の入力（心理孤立度）：戦術アリーナは増援を想定しない＝孤立、ドメイン・ダウンで絶望が深い。
+        private float PsychologicalIsolation()
+        {
+            float alliesDefected = 0.7f; // 援軍なし＝孤立
+            float hopeless = planet != null && planet.DomainDown ? 0.9f : 0.5f;
+            return PsychologicalSiegeMoraleRules.PsychologicalIsolation(alliesDefected, hopeless);
+        }
+
         private void UpdateGauges()
         {
             if (defenseFill != null)
@@ -489,21 +542,34 @@ namespace Ginei
             if (statusLabel != null)
             {
                 if (captured)
-                    statusLabel.text = "占領完了！　Backspaceで戦略マップへ";
-                else if (!planet.DomainDown)
-                {
-                    int sats = satellites == null ? 0
-                        : PlanetaryDefenseRules.LiveSatellites(planet.orbitalDefense, planet.maxOrbitalDefense, satellites.Length);
-                    statusLabel.text = $"軌道戦 制空権 {Mathf.CeilToInt(DefenseRatio * 100f)}%（防衛衛星 {sats}機が反撃）";
-                }
-                else if (planet.groundGarrison > 0f && GroundInvasionRules.DefendersHolding(
-                             attackerGroundCached, planet.groundGarrison))
-                    // 守備隊が攻撃側を上回る＝侵攻停滞（兵力を増やすか守備隊を削るまで進まない）
-                    statusLabel.text = $"地上戦 守備隊が抗戦中（守備隊 {Mathf.CeilToInt(GarrisonRatio * 100f)}%・侵攻停滞）";
-                else if (planet.groundGarrison > 0f)
-                    statusLabel.text = $"地上戦 侵攻中（守備隊 {Mathf.CeilToInt(GarrisonRatio * 100f)}%・占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%・地上戦力 {groundEchelon}）";
+                    statusLabel.text = garrisonSurrendered
+                        ? "守備隊降伏（四面楚歌）！　Backspaceで戦略マップへ"
+                        : "占領完了！　Backspaceで戦略マップへ";
                 else
-                    statusLabel.text = $"侵攻中（地上戦力 {groundEchelon}・占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%）";
+                {
+                    string head = $"[{posture}・Tで切替]";
+                    int gar = Mathf.CeilToInt(GarrisonRatio * 100f);
+                    int mor = Mathf.CeilToInt(GarrisonMoraleRatio * 100f);
+                    bool hasGarrison = planet.groundGarrison > 0f;
+                    string garInfo = hasGarrison ? $"　守備隊 {gar}%・士気 {mor}%" : "";
+
+                    if (posture == SiegePosture.包囲)
+                        // 包囲＝攻めず四面楚歌で士気を折る
+                        statusLabel.text = $"{head} 包囲・四面楚歌（士気を削り降伏へ）{garInfo}";
+                    else if (!planet.DomainDown)
+                    {
+                        int sats = satellites == null ? 0
+                            : PlanetaryDefenseRules.LiveSatellites(planet.orbitalDefense, planet.maxOrbitalDefense, satellites.Length);
+                        statusLabel.text = $"{head} 軌道戦 制空権 {Mathf.CeilToInt(DefenseRatio * 100f)}%（防衛衛星 {sats}機が反撃）{garInfo}";
+                    }
+                    else if (hasGarrison && GroundInvasionRules.DefendersHolding(
+                                 attackerGroundCached, GroundInvasionRules.EffectiveGarrison(planet.groundGarrison, planet.garrisonMorale)))
+                        statusLabel.text = $"{head} 地上戦 守備隊が抗戦中（侵攻停滞）{garInfo}";
+                    else if (hasGarrison)
+                        statusLabel.text = $"{head} 地上戦 侵攻中（占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%・地上戦力 {groundEchelon}）{garInfo}";
+                    else
+                        statusLabel.text = $"{head} 侵攻中（地上戦力 {groundEchelon}・占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%）";
+                }
             }
         }
 

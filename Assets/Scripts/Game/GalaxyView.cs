@@ -196,7 +196,7 @@ namespace Ginei
         private void Update()
         {
             // 星系情報パネル／イベント提示モーダル／艦隊編成画面 表示中は戦略マップの入力・進行を止める（各パネルがポーズ＆入力を処理）。
-            if (SystemDetailPanel.IsOpen || StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen) return;
+            if (SystemDetailPanel.IsOpen || StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen || CampaignEndOverlay.IsOpen) return;
 
             HandleKeys();
 
@@ -1326,8 +1326,8 @@ namespace Ginei
         private bool campaignDecided;
 
         /// <summary>
-        /// プレイヤー勢力の戦略的決着を年次で判定し、勝利/敗北したら時計を止めて告知する（一度きり）。
-        /// 判定は <see cref="CampaignVictoryRules"/>（制覇=支配率/全制圧/滅亡）。終了画面は後段（まずは告知＋停止）。
+        /// プレイヤー勢力の戦略的決着を年次で判定し、勝利/敗北したら時計を止めて終了画面を出す（一度きり）。
+        /// 判定は <see cref="CampaignVictoryRules"/>（制覇=支配率/全制圧/滅亡）。終了画面は <see cref="CampaignEndOverlay"/>。
         /// </summary>
         private void RunCampaignVictoryCheck()
         {
@@ -1339,10 +1339,32 @@ namespace Ginei
             campaignDecided = true;
             if (StrategySession.Clock != null) StrategySession.Clock.Pause(); // 進行を止める
             int frac = Mathf.RoundToInt(CampaignVictoryRules.OwnedFraction(map, player) * 100f);
-            string msg = outcome == CampaignOutcome.勝利
+            bool win = outcome == CampaignOutcome.勝利;
+            string msg = win
                 ? $"【勝利】{player} が銀河を制覇（支配 {frac}%）"
                 : $"【敗北】{player} は星系をすべて失った";
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.警告, msg);
+            CampaignEndOverlay.Show(win, player, CampaignVictoryRules.OwnedFraction(map, player)); // 終了画面（遊べる縦スライスの締め）
+        }
+
+        /// <summary>
+        /// 戦役を跨いで残る static 状態をリセットする（終了画面「タイトルへ戻る」/新規キャンペーン開始時）。
+        /// 同一アプリ実行内で2周目を始めても目標提示が再び出るよう、オンボーディングのフラグを戻す。
+        /// </summary>
+        public static void ResetCampaignStatics()
+        {
+            objectiveAnnounced = false;
+        }
+
+        /// <summary>
+        /// タイトルから新規キャンペーンを始める前処理（戦略の世界状態を破棄＝Strategy シーンで一から構築される）。
+        /// `TitleManager` が呼んでから "Strategy" シーンへ遷移する。
+        /// </summary>
+        public static void BeginNewCampaign()
+        {
+            StrategySession.Clear();
+            BattleHandoff.Clear();
+            ResetCampaignStatics();
         }
 
         /// <summary>

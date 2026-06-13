@@ -579,6 +579,7 @@ namespace Ginei
                 if (yard == null) continue;
                 provinces.TryGetValue(yard.systemId, out var prov);
                 float factor = ShipyardRules.ProductionFactor(prov); // BUILD-2：安定度比例＝支配≠即建艦
+                factor *= ShipbuildingFundingFactor(yard.faction);   // G3：建艦予算の出資度が建艦速度に効く（#163→#884）
                 var done = ShipyardRules.Tick(yard, secondsPerDay, factor);
                 for (int j = 0; j < done.Count; j++)
                 {
@@ -941,6 +942,9 @@ namespace Ginei
             // 法の支配と法と秩序（LAW-6・#2126）：勢力の法の支配＋惑星の治安を解き、安定へ反映・抑圧を通知。
             RunLawTick();
 
+            // 財政の年（#161-163 配線）：予算編成→形式財政（債務/利払い）で予算と執行の1年を閉じる。
+            RunFiscalYearTick();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1104,6 +1108,57 @@ namespace Ginei
                         break;
                 }
             }
+        }
+
+        // --- 財政の年（#161-163 配線）：予算編成→執行→債務で1年を閉じる ---
+
+        /// <summary>
+        /// 年次の財政：①予算編成（歳入レート×支出性向を分野重みで配分）②形式財政（債務/利払い）③債務スパイラル通知。
+        /// 現金の執行は日次 <see cref="CampaignRules.TickBudgetDay"/> が予算総額を国庫から引いて行う（予算が満ちて初めて執行が動く）。
+        /// 数式は <see cref="BudgetRules"/>/<see cref="FiscalRules"/>/<see cref="CampaignRules"/> へ委譲。
+        /// </summary>
+        private void RunFiscalYearTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            // ① 予算編成（帝国＝軍拡で赤字気味／同盟＝均衡・内政厚め）。重みは 軍事/建艦/内政/社会保障/研究/外交。
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null || s.budget == null) continue;
+                float revenueRate = FiscalRules.TaxRevenue(CampaignRules.EconomyBase(s), s.taxRate);
+                float propensity = s.faction == Faction.帝国 ? 1.1f : 1.0f;
+                float[] weights = s.faction == Faction.帝国
+                    ? new float[] { 3, 2, 1, 1, 1, 1 }
+                    : new float[] { 1, 1, 2, 2, 1, 1 };
+                BudgetRules.AllocateByWeights(s.budget, revenueRate * propensity, weights);
+            }
+
+            // ② 形式財政：赤字→国債→利払い→翌年（債務繰り越し）。
+            CampaignRules.TickFiscalYear(camp, 1f);
+
+            // ③ 帰結（通知）：債務スパイラルを警告。
+            var p = FiscalRules.FiscalParams.Default;
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null || s.fiscal == null) continue;
+                if (FiscalRules.IsDebtSpiral(s.fiscal, CampaignRules.EconomyBase(s), p))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 債務スパイラル（債務 {s.fiscal.debt:0}）");
+            }
+        }
+
+        /// <summary>建艦の出資度（G3）＝建艦予算/必要額。歳入の2割を満額基準とする（不足で建艦が遅れる）。</summary>
+        private float ShipbuildingFundingFactor(Faction f)
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null) return 1f;
+            FactionState s = CampaignRules.GetState(camp, f);
+            if (s == null || s.budget == null) return 1f;
+            float need = FiscalRules.TaxRevenue(CampaignRules.EconomyBase(s), s.taxRate) * 0.2f;
+            if (need <= 0f) return 1f;
+            return BudgetRules.ShipbuildingFactor(s.budget, need);
         }
 
         // --- 人事の空席補充（#152）と捕虜の処遇（#154）の配線 ---

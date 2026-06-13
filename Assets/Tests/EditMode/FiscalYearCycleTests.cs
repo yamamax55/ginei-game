@@ -143,5 +143,35 @@ namespace Ginei.Tests
             Assert.AreEqual(300f, BudgetRules.Balance(empty, 300f), 1e-3f); // 歳入丸ごと残る＝何も執行されない
             // ＝歳入は貯まるが「予算と執行」が成立せず、債務/出資度の帰結も生まれない（1年が回らない）。
         }
+
+        // ===== ⑦ 配線：CampaignRules.TickFiscalYear が予算→歳出→債務を勢力ごとに回す（G4） =====
+
+        [Test]
+        public void TickFiscalYear_WiresBudgetToDebt_PerFaction()
+        {
+            var s = new FactionState(Faction.帝国);
+            s.taxRate = 0f;                                // 歳入0（EconomyBase に依存せず赤字を作る）
+            BudgetRules.Set(s.budget, BudgetCategory.軍事, 100f); // 歳出100
+            var c = new CampaignState();
+            c.states.Add(s);
+
+            CampaignRules.TickFiscalYear(c, 1f);
+
+            Assert.AreEqual(100f, s.fiscal.baseExpenditure, 1e-3f); // 予算総額→歳出に反映（ApplyToFiscalState）
+            Assert.AreEqual(0f, s.fiscal.revenue, 1e-3f);          // 税率0＝歳入0
+            Assert.AreEqual(100f, s.fiscal.debt, 1e-3f);           // 赤字100→国債100（翌年へ繰り越し）
+        }
+
+        [Test]
+        public void TickFiscalYear_EmptyBudget_NoDeficit_NoDebt()
+        {
+            var s = new FactionState(Faction.同盟);
+            s.taxRate = 0f; // 歳入0・歳出0（空予算）
+            var c = new CampaignState();
+            c.states.Add(s);
+
+            CampaignRules.TickFiscalYear(c, 1f);
+            Assert.AreEqual(0f, s.fiscal.debt, 1e-3f); // 歳出0＝赤字なし＝債務増えない（後方互換）
+        }
     }
 }

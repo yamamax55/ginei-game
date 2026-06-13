@@ -61,6 +61,22 @@
 
 ---
 
+## 5. 配線実施（done）— 年の輪を閉じた
+
+ギャップのうち **G1・G2・G4・G5＋G3(建艦)** を配線済み（Core 純ロジックは追加せず既存窓口を呼ぶ）：
+
+- **G1 予算編成**：`GalaxyView.RunFiscalYearTick`（年次）が勢力ごとに `BudgetRules.AllocateByWeights(budget, 歳入レート×支出性向, 重み)`。**帝国＝軍拡（軍事/建艦厚め・性向1.1で赤字気味）／同盟＝均衡（内政/社会保障厚め）**。
+- **G2 執行**：予算が満ちたので既存の日次 `CampaignRules.TickBudgetDay` が `treasury -= Total(budget)` で**現金を実際に動かす**。
+- **G4 形式財政**：`FactionState.fiscal`（`FiscalState`）を新設し、`CampaignRules.TickFiscalYear`（年次）が `ApplyToFiscalState`＋`FiscalRules.Tick`＝**赤字→国債→利払い→翌年（債務繰り越し）**。
+- **G5 帰結（通知）**：`FiscalRules.IsDebtSpiral` を年次で判定し債務スパイラルを警告。
+- **G3 建艦**：`TickShipyard` の生産係数に `ShipbuildingFundingFactor`（建艦予算/必要額）を乗算＝**建艦予算を絞ると建艦が遅れ、厚くすると速まる**（#163→#884）。
+
+**残（G3 の他分野）**：`AdministrationStabilityBonus`→`GovernanceRules`／`WelfareHopeBonus`→`HopeRules`／`MilitaryReadinessFactor`→戦闘#106／`DiplomacyOpinionBonus`→#189 は窓口は用意済み・接続は今後（同パターンで1行）。`FiscalHealthFactor`→安定度/交易（G5 残り）も同様。
+
+**結果**：歳入(日次)→予算編成(年次)→執行(日次で現金が動く)→形式財政(年次で債務繰り越し)→翌年 が回る。建艦予算は建艦速度に効く。配線テスト＝`FiscalYearCycleTests.TickFiscalYear_*`。
+
+---
+
 ## 4. テスト（EditMode・`FiscalYearCycleTests`）
 
 歳入（税率→税収）／予算編成（配分・緊縮 cap・均衡）／執行（出資度の満額・過剰・不足）／帰結（黒字減債・赤字増債・複利・債務スパイラル）／統合（歳入→予算→執行→債務を3年）／**ギャップ pin（空予算＝執行0＝年が回らない）** を固定。`TestHarness`（dotnet）でも回帰。

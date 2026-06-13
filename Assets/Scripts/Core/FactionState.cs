@@ -30,6 +30,10 @@ namespace Ginei
         /// 既定は空＝歳出0（後方互換）。treasury/taxRate と同じく在席のセッション状態（セーブ非対象＝復元時は既定で再構築）。</summary>
         public NationalBudget budget = new NationalBudget();
 
+        /// <summary>形式財政＝債務/利払い/税率/社会保障（#161/#163）。赤字（歳出&gt;歳入）が国債へ繰り越し利払いが翌年に乗る。
+        /// 解決は <see cref="FiscalRules"/>。treasury/budget と同じく在席のセッション状態（セーブ非対象）。</summary>
+        public FiscalState fiscal = new FiscalState();
+
         /// <summary>目安箱への信認（箱ごと・MEYASU-2 #1298）。建白が権力者に聞かれるかを左右する“借り物の権威”。解決は <see cref="CredibilityRules"/>。</summary>
         public BoxCredibility credibility = new BoxCredibility();
 

@@ -286,6 +286,24 @@ namespace Ginei
             // 国家状態（#817 旗幟の基準忠誠の出所）：Battle 往復で失わないよう StrategySession に持たせる。
             if (StrategySession.Campaign == null) StrategySession.Campaign = new CampaignState(map);
             CampaignRules.EnsureStates(StrategySession.Campaign);
+
+            AnnounceCampaignObjective(); // 遊べる縦スライス：目標と初手をプレイヤーに提示（オンボーディング）
+        }
+
+        // --- オンボーディング（目標提示＋初手ガイド） ---
+        private static bool objectiveAnnounced;
+
+        /// <summary>キャンペーン開始時に勝利目標と最初の操作を通知で提示する（セッション一度きり）。勝敗は <see cref="CampaignVictoryRules"/>。</summary>
+        private void AnnounceCampaignObjective()
+        {
+            if (objectiveAnnounced) return;
+            objectiveAnnounced = true;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            int pct = Mathf.RoundToInt(CampaignVictoryRules.CampaignVictoryParams.Default.dominationFraction * 100f);
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
+                $"【目標】{player} で銀河の {pct}% を支配せよ（敵を全制圧でも勝利／全星系を失えば敗北）");
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
+                "操作：星系を右クリックで進軍 → 前線で接触 → 交戦中の回廊をダブルクリックで潜行（会戦へ）。Space/1-3=速度、H=ヘルプ。");
         }
 
         private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)
@@ -948,6 +966,9 @@ namespace Ginei
             // 政体進化（#117 配線）：首長制→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ社会シグナルで分岐進化。
             RunRegimeEvolutionTick();
 
+            // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡で敗北。決着で時計を止めて告知。
+            RunCampaignVictoryCheck();
+
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
                 commanders, campaignYear, 1, _ => UnityEngine.Random.value);
@@ -1184,6 +1205,29 @@ namespace Ginei
 
         // --- 政体進化（#117 配線）：首長制→民主/独裁→下位形態 ---
         private bool regimeFormsSeeded;
+
+        // --- キャンペーン勝敗（遊べる縦スライスの核） ---
+        private bool campaignDecided;
+
+        /// <summary>
+        /// プレイヤー勢力の戦略的決着を年次で判定し、勝利/敗北したら時計を止めて告知する（一度きり）。
+        /// 判定は <see cref="CampaignVictoryRules"/>（制覇=支配率/全制圧/滅亡）。終了画面は後段（まずは告知＋停止）。
+        /// </summary>
+        private void RunCampaignVictoryCheck()
+        {
+            if (campaignDecided || map == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            CampaignOutcome outcome = CampaignVictoryRules.Evaluate(map, player);
+            if (outcome == CampaignOutcome.継続) return;
+
+            campaignDecided = true;
+            if (StrategySession.Clock != null) StrategySession.Clock.Pause(); // 進行を止める
+            int frac = Mathf.RoundToInt(CampaignVictoryRules.OwnedFraction(map, player) * 100f);
+            string msg = outcome == CampaignOutcome.勝利
+                ? $"【勝利】{player} が銀河を制覇（支配 {frac}%）"
+                : $"【敗北】{player} は星系をすべて失った";
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.警告, msg);
+        }
 
         /// <summary>
         /// 政体進化を年次で回す（#117）：初期形態をシード（帝国=君主制/同盟=共和制/他=首長制）し、社会シグナル

@@ -1232,6 +1232,9 @@ namespace Ginei
 
             // 総督（地方官）の銓衡配属（官僚制基盤）：所有星系ごとに官位相当の文官を配属＝受領/国司。
             RunGovernorAppointmentTick();
+
+            // 省庁の配属（官僚制基盤・二官八省）：文民を省庁へ配属し、その行政が内政（中央監督）に効く。
+            RunMinistryStaffingTick();
         }
 
         /// <summary>
@@ -1489,6 +1492,8 @@ namespace Ginei
         private const CourtRank GovernorRequiredRank = CourtRank.正六位上; // 総督（受領/国司）の官位相当＝六位以上
         private const int MaxGovernedSystems = 16;   // 総督を置く星系の上限（PERF＝無制限配属を防ぐ）
         private const float CentralOversightShare = 0.3f; // 中央（宰相）が地方へ及ぼす監督の効き（薄く全土へ）
+        private List<Ministry>[] ministries;          // 勢力ごとの省庁ツリー（二官八省・DemoFactions と並行）
+        private int[] ministryTopId;                  // 勢力ごとの太政官（最上位省）id
 
         /// <summary>文官要職（観測用・人物名鑑が在任を表示）。</summary>
         public IReadOnlyList<Office> CivilOffices => civilOffices;
@@ -1518,7 +1523,7 @@ namespace Ginei
                     if (GovernmentRegistry.GetHolder(governorOffices[fIdx], s.id) is Person g && g.id == p.id)
                         return $"{s.systemName}総督";
                 }
-            return "";
+            return MinistryOf(p); // 要職に無ければ省庁の配属を返す（無ければ空）
         }
 
         /// <summary>勢力の現役（生存・自由・現役）司令を後任候補として集める。</summary>
@@ -1695,7 +1700,106 @@ namespace Ginei
                 var governor = GovernmentRegistry.GetHolder(governorOffices[fIdx], s.id) as Person;
                 gov = AdministrationRules.StabilityContribution(governor, authority, AdministrationRules.AdminParams.Default);
             }
-            return gov + PremierAdminBonus(s.owner) * CentralOversightShare;
+            // 中央＝宰相＋省庁（民部省/太政官の行政）が監督として薄く全土へ及ぶ。
+            float central = PremierAdminBonus(s.owner) + MinistryCentralBonus(s.owner);
+            return gov + central * CentralOversightShare;
+        }
+
+        // ===== 省庁ツリー（二官八省・GOV-5 #158 配線） =====
+
+        /// <summary>勢力ごとの省庁ツリーをシード（冪等）：太政官 ⊃ 式部省/民部省/大蔵省/兵部省。</summary>
+        private void SeedMinistries()
+        {
+            if (ministries != null) return;
+            ministries = new List<Ministry>[DemoFactions.Length];
+            ministryTopId = new int[DemoFactions.Length];
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                int baseId = 1000 + f * 10;
+                var tree = new List<Ministry>
+                {
+                    new Ministry(baseId + 0, $"{fac}太政官", OfficeDomain.内政) { staffSlots = 2 },
+                    new Ministry(baseId + 1, $"{fac}式部省", OfficeDomain.内政) { staffSlots = 4 }, // 人事
+                    new Ministry(baseId + 2, $"{fac}民部省", OfficeDomain.内政) { staffSlots = 4 }, // 内政
+                    new Ministry(baseId + 3, $"{fac}大蔵省", OfficeDomain.財政) { staffSlots = 3 }, // 財政
+                    new Ministry(baseId + 4, $"{fac}兵部省", OfficeDomain.軍事) { staffSlots = 3 }, // 軍政
+                };
+                for (int c = 1; c <= 4; c++) MinistryRules.AttachChild(tree, baseId + 0, baseId + c);
+                ministries[f] = tree;
+                ministryTopId[f] = baseId + 0;
+            }
+        }
+
+        /// <summary>
+        /// 省庁の配属（年次・官僚制基盤）：死亡/捕虜の官僚を外し、空き定員を勢力の文民で埋める（有能な順・一人一省＝兼任しない）。
+        /// 数値ロジックは <see cref="MinistryRules"/>/<see cref="MinistryAdminRules"/> へ委譲。
+        /// </summary>
+        private void RunMinistryStaffingTick()
+        {
+            SeedMinistries();
+            if (ministries == null || civilians == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                List<Ministry> tree = ministries[f];
+                if (tree == null) continue;
+                Faction fac = DemoFactions[f];
+
+                // 死亡/捕虜の官僚を一掃
+                for (int m = 0; m < tree.Count; m++)
+                {
+                    var mn = tree[m];
+                    if (mn == null) continue;
+                    for (int i = mn.staffIds.Count - 1; i >= 0; i--)
+                    {
+                        Person held = FindCivilian(mn.staffIds[i]);
+                        if (held == null || !held.IsAvailable) mn.staffIds.RemoveAt(i);
+                    }
+                }
+
+                // 既配属を除いた候補（有能順）
+                var staffed = new HashSet<int>(MinistryRules.AllOfficialsUnder(tree, ministryTopId[f]));
+                var pool = new List<Person>();
+                for (int i = 0; i < civilians.Count; i++)
+                {
+                    Person c = civilians[i];
+                    if (c != null && c.faction == fac && c.IsAvailable && !staffed.Contains(c.id)) pool.Add(c);
+                }
+                pool.Sort((a, b) => b.CivilAptitude.CompareTo(a.CivilAptitude));
+
+                int next = 0;
+                for (int m = 0; m < tree.Count && next < pool.Count; m++)
+                {
+                    var mn = tree[m];
+                    if (mn == null) continue;
+                    while (mn.HasVacancy && next < pool.Count)
+                        if (MinistryRules.AssignOfficial(tree, mn.id, pool[next++].id)) { } // 単一所属は MinistryRules が保証
+                }
+            }
+        }
+
+        /// <summary>勢力の省庁（太政官ツリー）の内政寄与＝名実の乖離で朝廷の権威ぶん減衰（<see cref="MinistryAdminRules"/>）。</summary>
+        private float MinistryCentralBonus(Faction owner)
+        {
+            int f = FactionIndex(owner);
+            if (f < 0 || ministries == null || ministries[f] == null) return 0f;
+            float authority = courtAuthority != null ? courtAuthority.authority : 0f;
+            Ministry top = MinistryRules.Get(ministries[f], ministryTopId[f]);
+            return MinistryAdminRules.AdministrativeBonus(top, ministries[f], FindCivilian, authority, MinistryAdminRules.MinistryParams.Default);
+        }
+
+        /// <summary>その文官が配属されている省庁名（無ければ空・観測用）。</summary>
+        private string MinistryOf(Person p)
+        {
+            if (p == null || ministries == null) return "";
+            for (int f = 0; f < ministries.Length; f++)
+            {
+                List<Ministry> tree = ministries[f];
+                if (tree == null) continue;
+                for (int m = 0; m < tree.Count; m++)
+                    if (tree[m] != null && tree[m].staffIds.Contains(p.id)) return tree[m].ministryName;
+            }
+            return "";
         }
 
         /// <summary>

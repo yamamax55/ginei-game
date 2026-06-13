@@ -192,6 +192,10 @@ namespace Ginei
         {
             if (isDead) return;
 
+            // 挟撃／包囲（#2178）：所属部隊が囲まれているほど配下艦も被ダメ増。
+            if (flagship != null && flagship.EnvelopmentFactor > 0f)
+                damage = Mathf.RoundToInt(damage * EnvelopmentRules.DamageFactor(flagship.EnvelopmentFactor));
+
             shipCount -= damage;
             if (shipCount <= 0)
             {

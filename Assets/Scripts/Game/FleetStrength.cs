@@ -124,6 +124,16 @@ namespace Ginei
         [Tooltip("捨てがまり判定：この距離内に敵がいれば『追われている』とみなす（敵が追ってきている時だけ殿＝捨てがまりが発動）")]
         public float pursuitDetectRange = 12f;
 
+        [Header("挟撃／包囲（#2178）")]
+        [Tooltip("挟撃判定の範囲（この距離内の敵対旗艦の方位分布から包囲度を算定）")]
+        public float envelopmentRange = 14f;
+        [Tooltip("挟撃の再計算間隔（秒・間引き）")]
+        public float envelopmentUpdateInterval = 0.5f;
+        /// <summary>この部隊が受けている包囲度（0..1）。`EnvelopmentRules` が算定し被ダメに乗る。</summary>
+        public float EnvelopmentFactor { get; private set; }
+        private float nextEnvelopmentTime;
+        private static readonly List<float> envelopScratch = new List<float>(16);
+
         [Header("得意陣形ボーナス（#104）")]
         [Tooltip("提督の得意陣形と現在陣形が一致する間の被ダメージ軽減率（0=無効, 0.15で被ダメージ15%カット）。実効値パターン＝基準ダメージ・防御計算は非破壊")]
         [Range(0f, 0.9f)]
@@ -228,6 +238,34 @@ namespace Ginei
             FleetRegistry.Unregister(this);
         }
 
+        private void Update()
+        {
+            // 挟撃（包囲度）を間引きで再計算しキャッシュ（被ダメに乗る）。退却・撃墜後は不要。
+            if (IsRetreating || IsDestroyed) return;
+            if (Time.time < nextEnvelopmentTime) return;
+            nextEnvelopmentTime = Time.time + Mathf.Max(0.1f, envelopmentUpdateInterval);
+            UpdateEnvelopment();
+        }
+
+        /// <summary>自分を範囲内で取り囲む敵対旗艦の方位分布から包囲度を算定してキャッシュする（#2178）。</summary>
+        private void UpdateEnvelopment()
+        {
+            envelopScratch.Clear();
+            float r2 = envelopmentRange * envelopmentRange;
+            Vector2 me = transform.position;
+            IReadOnlyList<FleetStrength> flags = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flags.Count; i++)
+            {
+                FleetStrength f = flags[i];
+                if (f == null || f == this || !f.IsAlive) continue;
+                if (!FactionRelations.IsHostile(this, f)) continue;
+                Vector2 d = (Vector2)f.transform.position - me;
+                if (d.sqrMagnitude > r2) continue;
+                envelopScratch.Add(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+            }
+            EnvelopmentFactor = EnvelopmentRules.EncirclementFactor(envelopScratch);
+        }
+
 
 
         /// <summary>
@@ -282,6 +320,10 @@ namespace Ginei
             // 陣形の戦術特性（#72）：防御側陣形の被ダメージ倍率（円陣/方陣=堅い＜1／横陣/鶴翼=脆い＞1）。
             if (squadron != null)
                 finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, FormationTraitRules.DamageTakenFactor(squadron.currentFormation)));
+
+            // 挟撃／包囲（#2178）：複数方向から囲まれているほど被ダメ増（最大+25%）。
+            if (EnvelopmentFactor > 0f)
+                finalDamage = Mathf.RoundToInt(finalDamage * EnvelopmentRules.DamageFactor(EnvelopmentFactor));
 
             strength -= finalDamage;
             

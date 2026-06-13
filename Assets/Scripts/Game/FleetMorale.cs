@@ -208,6 +208,7 @@ namespace Ginei
         {
             if (sustainment != null) factor *= sustainment.EffectiveFactor;
             if (strength != null) factor *= Mathf.Max(0.1f, strength.corpsMoraleFactor); // 軍団長のバフ/デバフ
+            if (strength != null) factor *= AdmiralArchetypeModifiers.MoraleFactor(strength.admiralData); // 黄金の獅子#覇王（フラグ無しは1.0）
             return factor;
         }
     }

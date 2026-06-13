@@ -42,6 +42,9 @@ namespace Ginei
             baseStrength > 0 ? baseStrength
             : (admiralData != null ? admiralData.baseStrength : maxStrength);
 
+        /// <summary>残存兵力比（0..1）。人物 archetype の劣勢/決死/逆転（#日本一の兵/#魔術師）の入力に使う。</summary>
+        public float HpRatio => maxStrength > 0 ? Mathf.Clamp01((float)strength / maxStrength) : 1f;
+
         [Header("陣営設定")]
         public Faction faction;
 
@@ -370,6 +373,11 @@ namespace Ginei
             // 特殊指揮（#2175・突撃=脆い／不退転=堅い）：被ダメ倍率を乗算（既定1.0）。
             if (activeDamageTakenFactor != 1f)
                 finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, activeDamageTakenFactor));
+
+            // 人物 archetype（#猛将の猪突=脆い／#半身の端正な陣形=堅い 等）：被ダメ倍率（フラグ無しは1.0＝後方互換）。
+            float archDmg = AdmiralArchetypeModifiers.DamageTakenFactor(admiralData);
+            if (archDmg != 1f)
+                finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, archDmg));
 
             strength -= finalDamage;
             

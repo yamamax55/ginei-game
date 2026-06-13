@@ -27,9 +27,13 @@ namespace Ginei
         public static bool IsEnrolledByGraduationYear(int graduationYear, int currentYear)
             => graduationYear > 0 && currentYear < graduationYear;
 
-        /// <summary>在学中か（人物の卒業年で判定＝学生として作られたネームドは卒業年が未来）。</summary>
+        /// <summary>
+        /// 在学中か（人物の学校配属期限 <see cref="Person.schoolPostingUntilYear"/> で判定）。
+        /// 在学＝<c>schoolPostingUntilYear &gt; currentYear</c>。0（非在学）は false＝従来どおり配属可（後方互換）。
+        /// ※卒業年 <see cref="Person.graduationYear"/> は士官学校卒業/学閥同期の年であり在学判定には使わない（別概念）。
+        /// </summary>
         public static bool IsEnrolled(Person p, int currentYear)
-            => p != null && IsEnrolledByGraduationYear(p.graduationYear, currentYear);
+            => p != null && IsEnrolledByGraduationYear(p.schoolPostingUntilYear, currentYear);
 
         /// <summary>配属区分（年齢窓版）。在学中＝学校配属／それ以外＝艦隊配属可。</summary>
         public static MilitaryPosting PostingOf(ICharacter c, int currentYear, SchoolType school)

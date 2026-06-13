@@ -110,6 +110,23 @@ public static bool CanAssignToFleet(Person p, int currentYear);
 
 ---
 
-## 4. テスト（EditMode・`SchoolAgeRulesTests`／`SchoolPostingRulesTests`）
+## 6. エリート街道の一本化（`WarCollegeCareerRules`・GalaxyView 配線済み）
+
+> 「**大学校入学 → ネームドが学校配属（艦隊配属不可） → 卒業して大学校卒=参謀＝恩賜の軍刀組＝昇進優遇**」を実際に**動く年次の流れ**にした（#SCHOOL-AGE 配線）。各部品を束ねる Core オーケストレータ `WarCollegeCareerRules` を `GalaxyView` の年次 Tick が回す。
+
+`WarCollegeCareerRules`（Core・唯一の窓口・数式は各 *Rules へ委譲）：
+- `CanEnroll`／`Enroll`：現役将校（適齢26〜33・大学校未修了）を大学校へ入校＝`schoolPostingUntilYear = 年 + 修業年限(3)` を立て**学校配属（`SchoolPostingRules` で艦隊配属不可）**に。
+- `IsGraduating`／`Graduate`：修業年限到達で卒業＝`militaryDegree=大学校卒`（参謀）＋`WarCollegeTierBonus`（星の優遇・上限tier9）＋大学校内席次 `warCollegeRank`（上位 `SwordQuota`＝**恩賜の軍刀組**）。
+- `PromotionFavor`／`TickYear`：年次に 勢力ごと ①卒業（軍才順に席次→恩賜判定）②入校（枠ぶん）③昇進（`MilitarySwordHonorRules.PromotionFavor` 順に枠ぶん）。**学閥主義（帝国）は恩賜組が速く出世・実力主義（同盟＝米軍対比）は俊英が追い越す**。
+
+**Person 追加フィールド（additive・後方互換）**：`schoolPostingUntilYear`（在学＝学校配属の終了年・0=非在学）／`warCollegeRank`（大学校内席次・恩賜判定）。
+
+**GalaxyView 配線**：`RunWarCollegeCareerTick()` を年次 Tick（士官学校の供給の直後）で呼ぶ。事象（入校/卒業/恩賜の軍刀/昇進）を `NotificationCenter`（人事）へ。ドクトリンは `WarCollegeDoctrine`（帝国=学閥主義／同盟=実力主義）。
+
+**残課題**：配属窓口 `FleetRoster`/`OrderOfBattle`（`AdmiralData` ベース）での在学拒否は、ネームド↔提督データの id 紐付けが要るため別途（現状の流れは `Person` ロスター層で完結＝学校配属中は昇進・艦隊配属対象から除外）。
+
+---
+
+## 4. テスト（EditMode・`SchoolAgeRulesTests`／`SchoolPostingRulesTests`／`WarCollegeCareerRulesTests`）
 
 年齢チェーン整合／修業年限＝卒業−入学／陸大は現役将校（28→31・士官学校22より年長）／幼年学校は若年（13→16）／科挙は年齢制限なし（30）／軍学歴別の生年（大学校卒>士官学校卒>幼年学校卒）／既存定数の委譲一致／高専<大学 を固定。`TestHarness`（dotnet）でも回帰。

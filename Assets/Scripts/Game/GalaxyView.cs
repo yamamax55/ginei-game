@@ -1034,8 +1034,48 @@ namespace Ginei
                 for (int i = 0; i < academies.Count; i++)
                     if (academies[i] != null) RunMilitaryAcademy(academies[i]);
 
+            // 陸軍大学校のエリート街道（#SCHOOL-AGE 配線）：現役将校を大学校へ入校（学校配属＝艦隊配属不可）→卒業で参謀＝恩賜の軍刀組→昇進優遇。
+            RunWarCollegeCareerTick();
+
             // 大学（文民/技術者の輩出・LIFE-6/7）も年境界で回す。
             RunUniversityTick();
+        }
+
+        // --- 陸軍大学校のエリート街道（#SCHOOL-AGE 配線） ---
+
+        /// <summary>勢力ごとの昇進ドクトリン（デモ＝帝国は学閥主義／同盟は実力主義＝米軍対比）。</summary>
+        private static PromotionDoctrine WarCollegeDoctrine(Faction f)
+            => f == Faction.帝国 ? PromotionDoctrine.学閥主義 : PromotionDoctrine.実力主義;
+
+        /// <summary>
+        /// 大学校入学→学校配属（艦隊配属不可）→卒業で大学校卒=参謀＝恩賜の軍刀組→昇進優遇 を年次で回す（#SCHOOL-AGE）。
+        /// 数式・状態遷移は <see cref="WarCollegeCareerRules"/>（Core）へ委譲し、ここは起きた事象を通知へ流すだけ。
+        /// </summary>
+        private void RunWarCollegeCareerTick()
+        {
+            if (commanders == null) return;
+            var events = new List<CareerEvent>();
+            WarCollegeCareerRules.TickYear(commanders, campaignYear, WarCollegeDoctrine, events);
+            for (int i = 0; i < events.Count; i++)
+            {
+                CareerEvent e = events[i];
+                string rank = RankSystem.ResolveRankNameOrDefault(null, e.rankTier);
+                switch (e.kind)
+                {
+                    case CareerEventKind.入校:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{e.faction} {e.personName} 陸軍大学校へ入校（学校配属＝艦隊配属を離れる）");
+                        break;
+                    case CareerEventKind.卒業:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{e.faction} {e.personName} 陸軍大学校を卒業（参謀＝星）");
+                        break;
+                    case CareerEventKind.恩賜の軍刀:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{e.faction} {e.personName} 恩賜の軍刀組（大学校卒首席級）＝エリート街道へ");
+                        break;
+                    case CareerEventKind.昇進:
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報, $"{e.faction} {e.personName} {rank}へ昇進");
+                        break;
+                }
+            }
         }
 
         // --- ネームド資産（NASSET・#2063 デモ配線） ---

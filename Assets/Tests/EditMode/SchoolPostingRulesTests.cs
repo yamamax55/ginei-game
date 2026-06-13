@@ -10,11 +10,11 @@ namespace Ginei.Tests
     /// </summary>
     public class SchoolPostingRulesTests
     {
-        private static Person P(int birthYear, int graduationYear = 0, int deathYear = 0)
+        private static Person P(int birthYear, int schoolPostingUntilYear = 0, int deathYear = 0)
         {
             var p = new Person(1, "候補生", Faction.帝国, PersonRole.軍人);
             p.birthYear = birthYear;
-            p.graduationYear = graduationYear;
+            p.schoolPostingUntilYear = schoolPostingUntilYear;
             p.deathYear = deathYear;
             return p;
         }
@@ -77,14 +77,14 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void PersonGraduationYear_GatesAssignment()
+        public void PersonSchoolPosting_GatesAssignment()
         {
-            var student = P(birthYear: 783, graduationYear: 805); // 800年時点で在学（卒業805）
+            var student = P(birthYear: 783, schoolPostingUntilYear: 805); // 800年時点で在学（修了805）
             Assert.IsTrue(SchoolPostingRules.IsEnrolled(student, 800));
             Assert.AreEqual(MilitaryPosting.学校配属, SchoolPostingRules.PostingOf(student, 800));
             Assert.IsFalse(SchoolPostingRules.CanAssignToFleet(student, 800));
 
-            var alumnus = P(birthYear: 778, graduationYear: 795); // 既卒
+            var alumnus = P(birthYear: 778); // 学校配属なし＝既卒
             Assert.IsTrue(SchoolPostingRules.CanAssignToFleet(alumnus, 800));
         }
 
@@ -93,7 +93,7 @@ namespace Ginei.Tests
         [Test]
         public void DeceasedGraduate_CannotBeAssigned()
         {
-            var dead = P(birthYear: 770, graduationYear: 792, deathYear: 799); // 既卒だが故人
+            var dead = P(birthYear: 770, deathYear: 799); // 既卒だが故人
             Assert.IsFalse(SchoolPostingRules.CanAssignToFleet(dead, 800));
         }
 

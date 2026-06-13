@@ -44,12 +44,37 @@ namespace Ginei
         public Faction ownerFaction = Faction.帝国;
         public string systemName = "星系";
 
-        // 惑星エントリ（象徴配置の位置・内政データ・表示）
+        /// <summary>窓表示モード（SystemMapWindow が RenderTexture へ描く）。自前のクリック処理を止め、選択は外部が <see cref="SelectPlanetAtWorld"/> で駆動する。</summary>
+        public bool windowedMode;
+
+        [Header("公転（恒星を中心に・ケプラー則で外側ほど遅い）")]
+        [Tooltip("惑星が恒星を公転するアニメーション")]
+        public bool animateOrbits = true;
+        [Tooltip("基準軌道（orbitReferenceRadius）の公転周期（秒）。外側はケプラー則 T∝r^1.5 で遅くなる")]
+        public float orbitBasePeriod = 50f;
+        [Tooltip("公転周期の基準となる軌道半径（既定＝最内軌道）")]
+        public float orbitReferenceRadius = 3.5f;
+
+        [Header("背景パーティクル（宇宙っぽさ）")]
+        [Tooltip("背景に星々のパーティクルを撒く")]
+        public bool showStarfield = true;
+        [Tooltip("背景の星パーティクルの持続数")]
+        public int starCount = 300;
+
+        private ParticleSystem starfield;
+        private Material starMat;
+
+        // 惑星エントリ（象徴配置の位置・内政データ・表示・公転）
         private class PlanetEntry
         {
             public int index;
-            public Vector3 pos;
-            public Province province; // 惑星単位の内政（単一の真実・#767）
+            public Vector3 pos;        // 現在のローカル位置（公転で毎フレーム更新）
+            public float radius;       // 軌道半径
+            public float angle;        // 現在の公転角(rad)
+            public float angularSpeed; // 公転角速度(rad/s・ケプラー則で外側ほど小)
+            public Transform planetTf; // 惑星GameObject（位置を動かす）
+            public Transform labelTf;  // 「第N惑星」ラベル（惑星に追従）
+            public Province province;  // 惑星単位の内政（単一の真実・#767）
         }
 
         private readonly List<PlanetEntry> planets = new List<PlanetEntry>();
@@ -70,6 +95,9 @@ namespace Ginei
 
             // 恒星・惑星で共有するディスクスプライト
             discSprite = MakeDisc(128);
+
+            // 背景パーティクル（宇宙っぽさ）＝恒星・軌道より後ろに撒く
+            BuildStarfield();
 
             // 中心の恒星
             var starGo = new GameObject("Star");
@@ -134,11 +162,16 @@ namespace Ginei
             // 操作ヒント
             var hint = MakeLabel("SystemViewHint", new Vector3(0f, -(starScale + 2.0f), 0f),
                 34, 0.08f, TextAnchor.UpperCenter, new Color(0.8f, 0.85f, 1f));
-            hint.text = "システムビュー（恒星系・内政）　惑星クリックで内政を表示　Backspaceで戦略マップへ";
+            hint.text = windowedMode
+                ? "恒星系（内政）　惑星クリックで内政を表示"
+                : "システムビュー（恒星系・内政）　惑星クリックで内政を表示　Backspaceで戦略マップへ";
         }
 
         private void Update()
         {
+            AnimateOrbits(); // 公転（窓表示でも動く＝実時間で滑らかに）
+
+            if (windowedMode) return; // クリック選択は外部（SystemMapWindow）が SelectPlanetAtWorld で駆動
             if (Mouse.current == null) return;
             if (!Mouse.current.leftButton.wasPressedThisFrame) return;
             if (cam == null) cam = Camera.main;
@@ -154,6 +187,89 @@ namespace Ginei
             for (int i = 0; i < planets.Count; i++)
             {
                 float d = Vector2.Distance(w, planets[i].pos);
+                if (d < best) { best = d; hit = i; }
+            }
+            if (hit >= 0) SelectPlanet(hit);
+        }
+
+        /// <summary>惑星を恒星のまわりに公転させる（ケプラー則＝外側ほど遅い）。ラベル・選択リングも追従。</summary>
+        private void AnimateOrbits()
+        {
+            if (!animateOrbits || planets.Count == 0) return;
+            float dt = Time.unscaledDeltaTime; // ゲーム速度/ポーズに依らず一定の視覚速度
+            for (int i = 0; i < planets.Count; i++)
+            {
+                PlanetEntry e = planets[i];
+                if (e.planetTf == null) continue;
+                e.angle += e.angularSpeed * dt;
+                Vector3 p = new Vector3(Mathf.Cos(e.angle), Mathf.Sin(e.angle), 0f) * e.radius;
+                e.pos = p; // クリック当たり判定にも使う現在位置
+                e.planetTf.localPosition = p;
+                if (e.labelTf != null) e.labelTf.localPosition = p + new Vector3(0f, planetScale * 0.9f + 0.3f, 0f);
+                if (selectedIndex == i && selectionMarker != null) selectionMarker.transform.localPosition = p;
+            }
+        }
+
+        /// <summary>背景に星々のパーティクルを撒いて宇宙っぽさを出す（恒星・軌道より後ろ）。</summary>
+        private void BuildStarfield()
+        {
+            if (!showStarfield) return;
+
+            var go = new GameObject("Starfield");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3(0f, 0f, 1f); // 少し奥
+            starfield = go.AddComponent<ParticleSystem>();
+            starfield.Stop();
+
+            starMat = new Material(Shader.Find("Sprites/Default"));
+            if (discSprite != null) starMat.mainTexture = discSprite.texture; // 柔らかい円＝星の点
+
+            float life = 6f;
+            var main = starfield.main;
+            main.loop = true;
+            main.playOnAwake = false;
+            main.duration = life;
+            main.startLifetime = life;
+            main.startSpeed = 0f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.22f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.8f, 0.85f, 1f), Color.white);
+            main.maxParticles = Mathf.Max(50, starCount);
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;
+
+            var emission = starfield.emission;
+            emission.rateOverTime = Mathf.Max(1f, starCount / life); // 持続数 ≈ rate×lifetime
+
+            var shape = starfield.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(38f, 26f, 0.1f); // 視野を覆う
+
+            // 明滅（生まれてフェードイン→フェードアウト＝瞬く星）
+            var col = starfield.colorOverLifetime;
+            col.enabled = true;
+            var grad = new Gradient();
+            grad.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            col.color = new ParticleSystem.MinMaxGradient(grad);
+
+            var r = go.GetComponent<ParticleSystemRenderer>();
+            r.material = starMat;
+            r.renderMode = ParticleSystemRenderMode.Billboard;
+            r.sortingOrder = -60; // 恒星(-40)/軌道(-45) より後ろ
+
+            starfield.Play();
+        }
+
+        /// <summary>ワールド座標（このビューの本体オフセットを含む）の最寄り惑星を選択する（窓表示の外部クリック窓口）。</summary>
+        public void SelectPlanetAtWorld(Vector3 world)
+        {
+            Vector3 local = transform.InverseTransformPoint(world); // 本体オフセットを差し引いてローカルへ
+            int hit = -1;
+            float best = planetClickRadius;
+            for (int i = 0; i < planets.Count; i++)
+            {
+                float d = Vector2.Distance(local, planets[i].pos);
                 if (d < best) { best = d; hit = i; }
             }
             if (hit >= 0) SelectPlanet(hit);
@@ -386,7 +502,15 @@ namespace Ginei
             tm.color = new Color(0.85f, 0.9f, 1f);
             if (tm.font != null) labelGo.GetComponent<MeshRenderer>().material = tm.font.material;
 
-            planets.Add(new PlanetEntry { index = index, pos = pos, province = GeneratePlanetProvince(index) });
+            // 公転（ケプラー則 T∝r^1.5＝外側ほど遅い・現実的）。初期角は golden-angle 配置を流用。
+            float period = orbitBasePeriod * Mathf.Pow(radius / Mathf.Max(0.01f, orbitReferenceRadius), 1.5f);
+            float omega = (2f * Mathf.PI) / Mathf.Max(0.1f, period);
+            planets.Add(new PlanetEntry
+            {
+                index = index, pos = pos, radius = radius, angle = angle, angularSpeed = omega,
+                planetTf = go.transform, labelTf = labelGo.transform,
+                province = GeneratePlanetProvince(index)
+            });
         }
 
         // 惑星単位の内政(Province)を決定的に生成する（住民思想は所有勢力寄り＋一部異思想＝不満の種）。
@@ -446,6 +570,7 @@ namespace Ginei
         private void OnDestroy()
         {
             if (orbitMat != null) Destroy(orbitMat);
+            if (starMat != null) Destroy(starMat);
             // 恒星・惑星で共有しているディスクのテクスチャを破棄
             if (discSprite != null && discSprite.texture != null) Destroy(discSprite.texture);
         }

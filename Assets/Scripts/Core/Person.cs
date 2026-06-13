@@ -33,6 +33,10 @@ namespace Ginei
         /// <summary>君主・国家元首か（人物の職分＝君主。POP 職業分類#110 に載らない apex ゆえ別管理＝<see cref="PersonVocation"/>。継承#152/易姓革命で替わる）。既定 false＝後方互換。</summary>
         public bool isSovereign;
 
+        /// <summary>王家の生まれか（#王家教育）。<b>生まれた瞬間にネームド化</b>＝POP→学校の昇格経路でなく出生で Named になる別格。
+        /// 既存の教育システム（士官学校#155/科挙#156/大学）を経ず、家庭教師の帝王学で育つ＝<see cref="RoyalEducationRules"/>。既定 false。</summary>
+        public bool isRoyal;
+
         /// <summary>特殊作戦部隊（SOF）出身か（#SOF・SEAL型選抜の認定者）。提督として能力上昇＝<see cref="SpecialForcesRules"/>。既定 false。</summary>
         public bool isSpecialForces;
 

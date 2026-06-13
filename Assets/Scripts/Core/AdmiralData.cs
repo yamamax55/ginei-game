@@ -108,6 +108,10 @@ namespace Ginei
                  "既定 false＝従来動作。PeerlessWarriorRules が解決")]
         public bool isPeerlessWarrior = false; // 日本一の兵＝真田幸村型（剛勇・真田丸・決死突撃）
 
+        [Tooltip("三日天下型（#三日天下＝明智光秀型）。中央の事情にあかるく謀反（本能寺の変）は成功させるが、主殺しゆえ正統性を得られず短命に終わる。" +
+                 "既定 false＝従来動作。ThreeDayReignRules が解決")]
+        public bool isThreeDayRuler = false; // 三日天下型＝明智光秀型（中央通・謀反成功・短命）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

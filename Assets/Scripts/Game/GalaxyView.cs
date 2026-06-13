@@ -1111,6 +1111,9 @@ namespace Ginei
             // 政体進化（#117 配線）：首長制→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ社会シグナルで分岐進化。
             RunRegimeEvolutionTick();
 
+            // 政党政治（#159 配線）：民主政治の勢力で政党制が成熟度に応じ二大政党へ収束し、衆参の選挙が回り、分断危機を通知。
+            RunPoliticsTick();
+
             // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡で敗北。決着で時計を止めて告知。
             RunCampaignVictoryCheck();
 
@@ -1461,6 +1464,61 @@ namespace Ginei
                     GovernmentFormRules.Apply(s, next);
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} 政体が {prev} → {next} へ移行");
                 }
+            }
+        }
+
+        /// <summary>
+        /// 政党政治の年次 Tick（#159 配線）：民主政治の勢力ごとに、成熟度に応じて政党制を二大政党へ収束させ、
+        /// 衆参の選挙日程を回し、分断危機の立ち上がりを通知する。数値は <see cref="PoliticsTickRules"/>（→PartySystemRules/ElectionScheduleRules）へ委譲。
+        /// </summary>
+        private void RunPoliticsTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null) continue;
+                if (!ElectoralSystemRules.IsElectoral(s.governmentForm)) continue; // 民主政治のみ（寡頭/君主/独裁は選挙なし）
+
+                if (s.politics == null || s.politics.parties.Count == 0) SeedDemoParties(s);
+
+                var r = PoliticsTickRules.TickYear(s, campaignYear);
+
+                if (r.lowerHouseElection)
+                {
+                    Party ruling = PartyRules.RulingParty(s.politics.parties);
+                    string rn = ruling != null ? ruling.partyName : "—";
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                        $"{s.faction} 下院総選挙（衆議院相当・任期4年）＝第一党 {rn}");
+                }
+                if (r.upperHouseElection)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                        $"{s.faction} 上院通常選挙（参議院相当・半数改選）");
+                if (r.dividedCrisisOnset)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.faction} 二大政党化で社会の分断が深刻化（有効政党数 {r.effectiveParties:0.0}）");
+            }
+        }
+
+        /// <summary>デモ用の政党シード：多党乱立から出発させる（成熟が上がると二大政党へ収束する＝#159）。</summary>
+        private void SeedDemoParties(FactionState s)
+        {
+            if (s == null) return;
+            if (s.politics == null) s.politics = new PoliticsState();
+            if (s.politics.parties.Count > 0) return;
+
+            string[] names = s.faction == Faction.帝国
+                ? new[] { "立憲党", "自由党", "国民党", "革新党" }
+                : new[] { "民政党", "進歩党", "中道党", "急進党" };
+            int baseId = (int)s.faction * 100;
+            float share = 1f / names.Length;
+            for (int i = 0; i < names.Length; i++)
+            {
+                Party p = PartyOrganizationRules.Create(baseId + i + 1, names[i], s.faction, founderId: -1);
+                p.support = share;
+                s.politics.parties.Add(p);
             }
         }
 

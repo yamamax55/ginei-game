@@ -1,0 +1,114 @@
+name: playtest-visual
+
+# 会戦を「クラウドで無人実行」して スクショ(PNG)＋プレイテストReport(JSON) を artifact 化する。
+# 狙い：ローカルで Unity が動かない/非力な環境でも、GitHub Actions 側で描画まで回し、
+#       成果物（画像・レポート）を DL して見るだけで Game 層の挙動を確認できるようにする。
+#
+# 流れ：実 Unity で StandaloneLinux64（Mono）をビルド → xvfb（仮想ディスプレイ）上で起動 →
+#       PlaytestRunner が AI 対 AI の会戦を速回しし、JSON レポート＋PNG スクショを書き出す。
+#
+# ライセンス（docs/gameci-setup.md）：Personal=UNITY_LICENSE(.ulf) 必須／Pro=UNITY_EMAIL+UNITY_PASSWORD+UNITY_SERIAL。
+# 不完全なら skip（赤くしない）。重いので PR では走らせず手動（workflow_dispatch）のみ。
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: '回すシナリオ名（空ならデフォルト／GameSettings の現在値）'
+        required: false
+        default: ''
+
+concurrency:
+  group: playtest-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playtest:
+    name: Visual playtest (build + run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+    steps:
+      - name: Guard — ライセンスが「完全に」設定されているか
+        id: guard
+        run: |
+          # Personal は UNITY_LICENSE(.ulf) が必須。Pro は EMAIL+PASSWORD+SERIAL。不完全なら skip。
+          if [ -n "${UNITY_LICENSE}" ] || { [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ] && [ -n "${UNITY_SERIAL}" ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Unity ライセンス未設定/不完全のためスキップ（Personal=UNITY_LICENSE(.ulf)／Pro=+UNITY_SERIAL）。docs/gameci-setup.md 参照。"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.ok == 'true'
+        with:
+          lfs: true
+
+      - name: Cache Library
+        if: steps.guard.outputs.ok == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      - name: Build StandaloneLinux64 (Mono)
+        if: steps.guard.outputs.ok == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          targetPlatform: StandaloneLinux64
+          buildName: ginei
+          buildsPath: build
+          versioning: None
+
+      - name: Run headless playtest under xvfb（描画あり）
+        if: steps.guard.outputs.ok == 'true'
+        run: |
+          set -u
+          # Docker（root）が作った成果物を実行可能に。
+          sudo chmod -R a+rwx build || true
+          # xvfb（仮想ディスプレイ）＋ソフトウェア GL（llvmpipe）。スクショに描画が要るため -nographics は使わない。
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+
+          OUT="$PWD/playtest-out"
+          mkdir -p "$OUT"
+          EXE="$PWD/build/StandaloneLinux64/ginei.x86_64"
+          if [ ! -f "$EXE" ]; then
+            echo "::error::ビルド成果物が見つからない: $EXE"; ls -laR build || true; exit 1
+          fi
+          chmod +x "$EXE" || true
+
+          # PlaytestRunner が決着 or 180会戦秒で Application.Quit する。保険で timeout。
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            timeout 600 "$EXE" \
+              -ginei-playtest "${{ github.event.inputs.scenario }}" "$OUT/report.json" \
+              -ginei-shots "$OUT" \
+              -screen-width 1280 -screen-height 720 -screen-fullscreen 0 \
+              -logFile "$OUT/player.log" \
+            || echo "player 終了コード $? （timeout/quit は許容＝成果物で判断）"
+
+          echo "---- player.log (tail) ----"; tail -n 80 "$OUT/player.log" 2>/dev/null || true
+          echo "---- 成果物 ----"; ls -la "$OUT" || true
+          # スクショが1枚も無ければ警告（描画/GL 失敗の兆候）。
+          if ! ls "$OUT"/shot_*.png >/dev/null 2>&1; then
+            echo "::warning::スクショ(PNG)が生成されていません（GL/描画の確認が必要な可能性）。レポートJSONとplayer.logで切り分けてください。"
+          fi
+
+      - name: Upload artifacts (PNG + JSON + log)
+        if: always() && steps.guard.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playtest-visual
+          path: playtest-out
+          if-no-files-found: warn

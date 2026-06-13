@@ -37,8 +37,21 @@ namespace Ginei
         [Tooltip("レポート JSON の出力先。空なら persistentDataPath/playtest-report.json。")]
         public string outputPath = "";
 
+        [Header("スクショ（CI 可視化用・既定OFF）")]
+        [Tooltip("会戦中のスクリーンショットを撮るか。貧弱PCでもクラウドで会戦を描画→PNGを見るための可視化。")]
+        public bool captureScreenshots = false;
+        [Tooltip("スクショの出力ディレクトリ。空なら persistentDataPath。")]
+        public string screenshotDir = "";
+        [Tooltip("スクショ間隔（会戦経過秒）。")]
+        public float screenshotIntervalSeconds = 10f;
+        [Tooltip("撮るスクショの最大枚数（撮りすぎ防止）。")]
+        public int maxScreenshots = 20;
+
         /// <summary>起動引数キー。次の引数があればシナリオ名、その次があれば出力パスとして解釈する。</summary>
         public const string PlaytestArg = "-ginei-playtest";
+
+        /// <summary>スクショ撮影の起動引数。次の引数があればスクショ出力ディレクトリ（指定で撮影ON）。</summary>
+        public const string ScreenshotArg = "-ginei-shots";
 
         /// <summary>直近の実行結果（エディタ/テストから参照）。</summary>
         public static PlaytestReport LastReport { get; private set; }
@@ -62,6 +75,14 @@ namespace Ginei
             r.quitWhenDone = true;
             if (idx + 1 < args.Length && !args[idx + 1].StartsWith("-")) r.scenarioName = args[idx + 1];
             if (idx + 2 < args.Length && !args[idx + 2].StartsWith("-")) r.outputPath = args[idx + 2];
+
+            // -ginei-shots <dir> があればスクショ撮影を有効化（CI 可視化用）。
+            int sidx = Array.IndexOf(args, ScreenshotArg);
+            if (sidx >= 0)
+            {
+                r.captureScreenshots = true;
+                if (sidx + 1 < args.Length && !args[sidx + 1].StartsWith("-")) r.screenshotDir = args[sidx + 1];
+            }
         }
 
         private void Start() => StartCoroutine(RunPlaytest());
@@ -95,6 +116,8 @@ namespace Ginei
 
             float elapsed = 0f;
             float nextSample = 0f;
+            float nextShot = 0f;
+            int shotIndex = 0;
             while (elapsed < maxDurationSeconds && !resolved)
             {
                 if (elapsed >= nextSample)
@@ -103,8 +126,20 @@ namespace Ginei
                     moveSamples.Add(AccumulatedMovement());
                     nextSample += Mathf.Max(0.01f, sampleInterval);
                 }
+                if (captureScreenshots && shotIndex < maxScreenshots && elapsed >= nextShot)
+                {
+                    CaptureShot(shotIndex++);
+                    nextShot += Mathf.Max(0.1f, screenshotIntervalSeconds);
+                }
                 elapsed += Time.deltaTime; // 会戦経過（timeScale 追従＝速回し）
                 yield return null;
+            }
+
+            // 決着の瞬間を1枚撮り、末尾フレームを数回回して PNG を確実に書き出してから quit する。
+            if (captureScreenshots && shotIndex < maxScreenshots)
+            {
+                CaptureShot(shotIndex++);
+                for (int k = 0; k < 3; k++) yield return null;
             }
 
             SceneManager.activeSceneChanged -= OnSceneChanged;
@@ -218,6 +253,22 @@ namespace Ginei
                 lastPositions[fs] = cur;
             }
             return sum;
+        }
+
+        /// <summary>会戦画面のスクショを1枚撮る（CI 可視化用）。ScreenCapture は描画が要る＝-nographics では不可。</summary>
+        private void CaptureShot(int index)
+        {
+            try
+            {
+                string dir = string.IsNullOrEmpty(screenshotDir) ? Application.persistentDataPath : screenshotDir;
+                Directory.CreateDirectory(dir);
+                string path = Path.Combine(dir, $"shot_{index:000}.png");
+                ScreenCapture.CaptureScreenshot(path);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[Playtest] スクショ失敗: {e.Message}");
+            }
         }
 
         private void WriteReport(PlaytestReport report)

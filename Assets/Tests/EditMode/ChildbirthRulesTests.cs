@@ -54,8 +54,8 @@ namespace Ginei.Tests
         [Test]
         public void Siblings_VaryByRoll()
         {
-            // 能力ごとに独立な乱数を引く＝同じ親でもきょうだいで能力が散る（leadership..production の順に roll を消費）
-            var seq = new Queue<float>(new[] { 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f });
+            // 能力ごとに独立な乱数を引く＝同じ親でもきょうだいで能力が散る（leadership..production の10能力＋財産特性2 の順に roll を消費）
+            var seq = new Queue<float>(new[] { 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0f, 1f, 0.9f, 0.9f });
             Func<float> roll = () => seq.Dequeue();
             var child = ChildbirthRules.Conceive(Father(1, 100), Mother(2, 100), 100, BirthYear, 0.6f, roll);
             Assert.IsNotNull(child);
@@ -100,10 +100,54 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void ConceptionChance_DeclinesWithAge()
+        {
+            var f = ChildbirthRules.FertilityParams.Default; // peak0.3 / 16..30 ピーク / 50で0
+            // 25歳（ピーク域）は最高、40歳は低下、55歳は0、15歳も0
+            Person young = new Person(1, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 25 };
+            Person mid = new Person(2, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 40 };
+            Person old = new Person(3, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 55 };
+            Person child = new Person(4, "母", Faction.同盟, PersonRole.軍人) { sex = Sex.女性, birthYear = BirthYear - 15 };
+
+            Assert.AreEqual(0.30f, ChildbirthRules.ConceptionChance(young, BirthYear, f), 1e-4f);
+            Assert.AreEqual(0.15f, ChildbirthRules.ConceptionChance(mid, BirthYear, f), 1e-4f); // 0.3×(50-40)/(50-30)
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(old, BirthYear, f), 1e-4f);
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(child, BirthYear, f), 1e-4f);
+            // 男性は0
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(Father(9, 50), BirthYear, f), 1e-4f);
+        }
+
+        [Test]
+        public void TryConceive_ProbabilisticByAge()
+        {
+            var f = Father(1, 50);
+            var m = Mother(2, 50); // 25歳→確率0.30
+            // 妊娠ロールが確率を下回れば授かる、上回れば授からない（毎年保証されない）
+            Assert.IsNotNull(ChildbirthRules.TryConceive(f, m, 100, BirthYear, conceptionRoll: 0.1f, sexRoll: 0.5f, roll: Const(0.5f)));
+            Assert.IsNull(ChildbirthRules.TryConceive(f, m, 100, BirthYear, conceptionRoll: 0.5f, sexRoll: 0.5f, roll: Const(0.5f)));
+        }
+
+        [Test]
+        public void ChildrenOf_FindsOffspring()
+        {
+            var roster = new List<Person>
+            {
+                new Person(1, "親", Faction.同盟, PersonRole.軍人),
+                new Person(10, "子A", Faction.同盟, PersonRole.軍人) { fatherId = 1 },
+                new Person(11, "子B", Faction.同盟, PersonRole.軍人) { motherId = 1 },
+                new Person(12, "他人", Faction.同盟, PersonRole.軍人) { fatherId = 9 },
+            };
+            Assert.AreEqual(2, ChildbirthRules.ChildCount(roster, 1));
+            Assert.AreEqual(0, ChildbirthRules.ChildCount(roster, 99));
+        }
+
+        [Test]
         public void NullSafe()
         {
             Assert.IsFalse(ChildbirthRules.CanConceive(null, Mother(2, 50), BirthYear));
             Assert.IsNull(ChildbirthRules.Conceive(null, Mother(2, 50), 1, BirthYear, 0.5f, null));
+            Assert.AreEqual(0, ChildbirthRules.ChildCount(null, 1));
+            Assert.AreEqual(0f, ChildbirthRules.ConceptionChance(null, BirthYear));
         }
     }
 }

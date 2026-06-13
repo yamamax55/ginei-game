@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace Ginei
 {
@@ -17,6 +19,45 @@ namespace Ginei
         /// <summary>出産可能年齢（母の上限。生年未設定は不問）。</summary>
         public const int MinChildbearingAge = 16;
         public const int MaxChildbearingAge = 50;
+
+        /// <summary>母の年齢別の年間妊娠確率（出産が毎年保証されない＝加齢で妊孕性が低下する）。</summary>
+        public readonly struct FertilityParams
+        {
+            /// <summary>ピーク年齢までの年間妊娠確率（0..1）。</summary>
+            public readonly float peakChance;
+            public readonly int minAge;  // これ未満は0
+            public readonly int peakAge; // これまではピーク、以降は線形に低下
+            public readonly int maxAge;  // これを超えると0
+
+            public FertilityParams(float peakChance, int minAge, int peakAge, int maxAge)
+            {
+                this.peakChance = Mathf.Clamp01(peakChance);
+                this.minAge = minAge;
+                this.peakAge = Mathf.Max(minAge, peakAge);
+                this.maxAge = Mathf.Max(this.peakAge, maxAge);
+            }
+
+            /// <summary>既定＝ピーク年間30%（16〜30で最高、50で0へ線形低下）。</summary>
+            public static FertilityParams Default => new FertilityParams(0.30f, 16, 30, 50);
+        }
+
+        /// <summary>
+        /// 母の年齢から年間妊娠確率（0..1）を返す＝ピーク年齢まで最高、以降は <see cref="FertilityParams.maxAge"/> へ向け線形に0へ低下。
+        /// 範囲外・女性でない・故人/捕虜は0。生年未設定（birthYear≤0）はピーク扱い（年齢不明＝妊孕とみなす）。
+        /// </summary>
+        public static float ConceptionChance(Person mother, int currentYear, FertilityParams f)
+        {
+            if (mother == null || mother.sex != Sex.女性 || !mother.IsAvailable) return 0f;
+            if (mother.BirthYear <= 0) return f.peakChance;
+            int age = LifecycleRules.Age(mother, currentYear);
+            if (age < f.minAge || age > f.maxAge) return 0f;
+            if (age <= f.peakAge) return f.peakChance;
+            float t = (float)(f.maxAge - age) / Mathf.Max(1, f.maxAge - f.peakAge);
+            return Mathf.Clamp01(f.peakChance * t);
+        }
+
+        public static float ConceptionChance(Person mother, int currentYear)
+            => ConceptionChance(mother, currentYear, FertilityParams.Default);
 
         /// <summary>母（女性）が出産可能な年齢域にあるか（生年未設定 birthYear≤0 は不問）。</summary>
         public static bool MotherInChildbearingAge(Person mother, int currentYear)
@@ -73,10 +114,43 @@ namespace Ginei
             child.planning    = HeredityRules.InheritStat(father.planning,    mother.planning,    roll(), prm);
             child.production  = HeredityRules.InheritStat(father.production,  mother.production,  roll(), prm);
 
+            // 財産特性（性格）はどちらかの親からランダムに受け継ぐ＋突然変異（優生学的選別でない）。
+            child.financialTrait = HeredityRules.InheritFinancialTrait(father.financialTrait, mother.financialTrait, roll(), roll());
+
             return child;
         }
 
         public static Person Conceive(Person father, Person mother, int childId, int birthYear, float sexRoll, Func<float> roll)
             => Conceive(father, mother, childId, birthYear, sexRoll, roll, HeredityRules.HeredityParams.Default);
+
+        /// <summary>
+        /// 確率つき出産（年次 Tick 用）＝<see cref="CanConceive"/> かつ <paramref name="conceptionRoll"/> が
+        /// <see cref="ConceptionChance"/> を下回れば子を生む、さもなくば null（その年は授からなかった）。出産は毎年保証されない。
+        /// </summary>
+        public static Person TryConceive(Person father, Person mother, int childId, int birthYear,
+            float conceptionRoll, float sexRoll, Func<float> roll, HeredityRules.HeredityParams prm, FertilityParams fertility)
+        {
+            if (!CanConceive(father, mother, birthYear)) return null;
+            if (conceptionRoll >= ConceptionChance(mother, birthYear, fertility)) return null;
+            return Conceive(father, mother, childId, birthYear, sexRoll, roll, prm);
+        }
+
+        public static Person TryConceive(Person father, Person mother, int childId, int birthYear,
+            float conceptionRoll, float sexRoll, Func<float> roll)
+            => TryConceive(father, mother, childId, birthYear, conceptionRoll, sexRoll, roll,
+                HeredityRules.HeredityParams.Default, FertilityParams.Default);
+
+        /// <summary>ある人物（id）の子を名簿から拾う（母 or 父が一致）。</summary>
+        public static List<Person> ChildrenOf(IEnumerable<Person> roster, int parentId)
+        {
+            var list = new List<Person>();
+            if (roster == null || parentId < 0) return list;
+            foreach (var p in roster)
+                if (p != null && (p.motherId == parentId || p.fatherId == parentId)) list.Add(p);
+            return list;
+        }
+
+        /// <summary>ある人物（id）の子の数。</summary>
+        public static int ChildCount(IEnumerable<Person> roster, int parentId) => ChildrenOf(roster, parentId).Count;
     }
 }

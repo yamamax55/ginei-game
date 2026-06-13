@@ -47,6 +47,21 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void InheritFinancialTrait_RandomParentOrMutation()
+        {
+            // 突然変異なし（mutateRoll≥率）＝どちらかの親からランダムに受け継ぐ（pickRoll<0.5 で親A）
+            Assert.AreEqual(FinancialTrait.投資,
+                HeredityRules.InheritFinancialTrait(FinancialTrait.投資, FinancialTrait.浪費, 0.2f, 0.9f, 0.1f));
+            Assert.AreEqual(FinancialTrait.浪費,
+                HeredityRules.InheritFinancialTrait(FinancialTrait.投資, FinancialTrait.浪費, 0.8f, 0.9f, 0.1f));
+            // 突然変異（mutateRoll<率）＝親と無関係な3値から（多様性・選別でない）
+            Assert.AreEqual(FinancialTrait.貯金,
+                HeredityRules.InheritFinancialTrait(FinancialTrait.投資, FinancialTrait.投資, 0.0f, 0.05f, 0.1f));
+            Assert.AreEqual(FinancialTrait.浪費,
+                HeredityRules.InheritFinancialTrait(FinancialTrait.投資, FinancialTrait.投資, 0.99f, 0.05f, 0.1f));
+        }
+
+        [Test]
         public void Clamps_ToZeroAndMax()
         {
             var hi = new HeredityRules.HeredityParams(1f, 50f, 100f, 100f); // 遺伝率1・大ばらつき

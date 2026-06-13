@@ -66,5 +66,24 @@ namespace Ginei
 
         public static int InheritStat(int parentA, int parentB, float roll)
             => InheritStat(parentA, parentB, roll, HeredityParams.Default);
+
+        /// <summary>離散特性（性格）の突然変異率の既定（親と無関係な値が出る確率）。</summary>
+        public const float DefaultTraitMutation = 0.1f;
+
+        /// <summary>
+        /// 財産特性（性格）の遺伝＝<b>どちらかの親からランダムに受け継ぐ</b>（<paramref name="pickRoll"/>&lt;0.5 で親A）。
+        /// <paramref name="mutateRoll"/> が突然変異率を下回ると<b>親と無関係な特性</b>になる（多様性）。
+        /// 倫理ガード：親の優劣で選ばない（ランダム＋突然変異＝優生学的選別でない）。
+        /// </summary>
+        public static FinancialTrait InheritFinancialTrait(FinancialTrait a, FinancialTrait b, float pickRoll, float mutateRoll, float mutationChance)
+        {
+            pickRoll = Mathf.Clamp01(pickRoll);
+            if (mutateRoll < mutationChance)
+                return (FinancialTrait)Mathf.Clamp(Mathf.FloorToInt(pickRoll * 3f), 0, 2); // 突然変異＝3値から
+            return pickRoll < 0.5f ? a : b;
+        }
+
+        public static FinancialTrait InheritFinancialTrait(FinancialTrait a, FinancialTrait b, float pickRoll, float mutateRoll)
+            => InheritFinancialTrait(a, b, pickRoll, mutateRoll, DefaultTraitMutation);
     }
 }

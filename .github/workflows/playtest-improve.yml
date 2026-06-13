@@ -22,6 +22,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: read
+  id-token: write   # claude-code-action の OIDC 認証に必須
 
 jobs:
   playtest-improve:
@@ -53,6 +54,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}   # OIDC を介さず付与済みトークンを使う
           prompt: |
             .claude/commands/playtest-improve.md の手順に厳密に従い、プレイアビリティ改善ループを1サイクルだけ実行してください。
             - 検証ゲートは TestHarness のみ（cd TestHarness && dotnet test）。green な変更だけをマージする。

@@ -16,7 +16,7 @@ namespace Ginei
         public const int StatFloor = 30;          // 凡庸な卒業生の下限
         public const int StatCeil = 78;           // 名門首席級の上限
         public const float QualityWeight = 0.5f;  // 才能＝質×これ＋素質roll×(1-これ)
-        public const int GraduationAge = 24;      // 卒業時の年齢（大学＝士官学校より少し上）
+        public static readonly int GraduationAge = SchoolAgeRules.GraduationAge(SchoolType.大学); // 卒業年齢=22（学部4年・出所＝SchoolAgeRules 史実精緻化）
         public const float CandidateFraction = 0.15f; // 候補（官吏層）のうち入学できる割合
 
         /// <summary>入学・卒業できる人数＝定員と候補（官吏層 #110）が支えられる数の小さい方。</summary>

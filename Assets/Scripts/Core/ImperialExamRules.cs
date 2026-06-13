@@ -148,7 +148,7 @@ namespace Ginei
                 p.research = sub; p.engineering = sub; p.production = sub;
                 p.schoolId = u.schoolId;
                 p.graduationYear = year;
-                p.birthYear = year - UniversityRules.GraduationAge;
+                p.birthYear = year - SchoolAgeRules.GraduationAge(SchoolType.科挙); // 進士登用の典型年齢≒30（科挙は年齢制限なし＝大学とは別・史実精緻化）
                 cands.Add(p);
             }
 

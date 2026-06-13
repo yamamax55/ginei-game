@@ -16,7 +16,7 @@ namespace Ginei
         public const int StatFloor = 30;          // 凡庸な卒業生の下限
         public const int StatCeil = 75;           // 名門首席級の上限（元帥級の伸びしろは成長#537で）
         public const float QualityWeight = 0.5f;  // 才能＝質×これ＋素質roll×(1-これ)
-        public const int GraduationAge = 22;      // 卒業時の年齢（生年逆算）
+        public static readonly int GraduationAge = SchoolAgeRules.GraduationAge(SchoolType.士官学校); // 卒業年齢=22（出所＝SchoolAgeRules 史実）
         public const float CadetFraction = 0.15f; // 徴募源(軍属)のうち候補生になれる割合（人口が将官を支える・抽象スケール）
 
         /// <summary>

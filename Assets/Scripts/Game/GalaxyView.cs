@@ -103,7 +103,7 @@ namespace Ginei
 
         // 朝廷の権威（律令の形骸化・官僚制基盤）。封建の世＝既に低め（武家政権相当）＝官職は名誉職化方向。
         // 文官ネームドの考課・叙位（五位の壁）はこの権威で効く（BureaucracyCareerRules / RitsuryoFormalizationRules）。
-        private CourtAuthority courtAuthority = new CourtAuthority(0.35f);
+        private CourtAuthority courtAuthority; // 実体は StrategySession.CourtAuthority（SetupPersonnel で共有＝Battle往復/セーブで永続）
 
         /// <summary>朝廷の権威（観測用・read-only 参照）。</summary>
         public CourtAuthority Court => courtAuthority;
@@ -677,6 +677,8 @@ namespace Ginei
         private void SetupPersonnel()
         {
             campaignYear = TimeDisplay.StartYear; // 開始暦（宇宙暦SE796）と揃える
+            // 朝廷の権威は StrategySession に持たせ Battle 往復・セーブで永続（無ければ既定0.35＝武家政権相当で起こす）。
+            courtAuthority = StrategySession.CourtAuthority ?? (StrategySession.CourtAuthority = new CourtAuthority(0.35f));
             commanders = new List<Person>();
             civilians = new List<Person>();
             if (StrategySession.PendingPeople != null)
@@ -2983,7 +2985,7 @@ namespace Ginei
             var people = new System.Collections.Generic.List<Person>();
             if (commanders != null) people.AddRange(commanders);
             if (civilians != null) people.AddRange(civilians);
-            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces);
+            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces, StrategySession.CourtAuthority);
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");
         }
 

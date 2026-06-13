@@ -21,6 +21,8 @@ namespace Ginei
         // 統一時間（GameClock）。0=未設定（後方互換＝既定クロック）。
         public double clockElapsed;
         public float clockSpeed = 1f;
+        // 朝廷の権威（官僚制基盤・名実の乖離）。既定0.35＝旧セーブに欠落していても武家政権相当で復元（後方互換）。
+        public float courtAuthority = 0.35f;
     }
 
     /// <summary>惑星内政（<see cref="Province"/>）のセーブ平データ。安定度/統合/経済/希少資源の継続。
@@ -137,5 +139,14 @@ namespace Ginei
         // 能力（軍才/文才/技術才）
         public int leadership, attack, defense, mobility, operation, intelligence;
         public int research, engineering, planning, production;
+        // 官僚制（位階・考課・官僚制基盤）。既定は無位/未評定＝旧セーブ後方互換（欠落フィールドは初期化値を保持）。
+        public int courtRank = (int)CourtRank.無位;  // (int)CourtRank（既定=無位＝0=正一位の誤復元を防ぐ）
+        public bool hasMerit;                         // 考課記録の有無（false=未評定＝merit は null 復元）
+        public int meritEvaluations;
+        public float meritCumulative;
+        public int meritConsecutiveTop, meritConsecutivePoor;
+        public float meritIntegrity = 0.7f;
+        public int meritLastRating = (int)MeritRating.中中; // (int)MeritRating（hasMerit のときのみ有効）
     }
 }
+

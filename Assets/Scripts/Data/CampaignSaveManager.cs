@@ -40,7 +40,7 @@ namespace Ginei
         /// <summary>
         /// 戦役の<b>全状態</b>（銀河/勢力/財政/政体/人物/戦略艦隊/統一時間）を保存する（continue・全永続化）。
         /// </summary>
-        public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock, Dictionary<int, Province> provinces = null)
+        public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock, Dictionary<int, Province> provinces = null, CourtAuthority court = null)
         {
             if (campaign == null) return;
             CampaignSaveData save = CampaignSerializer.ToSaveData(campaign);
@@ -48,6 +48,7 @@ namespace Ginei
             CampaignSerializer.WriteFleets(save, reg);
             CampaignSerializer.WriteProvinces(save, provinces);
             CampaignSerializer.WriteClock(save, clock);
+            if (court != null) save.courtAuthority = court.authority; // 朝廷の権威を永続（官僚制基盤）
             File.WriteAllText(SavePath, JsonUtility.ToJson(save, true));
         }
 
@@ -70,6 +71,7 @@ namespace Ginei
             StrategySession.Clock = CampaignSerializer.ReadClock(save);
             StrategySession.Provinces = CampaignSerializer.ReadProvinces(save); // 内政を復元（空=後方互換）
             StrategySession.PendingPeople = CampaignSerializer.ReadPeople(save);
+            StrategySession.CourtAuthority = new CourtAuthority(save.courtAuthority); // 朝廷の権威を復元（官僚制基盤）
             return true;
         }
 

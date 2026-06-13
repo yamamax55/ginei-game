@@ -96,6 +96,10 @@ namespace Ginei
                  "既定 false＝従来動作。HyoriHikyoRules が解決（発動条件＝主家滅亡）")]
         public bool isHyoriHikyo = false; // 表裏比興の者＝主家滅亡で覚醒する梟雄
 
+        [Tooltip("革新者（#革新者＝織田信長型）。先見性・新技術の積極活用で時代を先取りし、若い頃は『うつけ』と侮られるが開花する。" +
+                 "既定 false＝従来動作。InnovatorRules が解決")]
+        public bool isInnovator = false; // 革新者＝織田信長型（先見性・新技術・若年うつけ）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

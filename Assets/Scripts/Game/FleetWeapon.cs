@@ -16,6 +16,8 @@ namespace Ginei
         public float fireInterval = 1.0f;
         [Tooltip("側背面攻撃時の最大ダメージ倍率 (真後ろで最大)")]
         public float flankMultiplier = 2.0f;
+        [Tooltip("武器種（#2256）：長距離砲は対旗艦↑/対配下艦↓、対小型は対配下艦↑/対旗艦↓、点防御は両方控えめ")]
+        public WeaponType weaponType = WeaponType.ビーム;
 
         [Header("ミサイル攻撃設定")]
         [Tooltip("ミサイルの残弾数（0で通常攻撃に移行）")]
@@ -362,6 +364,11 @@ namespace Ginei
                 ? (myStrength.admiralData.EffectiveIntelligence + myStrength.admiralData.EffectiveMobility) / 2f : 50f;
             float hitFactor = AccuracyRules.HitFactor(AccuracyRules.HitChance(accuracy, ShipCombat.EvasionOf(target)), Random.value);
             if (hitFactor < 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * hitFactor));
+
+            // 武器種適性（#2256）：標的が旗艦か配下艦かで与ダメを補正する（実効値パターン・基準値非破壊）。
+            bool targetIsFlagship = target is FleetStrength;
+            float aptitude = WeaponTypeRules.TargetAptitude(weaponType, targetIsFlagship);
+            if (aptitude != 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * aptitude));
 
             // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・陣形相性#2177・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;

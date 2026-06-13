@@ -170,6 +170,14 @@ namespace Ginei
             int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier
                 * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk) * ambush * Mathf.Max(0.1f, hit)));
 
+            // 武器種適性（#2256）：旗艦の weaponType を流用し、標的種別で与ダメ補正（実効値パターン・基準値非破壊）。
+            if (flagshipWeapon != null)
+            {
+                bool aptTargetIsFlagship = target is FleetStrength;
+                float aptitude = WeaponTypeRules.TargetAptitude(flagshipWeapon.weaponType, aptTargetIsFlagship);
+                if (aptitude != 1f) baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * aptitude));
+            }
+
             bool isFlank;
             Formation myFormation = parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣;
             float fAtk = FormationTraitRules.AttackFactor(myFormation);

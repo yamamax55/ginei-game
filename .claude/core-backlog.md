@@ -125,6 +125,7 @@
 - [x] Wave56 (2026-06-11)：MeritSeatingRules(#1362) / IndirectApproachRules(#1339) / DislocationRules(#1344) / FleetInBeingRules(#1348) / InteriorLineRules(#1345) / DecisivePointRules(#1347) / LineOfOperationsRules(#1350)（並列7・水滸伝SHZ完結＋リデルハート間接アプローチLDH＋ジョミニJOM着手・全テスト一発green）
 - [x] Wave57 (2026-06-11)：TurningMovementRules(#1353) / CoalitionFaultlineRules(#1343) / DivideRules(#1346) / MilitaryEngineeringRules(#1352) / ProspectRules(#1833) / JudgmentNoiseRules(#1834) / OverconfidenceBiasRules(#1837)（並列7・ジョミニJOM完結＋ガリア戦記GAL着手＋カーネマン認知バイアスKAHN着手・全テスト一発green）
 - [x] Wave58 (2026-06-11)：FramingRules(#1840) / AvailabilityBiasRules(#1844) / DualProcessRules(#1849) / ShameRules(#1832) / GiriRules(#1835) / GiriNinjoTensionRules(#1838) / HonorRules(#1841)（並列7・カーネマン認知バイアスKAHN完結＋菊と刀の恥罪文化KIKU着手・親修正1=using追加のみ）
+- [x] Wave59 (2026-06-13)：CrowdContagionRules(#1820) / AssertionRepetitionRules(#1821) / PrestigeCliffRules(#1822) / PanicCascadeRules(#1823) / CrowdReversalRules(#1824) / RulerMindsetRules(#1803) / HeirDesignationRules(#1804)（並列7・ル・ボン群衆心理CRWD完結＋元首引き際HDRN着手・親修正：2テスト手書き＋1テスト境界調整）
 
 > **キュー枯渇（2026-06-10・Wave29完了）→ 第5次補充で再開（2026-06-11）**：新規EPIC群（経済思想・社会理論）の純ロジック子Issueが多数追加されたため補充・ループ再開。
 
@@ -365,13 +366,13 @@
 - [x]（Wave58）GiriRules：義理・恩の負債構造＝恩の貸借（ObligationDebt同梱・KIKU-2 #1835）。`HonorsRules`(栄典)とは別＝返さねばならない恩の累積
 - [x]（Wave58）GiriNinjoTensionRules：義理と人情の葛藤エンジン（KIKU-3 #1838）。`PoliticalEthicsRules`(心情/責任)とは別＝義理対人情の板挟み
 - [x]（Wave58）HonorRules：名誉の毀損と公的回復（HonorState同梱・KIKU-4 #1841）。`ReputationRules`/`HonorsRules`とは別＝恥文化の名誉（毀損は可視・回復は公的儀礼）
-- [ ] CrowdContagionRules：群衆化の相転移＝個↔群level-shift・被暗示性↑理性↓（CRWD-1 #1820）。`ManiaRules`(SIR)とは別＝個から群への相転移と集団精神
-- [ ] AssertionRepetitionRules：断言・反復・感染の三段＝反復で被信度累積→感染伝播（CRWD-2 #1821）。`PropagandaRules`とは別＝ル・ボンの観念植え付け
-- [ ] PrestigeCliffRules：指導者の威光と非連続崩壊＝一度の失敗で不可逆瓦解（CRWD-3 #1822）。`Organization`#812/`DynastyRules`とは別レイヤー＝威光の崖
-- [ ] PanicCascadeRules：恐慌の空間カスケード＝敗走伝染・距離減衰・威光抑制（CRWD-4 #1823）。`PsychologicalSiegeMoraleRules`/`EncirclementRules`とは別＝戦線将棋倒し
-- [ ] CrowdReversalRules：群衆の易変と一斉反転＝歓喜⇔恐慌スイッチ・強度比例の反転確率（CRWD-5 #1824）。`ReversalRules`(逆U字)とは別＝群衆感情の非連続反転
-- [ ] RulerMindsetRules：元首の主観状態＝死の自覚・倦怠・遺産志向（KAHN系でなくHDRN-1 #1803）。`IllnessRules`/`SenescenceRules`とは別＝統治者の心境（Ruler Mindset）
-- [ ] HeirDesignationRules：資質本位の後継指名＝法順位でなく資質スコア・指名養子（HDRN-2 #1804）。`SuccessionLawRules`/`InheritanceRules`とは別＝資質本位の指名
+- [x]（Wave59）CrowdContagionRules：群衆化の相転移＝個↔群level-shift・被暗示性↑理性↓（CRWD-1 #1820）。`ManiaRules`(SIR)とは別＝個から群への相転移と集団精神
+- [x]（Wave59）AssertionRepetitionRules：断言・反復・感染の三段＝反復で被信度累積→感染伝播（CRWD-2 #1821）。`PropagandaRules`とは別＝ル・ボンの観念植え付け
+- [x]（Wave59）PrestigeCliffRules：指導者の威光と非連続崩壊＝一度の失敗で不可逆瓦解（CRWD-3 #1822）。`Organization`#812/`DynastyRules`とは別レイヤー＝威光の崖
+- [x]（Wave59）PanicCascadeRules：恐慌の空間カスケード＝敗走伝染・距離減衰・威光抑制（CRWD-4 #1823）。`PsychologicalSiegeMoraleRules`/`EncirclementRules`とは別＝戦線将棋倒し
+- [x]（Wave59）CrowdReversalRules：群衆の易変と一斉反転＝歓喜⇔恐慌スイッチ・強度比例の反転確率（CRWD-5 #1824）。`ReversalRules`(逆U字)とは別＝群衆感情の非連続反転
+- [x]（Wave59）RulerMindsetRules：元首の主観状態＝死の自覚・倦怠・遺産志向（KAHN系でなくHDRN-1 #1803）。`IllnessRules`/`SenescenceRules`とは別＝統治者の心境（Ruler Mindset）
+- [x]（Wave59）HeirDesignationRules：資質本位の後継指名＝法順位でなく資質スコア・指名養子（HDRN-2 #1804）。`SuccessionLawRules`/`InheritanceRules`とは別＝資質本位の指名
 - [ ] AbdicationRules：生前継承・摂政・引き際＝自発的譲位の過渡期橋渡し（HDRN-3 #1805）。`RegencyRules`/`TermLimitRules`とは別＝計画的退場
 - [ ] SuccessionQualityRules：継承の質→次代の安定＝指名スコア×引き際→正統性（HDRN-4 #1806）。`SuccessionWarRules`/`SuccessionRules`とは別＝継承の質が次代を決める
 - [ ] ReignRetrospectiveRules：治世の回顧と総括＝達成度スコア→後継初期正統性（HDRN-5 #1807）。`HistoriographyRules`とは別＝存命中の自己総括

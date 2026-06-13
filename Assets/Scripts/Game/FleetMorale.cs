@@ -31,6 +31,10 @@ namespace Ginei
         [Tooltip("1回の被弾で減る士気の上限（最大士気に対する割合）＝一撃で即敗走させない #会戦改善")]
         public float maxSingleHitMoraleFraction = 0.1f;
 
+        // #2263 名誉→士気の底上げ（勲章の名誉点スケール・上限）。
+        private const float PrestigeMoraleScale = 250f;     // 名誉点÷これ＝士気倍率の加算（50点で+20%）
+        private const float MaxPrestigeMoraleBonus = 0.20f; // 名誉による士気底上げの上限
+
         public bool IsRouted => morale <= 0;
 
         /// <summary>士気を増減する（士気の連鎖崩壊／高揚 #2176）。0〜maxMorale にクランプ。負で衝撃、正で高揚。</summary>
@@ -125,6 +129,11 @@ namespace Ginei
                 // 最大士気は提督の統率力に依存 (例: 統率と同じ値)。0以下にはしない（ゼロ除算防止）
                 // 参謀補完を反映した実効統率を使用（基準値は非破壊）
                 maxMorale = Mathf.Max(1f, strength.admiralData.EffectiveLeadership);
+
+                // #2263 名誉：勲章を持つ提督は名望で士気が底上げされる（前戦の叙勲が次戦に効く）。実効値パターン。
+                float prestige = MedalRegistry.Prestige(strength.admiralData.GetInstanceID());
+                if (prestige > 0f) maxMorale *= 1f + Mathf.Min(prestige / PrestigeMoraleScale, MaxPrestigeMoraleBonus);
+
                 morale = maxMorale;
             }
         }

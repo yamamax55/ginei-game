@@ -620,8 +620,25 @@ namespace Ginei
                 var tempGrowth = new Growth(GrowthArchetype.叩き上げ);
                 GrowthRules.GainExperience(tempGrowth, amount, dt: 1f);
                 // 将来: fs.admiralData.growth に GainExperience を適用する。
+
+                // #2263 叙勲：戦功（与ダメ＋勝利）に応じて武功章を授与。次戦の士気底上げ（名誉）へ繋がる。
+                float merit = Mathf.Clamp(fs.DamageDealt / MedalMeritScale, 0f, 100f) + (isWinner ? MedalWinnerMeritBonus : 0f);
+                if (merit >= MedalAwardThreshold)
+                {
+                    int admiralId = fs.admiralData.GetInstanceID();
+                    Decoration d = MedalRegistry.Award(admiralId, MedalKind.武功章, merit, 0, $"{currentName(fs)} の戦功");
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{fs.admiralName} に武功章 {d.grade} を叙勲（戦功）");
+                }
             }
         }
+
+        // 叙勲の調整値（#2263）。
+        private const float MedalMeritScale = 200f;       // 与ダメ→戦功スコアの正規化（20000ダメで満点付近）
+        private const float MedalWinnerMeritBonus = 15f;  // 勝利側の戦功加点
+        private const float MedalAwardThreshold = 30f;    // この戦功以上で叙勲（乱発防止）
+
+        private static string currentName(FleetStrength fs) => fs != null ? fs.admiralName : "";
 
         /// <summary>
         /// 会戦を最初からやり直します。

@@ -94,5 +94,55 @@ namespace Ginei.Tests
             Assert.Greater(close, far);
             Assert.LessOrEqual(close, 0.4f); // 離反は稀
         }
+
+        // ===== 在野化（解放→浪人）=====
+
+        [Test]
+        public void ReleaseAsFreeAgent_BecomesRoninAndRecruitable()
+        {
+            var p = Mk();
+            CaptivityRules.Capture(p, Faction.帝国, 800);
+            Assert.IsTrue(CaptivityRules.ReleaseAsFreeAgent(p));
+            Assert.AreEqual(CaptiveStatus.自由, p.captiveStatus);
+            Assert.IsTrue(p.isFreeAgent);
+            Assert.IsTrue(p.IsFreeAgent);   // 在野かつ自由＝再仕官の母数
+            Assert.IsTrue(p.IsAvailable);   // 登用・旗揚げ（後段）で使える
+            Assert.AreEqual(default(Faction), p.heldBy);
+        }
+
+        [Test]
+        public void NormalRelease_IsNotFreeAgent()
+        {
+            var p = Mk();
+            CaptivityRules.Capture(p, Faction.帝国, 800);
+            CaptivityRules.Release(p);
+            Assert.IsFalse(p.isFreeAgent); // 元勢力へ復帰＝在野ではない
+        }
+
+        [Test]
+        public void Recruit_ClearsFreeAgent()
+        {
+            var p = Mk();
+            p.isFreeAgent = true; // 在野の浪人だったとする
+            CaptivityRules.Capture(p, Faction.帝国, 800);
+            CaptivityRules.Recruit(p, Faction.帝国);
+            Assert.IsFalse(p.isFreeAgent); // 仕官＝在野ではなくなる
+        }
+
+        [Test]
+        public void ReleaseAsFreeAgent_OnlyFromCaptive()
+        {
+            var p = Mk(); // 自由のまま
+            Assert.IsFalse(CaptivityRules.ReleaseAsFreeAgent(p));
+            Assert.IsFalse(CaptivityRules.ReleaseAsFreeAgent(null));
+        }
+
+        [Test]
+        public void BecomesFreeAgentOnRelease_RollThreshold()
+        {
+            Assert.IsTrue(CaptivityRules.BecomesFreeAgentOnRelease(0.1f, 0.3f));  // roll<確率＝在野化
+            Assert.IsFalse(CaptivityRules.BecomesFreeAgentOnRelease(0.5f, 0.3f)); // roll>=確率＝元勢力復帰
+            Assert.IsFalse(CaptivityRules.BecomesFreeAgentOnRelease(0.5f, 0f));   // 確率0＝在野化しない
+        }
     }
 }

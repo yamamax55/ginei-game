@@ -42,8 +42,26 @@ namespace Ginei
             if (person == null || person.captiveStatus != CaptiveStatus.捕虜) return false;
             person.captiveStatus = CaptiveStatus.自由;
             person.heldBy = default;
+            person.isFreeAgent = false; // 元勢力へ復帰＝在野ではない
             return true;
         }
+
+        /// <summary>
+        /// 解放して在野（どの勢力にも属さない自由身＝浪人）にする（捕虜→自由＋在野）。元勢力へは戻らず再仕官待ち＝
+        /// 登用#900・勢力旗揚げ（後段）の母数になる。捕虜でなければ false。faction フィールドは直前所属の名残として残す。
+        /// </summary>
+        public static bool ReleaseAsFreeAgent(Person person)
+        {
+            if (person == null || person.captiveStatus != CaptiveStatus.捕虜) return false;
+            person.captiveStatus = CaptiveStatus.自由;
+            person.heldBy = default;
+            person.isFreeAgent = true;
+            return true;
+        }
+
+        /// <summary>解放した捕虜が在野化するか（roll が確率を下回れば元勢力へ戻らず在野＝浪人化）。決定論。</summary>
+        public static bool BecomesFreeAgentOnRelease(float roll, float freeAgentChance)
+            => Mathf.Clamp01(roll) < Mathf.Clamp01(freeAgentChance);
 
         /// <summary>処断する（捕虜→処断済＋死亡＝#152 へ合流）。捕虜でなければ false。</summary>
         public static bool Execute(Person person, int year)
@@ -61,6 +79,7 @@ namespace Ginei
             person.captiveStatus = CaptiveStatus.自由;
             person.faction = newFaction;
             person.heldBy = default;
+            person.isFreeAgent = false; // 仕官＝在野ではなくなる
             return true;
         }
 

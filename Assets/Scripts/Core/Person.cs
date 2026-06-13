@@ -8,8 +8,10 @@ namespace Ginei
     /// <summary>役職の種類。軍務＝艦隊指揮・会戦／政務＝内政・外交・統治。</summary>
     public enum PostType { 軍務, 政務 }
 
-    /// <summary>人物の拘留状態（LIFE-4 #154・死亡 #152 と対の可逆ルート）。自由→捕虜→（解放で自由／処断で処断済＝死亡へ合流）。</summary>
-    public enum CaptiveStatus { 自由, 捕虜, 処断済 }
+    /// <summary>人物の拘留状態（LIFE-4 #154・死亡 #152 と対の可逆ルート）。自由→捕虜→（解放で自由／処断で処断済＝死亡へ合流）。
+    /// <b>行方不明</b>＝艦隊壊滅で消息不明（生死不明・席は空くが稀にイベントで復帰しうる＝<see cref="PersonnelFateRules"/>）。
+    /// ※値は末尾追加＝既存序数を保つ（後方互換）。</summary>
+    public enum CaptiveStatus { 自由, 捕虜, 処断済, 行方不明 }
 
     /// <summary>
     /// 人物（キャラクター）の純データ（人物システム）。役割(<see cref="role"/>＝軍人/文民)を持ち、
@@ -51,6 +53,11 @@ namespace Ginei
         public int deathYear;                                   // 没年（0=存命）
         public CaptiveStatus captiveStatus = CaptiveStatus.自由; // 拘留状態（LIFE-4）
         public Faction heldBy;                                   // 捕獲勢力（捕虜時）
+
+        /// <summary>在野か（どの勢力にも属さない自由身＝浪人。既定 false＝後方互換）。捕虜の解放で在野化しうる
+        /// （<see cref="CaptivityRules.ReleaseAsFreeAgent"/>）。登用#900や勢力旗揚げ（後段）の母数。faction フィールドは
+        /// 直前所属の名残として保持するが、在野は再仕官待ちで現勢力には属さない扱い。</summary>
+        public bool isFreeAgent;
 
         // --- 家族（結婚と出産・血縁。-1=なし） ---
         public int spouseId = -1; // 配偶者（PersonMarriageRules）
@@ -115,6 +122,12 @@ namespace Ginei
         public int BirthYear => birthYear;
         public bool IsDeceased => deathYear > 0;
         public bool IsAvailable => deathYear <= 0 && captiveStatus == CaptiveStatus.自由;
+
+        /// <summary>行方不明か（艦隊壊滅で消息不明＝席は空く・復帰の余地）。</summary>
+        public bool IsMissing => captiveStatus == CaptiveStatus.行方不明;
+
+        /// <summary>在野で再仕官可能か（自由身かつ存命の浪人）。登用・旗揚げ（後段）の母数。</summary>
+        public bool IsFreeAgent => isFreeAgent && IsAvailable;
 
         /// <summary>専門才＝研究・技術・計画・生産の平均（0..100・テクノクラート LIFE-7）。</summary>
         public float TechnicalAptitude => (research + engineering + planning + production) / 4f;

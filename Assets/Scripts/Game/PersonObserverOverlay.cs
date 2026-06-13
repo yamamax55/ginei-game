@@ -167,7 +167,9 @@ namespace Ginei
             var rrt = root.AddComponent<RectTransform>();
             rrt.anchorMin = Vector2.zero; rrt.anchorMax = Vector2.one;
             rrt.offsetMin = Vector2.zero; rrt.offsetMax = Vector2.zero;
-            root.AddComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, dimAlpha);
+            var dimImage = root.AddComponent<Image>();
+            dimImage.color = new Color(0.02f, 0.03f, 0.06f, dimAlpha);
+            WindowChrome.MakeNonModal(dimImage); // ウィンドウ化＝非モーダル（盤面を塞がない）
 
             // パネル（画面の大半）
             var panel = new GameObject("Panel");
@@ -178,12 +180,15 @@ namespace Ginei
             panel.AddComponent<Image>().color = new Color(0.05f, 0.07f, 0.11f, 0.96f);
             panel.AddComponent<RectMask2D>(); // はみ出しはクリップ
 
-            // 本文ラベル（上詰め・余白）
+            // ウィンドウ化：上端にタイトルバー（ドラッグ移動＋×）。本文はバーぶん下げてかぶりを避ける。
+            WindowChrome.AddTitleBarAnchored(prt, "人物名鑑", () => SetVisible(false));
+
+            // 本文ラベル（上詰め・余白・タイトルバーぶん上を空ける）
             var labelGo = new GameObject("Body");
             labelGo.transform.SetParent(panel.transform, false);
             var lrt = labelGo.AddComponent<RectTransform>();
             lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
-            lrt.offsetMin = new Vector2(20f, 20f); lrt.offsetMax = new Vector2(-20f, -16f);
+            lrt.offsetMin = new Vector2(20f, 20f); lrt.offsetMax = new Vector2(-20f, -(16f + WindowChrome.TitleBarHeight));
             bodyLabel = labelGo.AddComponent<TextMeshProUGUI>();
             bodyLabel.fontSize = bodyFontSize;
             bodyLabel.color = new Color(0.92f, 0.94f, 0.97f);

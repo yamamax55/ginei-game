@@ -385,7 +385,9 @@ namespace Ginei
             var rrt = root.AddComponent<RectTransform>();
             rrt.anchorMin = Vector2.zero; rrt.anchorMax = Vector2.one;
             rrt.offsetMin = Vector2.zero; rrt.offsetMax = Vector2.zero;
-            root.AddComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
+            var dimImage = root.AddComponent<Image>();
+            dimImage.color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
+            WindowChrome.MakeNonModal(dimImage); // ウィンドウ化＝非モーダル（盤面を塞がない）
 
             // 縦：タイトル行 ＋ 列行
             var frame = new GameObject("Frame");
@@ -397,6 +399,8 @@ namespace Ginei
             fvlg.spacing = 10f;
             fvlg.childControlWidth = true; fvlg.childControlHeight = true;
             fvlg.childForceExpandWidth = true; fvlg.childForceExpandHeight = false;
+
+            WindowChrome.AddTitleBarLayout(frt, "決裁ボード", () => SetVisible(false));
 
             // タイトル
             var titleGo = new GameObject("Title");

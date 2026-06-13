@@ -16,10 +16,10 @@
 
 ## [Core] 改善候補（このループが実装する＝test-first・TestHarness gate）
 - [x] [Core] 戦術ドクトリン統合：未配線の戦術 Core（`AmbushRules`/`FeintRules`/`PursuitRules`/`ReconRules`/`VeterancyRules` 等）を会戦 AI が読める単一窓口 `TacticalDoctrineRules`（仮）に束ね、`BattleAiRules`/`ForceQualityRules` と同じ実効値パターンで倍率を返す。まず純ロジック＋テストを足し、配線は Game 側の1箇所からに留める。（cycle1・2026-06-13）
-- [ ] [Core] 会戦バランス：決着が単調化しないよう Lanchester/士気/側背面の係数を `CombatModifiers` 経由で見直し、極端な雪崩を抑える調整を test-first で（従来式との差分をテストで固定）。
+- [x] [Core] 会戦バランス：決着が単調化しないよう Lanchester/士気/側背面の係数を `CombatModifiers` 経由で見直し、極端な雪崩を抑える調整を test-first で（従来式との差分をテストで固定）。
 - [x] [Core] 練度の play 反映：`VeterancyRules`（練度）を戦力比に効かせる実効倍率を `ForceQualityRules` 隣に橋渡し（基準非破壊）。歴戦艦隊が新兵より強い手応えを数値で作る。（cycle1・2026-06-13）
-- [ ] [Core] 偵察と戦場の霧：`ReconRules` の推定誤差を「敵戦力表示のブレ」に使える純関数 API に整え、AI の過大/過小評価（`OverconfidenceBiasRules`/`AvailabilityBiasRules`）と接続するブリッジ Rule を test-first で。
-- [ ] [Core] 撤退・追撃の収支：`PursuitRules`（追撃戦）の損害解決を会戦終了時に使える形に整え、`BattleWithdrawalRules` と責務分担した薄い橋渡しを足す。
+- [x] [Core] 偵察と戦場の霧：`ReconRules` の推定誤差を「敵戦力表示のブレ」に使える純関数 API に整え、AI の過大/過小評価（`OverconfidenceBiasRules`/`AvailabilityBiasRules`）と接続するブリッジ Rule を test-first で。
+- [x] [Core] 撤退・追撃の収支：`PursuitRules`（追撃戦）の損害解決を会戦終了時に使える形に整え、`BattleWithdrawalRules` と責務分担した薄い橋渡しを足す。
 
 ## [Game] 改善候補（Unity 実行/目視が要る＝記録のみ・人手対応）
 - [ ] [Game] 会戦の操作フィードバック（攻撃/移動/陣形変更の手応え・通知）の充実。要 Unity 目視。
@@ -31,3 +31,4 @@
 <!-- - [x] [Core] … （cycleN・YYYY-MM-DD） -->
 - [x] [Core] TacticalDoctrineRules 新規作成（AmbushRules/VeterancyRules/ReconRules を Evaluate＋ShouldAmbush に統合・テスト11件）（cycle1・2026-06-13）
 - [x] [Core] ForceQualityRules に CombatMultiplier(NcoCorps, proficiency, readiness, veterancyXp) オーバーロード追加・テスト3件（cycle1・2026-06-13）
+- [x] [Core] flow1（並列8・2026-06-13）：FogOfWarRules（戦場の霧）/ScreeningRules（偵察幕）/SignalIntelligenceRules（通信諜報）/PursuitBattleRules（追撃の収支）/BattleTempoRules（会戦テンポの振り戻し）/SortieTimingRules（出撃好機）/AttritionExchangeRules（消耗交換比）/CommandDelayRules（指揮伝達遅延）を新規実装（各EditModeテスト付き）。

@@ -42,6 +42,31 @@ namespace Ginei
         public float savCraftSpeed = 7f;
         public Color savColor = new Color(0.7f, 0.9f, 1f);
 
+        [Header("軌道防衛の反撃（防衛衛星＝アルテミスの首飾り・PB二者化 #131）")]
+        [Tooltip("満タン時の防衛衛星の機数。残存制空権に比例して撃墜されていく")]
+        public int maxSatellites = 12;
+        [Tooltip("衛星の周回半径。0＝接近限界リング上（首飾り＝越えられないリングの正体）")]
+        public float satelliteOrbitRadius = 0f;
+        [Tooltip("制空権1点あたりの秒間火力。残存制空権×これが防衛側の総火力（PlanetaryDefenseRules）")]
+        public float firepowerPerDefense = 0.5f;
+        [Tooltip("衛星が包囲艦隊を撃てる射程。0＝接近限界＋7（包囲リングへ届く）")]
+        public float defenseRange = 0f;
+        [Tooltip("各衛星の発砲間隔（秒）")]
+        public float satelliteFireInterval = 0.6f;
+        public float satelliteOrbitSpeed = 12f; // 度/秒（周回演出）
+        public Color satelliteColor = new Color(0.65f, 0.9f, 1f);
+        public Color defenseBeamColor = new Color(0.55f, 0.85f, 1f);
+
+        // 防衛衛星（軌道戦の二者化）。残存制空権に応じて生存機数が決まり、射程内の包囲艦隊を撃つ。
+        private Transform[] satellites;
+        private LineRenderer[] satBeams;
+        private float[] satFireTimer;   // 次の発砲までの残り（秒）
+        private float[] satBeamTimer;   // ビーム表示の残り時間（秒・フェード用）
+        private float[] satBaseAngle;   // 周回の初期角（ラジアン）
+        private Material satBeamMat;
+        private float resolvedSatRadius, resolvedDefenseRange;
+        private const float DefenseBeamDuration = 0.18f;
+
         private Planet planet;
         private Material ringMat, lineMat;
         private Sprite disc, whiteLeft;
@@ -79,6 +104,7 @@ namespace Ginei
             BuildRing();
             BuildGauges();
             BuildCraft();
+            BuildSatellites();
         }
 
         private void BuildPlanet()
@@ -179,6 +205,136 @@ namespace Ginei
             }
         }
 
+        // 防衛衛星（アルテミスの首飾り）をリング上に等間隔生成。各衛星に発砲用 LineRenderer を持たせる。
+        // 制空権を持たない対象（コロニー＝maxOrbitalDefense 0）では衛星を作らない（反撃なし）。
+        private void BuildSatellites()
+        {
+            int n = Mathf.Max(0, maxSatellites);
+            if (n == 0 || planet == null || planet.maxOrbitalDefense <= 0f) { satellites = new Transform[0]; return; }
+
+            resolvedSatRadius = satelliteOrbitRadius > 0f ? satelliteOrbitRadius : approachRadius;
+            resolvedDefenseRange = defenseRange > 0f ? defenseRange : approachRadius + 7f;
+            satBeamMat = BeamFx.CreateMaterial();
+
+            satellites = new Transform[n];
+            satBeams = new LineRenderer[n];
+            satFireTimer = new float[n];
+            satBeamTimer = new float[n];
+            satBaseAngle = new float[n];
+
+            for (int i = 0; i < n; i++)
+            {
+                var go = new GameObject("DefenseSatellite");
+                go.transform.SetParent(transform, false);
+                go.transform.localScale = Vector3.one * 0.35f;
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = disc; sr.color = satelliteColor; sr.sortingOrder = 6;
+
+                float ang = (Mathf.PI * 2f / n) * i;
+                satBaseAngle[i] = ang;
+                go.transform.position = (Vector3)((Vector2)transform.position
+                    + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * resolvedSatRadius);
+
+                // 発砲ビーム（世界座標・初期非表示）。BeamFx で幅カーブ/端を整える。
+                var beamGo = new GameObject("DefenseBeam");
+                beamGo.transform.SetParent(go.transform, false);
+                var lr = beamGo.AddComponent<LineRenderer>();
+                lr.material = satBeamMat; lr.useWorldSpace = true;
+                BeamFx.ConfigureLine(lr, 0.1f);
+                lr.startColor = lr.endColor = defenseBeamColor;
+                lr.sortingOrder = 8;
+                lr.enabled = false;
+
+                satellites[i] = go.transform;
+                satBeams[i] = lr;
+                satFireTimer[i] = Random.value * satelliteFireInterval; // 位相分散＝一斉発砲を避ける
+            }
+        }
+
+        // 軌道防衛の反撃：生存衛星が射程内の包囲艦隊を撃つ。総火力＝残存制空権×firepowerPerDefense。
+        // 制空権が削られるほど衛星が落ち（非表示）火力も落ちる＝ドメイン・ダウンで反撃停止。
+        private void UpdateDefense(float dt)
+        {
+            if (satellites == null || satellites.Length == 0) return;
+
+            int liveCount = PlanetaryDefenseRules.LiveSatellites(planet.orbitalDefense, planet.maxOrbitalDefense, satellites.Length);
+            bool firing = liveCount > 0 && !captured && !planet.DomainDown && dt > 0f;
+
+            float firepower = PlanetaryDefenseRules.OrbitalDefenseFirepower(planet.orbitalDefense, firepowerPerDefense);
+            // 各発砲の威力＝総火力を「生存機数×発砲頻度」で割る（平均DPS＝総火力）。最低1。
+            int perShot = liveCount > 0
+                ? Mathf.Max(1, Mathf.RoundToInt(firepower * satelliteFireInterval / liveCount))
+                : 0;
+
+            Vector2 center = transform.position;
+            for (int i = 0; i < satellites.Length; i++)
+            {
+                Transform sat = satellites[i];
+                if (sat == null) continue;
+                bool alive = i < liveCount;
+                if (sat.gameObject.activeSelf != alive) sat.gameObject.SetActive(alive);
+                if (!alive) { if (satBeams[i] != null && satBeams[i].enabled) satBeams[i].enabled = false; continue; }
+
+                // 周回演出（timeScale 追従＝ポーズで停止）
+                float ang = satBaseAngle[i] + satelliteOrbitSpeed * Mathf.Deg2Rad * Time.time;
+                sat.position = (Vector3)(center + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * resolvedSatRadius);
+
+                // ビームのフェード
+                if (satBeamTimer[i] > 0f)
+                {
+                    satBeamTimer[i] -= dt;
+                    LineRenderer lr = satBeams[i];
+                    if (lr != null)
+                    {
+                        float a = Mathf.Clamp01(satBeamTimer[i] / DefenseBeamDuration);
+                        Color c = defenseBeamColor; c.a *= a;
+                        lr.startColor = lr.endColor = c;
+                        if (satBeamTimer[i] <= 0f) lr.enabled = false;
+                    }
+                }
+
+                if (!firing) continue;
+
+                // 発砲タイマー
+                satFireTimer[i] -= dt;
+                if (satFireTimer[i] > 0f) continue;
+                satFireTimer[i] = satelliteFireInterval;
+
+                IShipTarget target = NearestBesieger(sat.position, resolvedDefenseRange);
+                if (target == null) continue;
+                target.TakeDamage(perShot);
+
+                // ビーム発射（衛星→標的）
+                LineRenderer beam = satBeams[i];
+                if (beam != null)
+                {
+                    beam.enabled = true;
+                    beam.SetPosition(0, sat.position);
+                    beam.SetPosition(1, target.Transform.position);
+                    beam.startColor = beam.endColor = defenseBeamColor;
+                    satBeamTimer[i] = DefenseBeamDuration;
+                }
+            }
+        }
+
+        // 射程内で最寄りの包囲艦隊個艦（旗艦＋配下艦）。包囲側陣営・生存のみ。
+        private IShipTarget NearestBesieger(Vector2 from, float range)
+        {
+            IShipTarget best = null;
+            float bestSq = range * range;
+            var targets = FleetRegistry.AllTargets;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                IShipTarget t = targets[i];
+                if (t == null || !t.IsAlive || t.Faction != besiegerFaction) continue;
+                Transform tr = t.Transform;
+                if (tr == null) continue;
+                float sq = ((Vector2)tr.position - from).sqrMagnitude;
+                if (sq <= bestSq) { bestSq = sq; best = t; }
+            }
+            return best;
+        }
+
         private void Update()
         {
             if (planet == null) return;
@@ -199,6 +355,7 @@ namespace Ginei
                 if (r.captured) captured = true;
             }
 
+            UpdateDefense(Time.deltaTime);
             UpdateGauges();
             UpdateCraft(alive);
         }
@@ -235,7 +392,11 @@ namespace Ginei
                 if (captured)
                     statusLabel.text = "占領完了！　Backspaceで戦略マップへ";
                 else if (!planet.DomainDown)
-                    statusLabel.text = $"制空権を制圧中 {Mathf.CeilToInt(DefenseRatio * 100f)}%　S-AV突入中";
+                {
+                    int sats = satellites == null ? 0
+                        : PlanetaryDefenseRules.LiveSatellites(planet.orbitalDefense, planet.maxOrbitalDefense, satellites.Length);
+                    statusLabel.text = $"軌道戦 制空権 {Mathf.CeilToInt(DefenseRatio * 100f)}%（防衛衛星 {sats}機が反撃）";
+                }
                 else
                     statusLabel.text = $"侵攻中（地上戦力 {groundEchelon}・占領 {Mathf.FloorToInt(InvasionRatio * 100f)}%）";
             }
@@ -324,6 +485,7 @@ namespace Ginei
         {
             if (ringMat != null) Destroy(ringMat);
             if (lineMat != null) Destroy(lineMat);
+            if (satBeamMat != null) Destroy(satBeamMat);
             if (disc != null && disc.texture != null) Destroy(disc.texture);
             if (whiteLeft != null && whiteLeft.texture != null) Destroy(whiteLeft.texture);
         }

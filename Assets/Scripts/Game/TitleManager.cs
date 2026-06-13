@@ -32,6 +32,12 @@ namespace Ginei
         private Button continueMenuButton;
         private Button continueCampaignButton;
 
+        // キャンペーン設定画面（実行時生成・陣営／難易度を選んで新規戦役へ）
+        private GameObject campaignSetupRoot;
+        private TextMeshProUGUI campaignSummaryLabel;
+        private readonly System.Collections.Generic.List<OptionButton> campaignFactionOptions = new System.Collections.Generic.List<OptionButton>();
+        private readonly System.Collections.Generic.List<OptionButton> difficultyOptions = new System.Collections.Generic.List<OptionButton>();
+
         // 設定画面（実行時生成・フルスクリーン）
         private GameObject settingsScreenRoot;
         private TextMeshProUGUI volumeValueLabel;
@@ -74,6 +80,7 @@ namespace Ginei
 
             BuildTitleScreen();   // かっこいいタイトル画面（背景・タイトル文字・メニュー）を生成
             BuildSelectionUI();
+            BuildCampaignSetupUI(); // 新規戦役の陣営／難易度 設定画面（初期非表示）
 
             AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmTitle);
         }
@@ -348,13 +355,18 @@ namespace Ginei
             return canvas;
         }
 
-        /// <summary>会戦遷移時に選択UIを破棄（Battle シーンへ残らないように）。</summary>
+        /// <summary>会戦/戦役遷移時に選択UIを破棄（次シーンへ残らないように）。</summary>
         private void DestroySelectionUI()
         {
             if (selectionRoot != null)
             {
                 Destroy(selectionRoot);
                 selectionRoot = null;
+            }
+            if (campaignSetupRoot != null)
+            {
+                Destroy(campaignSetupRoot);
+                campaignSetupRoot = null;
             }
         }
 
@@ -577,7 +589,7 @@ namespace Ginei
             CreateMenuButton(menu.transform, "会戦開始", StartBattle);
             continueMenuButton = CreateMenuButton(menu.transform, "続きから（会戦）", ContinueBattle);
             if (continueMenuButton != null) continueMenuButton.interactable = SaveManager.HasSave();
-            CreateMenuButton(menu.transform, "銀河の戦役（新規）", StartCampaign);
+            CreateMenuButton(menu.transform, "銀河の戦役（新規）", ShowCampaignSetup);
             continueCampaignButton = CreateMenuButton(menu.transform, "戦役を再開", ContinueCampaign);
             if (continueCampaignButton != null) continueCampaignButton.interactable = CampaignSaveManager.HasSave();
             CreateMenuButton(menu.transform, "設定", OpenSettings);
@@ -737,6 +749,144 @@ namespace Ginei
                 DestroySelectionUI();
                 SceneLoader.Instance.LoadScene("Strategy");
             }
+        }
+
+        // ----- キャンペーン設定画面（陣営／難易度）-----
+
+        /// <summary>新規戦役の設定モーダルを実行時生成する（陣営・難易度を選び「戦役開始」で Strategy へ）。初期非表示。</summary>
+        private void BuildCampaignSetupUI()
+        {
+            EnsureJaFont();
+
+            GameObject canvasGO = new GameObject("CampaignSetupCanvas");
+            campaignSetupRoot = canvasGO;
+            Canvas canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 55; // シナリオ選択(50)より前面
+            CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasGO.AddComponent<GraphicRaycaster>();
+            EnsureEventSystem();
+
+            // 全画面ディマー（モーダル）
+            GameObject dim = new GameObject("Dim", typeof(RectTransform), typeof(Image));
+            dim.transform.SetParent(canvasGO.transform, false);
+            RectTransform dimRT = dim.GetComponent<RectTransform>();
+            dimRT.anchorMin = Vector2.zero; dimRT.anchorMax = Vector2.one;
+            dimRT.offsetMin = Vector2.zero; dimRT.offsetMax = Vector2.zero;
+            dim.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
+
+            // パネル（中央・内容高さに自動サイズ）
+            GameObject panel = new GameObject("CampaignSetupPanel",
+                typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            panel.transform.SetParent(canvasGO.transform, false);
+            RectTransform prt = panel.GetComponent<RectTransform>();
+            prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0.5f, 0.5f);
+            prt.anchoredPosition = Vector2.zero;
+            prt.sizeDelta = new Vector2(480f, 0f);
+            panel.GetComponent<Image>().color = new Color(0.05f, 0.07f, 0.12f, 0.97f);
+            VerticalLayoutGroup vlg = panel.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(18, 18, 16, 16);
+            vlg.spacing = 8f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true; vlg.childForceExpandWidth = true;
+            vlg.childControlHeight = true; vlg.childForceExpandHeight = false;
+            ContentSizeFitter csf = panel.GetComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            CreateLabel(panel.transform, "銀河の戦役", 26f);
+
+            // プレイ陣営（FactionData があれば列挙、無ければ enum フォールバック）
+            CreateLabel(panel.transform, "■ プレイ陣営", 20f);
+            campaignFactionOptions.Clear();
+            var factions = ContentDatabase.AllFactions();
+            if (factions != null && factions.Count > 0)
+            {
+                foreach (var fd in factions)
+                {
+                    if (fd == null) continue;
+                    FactionData captured = fd;
+                    OptionButton ob = CreateButton(panel.transform, fd.factionName,
+                        () => { SelectPlayerFactionData(captured); RefreshCampaignHighlights(); UpdateCampaignSummary(); });
+                    ob.faction = fd;
+                    campaignFactionOptions.Add(ob);
+                }
+                EnsureDefaultPlayerFaction(factions);
+            }
+            else
+            {
+                campaignFactionOptions.Add(CreateButton(panel.transform, "帝国",
+                    () => { SelectPlayerFaction((int)Faction.帝国); RefreshCampaignHighlights(); UpdateCampaignSummary(); }));
+                campaignFactionOptions.Add(CreateButton(panel.transform, "同盟",
+                    () => { SelectPlayerFaction((int)Faction.同盟); RefreshCampaignHighlights(); UpdateCampaignSummary(); }));
+            }
+
+            // 難易度
+            CreateLabel(panel.transform, "■ 難易度", 20f);
+            difficultyOptions.Clear();
+            foreach (CampaignDifficulty d in new[] { CampaignDifficulty.易しい, CampaignDifficulty.普通, CampaignDifficulty.難しい })
+            {
+                CampaignDifficulty captured = d;
+                OptionButton ob = CreateButton(panel.transform, d.ToString(),
+                    () => { SetCampaignDifficulty(captured); });
+                difficultyOptions.Add(ob);
+            }
+
+            campaignSummaryLabel = CreateLabel(panel.transform, "", 16f);
+            campaignSummaryLabel.color = new Color(1f, 0.9f, 0.4f);
+
+            CreateButton(panel.transform, "この設定で戦役開始", StartCampaign);
+            CreateButton(panel.transform, "戻る", HideCampaignSetup);
+
+            RefreshCampaignHighlights();
+            UpdateCampaignSummary();
+            campaignSetupRoot.SetActive(false);
+        }
+
+        /// <summary>キャンペーン設定画面を開く。</summary>
+        public void ShowCampaignSetup()
+        {
+            RefreshCampaignHighlights();
+            UpdateCampaignSummary();
+            if (campaignSetupRoot != null) campaignSetupRoot.SetActive(true);
+        }
+
+        /// <summary>キャンペーン設定画面を閉じてタイトルへ戻る。</summary>
+        public void HideCampaignSetup()
+        {
+            if (campaignSetupRoot != null) campaignSetupRoot.SetActive(false);
+        }
+
+        /// <summary>難易度を選択（GameSettings.campaignDifficulty に反映）。</summary>
+        public void SetCampaignDifficulty(CampaignDifficulty d)
+        {
+            GameSettings.Instance.campaignDifficulty = d;
+            RefreshCampaignHighlights();
+            UpdateCampaignSummary();
+        }
+
+        private void RefreshCampaignHighlights()
+        {
+            int f = (int)GameSettings.Instance.playerFaction;
+            FactionData selData = GameSettings.Instance.playerFactionData;
+            for (int i = 0; i < campaignFactionOptions.Count; i++)
+            {
+                OptionButton ob = campaignFactionOptions[i];
+                bool selected = ob.faction != null ? (ob.faction == selData) : (i == f);
+                ApplyStyle(ob, selected);
+            }
+            string dsel = GameSettings.Instance.campaignDifficulty.ToString();
+            foreach (var ob in difficultyOptions) ApplyStyle(ob, ob.label == dsel);
+        }
+
+        private void UpdateCampaignSummary()
+        {
+            if (campaignSummaryLabel == null) return;
+            GameSettings gs = GameSettings.Instance;
+            string factionName = gs.playerFactionData != null ? gs.playerFactionData.factionName : gs.playerFaction.ToString();
+            campaignSummaryLabel.text = $"― 設定 ―\n{factionName}軍 ／ {gs.campaignDifficulty}\n{CampaignDifficultyRules.Describe(gs.campaignDifficulty)}";
         }
 
         private void SaveCurrentSetup()

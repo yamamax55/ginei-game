@@ -605,6 +605,17 @@ namespace Ginei
             }
 
             Debug.Log($"{admiralName} 提督の艦隊 ({faction}) は旗艦を失い退却した。");
+
+            // #2260 会戦結果のメタ反映：提督の運命（捕虜/戦死/離脱）を決定し人事通知へ記録する。
+            // 乱数は Game 層で生成し Core(BattleMetaRules) へ注入（決定論設計・基準値非破壊）。
+            if (admiralData != null)
+            {
+                float cmdFactor = BattleMetaRules.CommandFactorFromStat(admiralData.EffectiveAttack);
+                float moraleF = moraleComponent != null ? moraleComponent.GetMoraleFactor() : 0.5f;
+                CommanderFate fate = BattleMetaRules.ResolveCommanderFate(cmdFactor, moraleF, UnityEngine.Random.value);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                    $"{admiralName}：旗艦喪失 → {fate}（#2260）");
+            }
         }
 
         /// <summary>

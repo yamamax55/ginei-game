@@ -45,6 +45,10 @@ namespace Ginei
         [Tooltip("この距離以内に敵がいる撤退では後退移動を使う（遠ければ通常移動で素早く離脱）")]
         public float reverseRetreatRange = 14f;
 
+        [Header("キーティング（間合い調整）#2254")]
+        [Tooltip("速度優位がある交戦時、IdealRange に対する許容誤差（デッドゾーン）。射程の約10%を既定とする")]
+        public float keetingDeadzone = 1.0f;
+
         [Header("非戦闘艦の回避 #128")]
         [Tooltip("非戦闘艦（偵察/入植/輸送）がこの距離以内の敵から逃げる（戦線を張らず交戦を避ける）")]
         public float nonCombatEvadeRange = 22f;
@@ -256,9 +260,37 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
-                        // 射程内ならその場で停止し、敵の方向を向いて射界を維持
-                        // （FleetWeaponが自動で撃つ。前進はしない）
-                        movement.FaceTarget(targetEnemy.transform.position);
+                        // ── #2254 キーティング（間合い調整）──
+                        // 自部隊が速度優位を持つ場合のみ射程帯に基づいて間合いを調整する。
+                        // 速度劣位・速度情報不明のときは従来どおり FaceTarget に留める（基準値は非破壊）。
+                        bool kiting = false;
+                        FleetMovement enemyMovement = targetEnemy.GetComponent<FleetMovement>();
+                        if (enemyMovement != null && weaponArc != null && movement.maxSpeed > enemyMovement.maxSpeed)
+                        {
+                            Vector2 pos2d = transform.position;
+                            Vector2 enemyPos2d = targetEnemy.transform.position;
+                            float currentDist = Vector2.Distance(pos2d, enemyPos2d);
+
+                            float idealRange = RangeBandRules.IdealRange(weaponArc.preferredBand, weaponArc.range);
+                            int direction = RangeBandRules.ApproachOrWithdraw(currentDist, idealRange, keetingDeadzone);
+
+                            if (direction > 0)
+                            {
+                                movement.SetDestination(enemyPos2d);       // 遠すぎ→接近
+                                kiting = true;
+                            }
+                            else if (direction < 0)
+                            {
+                                Vector2 awayDir = (pos2d - enemyPos2d).normalized; // 近すぎ→射界を保って後退
+                                movement.SetReverseDestination(pos2d + awayDir * (idealRange - currentDist + keetingDeadzone));
+                                kiting = true;
+                            }
+                        }
+                        if (!kiting)
+                        {
+                            // 速度優位なし・デッドゾーン内・速度情報不明＝従来動作（射界維持・停止）
+                            movement.FaceTarget(targetEnemy.transform.position);
+                        }
                     }
                     break;
 

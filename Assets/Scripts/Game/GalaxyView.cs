@@ -40,6 +40,24 @@ namespace Ginei
         [Tooltip("星系の点をクリックしたと見なす半径（ハブ星系で回廊より星系を優先＝惑星へ入れる）")]
         public float systemClickRadius = 0.65f;
 
+        [Header("マップ操作（#2384 戦略マップUX）")]
+        [Tooltip("既定のカメラズーム（orthographicSize）。F キーでこの値へリセット")]
+        public float defaultZoom = 8f;
+        [Tooltip("ズーム感度（CameraController と同方針：scroll×0.01×zoomSpeed をサイズから減算＝連続スクロールで加速）")]
+        public float zoomSpeed = 12f;
+        [Tooltip("ズーム下限（近づける限界）")]
+        public float minZoom = 3f;
+        [Tooltip("ズーム上限（引きの限界）")]
+        public float maxZoom = 16f;
+        [Tooltip("左ドラッグをパンと見なすしきい値（ピクセル）。これ未満で離せばクリック（選択/ダブルクリック）")]
+        public float dragThresholdPixels = 8f;
+        [Tooltip("カメラ中心の移動可能範囲（±このワールド距離でクランプ＝迷子防止）")]
+        public float panLimit = 22f;
+        [Tooltip("背景星雲（galaxy_backdrop）の不透明度（0=出さない）。視野に追従して常に覆う")]
+        [Range(0f, 1f)] public float backdropAlpha = 0.7f;
+        [Tooltip("背景星雲が視野からはみ出す余裕倍率（端の隙間防止）")]
+        public float backdropCover = 1.15f;
+
         [Header("惑星攻城（#131）")]
         [Tooltip("S-AV戦力あたりの制空権抑制速度")]
         public float siegeSuppressRate = 0.05f;
@@ -63,6 +81,10 @@ namespace Ginei
         private double currentAutoResolveSeconds; // TIME-4：現交戦の自動解決所要時間（AutoBattleSim 算出・game-seconds）
         private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
         private Vector2 lastClickWorld;
+        private SpriteRenderer backdrop;    // 背景星雲（galaxy_backdrop・視野追従）
+        private bool leftDragging;          // 左ドラッグでパン中（クリック判定は離した時＝パンと非競合）
+        private Vector2 leftPressScreen;    // 左押下時のスクリーン座標（ドラッグ判定の起点）
+        private Vector3 dragGrabWorld;      // パンでつかんだワールド点（カーソル下に保つ不変点）
 
         private readonly List<StrategicFleet> selectedFleets = new List<StrategicFleet>();
         private readonly Dictionary<int, SpriteRenderer> systemDots = new Dictionary<int, SpriteRenderer>();
@@ -153,13 +175,15 @@ namespace Ginei
             cam = Camera.main;
             if (cam == null) cam = new GameObject("GalaxyCamera").AddComponent<Camera>();
             cam.orthographic = true;
-            cam.orthographicSize = 8f;
+            cam.orthographicSize = defaultZoom;
             cam.transform.position = new Vector3(0f, 0f, -10f);
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.03f, 0.03f, 0.07f);
 
             disc = MakeDiscSprite(64);
             lineMat = new Material(Shader.Find("Sprites/Default"));
+
+            SetupBackdrop(); // 背景星雲（galaxy_backdrop）を視野追従で敷く（#2384）
 
             BuildDemoGalaxy();
             SetupGovernance();
@@ -3079,6 +3103,7 @@ namespace Ginei
                 if (kb.digit3Key.wasPressedThisFrame) { clock.SetSpeed(2f); clock.Resume(); }
             }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
+            if (kb.fKey.wasPressedThisFrame) ResetView(); // F：既定のズーム/位置へ戻す（#2384）
 
             // 外交コマンド（#2119 操作化）：対立勢力へ 7=宣戦 / 8=講和 / 9=同盟。自勢力の外交はプレイヤーが握る。
             if (kb.digit7Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.宣戦布告);
@@ -3295,26 +3320,34 @@ namespace Ginei
         {
             if (Mouse.current == null || cam == null) return;
 
-            // 左クリック：ダブルクリックで交戦中の回廊へ潜行（実会戦）、単クリックは選択
+            HandleZoom(); // マウスホイール：カーソル中心ズーム（#2384）
+
+            // 左ボタン：押下〜離しでドラッグ（パン）かクリック（選択/ダブルクリック）かを判定する（#2384）。
+            // クリック確定を「離した時」に行う＝ドラッグでマップを動かしても選択/潜行と競合しない。
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
-                Vector2 w = WorldMouse();
-
-                // ダブルクリック判定（実時間・近接）→ 交戦中の回廊なら潜行
-                float now = Time.realtimeSinceStartup;
-                bool dbl = (now - lastClickTime <= doubleClickWindow) && Vector2.Distance(w, lastClickWorld) <= 0.6f;
-                lastClickTime = now; lastClickWorld = w;
-                // 交戦回廊への潜行＞攻城突入＞（どちらも無ければ）平時の星系をシステムビューで閲覧
-                if (dbl && (TryDescend(w) || TryDescendPlanet(w) || TryEnterSystem(w))) return;
-
-                bool additive = ShiftHeld();
-                StrategicFleet nf = NearestFleet(w, 0.7f);
-                if (nf != null)
+                leftPressScreen = Mouse.current.position.ReadValue();
+                dragGrabWorld = WorldMouse();
+                leftDragging = false;
+            }
+            else if (Mouse.current.leftButton.isPressed)
+            {
+                Vector2 cur = Mouse.current.position.ReadValue();
+                if (!leftDragging && Vector2.Distance(cur, leftPressScreen) > dragThresholdPixels)
+                    leftDragging = true;
+                if (leftDragging)
                 {
-                    if (additive) { if (!selectedFleets.Remove(nf)) selectedFleets.Add(nf); }
-                    else { selectedFleets.Clear(); selectedFleets.Add(nf); }
+                    // グラブパン：つかんだワールド点 dragGrabWorld をカーソル下に保つ（dragGrabWorld は不変点）。
+                    Vector3 nowWorld = WorldMouse();
+                    Vector3 d = dragGrabWorld - nowWorld;
+                    cam.transform.position += new Vector3(d.x, d.y, 0f);
+                    ClampCameraPan();
                 }
-                else if (!additive) selectedFleets.Clear();
+            }
+            else if (Mouse.current.leftButton.wasReleasedThisFrame)
+            {
+                if (!leftDragging) DoLeftClick(WorldMouse()); // ドラッグでなければクリック確定
+                leftDragging = false;
             }
             // 右クリック：クリックに近い方を採用。星系の点が近ければ進軍、回廊の線が近ければ
             // その位置で停止保持（端点に居る選択艦のみ）。
@@ -3348,6 +3381,83 @@ namespace Ginei
                     foreach (var f in selectedFleets) if (f != null) f.WarpTo(map, sysId);
                 }
             }
+        }
+
+        /// <summary>左クリック確定（離した時に呼ぶ＝ドラッグと非競合）。ダブルクリックで潜行/突入/閲覧、単クリックで選択。</summary>
+        private void DoLeftClick(Vector2 w)
+        {
+            // ダブルクリック判定（実時間・近接）→ 交戦回廊への潜行＞攻城突入＞平時の星系をシステムビューで閲覧
+            float now = Time.realtimeSinceStartup;
+            bool dbl = (now - lastClickTime <= doubleClickWindow) && Vector2.Distance(w, lastClickWorld) <= 0.6f;
+            lastClickTime = now; lastClickWorld = w;
+            if (dbl && (TryDescend(w) || TryDescendPlanet(w) || TryEnterSystem(w))) return;
+
+            bool additive = ShiftHeld();
+            StrategicFleet nf = NearestFleet(w, 0.7f);
+            if (nf != null)
+            {
+                if (additive) { if (!selectedFleets.Remove(nf)) selectedFleets.Add(nf); }
+                else { selectedFleets.Clear(); selectedFleets.Add(nf); }
+            }
+            else if (!additive) selectedFleets.Clear();
+        }
+
+        /// <summary>マウスホイールでカーソル中心ズーム（#2384・CameraController と同方針＝連続スクロールで加速）。</summary>
+        private void HandleZoom()
+        {
+            float scroll = Mouse.current.scroll.ReadValue().y;
+            if (Mathf.Abs(scroll) <= 0.01f) return;
+            Vector3 worldBefore = WorldMouse();
+            float newSize = cam.orthographicSize - (scroll * 0.01f * zoomSpeed);
+            cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
+            Vector3 worldAfter = WorldMouse();
+            cam.transform.position += (worldBefore - worldAfter); // カーソル下のワールド点を維持
+            ClampCameraPan();
+        }
+
+        /// <summary>F：カメラを既定のズーム/位置へ戻す（#2384）。</summary>
+        private void ResetView()
+        {
+            if (cam == null) return;
+            cam.orthographicSize = Mathf.Clamp(defaultZoom, minZoom, maxZoom);
+            cam.transform.position = new Vector3(0f, 0f, -10f);
+        }
+
+        /// <summary>カメラ中心を ±panLimit でクランプ（迷子防止）。z は維持。</summary>
+        private void ClampCameraPan()
+        {
+            if (cam == null) return;
+            Vector3 p = cam.transform.position;
+            p.x = Mathf.Clamp(p.x, -panLimit, panLimit);
+            p.y = Mathf.Clamp(p.y, -panLimit, panLimit);
+            cam.transform.position = p;
+        }
+
+        /// <summary>背景星雲（galaxy_backdrop）を生成（#2384）。画像が無ければ何もしない＝後方互換。Multiple 設定でも確実なよう Texture2D から動的生成。</summary>
+        private void SetupBackdrop()
+        {
+            if (backdropAlpha <= 0f) return;
+            Texture2D tex = Resources.Load<Texture2D>("Textures/galaxy_backdrop");
+            if (tex == null) return;
+            var go = new GameObject("GalaxyBackdrop");
+            backdrop = go.AddComponent<SpriteRenderer>();
+            backdrop.sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+            backdrop.sortingOrder = -200; // 星系ドット/回廊/艦隊より背後
+            backdrop.color = new Color(1f, 1f, 1f, backdropAlpha);
+        }
+
+        /// <summary>背景星雲をカメラ視野に追従させ常に覆う（ズーム/パンに連動）。</summary>
+        private void LateUpdate()
+        {
+            if (backdrop == null || cam == null) return;
+            Vector3 cp = cam.transform.position;
+            backdrop.transform.position = new Vector3(cp.x, cp.y, 0f);
+            float worldH = cam.orthographicSize * 2f;
+            float worldW = worldH * Mathf.Max(0.01f, cam.aspect);
+            Vector3 sprSize = backdrop.sprite.bounds.size; // ワールド単位（pixelsPerUnit=100）
+            float sx = sprSize.x > 0f ? (worldW / sprSize.x) * backdropCover : 1f;
+            float sy = sprSize.y > 0f ? (worldH / sprSize.y) * backdropCover : 1f;
+            backdrop.transform.localScale = new Vector3(sx, sy, 1f);
         }
 
         /// <summary>

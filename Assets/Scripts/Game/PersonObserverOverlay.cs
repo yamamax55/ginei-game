@@ -124,18 +124,9 @@ namespace Ginei
             sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}\n");
         }
 
-        /// <summary>その文官が就いている文官要職名（無ければ空）。GovernmentRegistry を read-only で照会。</summary>
+        /// <summary>その文官が就いている文官官職名（宰相/総督。無ければ空）。GalaxyView が map 込みで解決する。</summary>
         private string OfficeHeldBy(GalaxyView gv, Person p)
-        {
-            var offices = gv != null ? gv.CivilOffices : null;
-            if (offices == null || p == null) return "";
-            for (int i = 0; i < offices.Count; i++)
-            {
-                if (offices[i] == null) continue;
-                if (GovernmentRegistry.GetHolder(offices[i]) is Person h && h.id == p.id) return offices[i].officeName;
-            }
-            return "";
-        }
+            => gv != null ? gv.CivilPostOf(p) : "";
 
         private void AppendPerson(StringBuilder sb, AdmiralData a)
         {

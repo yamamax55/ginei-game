@@ -68,6 +68,23 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void FillVacancy_ScopedAppointments_AreIndependentPerSystem()
+        {
+            // 総督＝星系スコープ。scopeKey（星系id）ごとに独立して任命できる（同一 Office を使い回す）。
+            var gov = new Office(2, "総督", OfficeScope.星系, OfficeDomain.内政) { civilianOnly = true, requiredTier = 0 };
+            var a = Civil(1, CourtRank.正六位上, MeritRating.上中);
+            var b = Civil(2, CourtRank.正六位上, MeritRating.上中);
+            var ra = CivilAppointmentRules.FillVacancy(Faction.帝国, gov, CourtRank.正六位上,
+                new List<Person> { a }, AP.Default, scopeKey: 100);
+            var rb = CivilAppointmentRules.FillVacancy(Faction.帝国, gov, CourtRank.正六位上,
+                new List<Person> { b }, AP.Default, scopeKey: 200);
+            Assert.AreSame(a, ra);
+            Assert.AreSame(b, rb);
+            Assert.AreSame(a, GovernmentRegistry.GetHolder(gov, 100) as Person);
+            Assert.AreSame(b, GovernmentRegistry.GetHolder(gov, 200) as Person);
+        }
+
+        [Test]
         public void FillVacancy_NoQualified_LeavesVacant()
         {
             var office = Saisho();

@@ -72,6 +72,7 @@ namespace Ginei
                     {
                         faction = (int)fs.faction,
                         inclusiveness = fs.inclusiveness,
+                        governmentForm = (int)fs.governmentForm,
                         regimeLegitimacy = fs.regime.legitimacy,
                         regimeCorruption = fs.regime.corruption,
                         regimeVirtue = fs.regime.virtue,
@@ -138,6 +139,7 @@ namespace Ginei
                 FactionStateSave fss = save.states[i];
                 if (fss == null) continue;
                 var fs = new FactionState((Faction)fss.faction, fss.inclusiveness);
+                fs.governmentForm = (GovernmentForm)fss.governmentForm;
                 fs.regime.legitimacy = fss.regimeLegitimacy;
                 fs.regime.corruption = fss.regimeCorruption;
                 fs.regime.virtue = fss.regimeVirtue;

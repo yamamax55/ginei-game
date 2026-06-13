@@ -57,6 +57,7 @@ namespace Ginei
     {
         public int faction;
         public float inclusiveness;
+        public int governmentForm; // (int)GovernmentForm（政体形態 #117・既定0=首長制＝旧セーブ前方互換）
         // Regime
         public float regimeLegitimacy, regimeCorruption, regimeVirtue;
         // Polity

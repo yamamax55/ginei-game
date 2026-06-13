@@ -135,6 +135,10 @@ namespace Ginei
                  "既定false＝従来動作。FierceGeneralRules が解決")]
         public bool isFierceGeneral = false; // 猛将＝張飛型（猪突・一喝・正義感・酒癖・暗殺リスク）
 
+        [Tooltip("大戦術家（#大戦術家＝ハンニバル型）。包囲殲滅・戦場の霧・心理戦・地形無効（アルプス越え）・宿敵特効・多国籍結束に長けるが、内政/兵站が苦手で研究されると包囲が破られる。" +
+                 "既定false＝従来動作。GrandTacticianRules が解決")]
+        public bool isGrandTactician = false; // 大戦術家＝ハンニバル型
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

@@ -92,6 +92,30 @@ namespace Ginei
                  "既定 false＝並の提督は100で頭打ち（後方互換）。TenchijinRules が解決")]
         public bool isTranscendent = false; // 軍神＝限界突破型
 
+        [Tooltip("表裏比興の者（#表裏比興＝真田昌幸型）。主家滅亡を発動条件に覚醒し、寡兵で大軍を翻弄・自在に変節して生き残る。" +
+                 "既定 false＝従来動作。HyoriHikyoRules が解決（発動条件＝主家滅亡）")]
+        public bool isHyoriHikyo = false; // 表裏比興の者＝主家滅亡で覚醒する梟雄
+
+        [Tooltip("革新者（#革新者＝織田信長型）。先見性・新技術の積極活用で時代を先取りし、若い頃は『うつけ』と侮られるが開花する。" +
+                 "既定 false＝従来動作。InnovatorRules が解決")]
+        public bool isInnovator = false; // 革新者＝織田信長型（先見性・新技術・若年うつけ）
+
+        [Tooltip("立身出世型（#立身出世＝豊臣秀吉型）。門地を問わぬ実力本位の出世・人たらし（人心掌握）・戦略機動の妙（中国大返し）。" +
+                 "既定 false＝従来動作。RisingHeroRules が解決")]
+        public bool isRisingHero = false; // 立身出世型＝豊臣秀吉型（足軽から天下人）
+
+        [Tooltip("日本一の兵（#日本一の兵＝真田幸村型）。とにかく強い武勇に加え、真田丸の堅守（寡兵の防衛）と決死の突撃（窮地ほど苛烈）。" +
+                 "既定 false＝従来動作。PeerlessWarriorRules が解決")]
+        public bool isPeerlessWarrior = false; // 日本一の兵＝真田幸村型（剛勇・真田丸・決死突撃）
+
+        [Tooltip("三日天下型（#三日天下＝明智光秀型）。中央の事情にあかるく謀反（本能寺の変）は成功させるが、主殺しゆえ正統性を得られず短命に終わる。" +
+                 "既定 false＝従来動作。ThreeDayReignRules が解決")]
+        public bool isThreeDayRuler = false; // 三日天下型＝明智光秀型（中央通・謀反成功・短命）
+
+        [Tooltip("寝返り型（#寝返り＝小早川秀秋型）。調略・圧力に屈し布陣後に寝返る。決定的だが布陣後の寝返りはご法度ゆえ名誉が大幅に下がる。" +
+                 "既定 false＝従来動作。TurncoatRules が解決")]
+        public bool isTurncoat = false; // 寝返り型＝小早川秀秋型（布陣後の寝返り・名誉大幅減）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]
@@ -125,6 +149,33 @@ namespace Ginei
         [Tooltip("この提督が所持する特技・戦法（TalentCatalog の id＋格）。空＝特技なし＝従来動作。" +
                  "効果は TalentRules が素養（実効能力）と格で解き、戦闘は AdmiralSkillRules#137-140 等へ橋渡しする")]
         public List<Talent> talents = new List<Talent>();
+
+        [Header("提督能力の深化（ADM・#2301）")]
+        [Tooltip("武名・名声（0..100・ADM-3 #2304）。戦功で上昇。高名な将は敵士気を削り味方を鼓舞し寝返りされにくい（RenownRules）。既定0＝無名")]
+        [Range(0, 100)]
+        public int fame = 0;
+
+        [Tooltip("得意戦型（ADM-6 #2307）。状況一致でボーナス（SpecialtyRules）。既定=なし＝従来動作")]
+        public CombatSpecialty specialty = CombatSpecialty.なし;
+
+        [Tooltip("疲労（0..100・ADM-5 #2306）。連戦で蓄積し実効能力を一時低下、休養で回復（ConditionRules・基準非破壊）。既定0")]
+        [Range(0, 100)]
+        public int fatigue = 0;
+
+        [Tooltip("負傷の重さ（0..100・ADM-5 #2306）。実効能力を一時低下（ConditionRules）。旗艦撃破時の運命#2260と地続き。既定0")]
+        [Range(0, 100)]
+        public int woundSeverity = 0;
+
+        [Tooltip("成長状態（ADM-2 #2303・GrowthRules#537-543）。経験で実効能力が伸びる（軍神#軍神は天地人で100超）。null＝成長なし＝従来動作")]
+        public Growth growth = null;
+
+        [Header("提督の采配と人物ドラマ（CDR・#2310）")]
+        [Tooltip("性格類型（CDR-1 #2311）。AI采配の傾向（交戦/撤退・特殊指揮・陣形選好）を決める＝CommandDoctrineRules。既定=冷静")]
+        public CommanderPersonality personality = CommanderPersonality.冷静;
+
+        [Tooltip("君主への個人忠誠（0..1・CDR-2 #2312・既定1＝忠臣）。論功行賞/不遇/功名心で動き、低忠誠×高功名心で下剋上＝AllegianceDriftRules")]
+        [Range(0f, 1f)]
+        public float personalLoyalty = 1f;
 
         /// <summary>参謀の最大人数。</summary>
         public const int MaxStaff = 3;

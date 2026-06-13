@@ -162,7 +162,12 @@ namespace Ginei
             int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier * Mathf.Max(0.1f, corpsAbility)));
 
             bool isFlank;
-            float fAtk = FormationTraitRules.AttackFactor(parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣);
+            Formation myFormation = parentSquadron != null ? parentSquadron.currentFormation : Formation.紡錘陣;
+            float fAtk = FormationTraitRules.AttackFactor(myFormation);
+            // 陣形の相性（じゃんけん #2177）：防御側陣形に対する与ダメ補正。
+            Squadron targetSquadron = ShipCombat.GetSquadronOf(target);
+            if (targetSquadron != null)
+                fAtk *= FormationMatchupRules.AttackFactor(myFormation, targetSquadron.currentFormation);
             // ランチェスター集中倍率は旗艦が部隊単位で算出した値を流用（配下艦ごとに再計算しない＝終盤ラグ回避）。
             float lanchester = flagshipWeapon != null ? flagshipWeapon.LanchesterFactor : 1f;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,

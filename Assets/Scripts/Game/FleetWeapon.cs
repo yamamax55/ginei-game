@@ -332,10 +332,15 @@ namespace Ginei
             if (myStrength != null && myStrength.corpsAbilityFactor != 1f)
                 baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * Mathf.Max(0.1f, myStrength.corpsAbilityFactor)));
 
-            // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・ランチェスター集中 を集約ヘルパーで算出）
+            // ダメージ計算（提督攻撃・士気・側背面・陣形特性#72・陣形相性#2177・ランチェスター集中 を集約ヘルパーで算出）
             bool isFlank;
             Squadron mySquadron = ShipCombat.GetSquadronOf(myStrength);
-            float fAtk = FormationTraitRules.AttackFactor(mySquadron != null ? mySquadron.currentFormation : Formation.紡錘陣);
+            Formation myFormation = mySquadron != null ? mySquadron.currentFormation : Formation.紡錘陣;
+            float fAtk = FormationTraitRules.AttackFactor(myFormation);
+            // 陣形の相性（じゃんけん）：防御側の陣形に対する与ダメ補正を攻撃側陣形倍率に乗せる。
+            Squadron targetSquadron = ShipCombat.GetSquadronOf(target);
+            if (targetSquadron != null)
+                fAtk *= FormationMatchupRules.AttackFactor(myFormation, targetSquadron.currentFormation);
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
                 moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk, LanchesterFactor);

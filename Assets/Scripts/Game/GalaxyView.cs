@@ -417,21 +417,23 @@ namespace Ginei
             // 戦略↔実会戦の往復で世界状態を保持（あれば再利用）
             if (StrategySession.HasState) { map = StrategySession.Map; reg = StrategySession.Reg; return; }
 
+            // 開始は帝国3:同盟3＝50:50（勝利/敗北しきい値70%＝開始時はどちらも未達＝開幕で決着しない）。
+            // 帝国＝右クラスタ{0,2,3}／同盟＝左クラスタ{1,4,5}。中央ドラコ(3)が唯一の前線ハブ。
             map = new GalaxyMap();
             map.AddSystem(new StarSystem(0, "アスタ", new Vector2(0f, 3f), Faction.帝国));
             map.AddSystem(new StarSystem(1, "ベガ", new Vector2(-5f, -3f), Faction.同盟));
             map.AddSystem(new StarSystem(2, "ケレス", new Vector2(5f, 3f), Faction.帝国));
             map.AddSystem(new StarSystem(3, "ドラコ", new Vector2(0f, -0.5f), Faction.帝国));
             map.AddSystem(new StarSystem(4, "エリス", new Vector2(-2.5f, 1f), Faction.同盟));
-            map.AddSystem(new StarSystem(5, "フェニクス", new Vector2(3.5f, -2.5f), Faction.帝国));
+            map.AddSystem(new StarSystem(5, "フェニクス", new Vector2(-3.5f, -2.5f), Faction.同盟));
 
             map.AddCorridor(new Corridor(2, 0, 4f, CorridorType.要衝));
             map.AddCorridor(new Corridor(0, 3, 5f));
-            map.AddCorridor(new Corridor(3, 1, 4f));
-            map.AddCorridor(new Corridor(3, 4, 3f));
+            map.AddCorridor(new Corridor(3, 1, 4f));  // 前線：帝国ドラコ ⟷ 同盟ベガ
+            map.AddCorridor(new Corridor(3, 4, 3f));  // 前線：帝国ドラコ ⟷ 同盟エリス
             map.AddCorridor(new Corridor(4, 1, 2f));
-            map.AddCorridor(new Corridor(0, 5, 3f));
-            map.AddCorridor(new Corridor(5, 3, 2f));
+            map.AddCorridor(new Corridor(1, 5, 2f));
+            map.AddCorridor(new Corridor(4, 5, 3f));
 
             // 帝国星系は惑星（制空権持ち）で防衛＝同盟は停泊だけでは占領できず攻城が要る（#131）。
             // 同盟星系は無防備（planet 無し）＝従来どおり停泊で占領（両方の挙動をデモ）。
@@ -1113,8 +1115,14 @@ namespace Ginei
             // 政体進化（#117 配線）：首長制→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ社会シグナルで分岐進化。
             RunRegimeEvolutionTick();
 
-            // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡で敗北。決着で時計を止めて告知。
+            // 政党政治（#159 配線）：民主政治の勢力で政党制が成熟度に応じ二大政党へ収束し、衆参の選挙が回り、分断危機を通知。
+            RunPoliticsTick();
+
+            // キャンペーンの勝敗（遊べる縦スライスの核）：制覇/全制圧で勝利・滅亡/敵制覇で敗北。決着で時計を止めて終了画面。
             RunCampaignVictoryCheck();
+
+            // 年境界の自動保存（決着後は保存しない＝終了状態で上書きしない）。閉じても進行が消えない。
+            if (!campaignDecided) AutoSaveCampaign();
 
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
@@ -1469,6 +1477,61 @@ namespace Ginei
                     GovernmentFormRules.Apply(s, next);
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意, $"{s.faction} 政体が {prev} → {next} へ移行");
                 }
+            }
+        }
+
+        /// <summary>
+        /// 政党政治の年次 Tick（#159 配線）：民主政治の勢力ごとに、成熟度に応じて政党制を二大政党へ収束させ、
+        /// 衆参の選挙日程を回し、分断危機の立ち上がりを通知する。数値は <see cref="PoliticsTickRules"/>（→PartySystemRules/ElectionScheduleRules）へ委譲。
+        /// </summary>
+        private void RunPoliticsTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null) continue;
+                if (!ElectoralSystemRules.IsElectoral(s.governmentForm)) continue; // 民主政治のみ（寡頭/君主/独裁は選挙なし）
+
+                if (s.politics == null || s.politics.parties.Count == 0) SeedDemoParties(s);
+
+                var r = PoliticsTickRules.TickYear(s, campaignYear);
+
+                if (r.lowerHouseElection)
+                {
+                    Party ruling = PartyRules.RulingParty(s.politics.parties);
+                    string rn = ruling != null ? ruling.partyName : "—";
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                        $"{s.faction} 下院総選挙（衆議院相当・任期4年）＝第一党 {rn}");
+                }
+                if (r.upperHouseElection)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                        $"{s.faction} 上院通常選挙（参議院相当・半数改選）");
+                if (r.dividedCrisisOnset)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.faction} 二大政党化で社会の分断が深刻化（有効政党数 {r.effectiveParties:0.0}）");
+            }
+        }
+
+        /// <summary>デモ用の政党シード：多党乱立から出発させる（成熟が上がると二大政党へ収束する＝#159）。</summary>
+        private void SeedDemoParties(FactionState s)
+        {
+            if (s == null) return;
+            if (s.politics == null) s.politics = new PoliticsState();
+            if (s.politics.parties.Count > 0) return;
+
+            string[] names = s.faction == Faction.帝国
+                ? new[] { "立憲党", "自由党", "国民党", "革新党" }
+                : new[] { "民政党", "進歩党", "中道党", "急進党" };
+            int baseId = (int)s.faction * 100;
+            float share = 1f / names.Length;
+            for (int i = 0; i < names.Length; i++)
+            {
+                Party p = PartyOrganizationRules.Create(baseId + i + 1, names[i], s.faction, founderId: -1);
+                p.support = share;
+                s.politics.parties.Add(p);
             }
         }
 
@@ -3083,14 +3146,27 @@ namespace Ginei
             return best < 0f ? 0.5f : Mathf.Clamp01(best / 100f);
         }
 
-        /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間）をファイルへ保存する（F5）。</summary>
-        private void SaveCampaign()
+        /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間/内政）をファイルへ書き出す共通処理。</summary>
+        private void WriteCampaignSave()
         {
             var people = new System.Collections.Generic.List<Person>();
             if (commanders != null) people.AddRange(commanders);
             if (civilians != null) people.AddRange(civilians);
             CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces, StrategySession.CourtAuthority);
+        }
+
+        /// <summary>戦役の全状態をファイルへ保存する（F5・手動）。</summary>
+        private void SaveCampaign()
+        {
+            WriteCampaignSave();
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");
+        }
+
+        /// <summary>年境界ごとの自動保存（閉じても進行が消えないように）。F9/タイトルの「戦役を再開」で復帰できる。</summary>
+        private void AutoSaveCampaign()
+        {
+            WriteCampaignSave();
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "オートセーブ");
         }
 
         /// <summary>セーブから全状態を StrategySession へ復元し、Strategy シーンを再ロードして盤面を再構築する（F9）。</summary>

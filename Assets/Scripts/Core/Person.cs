@@ -52,6 +52,14 @@ namespace Ginei
         public CaptiveStatus captiveStatus = CaptiveStatus.自由; // 拘留状態（LIFE-4）
         public Faction heldBy;                                   // 捕獲勢力（捕虜時）
 
+        // --- 家族（結婚と出産・血縁。-1=なし） ---
+        public int spouseId = -1; // 配偶者（PersonMarriageRules）
+        public int motherId = -1; // 母（ChildbirthRules）
+        public int fatherId = -1; // 父（ChildbirthRules）
+
+        /// <summary>マスクされた潜在能力＝劣性遺伝で血統に埋もれて受け継がれ、まれに子で開花する（0=なし・<see cref="HeredityRules"/>）。</summary>
+        public int recessiveTalent = 0;
+
         // --- 経歴（出自パイプライン LIFE-5/6/7 #155/#156/#157） ---
         public int hammockNumber; // 士官学校の卒業席次（1=首席。小さいほど上位。LIFE-5）
         public MilitaryDegree militaryDegree = MilitaryDegree.無資格; // 軍学歴の最高（幼年学校卒/士官学校卒/大学校卒。LIFE-5 細分化・MilitaryAcademyRules）

@@ -649,14 +649,33 @@ namespace Ginei
         {
             campaignYear = TimeDisplay.StartYear; // 開始暦（宇宙暦SE796）と揃える
             commanders = new List<Person>();
-            int y = campaignYear;
-            int id = 1;
-            // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
-            commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
-            commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
-            commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
-            commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
-            nextPersonId = id; // 卒業生はこの続き番号で採番
+            civilians = new List<Person>();
+            if (StrategySession.PendingPeople != null)
+            {
+                // ロード復元：保存済みロスターを採用（軍人=提督名簿／文民=文官名簿に振り分け）。
+                var loaded = StrategySession.PendingPeople;
+                int maxId = 0;
+                for (int i = 0; i < loaded.Count; i++)
+                {
+                    Person p = loaded[i];
+                    if (p == null) continue;
+                    if (p.role == PersonRole.軍人) commanders.Add(p); else civilians.Add(p);
+                    if (p.id > maxId) maxId = p.id;
+                }
+                nextPersonId = maxId + 1;
+                StrategySession.PendingPeople = null; // 消費（再構築は一度きり）
+            }
+            else
+            {
+                int y = campaignYear;
+                int id = 1;
+                // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
+                commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
+                commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
+                commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
+                commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+                nextPersonId = id; // 卒業生はこの続き番号で採番
+            }
 
             // 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに候補を多段の苛烈な選抜で篩い、認定者を SOF 出身にする。
             RunSofSelection();
@@ -669,7 +688,7 @@ namespace Ginei
             };
 
             // 大学（#156/#157 LIFE-6/7）：各勢力に文官大学＋帝国に工科大学（テクノクラート）。文民/技術者を輩出。
-            civilians = new List<Person>();
+            // civilians は上で初期化済（ロード復元 or 空）。ここでは再生成しない。
             universities = new List<University>
             {
                 new University(schoolId: 3, faction: Faction.帝国, name: "帝国大学", track: CareerTrack.科挙, capacity: 6, quality: 0.6f),
@@ -2482,6 +2501,10 @@ namespace Ginei
             // ミッションコマンド（任務戦術）：C＝マウス直下の敵対星系へ攻略任務／V＝対立勢力を攻略（参謀本部が目標選定・必要兵力を見積もり自動動員）。
             if (kb.cKey.wasPressedThisFrame) IssueMissionAtMouse();
             if (kb.vKey.wasPressedThisFrame) IssueCampaignAgainstRival();
+
+            // セーブ/ロード（continue・全永続化）：F5=保存／F9=読込（読込後 Strategy を再ロードして再構築）。
+            if (kb.f5Key.wasPressedThisFrame) SaveCampaign();
+            if (kb.f9Key.wasPressedThisFrame) LoadCampaign();
         }
 
         /// <summary>対立勢力（プレイヤー以外の最初のデモ勢力）へ外交コマンドを発令。発令不可なら通知。</summary>
@@ -2648,6 +2671,24 @@ namespace Ginei
                 if (c.CivilAptitude > best) best = c.CivilAptitude;
             }
             return best < 0f ? 0.5f : Mathf.Clamp01(best / 100f);
+        }
+
+        /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間）をファイルへ保存する（F5）。</summary>
+        private void SaveCampaign()
+        {
+            var people = new System.Collections.Generic.List<Person>();
+            if (commanders != null) people.AddRange(commanders);
+            if (civilians != null) people.AddRange(civilians);
+            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock);
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");
+        }
+
+        /// <summary>セーブから全状態を StrategySession へ復元し、Strategy シーンを再ロードして盤面を再構築する（F9）。</summary>
+        private void LoadCampaign()
+        {
+            if (!CampaignSaveManager.HasSave()) { NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意, "セーブがありません"); return; }
+            if (CampaignSaveManager.LoadSession())
+                SceneManager.LoadScene("Strategy");
         }
 
         private void HandleMouse()

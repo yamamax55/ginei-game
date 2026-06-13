@@ -20,9 +20,12 @@ namespace Ginei
         /// <summary>統一ゲーム時間の唯一の権威（TIME-1 #947）。戦略/戦術が共有し、Battle 往復でも時間を失わない。</summary>
         public static GameClock Clock = new GameClock();
 
+        /// <summary>ロード復元用の人物ロスター置き場（continue・セーブから復元）。GalaxyView が次の構築で消費する。null=なし。</summary>
+        public static List<Person> PendingPeople;
+
         public static bool HasState => Map != null && Reg != null;
 
         public static void Set(GalaxyMap map, StrategicFleetRegistry reg) { Map = map; Reg = reg; }
-        public static void Clear() { Map = null; Reg = null; Provinces = null; Campaign = null; Clock = new GameClock(); }
+        public static void Clear() { Map = null; Reg = null; Provinces = null; Campaign = null; Clock = new GameClock(); PendingPeople = null; }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
@@ -115,6 +116,11 @@ namespace Ginei
         [Tooltip("参謀の能力が実効能力に寄与する割合 (0〜1)。例:0.2 なら参謀の能力の20%を補完")]
         [Range(0f, 1f)]
         public float staffBonusRatio = 0.2f;
+
+        [Header("特技・戦法（本作オリジナル・信長の野望/三国志を参考）")]
+        [Tooltip("この提督が所持する特技・戦法（TalentCatalog の id＋格）。空＝特技なし＝従来動作。" +
+                 "効果は TalentRules が素養（実効能力）と格で解き、戦闘は AdmiralSkillRules#137-140 等へ橋渡しする")]
+        public List<Talent> talents = new List<Talent>();
 
         /// <summary>参謀の最大人数。</summary>
         public const int MaxStaff = 3;

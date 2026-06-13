@@ -131,6 +131,10 @@ namespace Ginei
                  "既定false＝従来動作。WarSaintRules が解決。※上杉謙信の軍神(TenchijinRules)とは別")]
         public bool isWarSaint = false; // 武聖＝関羽型（限界突破の武・一騎打ち・千里行・荊州の慢心）
 
+        [Tooltip("猛将（#猛将＝張飛型）。猪突猛進・長坂の一喝・一騎打ちに強く正義感に厚いが、部下に厳しく酒癖が悪く暗殺されうる。" +
+                 "既定false＝従来動作。FierceGeneralRules が解決")]
+        public bool isFierceGeneral = false; // 猛将＝張飛型（猪突・一喝・正義感・酒癖・暗殺リスク）
+
         [Header("艦隊設定")]
         [Tooltip("【非推奨・RANKCMD-1 #1711】兵力は人物でなく艦隊が持つ（FleetUnitData.baseStrength／FleetStrength.baseStrength）。" +
                  "後方互換のフォールバック専用＝艦隊側に兵力が無いときだけ読まれる。人物は階級で『指揮できる規模』を持つ（CommandCapacityRules）。")]

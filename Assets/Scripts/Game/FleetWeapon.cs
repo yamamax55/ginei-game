@@ -43,6 +43,11 @@ namespace Ginei
         public float LanchesterFactor { get; private set; } = 1f;
         private float nextLanchesterTime;
 
+        // ダメージ内訳サンプリング（#2252）：プレイヤー勢力のみ・間引きで再利用（ホットパス無確保）。
+        private DamageBreakdown sampleBreakdown;
+        private float nextBreakdownSampleTime;
+        private const float BreakdownSampleInterval = 2.5f;
+
         [Header("演出設定")]
         public float beamWidth = 0.2f;
         public float beamDuration = 0.1f;
@@ -310,6 +315,14 @@ namespace Ginei
             LanchesterFactor = LanchesterRules.ConcentrationFactor(friendly, enemy);
         }
 
+        /// <summary>ダメージ内訳を今サンプリングするか（プレイヤー勢力の旗艦・間引き間隔経過時のみ）。</summary>
+        private bool ShouldSampleBreakdown()
+        {
+            if (myStrength == null || GameSettings.Instance == null) return false;
+            if (myStrength.faction != GameSettings.Instance.playerFaction) return false;
+            return Time.time >= nextBreakdownSampleTime;
+        }
+
         /// <summary>
         /// 指定した個艦に攻撃を実行し、ダメージを計算します。
         /// </summary>
@@ -353,9 +366,18 @@ namespace Ginei
             Squadron targetSquadron = ShipCombat.GetSquadronOf(target);
             if (targetSquadron != null)
                 fAtk *= FormationMatchupRules.AttackFactor(myFormation, targetSquadron.currentFormation);
+
+            // ダメージ内訳のサンプリング（#2252・可視化）：プレイヤー勢力の注目ヒットだけ間引いて通知ログへ。
+            DamageBreakdown bd = ShouldSampleBreakdown() ? (sampleBreakdown ?? (sampleBreakdown = new DamageBreakdown())) : null;
             int finalDamage = ShipCombat.ComputeDamage(baseDamage,
                 myStrength != null ? myStrength.admiralData : null,
-                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk, LanchesterFactor);
+                moraleFactor, transform.position, target.Transform, flankMultiplier, out isFlank, fAtk, LanchesterFactor, bd);
+            if (bd != null)
+            {
+                nextBreakdownSampleTime = Time.time + BreakdownSampleInterval;
+                if (isFlank || bd.WasClamped) // 側背 or クランプ発生＝学びがあるヒットだけ出す
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報, $"与ダメ内訳：{bd.Describe()}");
+            }
 
             Vector3 targetPos = target.Transform.position; // TakeDamage前に取得
             target.TakeDamage(finalDamage);

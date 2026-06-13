@@ -126,6 +126,25 @@ namespace Ginei
                  "効果は TalentRules が素養（実効能力）と格で解き、戦闘は AdmiralSkillRules#137-140 等へ橋渡しする")]
         public List<Talent> talents = new List<Talent>();
 
+        [Header("提督能力の深化（ADM・#2301）")]
+        [Tooltip("武名・名声（0..100・ADM-3 #2304）。戦功で上昇。高名な将は敵士気を削り味方を鼓舞し寝返りされにくい（RenownRules）。既定0＝無名")]
+        [Range(0, 100)]
+        public int fame = 0;
+
+        [Tooltip("得意戦型（ADM-6 #2307）。状況一致でボーナス（SpecialtyRules）。既定=なし＝従来動作")]
+        public CombatSpecialty specialty = CombatSpecialty.なし;
+
+        [Tooltip("疲労（0..100・ADM-5 #2306）。連戦で蓄積し実効能力を一時低下、休養で回復（ConditionRules・基準非破壊）。既定0")]
+        [Range(0, 100)]
+        public int fatigue = 0;
+
+        [Tooltip("負傷の重さ（0..100・ADM-5 #2306）。実効能力を一時低下（ConditionRules）。旗艦撃破時の運命#2260と地続き。既定0")]
+        [Range(0, 100)]
+        public int woundSeverity = 0;
+
+        [Tooltip("成長状態（ADM-2 #2303・GrowthRules#537-543）。経験で実効能力が伸びる（軍神#軍神は天地人で100超）。null＝成長なし＝従来動作")]
+        public Growth growth = null;
+
         /// <summary>参謀の最大人数。</summary>
         public const int MaxStaff = 3;
 

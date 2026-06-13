@@ -58,6 +58,19 @@ namespace Ginei
             }
         }
 
+        /// <summary>
+        /// 特定の名を指名で払い出す（専用旗艦名#旗艦名＝<see cref="SignatureShipRegistry"/> 用）。
+        /// 使用中・永久欠番なら払い出せず false（呼び出し側は <see cref="Assign"/> へフォールバック）。
+        /// 世界遺産プール外の名（ヒューベリオン等）も使用中／永久欠番として同じ台帳で扱う。
+        /// </summary>
+        public static bool TryAssignSpecific(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            if (inUse.Contains(name) || retired.Contains(name)) return false;
+            inUse.Add(name);
+            return true;
+        }
+
         /// <summary>名を返却する（退役・安全退却＝再び払い出し可能に戻す）。永久欠番には触れない。</summary>
         public static void Release(string name)
         {

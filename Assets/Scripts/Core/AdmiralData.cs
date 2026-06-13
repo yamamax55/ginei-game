@@ -41,6 +41,10 @@ namespace Ginei
         [Tooltip("呼称・愛称（短縮表示の最優先）。空なら 姓→名→admiralName の順でフォールバック")]
         public string callName = "";
 
+        [Tooltip("専用旗艦名（#旗艦名・任意）。この提督が乗艦すると必ずこの名の旗艦になる（例：ヤン→ヒューベリオン）。" +
+                 "空なら SignatureShipRegistry の既定表→世界遺産プールの順で解決。愛着を持てる専用艦の出所")]
+        public string signatureShipName = "";
+
         [Header("主人公（アンカー・GON-6・任意）")]
         [Tooltip("この提督を主人公（動かない光源）とするか。true＝陣営に関わらず常にプレイヤー操作（FleetAI 非制御）。" +
                  "既定 false＝従来どおり（後方互換）。判定は ProtagonistRules を参照すること")]

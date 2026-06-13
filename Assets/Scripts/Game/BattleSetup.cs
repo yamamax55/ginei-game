@@ -301,8 +301,12 @@ namespace Ginei
                 strength.loyalty = Mathf.Clamp01(entry.loyalty);
                 strength.intrigue = Mathf.Clamp01(entry.intrigue);
 
-                // 旗艦名（#旗艦名・世界遺産由来）を払い出す。重複なし＝部隊の固有名として頭上に表示。
-                strength.shipName = ShipNameRegistry.Assign();
+                // 旗艦名（#旗艦名）を払い出す。提督に専用旗艦名（例：ヤン→ヒューベリオン）があれば優先、
+                // 取れなければ世界遺産プールから払い出す。重複なし＝部隊の固有名として頭上に表示。
+                string signature = SignatureShipRegistry.Resolve(entry.admiral);
+                strength.shipName = (!string.IsNullOrEmpty(signature) && ShipNameRegistry.TryAssignSpecific(signature))
+                    ? signature
+                    : ShipNameRegistry.Assign();
 
                 // 反映した勢力で色を再適用
                 FactionColor color = fleet.GetComponent<FactionColor>();

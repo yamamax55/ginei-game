@@ -37,5 +37,16 @@ namespace Ginei
         /// <summary>即応を満額（1.0）とみなす簡易版（補給/予算未配線の会戦用）。</summary>
         public static float CombatMultiplier(NcoCorps corps, float recruitProficiency)
             => CombatMultiplier(corps, recruitProficiency, 1f);
+
+        /// <summary>
+        /// 練度（経験値 veterancyXp）を含めた戦闘力倍率。
+        /// <see cref="VeterancyRules.CombatFactor"/> を実効値パターンで乗算（基準値非破壊）。
+        /// 歴戦艦隊は同じ装備・補給でも新兵より強い手応えを数値で表現する。
+        /// </summary>
+        public static float CombatMultiplier(NcoCorps corps, float recruitProficiency, float readinessFactor, float veterancyXp)
+        {
+            float vet = VeterancyRules.CombatFactor(veterancyXp);
+            return Mathf.Clamp(CombatMultiplier(corps, recruitProficiency, readinessFactor) * vet, MinFactor, MaxFactor);
+        }
     }
 }

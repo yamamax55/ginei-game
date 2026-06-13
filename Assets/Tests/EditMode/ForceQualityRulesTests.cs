@@ -52,5 +52,38 @@ namespace Ginei.Tests
             float m = ForceQualityRules.CombatMultiplier(new NcoCorps(0.6f, 0.6f), 0.6f, ammoReady);
             Assert.Greater(m, 0f);
         }
+
+        // ─── 練度（VeterancyRules 橋渡し）─────────────────────────────────
+
+        [Test]
+        public void CombatMultiplier_WithVeterancy_VeteranBeatsRookie()
+        {
+            // 同じ下士官団・即応でも古参（xp=60）は新兵（xp=0）より強い
+            var corps = new NcoCorps(0.5f, 0.5f);
+            float rookie = ForceQualityRules.CombatMultiplier(corps, 0.5f, 1f, 0f);  // xp=0
+            float elite = ForceQualityRules.CombatMultiplier(corps, 0.5f, 1f, 60f); // xp=60 (古参)
+            Assert.Greater(elite, rookie);
+        }
+
+        [Test]
+        public void CombatMultiplier_WithVeterancy_ZeroXpMatchesNoVeterancy()
+        {
+            // xp=0 は VeterancyRules.CombatFactor(0)=1.0 → 既存の3引数版と同値
+            var corps = new NcoCorps(0.5f, 0.5f);
+            float noVet = ForceQualityRules.CombatMultiplier(corps, 0.5f, 1f);
+            float zeroXp = ForceQualityRules.CombatMultiplier(corps, 0.5f, 1f, 0f);
+            Assert.AreEqual(noVet, zeroXp, 1e-4f);
+        }
+
+        [Test]
+        public void CombatMultiplier_WithVeterancy_ClampedToBounds()
+        {
+            // 古参＋精鋭下士官団＋満額即応でも MaxFactor 以内
+            float top = ForceQualityRules.CombatMultiplier(new NcoCorps(1f, 1f), 1f, 2f, 999f);
+            Assert.LessOrEqual(top, ForceQualityRules.MaxFactor + 1e-4f);
+            // 新兵下士官壊滅＋即応0＋xp=0 でも MinFactor 以上
+            float bot = ForceQualityRules.CombatMultiplier(null, 0f, 0f, 0f);
+            Assert.GreaterOrEqual(bot, ForceQualityRules.MinFactor - 1e-4f);
+        }
     }
 }

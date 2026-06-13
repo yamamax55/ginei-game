@@ -17,15 +17,18 @@
    - 純ロジック → `Assets/Scripts/Core/Xxx.cs`、テスト → `Assets/Tests/EditMode/XxxTests.cs`、`.meta`（`fileFormatVersion: 2` ＋ 32hex guid）を両方に付ける。
    - 既存 Core への配線点（`BattleAiRules`/`ForceQualityRules`/`CombatModifiers` 等）がある場合のみ、実効値パターンで**極小**に橋渡しする。Game 層 .cs の編集は避ける（必要なら findings に回す）。
 3. **検証**：`cd TestHarness && dotnet test -v q` で **全 green**。落ちたら自分で直す。green にできない変更は捨てる（マージしない）。
-4. **記録**：実装した項目を `playtest-findings.md` で `[x]（cycleN・YYYY-MM-DD）` にし、完了ログへ1行追記。残findingsを更新。
-5. **ブランチ→PR→マージ**：
-   - `auto/playtest-$(date +%Y%m%d-%H%M)` を master から切る。
-   - 変更をコミット（メッセージ例：`playtest改善：…（cycleN）`）。コミット末尾に `https://claude.ai/code/...` 形式の行は付けてよいが**モデル識別子は書かない**。
-   - push → `gh pr create`（base master・draft でなく ready）→ TestHarness が green であることを本文に明記 → `gh pr merge --merge`（自動マージ）。
-   - 衝突したら master を取り込んで解決し、再度 green を確認してからマージ。
-6. **空なら無変更で終了**：`[Core]` 候補が尽き、監査でも新規が出ないなら何も変更せず終了（無駄PRを作らない）。
+4. **記録（必須・省略禁止）**：`.claude/playtest-findings.md` を**必ず更新する**：実装した項目を `[x]（cycleN・YYYY-MM-DD）` に変え、「完了ログ」へ1行追記し、`[Core]` 残候補が3件未満になったなら監査で補充した項目も追記する。**この findings.md の変更は、実装したモジュール／テストと同じコミットに必ず含める**（findings 未更新でのマージは禁止）。
+5. **ブランチ→PR→マージ（必ずPR経由・master 直マージ禁止）**：
+   - `auto/playtest-$(date +%Y%m%d-%H%M)` を master から切る（**master へ直接コミット／直接 push／`git merge` でのローカル直マージは禁止**）。
+   - 変更（モジュール＋テスト＋`.meta`＋**更新した findings.md**）をコミット（メッセージ例：`playtest改善：…（cycleN）`）。コミット末尾に `https://claude.ai/code/...` 形式の行は付けてよいが**モデル識別子は書かない**。
+   - `git push -u origin <ブランチ>` → **必ず `gh pr create`**（base master・draft でなく ready・本文に TestHarness green と実装内容を明記）。
+   - **PR番号を取得**し（`gh pr view --json number` 等）、**必ず `gh pr merge <PR番号> --merge`** で自動マージする（`gh pr merge` 以外の経路でのマージは禁止）。マージ後に `auto/playtest-*` ブランチは削除してよい（`--delete-branch`）。
+   - 衝突したら master を取り込んで解決し、再度 `dotnet test` green を確認してから PR を更新してマージ。
+6. **空なら無変更で終了**：`[Core]` 候補が尽き、監査でも新規が出ないなら何も変更せず終了（**ブランチもPRも作らない**＝無駄PRを作らない）。
 
 ## やらないこと
+- **master へ直接コミット／直接 push／ローカル `git merge` での直マージ**（必ず `gh pr create`＋`gh pr merge` 経由）。
+- **findings.md の更新を省略すること**（実装したら同じコミットで必ず反映）。
 - Game層の大改変・UI改変の自動マージ（findings 記録に留める）。
 - TestHarness が落ちる変更のマージ。
 - 1サイクルで3件を超える大量実装（小さく刻む）。

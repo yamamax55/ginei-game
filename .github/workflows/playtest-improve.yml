@@ -65,9 +65,11 @@ jobs:
             - 実装してよいのは [Core]（純ロジック＋EditMode テスト）と既存配線点の極小な読み替えのみ。
               Game層（MonoBehaviour/シーン/UI）の大きな改変は実装せず .claude/playtest-findings.md の [Game] に記録するだけ。
             - [Core] 未着手が3件未満なら、コードを監査して findings を補充する。
-            - 実装したら auto/playtest-<日時> ブランチを master から切り、コミット→push→gh pr create（base master）
-              →TestHarness green を本文に明記→gh pr merge --merge で自動マージ。
-            - [Core] 候補が尽き監査でも新規が出ないなら、何も変更せず終了（無駄PRを作らない）。
+            - 【必須】実装した項目は .claude/playtest-findings.md を更新（[x] 化＋完了ログ追記）し、その findings 変更も同じコミットに含めること。
+            - 【必須】auto/playtest-<日時> ブランチを master から切り（master への直接コミット/直接 push/git 直マージは禁止）、
+              コミット→git push→必ず gh pr create（base master・ready・本文に TestHarness green を明記）→PR番号を取得し
+              必ず gh pr merge <PR番号> --merge --delete-branch で自動マージする（gh pr merge 以外でのマージは禁止）。
+            - [Core] 候補が尽き監査でも新規が出ないなら、ブランチもPRも作らず何も変更せず終了（無駄PRを作らない）。
           claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep"'
 
       - name: 結果サマリ

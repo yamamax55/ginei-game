@@ -177,8 +177,12 @@ namespace Ginei
         private bool CheckEnemyInArc()
         {
             return ShipCombat.AnyEnemyInArc(transform.position, transform.up, myStrength.factionData, myStrength.faction,
-                weaponArc.range, weaponArc.halfAngle);
+                EffectiveRange(), weaponArc.halfAngle);
         }
+
+        /// <summary>地形（星雲/小惑星帯 #2181）による射程低下を反映した実効射程。</summary>
+        private float EffectiveRange()
+            => weaponArc.range * BattleTerrain.RangeFactorAt(transform.position);
 
         /// <summary>
         /// 攻撃ターゲットを手動で指定します（旗艦・配下艦のどちらも指定可）。null で解除。
@@ -279,7 +283,7 @@ namespace Ginei
         private void AttackNearestEnemyInArc()
         {
             IShipTarget nearest = ShipCombat.FindNearestEnemyInArc(transform.position, transform.up,
-                myStrength.factionData, myStrength.faction, weaponArc.range, weaponArc.halfAngle);
+                myStrength.factionData, myStrength.faction, EffectiveRange(), weaponArc.halfAngle);
 
             if (nearest != null)
             {

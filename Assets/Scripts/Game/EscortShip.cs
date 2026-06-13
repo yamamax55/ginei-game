@@ -141,8 +141,10 @@ namespace Ginei
             nextFireTime = Time.time + flagshipWeapon.fireInterval;
 
             // 標的優先度：第一＝射線の通る敵旗艦、第二＝敵配下艦（射線上の配下艦は旗艦を遮蔽する）
+            // 地形（星雲/小惑星帯 #2181）による射程低下を自分の位置で反映。
+            float effRange = flagshipArc.range * BattleTerrain.RangeFactorAt(transform.position);
             IShipTarget target = ShipCombat.FindPrioritizedEnemyInArc(transform.position, transform.up,
-                FactionData, Faction, flagshipArc.range, flagshipArc.halfAngle);
+                FactionData, Faction, effRange, flagshipArc.halfAngle);
 
             if (target != null)
             {

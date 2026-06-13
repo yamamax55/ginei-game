@@ -1,0 +1,75 @@
+name: Core Wave 自動量産
+
+# Core純ロジック量産（/core-wave）をセッション非依存で回す永続ループ。
+# .claude/core-backlog.md の未着手テーマを1時間に1Wave（7本）消化し、
+# 量産ブランチへ直接コミット＆プッシュする。バックログが空なら何もせず終了。
+#
+# ★必要セットアップ（無いと Claude 実行ステップが失敗する）：
+#   リポジトリ Settings → Secrets and variables → Actions に
+#   CLAUDE_CODE_OAUTH_TOKEN（`claude setup-token` で発行）または
+#   ANTHROPIC_API_KEY を登録し、下の with: をそちらに合わせる。
+# ★schedule トリガーは「このファイルがデフォルトブランチ(master)にあるとき」だけ発火する
+#   ＝PR #1053 をマージすると自動で回り始める。それまでは workflow_dispatch（手動実行）で検証可。
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 * * * *'   # 毎時7分（実測1Wave≈13分＝毎時1Waveで十分回る）
+
+# 多重実行を禁止（前のWaveが終わるまで次を始めない・キャンセルもしない）
+concurrency:
+  group: core-wave
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: read    # バックログ補充（/core-backlog-refill＝gh issue list）用
+
+jobs:
+  core-wave:
+    name: /core-wave 1Wave 実行
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}   # gh CLI（Issue読み取り）に供給
+    steps:
+      - name: Checkout（量産ブランチ）
+        uses: actions/checkout@v4
+        with:
+          ref: claude/core-mobile-production-nr9lst
+          fetch-depth: 0
+
+      - name: Setup .NET 8（TestHarness 検証用）
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: バックログ残数を確認
+        id: backlog
+        run: |
+          count=$(grep -c '^- \[ \]' .claude/core-backlog.md || true)
+          echo "count=${count:-0}" >> "$GITHUB_OUTPUT"
+          echo "未着手テーマ: ${count:-0} 件"
+
+      - name: Core量産 1Wave 実行（バックログが残っている時のみ）
+        if: steps.backlog.outputs.count != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            .claude/commands/core-wave.md の手順に厳密に従い、Core量産を1Waveだけ実行してください。
+            - .claude/core-backlog.md の未着手（[ ]）上位7件を実装（モジュール＋EditModeテスト＋.meta）
+            - cd TestHarness && dotnet test -v q で全テストパスを確認（失敗したら直す）
+            - CLAUDE.md のWave列挙とテスト数、バックログの消化状況を更新
+            - バックログ残が14件未満なら .claude/commands/core-backlog-refill.md の手順で
+              GitHub Issues（gh issue list）から最大21テーマを補充
+            - 「WaveN：…」の形式でコミットし、現在のブランチ（claude/core-mobile-production-nr9lst）へ push
+            - バックログが空で補充も不能なら何も変更せず終了
+          claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep"'
+
+      - name: 結果サマリ
+        if: always()
+        run: |
+          echo "## Core Wave 結果" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 残バックログ: $(grep -c '^- \[ \]' .claude/core-backlog.md || echo 0) 件" >> "$GITHUB_STEP_SUMMARY"
+          git log --oneline -1 >> "$GITHUB_STEP_SUMMARY"

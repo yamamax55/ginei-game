@@ -1,4 +1,4 @@
-# ロードマップ（2026-06-11 時点・現Issueベース）
+# ロードマップ（2026-06-14 時点・現Issueベース）
 
 > 現在オープンの Issue（949件・うち EPIC 146件）を、**依存関係・マイルストーン・優先度**で整理した実装計画。
 > 設計の詳細は [`docs/README.md`](./README.md) の各設計書を参照。判断が要る所は各 Issue/設計書の【要・作者判断】に従う。
@@ -7,26 +7,28 @@
 
 ## 0. 現在地（実装済みの土台）
 
-> これらは master 反映済み。新機能はこの上に乗せる。前版（06-06）から **Phase A の主要部・Phase C コア・Phase D の純ロジック層が大きく進んだ**。
+> これらは master 反映済み。新機能はこの上に乗せる。前版（06-06）から **Phase A の主要部・Phase C コア・Phase D の純ロジック層が大きく進んだ**。06-12〜14 は **戦略マップ UX 大改修・観測層 6→8 窓口・`GalaxyView` の partial 分割・会戦の膠着解消・配下艦運動 EMOV・CI 整備** が中心（詳細は [`dev-log/2026-06-14-strategy-ux-observers.md`](./dev-log/2026-06-14-strategy-ux-observers.md)）。
 
 ### 戦術コア（Battle シーン＝ほぼ完成形）
 - **RTS操作**：ドラッグ矩形選択 #82・標準命令（アタックムーブ/停止/保持）#85・カメラQoL（画面端スクロール/カーソル中心ズーム）#87・移動/後退/攻撃目標指定・陣形変更・艦隊円/ZOC円表示。
-- **戦術の幅**：ZOC #81（減速/AI回避/補給遮断の前提技術）・配下艦挙動 #69・艦種差別化（戦艦/巡航/駆逐）#80・得意陣形 #104・役割分離（戦闘/偵察/入植/輸送）#128・混成禁止 #883・AI戦闘後退（背中を見せない撤退＝#70 相当の実装あり）。
+- **戦術の幅**：ZOC #81（減速/AI回避/補給遮断の前提技術）・配下艦挙動 #69／**運動品質 EMOV-1〜5 #2389 フル実装**（最近傍スロット割当で席替え交差解消・艦種別配置・加減速ランプ/バンク・航行⇄戦闘の隊形密度切替・分離のグリッド近傍化 O(n²)→～O(n)＋画面外LOD）・艦種差別化（戦艦/巡航/駆逐）#80・得意陣形 #104・役割分離（戦闘/偵察/入植/輸送）#128・混成禁止 #883・AI戦闘後退（背中を見せない撤退＝#70 相当の実装あり）。
+- **会戦の安定化（06-14）**：静観膠着の解消（潜行時 intrigue は弱った国だけ＝`BattleAllegianceRules.BreakStalemate` で双方静観なら前衛が開戦）・裸の敵旗艦の包囲（`EncircleRules`）・右クリックメニュー再編（移動/攻撃/特殊/陣形…）。
 - **勝利条件4種**・参謀・ブラックホール・ミサイル・士気/敗走・決着戦績（多勢力対応）。
 - **関ヶ原型の会戦配線 #817/#822**：忠誠/調略→寝返りカスケード・静観・静観退きが実会戦で発火（`BattleAllegianceManager`）。国家の腐敗が寝返りに直結（`FactionLoyaltyRules`）。
 
 ### 戦略レイヤー（GalaxyView デモ＝実機で1周回る）
 - **C-1 #34 銀河グラフ＋時間制ワープ** ✅・**C-3 #36 回廊戦闘の起動** ✅（`BattleHandoff` 往復・`StrategySession` 状態保持）。
-- **二層切替 #586**：交戦回廊の固着表示→ダブルクリック潜行（手動指揮）／放置で自動解決／Backspace 委任復帰。
+- **二層切替 #586**：交戦回廊の固着表示→ダブルクリック潜行（手動指揮）／放置で自動解決／Backspace 委任復帰。接敵/決着を `NotificationCenter` で通知（通知ダブルクリックで潜行）＋会戦記録ピン（回廊に × 印・ホバーであらまし・1年で消滅）。
+- **戦略マップ UX（06-14 改修）**：カーソル中心ズーム（倍率＋指数追従）・ドラッグでグラブ移動＋慣性（`SmoothDamp`）・WASD/矢印パン・背景星雲（減光）・星系図窓/決裁デスク上ではマップ操作を譲る（二重操作の解消）・`UIDragMove` の常時クランプ。画面端スクロールは戦略マップでは廃止。
 - **惑星攻城 #131（PB-1〜7 ＝ #750/#752〜757）**：制空権（アルテミスの首飾り）→S-AV侵攻→占領。要塞/コロニー同枠 #755。戦術マップ突入と進捗書き戻し。
 - **内政の三層 #109/#767/#759**：惑星 `Province`（単一の真実）⊃ 星系（集約）⊃ 勢力（国策）。`GovernanceRules`（占領→不安定→統合→安定）。情報パネル（星系/惑星）。
 - **システムビュー**：平時星系の閲覧（恒星＋惑星象徴配置＋惑星単位内政）。
 - **国家状態→旗幟**：`CampaignState`/`CampaignRules` が勢力ごとの社会状態を Tick し、潜行時に忠誠/調略へ変換＝**社会シミュが会戦に漏れる回路が開通**。
 - **統一時間 TIME-1〜7（EPIC #946 / #959）**：`GameClock`(権威クロック)＋`GameDate`(宇宙暦/帝国暦＋HH:MM)＋`TimeDisplay`(右上)。**会戦↔戦略が同一クロック**で連続（潜行で止まらない）。`AutoBattleSim`(自動解決の所要時間)。暦粒度Tick(`CalendarDispatcher`＝日次で財政/イベント/造船・年次で加齢)。**自動スロー**(`TimeFlowRules`＝平時は暦を速く流し会戦で実時間へ減速)。
-- **艦隊編成プール（#148 / #884）**：`FleetPool`(勢力総艦艇)＋`FleetPoolRules`＋`FleetOrganizationPanel`(Bキー・戦略マップから艦艇配分＋提督/副提督/参謀配属)。造船(`ShipyardRules.CommissionToPool`)で総艦艇増・生産力(`ProductionFactor`)連動・会戦損耗でプール減。提督の加齢/死亡(`AnnualLifecycleRules`)。
+- **艦隊編成プール（#148 / #884）**：`FleetPool`(勢力総艦艇)＋`FleetPoolRules`。造船(`ShipyardRules.CommissionToPool`)で総艦艇増・生産力(`ProductionFactor`)連動・会戦損耗でプール減。提督の加齢/死亡(`AnnualLifecycleRules`)。**旧 `FleetOrganizationPanel`（艦隊編成 UI）は一旦廃棄し、B キーは観測層 `FleetObserverOverlay`（艦艇プール＋艦隊台帳の read-only 可視化）へ移行**（操作化は後段）。
 - **通知システム（EPIC #964 NOTIF-1〜3）**：`NotificationCenter`(単一窓口)＋`NotificationFeed`(画面**左下**トースト・自動フェード)。会戦結果/占領/造船/死亡を集約。
 
-### 純ロジック層（test-first・EditMode 1037件＋TestHarness で Unity 無し回帰可）
+### 純ロジック層（test-first・EditMode 1037件＋＝以降 `EncircleRules`/`UIWindowStack`/`EncounterOutcome`/`BreakStalemate` 等を追加・TestHarness で Unity 無し回帰可）
 - **兵站 L-1〜3 #93/#94/#95**：資源生産・補給線（ZOC遮断）・通商破壊。
 - **財政・経済 #161/#162**：PB/国債/金利/為替・税/社会保障・再分配（階級別負担）。
 - **政府 GOV-1/3/4/5/6/7 #142/#144/#145/#158/#159/#165**：役職/任命/提案権限・文民統制/クーデター・省庁・政党/最小選挙・総裁選。
@@ -42,9 +44,12 @@
 ### 基盤
 - **FND-1 #496**：asmdef 4分割（Core←Data←Game＋Editor）＋SO名前解決の `ContentDatabase` 一本化。
 - **#107 入力集約（主要部完了）**：`GameInput`（コンテキスト/衝突検出/複数キーOR/Ctrl修飾分離）。HelpOverlay 自動生成。**残り＝FleetCommander の Esc・GalaxyView の直読み**。
-- **観測層 第1層＝可視化（read-only）**：`CampaignObserverOverlay`（**G**＝国家状態のヒーロー表示）＋汎用 `CoreStateInspector`（**J**＝登録ルートをリフレクション全ダンプ＋用語集）。Strategy/Battle 両シーン自動生成。**狙い＝「Core純ロジックは増えるが盤面で何も見えない」乖離を構造的に潰す＝生成と観測を歩調させる規約**（CLAUDE.md「観測層」節）。第2層「操作化」（レバーを回す）はここから手で昇格。
+- **観測層 第1層＝可視化（read-only・06-14 時点で 8 窓口）**：`CampaignObserverOverlay`（**G**＝国家状態）／汎用 `CoreStateInspector`（**J**＝登録ルートをリフレクション全ダンプ＋用語集）／`MilitaryObserverOverlay`（**M**＝編制ツリー/プール/台帳）／`NotificationLogOverlay`（**N**＝通知履歴）／`EconomyObserverOverlay`（**E**＝経済）／`LawObserverOverlay`（**L**＝法の支配/治安）／`EducationObserverOverlay`（**U**＝教育チェーン）／`FleetObserverOverlay`（**B**＝艦艇プール/艦隊台帳）。人事オーバーレイ（**P**）はタブ化（指導者/軍人/文民）。Strategy/Battle 両シーン自動生成。**狙い＝「Core純ロジックは増えるが盤面で何も見えない」乖離を構造的に潰す＝生成と観測を歩調させる規約**（CLAUDE.md「観測層」節）。第2層「操作化」（レバーを回す）はここから手で昇格。
+- **ウィンドウ統一（06-14）**：上メニューから開く各オーバーレイを共通クローム `WindowChrome`（タイトルバー＝ドラッグ移動＋×閉じる・非モーダル化）でウィンドウ化。`UIWindowStack`（Core・test-first）で **ESC は最前面から 1 枚ずつ閉じ→システムメニュー**（戦略＝新設 `StrategySystemMenu`）へフォールバック。各窓は Register/Unregister するだけで Esc を直読みしない。
 - **CCX 並列ファンアウト #1044/#1049**：独立 Core を Workflow/多Agent で同時生成する標準手順＋codex（design/worldbuilding）を buildable backlog から分離。
 - **命名 #523**・**主人公 #735**・**階級表示 #14**・**TestHarness**（`dotnet test`・クラウド回帰用）。
+- **God Object 解体（06-14）**：`GalaxyView`（3925行・戦略レイヤー全 Core の配線ハブ）を partial class で 10 ファイルへ物理分割（`Visuals`/`Input`/`Personnel`/`Economy`/`Government` ほか）。同一クラス分割ゆえ**挙動ゼロ変更**（GUID/シリアライズ不変）＝並列開発のマージ衝突低減。
+- **CI 整備（06-14）**：GameCI 有効化（Personal ライセンス）＋**可視化 playtest（`playtest-visual`）**をクラウド実運用（xvfb＋ソフト GL で会戦スクショ＋`report.json` を artifact 化・非決着は PASS 扱いで実バグのみ捕捉）。
 
 ### ⚠ クローズ漏れ Issue（実装済みなのでクローズ推奨）
 - #70（AI戦闘後退）・#190（DIP-1）・#886〜889（BUILD-1〜4）・#892〜895（CMD-1〜4）・#497（FND-2）・#499（FND-4 エンジン部）。確認のうえ閉じる。

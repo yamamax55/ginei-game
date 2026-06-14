@@ -21,6 +21,20 @@ namespace Ginei
         /// <summary>窓が開いているか。</summary>
         public static bool IsOpen => instance != null && instance.isOpen;
 
+        /// <summary>
+        /// カーソルが星系図ウィンドウ（枠）の上にあるか。<see cref="GalaxyView"/> がこの間は
+        /// マウス操作（ホイールズーム／ドラッグ／クリック）を星系図に譲り、銀河マップと二重に反応しないようにする。
+        /// </summary>
+        public static bool PointerOverWindow
+        {
+            get
+            {
+                if (instance == null || !instance.isOpen || instance.windowRT == null || Mouse.current == null) return false;
+                Vector2 sp = Mouse.current.position.ReadValue();
+                return RectTransformUtility.RectangleContainsScreenPoint(instance.windowRT, sp, null);
+            }
+        }
+
         [Header("ウィンドウ")]
         [Tooltip("ウィンドウのサイズ（タイトルバー＋マップ領域）")]
         public Vector2 windowSize = new Vector2(760f, 520f);
@@ -52,6 +66,7 @@ namespace Ginei
         private bool panActive;
         private Vector3 panGrabWorld;   // つかんだワールド点（グラブ式パンの碇）
         private GameObject root;
+        private RectTransform windowRT;   // 枠ウィンドウ（カーソル占有判定に使う）
         private RawImage mapImage;
         private RectTransform mapRT;
         private RenderTexture rt;
@@ -94,6 +109,7 @@ namespace Ginei
             GameObject win = new GameObject("Window", typeof(RectTransform));
             win.transform.SetParent(root.transform, false);
             RectTransform winRT = win.GetComponent<RectTransform>();
+            windowRT = winRT;
             winRT.anchorMin = winRT.anchorMax = winRT.pivot = new Vector2(0.5f, 0.5f);
             winRT.sizeDelta = windowSize;
             winRT.anchoredPosition = Vector2.zero;

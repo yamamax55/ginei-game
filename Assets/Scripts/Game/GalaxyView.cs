@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
@@ -43,8 +44,10 @@ namespace Ginei
         [Header("マップ操作（#2384 戦略マップUX）")]
         [Tooltip("既定のカメラズーム（orthographicSize）。F キーでこの値へリセット")]
         public float defaultZoom = 8f;
-        [Tooltip("ズーム感度（CameraController と同方針：scroll×0.01×zoomSpeed をサイズから減算＝連続スクロールで加速）")]
-        public float zoomSpeed = 12f;
+        [Tooltip("ホイール1ノッチあたりのズーム率（0.3=30%。回す量に比例して指数加速＝他ゲーム準拠で速め）")]
+        [Range(0.05f, 0.6f)] public float zoomPerNotch = 0.3f;
+        [Tooltip("ズーム追従の滑らかさ（小さいほどゆっくり滑らかに・大きいほど即時。unscaled 駆動）")]
+        public float zoomLerpSpeed = 11f;
         [Tooltip("ズーム下限（近づける限界）")]
         public float minZoom = 3f;
         [Tooltip("ズーム上限（引きの限界）")]
@@ -53,8 +56,15 @@ namespace Ginei
         public float dragThresholdPixels = 8f;
         [Tooltip("カメラ中心の移動可能範囲（±このワールド距離でクランプ＝迷子防止）")]
         public float panLimit = 22f;
+        [Header("ナビ（キーパン）")]
+        [Tooltip("キーボード（WASD/矢印）パンの速度")]
+        public float keyPanSpeed = 26f;
+        [Tooltip("パン（ドラッグ/端/キー）の追従の滑らかさ（小さいほど即時・大きいほどヌルッと慣性的）")]
+        public float panSmoothTime = 0.10f;
         [Tooltip("背景星雲（galaxy_backdrop）の不透明度（0=出さない）。視野に追従して常に覆う")]
-        [Range(0f, 1f)] public float backdropAlpha = 0.7f;
+        [Range(0f, 1f)] public float backdropAlpha = 0.55f;
+        [Tooltip("背景星雲の明るさ（0=黒〜1=原画。盤面の星系/回廊を読みやすくするため暗めに落とす）")]
+        [Range(0f, 1f)] public float backdropBrightness = 0.4f;
         [Tooltip("背景星雲が視野からはみ出す余裕倍率（端の隙間防止）")]
         public float backdropCover = 1.15f;
 
@@ -82,9 +92,17 @@ namespace Ginei
         private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
         private Vector2 lastClickWorld;
         private SpriteRenderer backdrop;    // 背景星雲（galaxy_backdrop・視野追従）
-        private bool leftDragging;          // 左ドラッグでパン中（クリック判定は離した時＝パンと非競合）
+        private bool leftDragging;          // 左ドラッグ中（クリック判定は離した時＝誤選択防止。星系は動かさない）
         private Vector2 leftPressScreen;    // 左押下時のスクリーン座標（ドラッグ判定の起点）
-        private Vector3 dragGrabWorld;      // パンでつかんだワールド点（カーソル下に保つ不変点）
+        private bool midPanning;            // 中ボタンドラッグでスクロール中
+        private bool leftPressOverUI;       // 左押下が UI 上で始まったか（その間マップを動かさない）
+        private bool midPressOverUI;        // 中押下が UI 上で始まったか
+        private float zoomTarget;           // ホイールズームの目標 orthographicSize（滑らかに追従）
+        private bool zoomInit;              // zoomTarget 初期化済みか
+        private Vector2 zoomAnchorScreen;   // ズーム中心に保つスクリーン点（最後のホイール時のカーソル）
+        private Vector3 panTarget;          // カメラ中心の目標位置（パン入力はここを動かし、cam は滑らかに追従）
+        private Vector3 panVelocity;        // SmoothDamp 用の速度キャッシュ
+        private bool panInit;               // panTarget 初期化済みか
 
         private readonly List<StrategicFleet> selectedFleets = new List<StrategicFleet>();
         private readonly Dictionary<int, SpriteRenderer> systemDots = new Dictionary<int, SpriteRenderer>();
@@ -178,7 +196,9 @@ namespace Ginei
             if (cam == null) cam = new GameObject("GalaxyCamera").AddComponent<Camera>();
             cam.orthographic = true;
             cam.orthographicSize = defaultZoom;
+            zoomTarget = defaultZoom; zoomInit = true; // ホイールズームの追従目標を初期化
             cam.transform.position = new Vector3(0f, 0f, -10f);
+            panTarget = cam.transform.position; panVelocity = Vector3.zero; panInit = true; // パン追従目標を初期化
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.03f, 0.03f, 0.07f);
 
@@ -3040,9 +3060,8 @@ namespace Ginei
                 return;
             }
             if (TryBesiegeStatus(out string bt, out Color bc)) { banner.text = bt; banner.color = bc; return; }
-            string speed = paused ? "停止" : $"x{galaxySpeed:0.#}";
-            banner.text = $"速度 {speed}　選択 {selectedFleets.Count}隻";
-            banner.color = Color.white;
+            // 平時は浮きバナーを出さない（速度/選択数は上メニューに集約済み＝重複表示を廃止）。
+            banner.text = "";
         }
 
         /// <summary>
@@ -3132,6 +3151,8 @@ namespace Ginei
             }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
             if (kb.fKey.wasPressedThisFrame) ResetView(); // F：既定のズーム/位置へ戻す（#2384）
+
+            HandleKeyPan(kb); // ステラリス風：WASD/矢印キーで視点パン（押しっぱで連続）
 
             // 外交コマンド（#2119 操作化）：対立勢力へ 7=宣戦 / 8=講和 / 9=同盟。自勢力の外交はプレイヤーが握る。
             if (kb.digit7Key.wasPressedThisFrame) IssueDiplomacyToRival(DiplomaticAction.宣戦布告);
@@ -3349,38 +3370,52 @@ namespace Ginei
         {
             if (Mouse.current == null || cam == null) return;
 
-            HandleZoom(); // マウスホイール：カーソル中心ズーム（#2384）
+            HandleZoom(); // マウスホイール：カーソル中心ズーム（滑らかに追従・回し幅で加速）
 
-            // 左ボタン：押下〜離しでドラッグ（パン）かクリック（選択/ダブルクリック）かを判定する（#2384）。
-            // クリック確定を「離した時」に行う＝ドラッグでマップを動かしても選択/潜行と競合しない。
+            // いずれかの UI 窓（観測オーバーレイ/決裁デスク/通知/星系図等）をドラッグ中は、マップ操作を窓へ譲る
+            // ＝窓を動かすと同時にマップがスクロールする問題の確実な解消（raycast 判定の取りこぼし対策の二重防御）。
+            if (UIDragMove.AnyDragging) return;
+
+            // 中ボタン（ホイール押し込み）ドラッグでもスクロールできる（左ドラッグと同方式）。
+            // 押し始めが UI（決裁デスク/通知/星系図/メニュー）上なら、そのドラッグ中はマップを動かさない
+            // （ドラッグ中にカーソルが UI から外れても誤スクロールしないよう、判定は「押した瞬間」で固定する）。
+            if (Mouse.current.middleButton.wasPressedThisFrame)
+            {
+                midPanning = true;
+                midPressOverUI = PointerOverUI();
+            }
+            else if (Mouse.current.middleButton.isPressed && midPanning)
+            {
+                if (!midPressOverUI) ScrollViewByMouseDelta();
+            }
+            else if (Mouse.current.middleButton.wasReleasedThisFrame)
+            {
+                midPanning = false;
+            }
+
+            // 左ボタン：ドラッグで星系マップをスクロール（動かした向きに視点が動く）／小さく押して離せばクリック（選択/ダブルクリック）。
+            // 確定は「離した時」＝スクロールと選択が競合しない。押し始めが UI 上なら一切マップに渡さない。
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
                 leftPressScreen = Mouse.current.position.ReadValue();
-                dragGrabWorld = WorldMouse();
                 leftDragging = false;
+                leftPressOverUI = PointerOverUI();
             }
-            else if (Mouse.current.leftButton.isPressed)
+            else if (Mouse.current.leftButton.isPressed && !leftPressOverUI)
             {
                 Vector2 cur = Mouse.current.position.ReadValue();
                 if (!leftDragging && Vector2.Distance(cur, leftPressScreen) > dragThresholdPixels)
                     leftDragging = true;
-                if (leftDragging)
-                {
-                    // グラブパン：つかんだワールド点 dragGrabWorld をカーソル下に保つ（dragGrabWorld は不変点）。
-                    Vector3 nowWorld = WorldMouse();
-                    Vector3 d = dragGrabWorld - nowWorld;
-                    cam.transform.position += new Vector3(d.x, d.y, 0f);
-                    ClampCameraPan();
-                }
+                if (leftDragging) ScrollViewByMouseDelta();
             }
             else if (Mouse.current.leftButton.wasReleasedThisFrame)
             {
-                if (!leftDragging) DoLeftClick(WorldMouse()); // ドラッグでなければクリック確定
+                if (!leftPressOverUI && !leftDragging) DoLeftClick(WorldMouse()); // ドラッグでなければクリック確定
                 leftDragging = false;
             }
             // 右クリック：クリックに近い方を採用。星系の点が近ければ進軍、回廊の線が近ければ
-            // その位置で停止保持（端点に居る選択艦のみ）。
-            else if (Mouse.current.rightButton.wasPressedThisFrame)
+            // その位置で停止保持（端点に居る選択艦のみ）。UI 上では発令しない。
+            if (Mouse.current.rightButton.wasPressedThisFrame && !PointerOverUI())
             {
                 if (selectedFleets.Count == 0) return;
                 Vector2 w = WorldMouse();
@@ -3431,25 +3466,130 @@ namespace Ginei
             else if (!additive) selectedFleets.Clear();
         }
 
-        /// <summary>マウスホイールでカーソル中心ズーム（#2384・CameraController と同方針＝連続スクロールで加速）。</summary>
+        /// <summary>
+        /// マウスホイールでカーソル中心ズーム。スクロール量に比例して目標ズームを<b>倍率</b>で更新し
+        /// （回し幅が大きいほど一気に＝指数スケール）、毎フレーム目標へ滑らかに追従させる（カクつかない）。
+        /// </summary>
         private void HandleZoom()
         {
-            float scroll = Mouse.current.scroll.ReadValue().y;
-            if (Mathf.Abs(scroll) <= 0.01f) return;
-            Vector3 worldBefore = WorldMouse();
-            float newSize = cam.orthographicSize - (scroll * 0.01f * zoomSpeed);
-            cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
-            Vector3 worldAfter = WorldMouse();
-            cam.transform.position += (worldBefore - worldAfter); // カーソル下のワールド点を維持
+            if (!zoomInit) { zoomTarget = cam.orthographicSize; zoomInit = true; }
+
+            // UI（星系図/決裁デスク/通知/メニュー等）の上ではホイールを読まない（二重ズーム防止）。進行中の追従は継続。
+            float raw = PointerOverUI() ? 0f : Mouse.current.scroll.ReadValue().y;
+            if (Mathf.Abs(raw) > 0.01f)
+            {
+                // スクロール値はプラットフォームで ±120 段（OS標準）や ±1 段などスケールが違う。ノッチ単位へ正規化＝
+                // どの環境でも「1ノッチ＝zoomPerNotch ぶん」になり、速い回転（複数ノッチ）は指数で加速する。
+                float notches = Mathf.Abs(raw) >= 10f ? raw / 120f : raw;
+                float factor = Mathf.Pow(1f - Mathf.Clamp(zoomPerNotch, 0.01f, 0.9f), notches);
+                zoomTarget = Mathf.Clamp(zoomTarget * factor, minZoom, maxZoom);
+                zoomAnchorScreen = Mouse.current.position.ReadValue(); // この位置を中心に保つ
+            }
+            ApplyZoomLerp();
+        }
+
+        /// <summary>現在のズームを目標へ滑らかに寄せつつ、ズーム中心（最後のカーソル位置）のワールド点を固定する。</summary>
+        private void ApplyZoomLerp()
+        {
+            if (cam == null) return;
+            float cur = cam.orthographicSize;
+            if (Mathf.Abs(cur - zoomTarget) < 0.0005f) { cam.orthographicSize = zoomTarget; return; }
+
+            Vector3 worldBefore = ScreenToWorldAt(zoomAnchorScreen);
+            float t = 1f - Mathf.Exp(-zoomLerpSpeed * Mathf.Max(0.0001f, Time.unscaledDeltaTime)); // フレーム非依存の指数追従
+            float next = Mathf.Lerp(cur, zoomTarget, t);
+            cam.orthographicSize = Mathf.Clamp(next, minZoom, maxZoom);
+            Vector3 worldAfter = ScreenToWorldAt(zoomAnchorScreen);
+            Vector3 shift = worldBefore - worldAfter; // 中心点を画面上で固定（カーソル下を維持）
+            cam.transform.position += shift;
+            if (!panInit) { panTarget = cam.transform.position; panInit = true; }
+            panTarget += shift; // パン目標も同量ずらす＝滑らか追従がズーム補正を打ち消さない
+            panTarget.x = Mathf.Clamp(panTarget.x, -panLimit, panLimit);
+            panTarget.y = Mathf.Clamp(panTarget.y, -panLimit, panLimit);
             ClampCameraPan();
+        }
+
+        /// <summary>スクリーン座標→ワールド座標（カメラ rect を尊重）。ズーム中心の固定に使う。</summary>
+        private Vector3 ScreenToWorldAt(Vector2 screen)
+            => cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -cam.transform.position.z));
+
+        private static PointerEventData _uiPointer;
+        private static readonly List<RaycastResult> _uiHits = new List<RaycastResult>();
+
+        /// <summary>
+        /// カーソルが UI（raycast を受けるパネル/ボタン）の上にあるか。マップ操作をそのUIに譲る判定。
+        /// 新 Input System では <c>IsPointerOverGameObject()</c> がフレーム/モジュール依存で不安定なため、
+        /// 毎回その場で <see cref="EventSystem.RaycastAll"/> して確実に判定する（決裁デスク等のドラッグと二重反応しない）。
+        /// </summary>
+        private static bool PointerOverUI()
+        {
+            var es = EventSystem.current;
+            if (es == null || Mouse.current == null) return false;
+            if (_uiPointer == null) _uiPointer = new PointerEventData(es);
+            _uiPointer.position = Mouse.current.position.ReadValue();
+            _uiHits.Clear();
+            es.RaycastAll(_uiPointer, _uiHits);
+            return _uiHits.Count > 0;
+        }
+
+        /// <summary>
+        /// マウスの当フレーム移動量ぶん、<b>掴んだ地図を指の向きへ動かす</b>（掴んだ点がカーソルに付いてくるグラブ方式）。
+        /// スクリーン差分→ワールド距離へ換算（カメラ rect のビューポート高で正規化）。パン目標を動かし cam は滑らかに追従。
+        /// </summary>
+        private void ScrollViewByMouseDelta()
+        {
+            Vector2 sd = Mouse.current.delta.ReadValue(); // 当フレームのスクリーン移動量（ピクセル）
+            if (sd == Vector2.zero) return;
+            float vpH = Screen.height * Mathf.Max(0.0001f, cam.rect.height); // ビューポート（窓）の高さ（ピクセル）
+            float worldPerPixel = (cam.orthographicSize * 2f) / Mathf.Max(1f, vpH);
+            // 符号はマイナス＝カメラはドラッグと逆へ動く→地図（中身）が指に付いてくる（グラブ＝直感的な向き）。
+            MovePanTarget(new Vector3(-sd.x * worldPerPixel, -sd.y * worldPerPixel, 0f));
+        }
+
+        /// <summary>パン目標を delta だけ動かしてクランプする（cam 本体は LateUpdate で滑らかに追従）。</summary>
+        private void MovePanTarget(Vector3 delta)
+        {
+            if (cam == null) return;
+            if (!panInit) { panTarget = cam.transform.position; panInit = true; }
+            panTarget += delta;
+            panTarget.x = Mathf.Clamp(panTarget.x, -panLimit, panLimit);
+            panTarget.y = Mathf.Clamp(panTarget.y, -panLimit, panLimit);
+            panTarget.z = cam.transform.position.z;
+        }
+
+        /// <summary>パン目標へカメラを滑らかに追従させる（SmoothDamp・unscaled）。LateUpdate から毎フレーム呼ぶ。</summary>
+        private void SmoothPan()
+        {
+            if (cam == null || !panInit) return;
+            if (panSmoothTime <= 0.0001f) { cam.transform.position = panTarget; panVelocity = Vector3.zero; return; }
+            cam.transform.position = Vector3.SmoothDamp(
+                cam.transform.position, panTarget, ref panVelocity, panSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+        }
+
+        /// <summary>WASD／矢印キーで視点を連続移動（押しっぱで動く・ズーム連動）。</summary>
+        private void HandleKeyPan(Keyboard kb)
+        {
+            if (kb == null || cam == null) return;
+            Vector2 dir = Vector2.zero;
+            if (kb.wKey.isPressed || kb.upArrowKey.isPressed) dir.y += 1f;
+            if (kb.sKey.isPressed || kb.downArrowKey.isPressed) dir.y -= 1f;
+            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) dir.x -= 1f;
+            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) dir.x += 1f;
+            if (dir == Vector2.zero) return;
+
+            float speedMul = cam.orthographicSize / 10f;
+            MovePanTarget((Vector3)(dir.normalized * keyPanSpeed * speedMul * Time.unscaledDeltaTime));
         }
 
         /// <summary>F：カメラを既定のズーム/位置へ戻す（#2384）。</summary>
         private void ResetView()
         {
             if (cam == null) return;
-            cam.orthographicSize = Mathf.Clamp(defaultZoom, minZoom, maxZoom);
+            float z = Mathf.Clamp(defaultZoom, minZoom, maxZoom);
+            cam.orthographicSize = z;
+            zoomTarget = z; zoomInit = true; // 滑らかズームの目標も既定へ（追従で戻されないように）
             cam.transform.position = new Vector3(0f, 0f, -10f);
+            panTarget = cam.transform.position; panVelocity = Vector3.zero; panInit = true; // パン目標も既定へ
         }
 
         /// <summary>カメラ中心を ±panLimit でクランプ（迷子防止）。z は維持。</summary>
@@ -3472,12 +3612,16 @@ namespace Ginei
             backdrop = go.AddComponent<SpriteRenderer>();
             backdrop.sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
             backdrop.sortingOrder = -200; // 星系ドット/回廊/艦隊より背後
-            backdrop.color = new Color(1f, 1f, 1f, backdropAlpha);
+            // 明るさを落として盤面（星系ドット/回廊/艦隊）を読みやすくする（白×brightness で減光）。
+            float b = Mathf.Clamp01(backdropBrightness);
+            backdrop.color = new Color(b, b, b, backdropAlpha);
         }
 
         /// <summary>背景星雲をカメラ視野に追従させ常に覆う（ズーム/パンに連動）。</summary>
         private void LateUpdate()
         {
+            SmoothPan(); // パン目標へカメラを滑らかに追従（ドラッグ/端/キー共通の慣性的な動き）
+
             if (backdrop == null || cam == null) return;
             Vector3 cp = cam.transform.position;
             backdrop.transform.position = new Vector3(cp.x, cp.y, 0f);

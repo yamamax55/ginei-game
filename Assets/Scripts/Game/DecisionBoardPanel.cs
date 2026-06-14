@@ -29,6 +29,21 @@ namespace Ginei
         private Transform[] columns;            // 列の中身（4本）
         private TextMeshProUGUI[] columnHeaders; // 列見出し（件数表示）
 
+        // ウィンドウ（移動／リサイズ／最小化）
+        private RectTransform window;     // 枠ウィンドウ本体（ドラッグ／リサイズ対象）
+        private GameObject titleGo;       // タイトル行（最小化で隠す）
+        private GameObject columnsGo;     // 列行（最小化で隠す）
+        private GameObject resizeGrip;    // 右下リサイズグリップ（最小化で隠す）
+        private bool minimized;
+        private Vector2 savedSize;        // 最小化前のサイズ（復元用）
+
+        // 締切の点滅（残り秒がこの範囲に入ったチップを点滅させる）
+        private const float BlinkThreshold = 12f;
+        private static readonly Color UrgentColor = new Color(0.80f, 0.12f, 0.14f, 0.98f);
+
+        private class ChipView { public Image bg; public Color baseColor; public PendingDecision d; public TextMeshProUGUI deadline; }
+        private readonly System.Collections.Generic.List<ChipView> chipViews = new System.Collections.Generic.List<ChipView>();
+
         // 詳細ウィンドウ（チップをクリックで開く）
         private GameObject detailRoot;
         private Image detailFrameImage;
@@ -86,7 +101,35 @@ namespace Ginei
             {
                 string sig = Sig();
                 if (sig != lastSig) { RefreshColumns(); lastSig = sig; }
+                if (!minimized) UpdateBlink();
             }
+        }
+
+        /// <summary>締切が近い決裁チップを点滅させる（残り秒は <see cref="DecisionTriageRules"/> 由来・unscaledTime 駆動）。</summary>
+        private void UpdateBlink()
+        {
+            float t = (Mathf.Sin(Time.unscaledTime * 6f) + 1f) * 0.5f; // 0..1 の脈動
+            var p = DecisionTriageParams.Default;
+            for (int i = 0; i < chipViews.Count; i++)
+            {
+                var cv = chipViews[i];
+                if (cv == null || cv.bg == null || cv.d == null) continue;
+                float rem = Remaining(cv.d, p);
+                bool urgent = rem > 0f && rem <= BlinkThreshold;
+                cv.bg.color = urgent ? Color.Lerp(cv.baseColor, UrgentColor, t) : cv.baseColor;
+                if (cv.deadline != null && urgent)
+                    cv.deadline.color = Color.Lerp(new Color(1f, 0.7f, 0.7f), Color.white, t);
+            }
+        }
+
+        /// <summary>未決の決裁の締切までの残り game-秒（重大＝無期限／解決済＝無期限）。</summary>
+        private static float Remaining(PendingDecision d, DecisionTriageParams p)
+        {
+            if (d == null) return float.PositiveInfinity;
+            if (d.status == DecisionStatus.決裁済 || d.status == DecisionStatus.自動解決) return float.PositiveInfinity;
+            float dl = DecisionTriageRules.DeadlineFor(d.severity, p);
+            if (float.IsPositiveInfinity(dl)) return float.PositiveInfinity;
+            return dl - d.elapsed;
         }
 
         public void Toggle()
@@ -148,6 +191,7 @@ namespace Ginei
         private void RefreshColumns()
         {
             int[] counts = new int[4];
+            chipViews.Clear();
             for (int c = 0; c < columns.Length; c++)
                 for (int i = columns[c].childCount - 1; i >= 0; i--)
                     Destroy(columns[c].GetChild(i).gameObject);
@@ -190,6 +234,29 @@ namespace Ginei
                 d.severity == DecisionSeverity.重大 ? new Color(1f, 0.85f, 0.85f) : Color.white);
             AddLabel(chip.transform, $"<size=12><color=#9fb0c0>{d.source}</color></size>", 12f,
                 new Color(0.62f, 0.69f, 0.78f));
+
+            // 締切表示（未決のみ意味がある／重大は無期限・解決済は対象外）
+            var deadlineLabel = AddLabel(chip.transform, DeadlineText(d), 12f, DeadlineColor(d));
+
+            chipViews.Add(new ChipView { bg = bg, baseColor = bg.color, d = d, deadline = deadlineLabel });
+        }
+
+        private static string DeadlineText(PendingDecision d)
+        {
+            if (d == null) return "";
+            if (d.status == DecisionStatus.決裁済) return "<color=#9fe0a0>決裁済</color>";
+            if (d.status == DecisionStatus.自動解決) return "<color=#c0a8d0>自動処理済</color>";
+            if (d.severity == DecisionSeverity.重大) return "<color=#ffcf6f>期限：なし（要裁可）</color>";
+            float rem = Remaining(d, DecisionTriageParams.Default);
+            if (rem <= 0f) return "<color=#ff8a8a>期限超過</color>";
+            return $"期限まで {Mathf.CeilToInt(rem)} 秒";
+        }
+
+        private static Color DeadlineColor(PendingDecision d)
+        {
+            float rem = Remaining(d, DecisionTriageParams.Default);
+            if (rem > 0f && rem <= BlinkThreshold) return new Color(1f, 0.7f, 0.7f);
+            return new Color(0.70f, 0.78f, 0.88f);
         }
 
         private static Color CardColor(DecisionSeverity s)
@@ -204,6 +271,15 @@ namespace Ginei
         }
 
         // ===== 詳細ウィンドウ（チップをクリックで開く） =====
+
+        /// <summary>詳細モーダルだけが開いているか（決裁ボード本体は閉じていても良い）。</summary>
+        public static bool DetailOpen => instance != null && instance.detailRoot != null && instance.detailRoot.activeSelf;
+
+        /// <summary>外部（決裁デスク等）から、ある決裁の概要を中央モーダルで開く単一窓口。ボード本体は開かない。</summary>
+        public static void ShowDetail(PendingDecision d)
+        {
+            if (instance != null) instance.OpenDetail(d);
+        }
 
         private void OpenDetail(PendingDecision d)
         {
@@ -297,7 +373,8 @@ namespace Ginei
         private void BuildDetail()
         {
             detailRoot = new GameObject("Detail");
-            detailRoot.transform.SetParent(root.transform, false);
+            // 親はキャンバス直下（ボード本体 root とは独立）＝ボードを開かなくても詳細モーダルだけ出せる
+            detailRoot.transform.SetParent(root.transform.parent, false);
             var drt = detailRoot.AddComponent<RectTransform>();
             drt.anchorMin = Vector2.zero; drt.anchorMax = Vector2.one;
             drt.offsetMin = Vector2.zero; drt.offsetMax = Vector2.zero;
@@ -398,21 +475,28 @@ namespace Ginei
             dimImage.color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
             WindowChrome.MakeNonModal(dimImage); // ウィンドウ化＝非モーダル（盤面を塞がない）
 
-            // 縦：タイトル行 ＋ 列行
+            // 枠ウィンドウ（中央配置・移動／リサイズ／最小化可能・不透明な背景）
             var frame = new GameObject("Frame");
             frame.transform.SetParent(root.transform, false);
-            var frt = frame.AddComponent<RectTransform>();
-            frt.anchorMin = new Vector2(0.04f, 0.06f); frt.anchorMax = new Vector2(0.96f, 0.94f);
-            frt.offsetMin = Vector2.zero; frt.offsetMax = Vector2.zero;
+            window = frame.AddComponent<RectTransform>();
+            window.anchorMin = new Vector2(0.5f, 0.5f); window.anchorMax = new Vector2(0.5f, 0.5f);
+            window.pivot = new Vector2(0.5f, 0.5f);
+            window.anchoredPosition = Vector2.zero;
+            window.sizeDelta = new Vector2(1320f, 780f); // 既定サイズ（リサイズグリップで変更可）
+            savedSize = window.sizeDelta;
+            var windowBg = frame.AddComponent<Image>();
+            windowBg.color = new Color(0.05f, 0.07f, 0.11f, 1f); // 背景は不透明（透過しない）
             var fvlg = frame.AddComponent<VerticalLayoutGroup>();
+            fvlg.padding = new RectOffset(2, 2, 0, 2);
             fvlg.spacing = 10f;
             fvlg.childControlWidth = true; fvlg.childControlHeight = true;
             fvlg.childForceExpandWidth = true; fvlg.childForceExpandHeight = false;
 
-            WindowChrome.AddTitleBarLayout(frt, "決裁ボード", () => SetVisible(false));
+            // タイトルバー（ドラッグ移動＋最小化＋×閉じる）
+            WindowChrome.AddTitleBarLayout(window, "決裁ボード", () => SetVisible(false), OnMinimize);
 
             // タイトル
-            var titleGo = new GameObject("Title");
+            titleGo = new GameObject("Title");
             titleGo.transform.SetParent(frame.transform, false);
             var tle = titleGo.AddComponent<LayoutElement>(); tle.minHeight = 44f;
             var title = titleGo.AddComponent<TextMeshProUGUI>();
@@ -422,21 +506,64 @@ namespace Ginei
             if (jpFont != null) title.font = jpFont;
 
             // 列行（横並び・残り高さを占める）
-            var cols = new GameObject("Columns");
-            cols.transform.SetParent(frame.transform, false);
-            var cle = cols.AddComponent<LayoutElement>(); cle.flexibleHeight = 1f;
-            var hlg = cols.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 12f;
+            columnsGo = new GameObject("Columns");
+            columnsGo.transform.SetParent(frame.transform, false);
+            var cle = columnsGo.AddComponent<LayoutElement>(); cle.flexibleHeight = 1f;
+            var hlg = columnsGo.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 12f; hlg.padding = new RectOffset(8, 8, 0, 0);
             hlg.childControlWidth = true; hlg.childControlHeight = true;
             hlg.childForceExpandWidth = true; hlg.childForceExpandHeight = true;
 
             columns = new Transform[4];
             columnHeaders = new TextMeshProUGUI[4];
             for (int c = 0; c < 4; c++)
-                columns[c] = MakeColumn(cols.transform, c);
+                columns[c] = MakeColumn(columnsGo.transform, c);
+
+            BuildResizeGrip();
 
             BuildDetail();
             root.SetActive(false);
+        }
+
+        /// <summary>右下のリサイズグリップ（VLG の外＝ignoreLayout で隅に固定）。</summary>
+        private void BuildResizeGrip()
+        {
+            resizeGrip = new GameObject("ResizeGrip", typeof(RectTransform));
+            resizeGrip.transform.SetParent(window, false);
+            var grt = resizeGrip.GetComponent<RectTransform>();
+            grt.anchorMin = new Vector2(1f, 0f); grt.anchorMax = new Vector2(1f, 0f);
+            grt.pivot = new Vector2(1f, 0f);
+            grt.sizeDelta = new Vector2(22f, 22f);
+            grt.anchoredPosition = Vector2.zero;
+            var gle = resizeGrip.AddComponent<LayoutElement>(); gle.ignoreLayout = true;
+            var gimg = resizeGrip.AddComponent<Image>();
+            gimg.color = new Color(0.45f, 0.55f, 0.68f, 0.85f);
+            var grip = resizeGrip.AddComponent<UIResize>();
+            grip.target = window;
+            grip.minSize = new Vector2(640f, 360f);
+            var glyph = AddLabel(resizeGrip.transform, "◢", 14f, new Color(0.85f, 0.9f, 0.96f));
+            glyph.alignment = TextAlignmentOptions.BottomRight;
+            var lrt = glyph.rectTransform;
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero; lrt.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>最小化／復元：本文（タイトル・列・グリップ）を隠してウィンドウをタイトルバーだけに畳む。</summary>
+        private void OnMinimize(bool collapsed)
+        {
+            minimized = collapsed;
+            if (collapsed)
+            {
+                savedSize = window.sizeDelta;
+                window.sizeDelta = new Vector2(savedSize.x, WindowChrome.TitleBarHeight + 6f);
+            }
+            else
+            {
+                window.sizeDelta = savedSize;
+            }
+            if (titleGo != null) titleGo.SetActive(!collapsed);
+            if (columnsGo != null) columnsGo.SetActive(!collapsed);
+            if (resizeGrip != null) resizeGrip.SetActive(!collapsed);
         }
 
         private Transform MakeColumn(Transform parent, int index)
@@ -479,7 +606,7 @@ namespace Ginei
             return body.transform;
         }
 
-        private void AddLabel(Transform parent, string text, float size, Color color)
+        private TextMeshProUGUI AddLabel(Transform parent, string text, float size, Color color)
         {
             var go = new GameObject("Label");
             go.transform.SetParent(parent, false);
@@ -490,6 +617,7 @@ namespace Ginei
             label.enableWordWrapping = true;
             label.raycastTarget = false;
             if (jpFont != null) label.font = jpFont;
+            return label;
         }
 
         private void EnsureEventSystem()

@@ -24,9 +24,16 @@ namespace Ginei
         /// 残りの本文は既存の伸縮子（flexibleHeight=1 のスクロール等）がそのまま埋める。
         /// </summary>
         public static void AddTitleBarLayout(RectTransform frameRT, string caption, UnityAction onClose)
+            => AddTitleBarLayout(frameRT, caption, onClose, null);
+
+        /// <summary>
+        /// 最小化ボタン付きのタイトルバーを差し込む。<paramref name="onMinimize"/> は折り畳み状態（true=最小化中）を受け取る。
+        /// ボタンの字形（－/□）は本クロームが自動でトグルする＝呼び出し側は本文の表示/サイズ調整だけ行う。
+        /// </summary>
+        public static void AddTitleBarLayout(RectTransform frameRT, string caption, UnityAction onClose, UnityAction<bool> onMinimize)
         {
             if (frameRT == null) return;
-            GameObject bar = BuildBar(frameRT, caption, onClose, out _);
+            GameObject bar = BuildBar(frameRT, caption, onClose, out _, onMinimize);
             bar.transform.SetSiblingIndex(0); // VLG の先頭＝最上段
             LayoutElement le = bar.AddComponent<LayoutElement>();
             le.minHeight = TitleBarHeight; le.preferredHeight = TitleBarHeight; le.flexibleHeight = 0f;
@@ -68,7 +75,7 @@ namespace Ginei
 
         // ===== 内部 =====
 
-        private static GameObject BuildBar(RectTransform parent, string caption, UnityAction onClose, out RectTransform barRT)
+        private static GameObject BuildBar(RectTransform parent, string caption, UnityAction onClose, out RectTransform barRT, UnityAction<bool> onMinimize = null)
         {
             GameObject bar = new GameObject("TitleBar", typeof(RectTransform));
             bar.transform.SetParent(parent, false);
@@ -78,10 +85,36 @@ namespace Ginei
             UIDragMove drag = bar.AddComponent<UIDragMove>();
             drag.target = parent;
 
+            // 右端のボタン群（×閉じる＋任意で最小化）ぶんだけキャプションを空ける
+            float rightReserve = onMinimize != null ? 78f : 42f;
             TextMeshProUGUI cap = CreateText(bar.transform, "≡ " + caption + "　（ドラッグで移動）", 15f, CaptionColor, TextAlignmentOptions.Left);
             RectTransform crt = cap.rectTransform;
             crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one;
-            crt.offsetMin = new Vector2(12f, 0f); crt.offsetMax = new Vector2(-42f, 0f);
+            crt.offsetMin = new Vector2(12f, 0f); crt.offsetMax = new Vector2(-rightReserve, 0f);
+
+            // 最小化ボタン（×の左隣・字形は本クロームがトグル）
+            if (onMinimize != null)
+            {
+                GameObject mb = new GameObject("Minimize", typeof(RectTransform));
+                mb.transform.SetParent(bar.transform, false);
+                RectTransform mrt = mb.GetComponent<RectTransform>();
+                mrt.anchorMin = new Vector2(1f, 0f); mrt.anchorMax = new Vector2(1f, 1f);
+                mrt.pivot = new Vector2(1f, 0.5f); mrt.sizeDelta = new Vector2(34f, 0f);
+                mrt.anchoredPosition = new Vector2(-40f, 0f);
+                Image mimg = mb.AddComponent<Image>();
+                mimg.color = BarColor;
+                Button mbtn = mb.AddComponent<Button>();
+                mbtn.transition = UnityEngine.UI.Selectable.Transition.None;
+                TextMeshProUGUI mglyph = CreateText(mb.transform, "－", 18f, Color.white, TextAlignmentOptions.Center);
+                StretchFull(mglyph.rectTransform);
+                bool[] collapsed = { false };
+                mbtn.onClick.AddListener(() =>
+                {
+                    collapsed[0] = !collapsed[0];
+                    mglyph.text = collapsed[0] ? "□" : "－";
+                    onMinimize(collapsed[0]);
+                });
+            }
 
             GameObject cb = new GameObject("Close", typeof(RectTransform));
             cb.transform.SetParent(bar.transform, false);

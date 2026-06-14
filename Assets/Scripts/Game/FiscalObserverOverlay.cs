@@ -174,6 +174,19 @@ namespace Ginei
                 sb.Append('\n');
             }
 
+            // 金融当局・研究・動員（P0/P1 配線）：中銀政策金利・技術水準・徴兵/年・金融危機。
+            GalaxyView gvv = GalaxyView.Active;
+            if (gvv != null)
+            {
+                CentralBank cb = gvv.GetCentralBank(s.faction);
+                ResearchState rsx = gvv.GetResearch(s.faction);
+                sb.Append("  <color=#9fb0c0>中銀</color> 政策金利 ").Append(cb != null ? (cb.policyRate * 100f).ToString("0.0") : "—").Append('%')
+                  .Append("　<color=#9fb0c0>技術</color> ").Append(rsx != null ? rsx.techLevel.ToString("0.0") : "—")
+                  .Append("　<color=#9fb0c0>徴兵/年</color> ").Append(gvv.GetLastRecruits(s.faction).ToString("#,0"));
+                if (gvv.IsFinancialCrisis(s.faction)) sb.Append("　<color=#ff7a6a>⚠ 金融危機</color>");
+                sb.Append('\n');
+            }
+
             if (debtSpiral)
                 sb.Append("  <color=#ff7a6a>⚠ 債務スパイラル（利払い>基礎黒字＝複利膨張）</color>\n");
 

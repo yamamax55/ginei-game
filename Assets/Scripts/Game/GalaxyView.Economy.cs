@@ -141,6 +141,24 @@ namespace Ginei
                 // 国債（#161/#185 配線）：額面を債務に同期し、財政健全度→信用リスク・市場金利→価格を収束（財政悪化→価格↓利回り↑）。
                 s.sovereignBond = SovereignBondRules.Ensure(s.sovereignBond, s.faction);
                 SovereignBondRules.TickYear(s.sovereignBond, s.fiscal, economy, 1f);
+
+                // 中央銀行・金融政策（P0 配線）：インフレギャップに反応して政策金利を調整（テイラールール・OMO）。
+                if (!centralBanks.TryGetValue(s.faction, out var cb) || cb == null)
+                {
+                    cb = new CentralBank { name = $"{s.faction}中央銀行" };
+                    centralBanks[s.faction] = cb;
+                }
+                float infl = s.currency != null ? s.currency.inflationRate : 0f;
+                MonetaryAuthorityRules.TickYear(cb, infl, 0f, 1f);
+
+                // 金融安定（P0 配線）：財政・物価から金融危機を検出して通知（債務デフレ/スパイラル）。
+                float priceLvl = s.currency != null ? s.currency.priceLevel : 1f;
+                bool wasCrisis = financialCrisis.TryGetValue(s.faction, out var pc) && pc;
+                bool nowCrisis = FinancialStabilityRules.DetectCrisis(s.fiscal, economy);
+                financialCrisis[s.faction] = nowCrisis;
+                if (nowCrisis && !wasCrisis)
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{s.faction} 金融危機（債務 {s.fiscal.debt:0}・物価 {priceLvl:0.00}）");
             }
 
             // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。
@@ -183,6 +201,8 @@ namespace Ginei
         };
         // 1人あたり需要係数（少量で価格が創発＝タイクン化回避）。
         private const float DemandSupplies = 0.012f, DemandFuel = 0.005f, DemandAmmo = 0.002f, DemandLuxury = 0.006f;
+        // P0 交易の輸送コスト（基準価格単位・これ未満の価格差は裁定が起きない）／P1 平時の動員率。
+        private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f;
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
@@ -297,6 +317,46 @@ namespace Ginei
         /// <summary>勢力の上場銘柄一覧（株価/配当/心理・#185）。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
         public System.Collections.Generic.IReadOnlyList<Listing> GetListings(Faction faction)
             => listings.TryGetValue(faction, out var l) ? l : null;
+
+        // --- 中央銀行（P0・#中銀）／研究（P1・#技術）：勢力ごとの在席状態。年次 Tick で進む。 ---
+        private readonly System.Collections.Generic.Dictionary<Faction, CentralBank> centralBanks
+            = new System.Collections.Generic.Dictionary<Faction, CentralBank>();
+        private readonly System.Collections.Generic.Dictionary<Faction, ResearchState> researchStates
+            = new System.Collections.Generic.Dictionary<Faction, ResearchState>();
+        private readonly System.Collections.Generic.Dictionary<Faction, float> lastRecruits
+            = new System.Collections.Generic.Dictionary<Faction, float>();
+        private readonly System.Collections.Generic.Dictionary<Faction, bool> financialCrisis
+            = new System.Collections.Generic.Dictionary<Faction, bool>();
+
+        /// <summary>勢力が金融危機中か（観測層専用＝read-only）。</summary>
+        public bool IsFinancialCrisis(Faction faction)
+            => financialCrisis.TryGetValue(faction, out var v) && v;
+
+        /// <summary>勢力の中央銀行（政策金利/通貨供給/物価目標）。観測層専用＝read-only。</summary>
+        public CentralBank GetCentralBank(Faction faction)
+            => centralBanks.TryGetValue(faction, out var cb) ? cb : null;
+        /// <summary>勢力の研究状態（技術水準/進捗）。観測層専用＝read-only。</summary>
+        public ResearchState GetResearch(Faction faction)
+            => researchStates.TryGetValue(faction, out var rs) ? rs : null;
+        /// <summary>勢力の直近年の徴兵数（FleetPool へ加えた兵力）。観測層専用＝read-only。</summary>
+        public float GetLastRecruits(Faction faction)
+            => lastRecruits.TryGetValue(faction, out var v) ? v : 0f;
+
+        /// <summary>勢力の平均労働技能（所有惑星を人口加重・研究効率の入力）。0..1。</summary>
+        private float FactionAvgSkill(Faction fac)
+        {
+            if (map == null || provinces == null) return 0f;
+            float sum = 0f, pop = 0f;
+            foreach (var s in map.systems)
+            {
+                if (s == null || s.owner != fac) continue;
+                if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                float w = Mathf.Max(0f, prov.population);
+                sum += PopLaborTickRules.OverallSkill(prov) * w;
+                pop += w;
+            }
+            return pop > 0f ? sum / pop : 0f;
+        }
 
         /// <summary>私有企業を上場銘柄（Listing＋Company）に仕立てる（国有は非上場）。</summary>
         private static System.Collections.Generic.List<Listing> SeedListings(System.Collections.Generic.List<Enterprise> firms)
@@ -431,6 +491,20 @@ namespace Ginei
                     StockMarketRules.Tick(l.stock, sp, 1f);                           // 株価を適正へ収束
                 }
 
+                // 研究（P1 配線）：研究予算×平均労働技能で技術水準を進める（教育→技能→技術）。
+                if (!researchStates.TryGetValue(fac, out var rs) || rs == null) { rs = new ResearchState(); researchStates[fac] = rs; }
+                float facSkill = FactionAvgSkill(fac);
+                float researchFunding = fstate != null && fstate.budget != null ? BudgetRules.Get(fstate.budget, BudgetCategory.研究) : 0f;
+                ResearchProgramRules.TickYear(rs, researchFunding, facSkill, 1f);
+
+                // 徴兵・動員（P1 配線）：徴募源(軍属#110)×動員率→練度反映の戦力を FleetPool へ加える。
+                float recruitPool = 0f;
+                for (int i = 0; i < owned.Count; i++) recruitPool += OccupationRules.RecruitablePool(owned[i]);
+                float recruits = RecruitmentProgramRules.AnnualRecruits(recruitPool, PeacetimeMobilizationRate);
+                float trained = RecruitmentProgramRules.TrainedStrength(recruits, facSkill);
+                lastRecruits[fac] = trained;
+                if (trained >= 1f) FleetPool.Add(fac, (int)trained);
+
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
                 var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);
                 if (result.overall < 0.999f)
@@ -457,6 +531,17 @@ namespace Ginei
                             $"{fac} 工業が{pr.binding}不足で減産（稼働 {(int)(pr.utilization * 100)}%）");
                 }
             }
+
+            // 交易（P0 配線）：勢力間で同一財の市場価格差を裁定で縮める（輸送コスト律速）。市場↔交易が連動。
+            for (int a = 0; a < DemoFactions.Length; a++)
+                for (int b = a + 1; b < DemoFactions.Length; b++)
+                {
+                    if (!markets.TryGetValue(DemoFactions[a], out var ma) || ma == null) continue;
+                    if (!markets.TryGetValue(DemoFactions[b], out var mb) || mb == null) continue;
+                    int n = Mathf.Min(ma.Length, mb.Length);
+                    for (int g = 0; g < n; g++)
+                        InterregionalTradeRules.TickPair(ma[g], mb[g], TradeTransportCost, 1f);
+                }
         }
 
         // --- 代表生産チェーン（森林→木材→建材→住宅・VCHAIN・#2091 デモ配線） ---

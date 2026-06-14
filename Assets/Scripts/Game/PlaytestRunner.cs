@@ -42,10 +42,12 @@ namespace Ginei
         public bool captureScreenshots = false;
         [Tooltip("スクショの出力ディレクトリ。空なら persistentDataPath。")]
         public string screenshotDir = "";
-        [Tooltip("スクショ間隔（会戦経過秒）。")]
-        public float screenshotIntervalSeconds = 10f;
+        [Tooltip("スクショ間隔（実時間秒）。CI のソフトGL描画は遅いので実時間基準で等間隔に撮る。")]
+        public float screenshotIntervalSeconds = 8f;
         [Tooltip("撮るスクショの最大枚数（撮りすぎ防止）。")]
         public int maxScreenshots = 20;
+        [Tooltip("決着しなくても、この実時間秒で打ち切ってレポートを書き出し終了する（CI の timeout 前に確実に締める＝report.json を必ず出す）。")]
+        public float maxRealSeconds = 150f;
 
         /// <summary>起動引数キー。次の引数があればシナリオ名、その次があれば出力パスとして解釈する。</summary>
         public const string PlaytestArg = "-ginei-playtest";
@@ -116,9 +118,13 @@ namespace Ginei
 
             float elapsed = 0f;
             float nextSample = 0f;
-            float nextShot = 0f;
             int shotIndex = 0;
-            while (elapsed < maxDurationSeconds && !resolved)
+            // スクショ・打ち切りは実時間(unscaled)基準。CI のソフトGLは描画が遅く battle-time が
+            // 進みにくいので、実時間で等間隔に撮り、実時間上限で確実にループを抜けてレポートを書く。
+            float startReal = Time.realtimeSinceStartup;
+            float nextShotReal = startReal;
+            while (elapsed < maxDurationSeconds && !resolved
+                   && (Time.realtimeSinceStartup - startReal) < maxRealSeconds)
             {
                 if (elapsed >= nextSample)
                 {
@@ -126,10 +132,11 @@ namespace Ginei
                     moveSamples.Add(AccumulatedMovement());
                     nextSample += Mathf.Max(0.01f, sampleInterval);
                 }
-                if (captureScreenshots && shotIndex < maxScreenshots && elapsed >= nextShot)
+                if (captureScreenshots && shotIndex < maxScreenshots
+                    && Time.realtimeSinceStartup >= nextShotReal)
                 {
                     CaptureShot(shotIndex++);
-                    nextShot += Mathf.Max(0.1f, screenshotIntervalSeconds);
+                    nextShotReal += Mathf.Max(0.1f, screenshotIntervalSeconds);
                 }
                 elapsed += Time.deltaTime; // 会戦経過（timeScale 追従＝速回し）
                 yield return null;

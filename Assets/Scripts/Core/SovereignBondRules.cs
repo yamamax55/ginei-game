@@ -37,5 +37,23 @@ namespace Ginei
             float marketRate = FiscalRules.InterestRate(fs, economy, fp);  // 市場金利（債務比率のリスク込み）
             BondMarketRules.Tick(b, marketRate, bp, dt);                   // 価格を適正へ収束（逆相関）
         }
+
+        /// <summary>
+        /// 中央銀行の政策金利を織り込む版（#中銀↔国債 配線）：市場金利＝max(財政由来金利, 政策金利)＝
+        /// 利上げ局面では国債の必要利回りが上がり価格↓利回り↑（金融政策が国債市場へ波及）。
+        /// </summary>
+        public static void TickYear(Bond b, FiscalState fs, float economy, float dt, float policyRate)
+        {
+            if (b == null || fs == null || dt <= 0f) return;
+
+            var fp = FiscalRules.FiscalParams.Default;
+            var bp = BondMarketRules.BondParams.Default;
+
+            b.faceValue = Mathf.Max(0f, fs.debt);
+            float health = economy > 0f ? FiscalRules.FiscalHealthFactor(fs, economy, fp) : 1f;
+            b.defaultRisk = Mathf.Clamp01(1f - health);
+            float marketRate = Mathf.Max(FiscalRules.InterestRate(fs, economy, fp), Mathf.Max(0f, policyRate));
+            BondMarketRules.Tick(b, marketRate, bp, dt);
+        }
     }
 }

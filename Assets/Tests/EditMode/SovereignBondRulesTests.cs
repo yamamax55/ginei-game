@@ -55,5 +55,21 @@ namespace Ginei.Tests
             SovereignBondRules.TickYear(b, new FiscalState(), 100f, 0f); // dt=0 は何もしない
             Assert.AreEqual(price0, b.price, 1e-5f);
         }
+
+        [Test]
+        public void TickYear_HigherPolicyRateLowersBondPrice()
+        {
+            // 同じ健全財政でも、中央銀行の利上げ（高い政策金利）は国債価格を押し下げる。
+            var fsLow = new FiscalState(revenue: 100f, baseExpenditure: 100f, debt: 100f);
+            var bLow = SovereignBondRules.Ensure(null, Faction.帝国);
+            SovereignBondRules.TickYear(bLow, fsLow, economy: 400f, dt: 1f, policyRate: 0.02f);
+
+            var fsHigh = new FiscalState(revenue: 100f, baseExpenditure: 100f, debt: 100f);
+            var bHigh = SovereignBondRules.Ensure(null, Faction.同盟);
+            SovereignBondRules.TickYear(bHigh, fsHigh, economy: 400f, dt: 1f, policyRate: 0.15f);
+
+            Assert.Less(bHigh.price, bLow.price, "利上げ（高政策金利）で国債価格↓（利回り↑）");
+            Assert.DoesNotThrow(() => SovereignBondRules.TickYear(null, fsLow, 400f, 1f, 0.05f));
+        }
     }
 }

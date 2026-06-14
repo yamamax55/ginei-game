@@ -217,18 +217,75 @@ namespace Ginei
             return n == 0 ? 0f : Mathf.Clamp(sum / n * MarketCostPushScale, 0f, MarketCostPushCap);
         }
 
+        /// <summary>勢力の国家状態（無ければ null）＝通貨/国庫/企業利潤の行き先解決に使う。</summary>
+        private static FactionState StateOf(Faction fac)
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return null;
+            for (int i = 0; i < camp.states.Count; i++)
+                if (camp.states[i] != null && camp.states[i].faction == fac) return camp.states[i];
+            return null;
+        }
+
         /// <summary>勢力通貨の物価水準（インフレ）。未設定は1.0＝物価→市場の名目スケール。</summary>
         private float PriceLevelOf(Faction fac)
         {
-            var camp = StrategySession.Campaign;
-            if (camp == null || camp.states == null) return 1f;
-            for (int i = 0; i < camp.states.Count; i++)
+            FactionState st = StateOf(fac);
+            return st != null && st.currency != null ? Mathf.Max(0.01f, st.currency.priceLevel) : 1f;
+        }
+
+        // --- 企業（#1022 配線）：勢力ごとにセクター別の企業がPOP工員を雇い、市場価格で生産・利潤・資本蓄積する。 ---
+        private readonly System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Enterprise>> enterprises
+            = new System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Enterprise>>();
+
+        /// <summary>勢力の企業一覧（雇用/資本/産出/利潤・#1022）。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
+        public System.Collections.Generic.IReadOnlyList<Enterprise> GetEnterprises(Faction faction)
+            => enterprises.TryGetValue(faction, out var list) ? list : null;
+
+        /// <summary>セクター（産業）が売る市場財＝市場価格の参照先（工業/農業→物資・鉱業→燃料・居住→奢侈品）。</summary>
+        private static GoodType GoodForSector(SystemType sector)
+        {
+            switch (sector)
             {
-                var st = camp.states[i];
-                if (st != null && st.faction == fac && st.currency != null)
-                    return Mathf.Max(0.01f, st.currency.priceLevel);
+                case SystemType.鉱業: return GoodType.燃料;
+                case SystemType.居住: return GoodType.奢侈品;
+                default: return GoodType.物資; // 工業/農業
             }
-            return 1f;
+        }
+
+        /// <summary>セクターが雇うPOP職業（工業→工員/農業→農民/鉱業→鉱員/居住→官吏）。</summary>
+        private static Occupation OccForSector(SystemType sector)
+        {
+            switch (sector)
+            {
+                case SystemType.農業: return Occupation.農民;
+                case SystemType.鉱業: return Occupation.鉱員;
+                case SystemType.居住: return Occupation.官吏;
+                default: return Occupation.工員; // 工業
+            }
+        }
+
+        /// <summary>勢力のセクター別企業をデモ生成（専制=国有/民主=私有で所有形態が分かれる＝国有は雇用を守る）。</summary>
+        private System.Collections.Generic.List<Enterprise> SeedEnterprises(Faction fac)
+        {
+            FactionState st = StateOf(fac);
+            bool democratic = st != null && GovernmentFormRules.IsDemocratic(st.governmentForm);
+            Ownership own = democratic ? Ownership.私有 : Ownership.国有;
+            var list = new System.Collections.Generic.List<Enterprise>();
+            SystemType[] sectors = { SystemType.工業, SystemType.農業, SystemType.鉱業, SystemType.居住 };
+            for (int i = 0; i < sectors.Length; i++)
+                list.Add(new Enterprise(fac, sectors[i], employees: 100f, capital: 1000f, productivity: 1f, wageRate: 1f,
+                    name: $"{fac}{sectors[i]}{(own == Ownership.国有 ? "公社" : "社")}", ownership: own));
+            return list;
+        }
+
+        /// <summary>所有惑星のうちセクターが雇う職業のPOP工員総数（採用の供給上限の素）。</summary>
+        private static float SectorLaborPool(System.Collections.Generic.List<Province> owned, SystemType sector)
+        {
+            Occupation occ = OccForSector(sector);
+            float sum = 0f;
+            for (int i = 0; i < owned.Count; i++) sum += OccupationRules.Workers(owned[i], occ);
+            return sum;
         }
 
         /// <summary>星系の生産チェーン在庫（森林→木材→建材→住宅・#2091）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
@@ -310,6 +367,26 @@ namespace Ginei
                 {
                     var scaledGood = new Good(MarketGoods[g].goodType, MarketGoods[g].basePrice * priceLevel);
                     MarketRules.Tick(mk[g], scaledGood, MarketRules.MarketParams.Default, 1f);
+                }
+
+                // 企業（#1022 配線）：セクター別の企業が市場価格で生産・利潤→資本蓄積、POP工員供給を上限に雇用調整。
+                // 国有企業の利潤は国庫へ（私有は民間に残り観測のみ）。市場価格（直上で更新）を読む＝企業↔市場が連動。
+                if (!enterprises.TryGetValue(fac, out var firms) || firms == null)
+                {
+                    firms = SeedEnterprises(fac);
+                    enterprises[fac] = firms;
+                }
+                FactionState fstate = StateOf(fac);
+                for (int e = 0; e < firms.Count; e++)
+                {
+                    Enterprise firm = firms[e];
+                    if (firm == null) continue;
+                    Market gm = mk[(int)GoodForSector(firm.sector)];
+                    float price = gm != null ? gm.price : 1f;
+                    float laborSupply = SectorLaborPool(owned, firm.sector) * 0.1f; // 採用余地（供給の一部）
+                    float profit = EnterpriseRules.Tick(firm, price, laborSupply, 1f);
+                    if (firm.ownership == Ownership.国有 && profit > 0f && fstate != null)
+                        fstate.treasury += profit * 0.5f; // 国有企業利潤の一部を国庫へ
                 }
 
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。

@@ -191,6 +191,39 @@ namespace Ginei
             }
             if (!anyMarket) sb.Append("<color=#9aa7b2>未生成</color>");
             sb.Append('\n');
+
+            // --- 企業（#1022 配線・市場価格で生産・雇用・利潤） ---
+            var firms = gv.GetEnterprises(fac);
+            if (firms != null && firms.Count > 0)
+            {
+                sb.Append("  <color=#9fb0c0>企業</color>\n");
+                for (int e = 0; e < firms.Count; e++)
+                {
+                    Enterprise firm = firms[e];
+                    if (firm == null) continue;
+                    GoodType good = GoodForSector(firm.sector);
+                    Market m = gv.GetMarket(fac, good);
+                    float price = m != null ? m.price : 1f;
+                    float profit = EnterpriseRules.Profit(firm, price);
+                    string pcol = profit >= 0f ? "#a0e0a0" : "#ff9a8a";
+                    sb.Append("   ").Append(firm.name).Append("（").Append(firm.ownership).Append("）")
+                      .Append(" 雇用 ").Append(firm.employees.ToString("#,0"))
+                      .Append("　資本 ").Append(firm.capital.ToString("#,0"))
+                      .Append("　産出 ").Append(EnterpriseRules.Output(firm).ToString("#,0"))
+                      .Append("　利潤 <color=").Append(pcol).Append('>').Append(profit.ToString("+#,0;-#,0;0")).Append("</color>\n");
+                }
+            }
+        }
+
+        /// <summary>セクター（産業）が売る市場財（観測表示用・GalaxyView の対応と一致させる）。</summary>
+        private static GoodType GoodForSector(SystemType sector)
+        {
+            switch (sector)
+            {
+                case SystemType.鉱業: return GoodType.燃料;
+                case SystemType.居住: return GoodType.奢侈品;
+                default: return GoodType.物資;
+            }
         }
 
         private void AppendBar(StringBuilder sb, string label, float v01, string colorHex)

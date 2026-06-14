@@ -131,8 +131,24 @@ namespace Ginei
             AppendBar(sb, "  債務比率", Mathf.Clamp01(debtRatio), debtSpiral ? "#ff7a6a" : "#ffd28a");
             AppendBar(sb, "  財政健全度", Mathf.Clamp01(fiscalHealth), "#a0e0a0");
 
-            sb.Append("  <color=#9fb0c0>為替係数</color> ＝ <color=#ffe08a>").Append(exchangeRate.ToString("0.00"))
-              .Append("</color>　<color=#6f8a9a>(1.0＝基準・<1＝財政悪化で通貨安)</color>\n");
+            // 通貨（#通貨 配線）：固有名＋為替＋物価/インフレ＋通貨供給（赤字の貨幣化で動く）。
+            string curName = s.currency != null && !string.IsNullOrEmpty(s.currency.currencyName)
+                ? s.currency.currencyName : CurrencyNames.For(s.faction);
+            float fxShown = s.currency != null ? s.currency.exchangeRate : exchangeRate;
+            sb.Append("  <color=#9fb0c0>通貨</color> <color=#c9a0ff>").Append(curName).Append("</color>")
+              .Append("　<color=#9fb0c0>為替</color> ").Append(fxShown.ToString("0.00"))
+              .Append("　<color=#6f8a9a>(1.0=基準・<1=通貨安)</color>\n");
+            if (s.currency != null)
+            {
+                float infl = s.currency.inflationRate;
+                sb.Append("  <color=#9fb0c0>物価</color> ").Append(s.currency.priceLevel.ToString("0.00"))
+                  .Append("　<color=#9fb0c0>インフレ</color> <color=")
+                  .Append(infl >= 0.5f ? "#ff7a6a" : (infl >= 0.1f ? "#ffd28a" : "#a0e0a0")).Append('>')
+                  .Append((infl * 100f).ToString("0.0")).Append("%</color>")
+                  .Append("　<color=#9fb0c0>通貨供給</color> ").Append(s.currency.moneySupply.ToString("#,0")).Append('\n');
+                if (InflationRules.IsHyperinflation(infl))
+                    sb.Append("  <color=#ff7a6a>⚠ ハイパーインフレ</color>\n");
+            }
 
             if (debtSpiral)
                 sb.Append("  <color=#ff7a6a>⚠ 債務スパイラル（利払い>基礎黒字＝複利膨張）</color>\n");

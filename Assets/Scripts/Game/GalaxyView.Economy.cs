@@ -107,6 +107,14 @@ namespace Ginei
 
                 if (FiscalRules.IsDebtSpiral(s.fiscal, economy, p))
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 債務スパイラル（債務 {s.fiscal.debt:0}）");
+
+                // 通貨（#通貨 配線）：赤字の貨幣化→インフレ／財政健全度→為替。固有名は決定論で割り当て（冪等）。
+                s.currency = CurrencyRules.Ensure(s.currency, s.faction);
+                bool hyper = s.currency.priceLevel > 0f && InflationRules.IsHyperinflation(s.currency.inflationRate);
+                CurrencyRules.TickYear(s.currency, s.fiscal, economy, 1f);
+                if (!hyper && InflationRules.IsHyperinflation(s.currency.inflationRate))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{s.faction} ハイパーインフレ（{s.currency.currencyName}・年率 {(int)(s.currency.inflationRate * 100)}%）");
             }
 
             // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。

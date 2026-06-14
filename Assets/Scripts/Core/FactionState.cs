@@ -44,6 +44,11 @@ namespace Ginei
         /// （二大政党への収束・選挙・分断危機）。budget/fiscal と同じく在席のセッション状態（セーブ非対象・null=未設定）。</summary>
         public PoliticsState politics;
 
+        /// <summary>通貨状態＝固有名＋為替/物価/通貨供給（#通貨）。<see cref="CurrencyRules"/> が年次で回す
+        /// （赤字の貨幣化→インフレ／財政健全度→為替）。budget/fiscal/politics と同じく在席のセッション状態
+        /// （セーブ非対象・null=未設定＝復元時は名前を決定論で再割当）。</summary>
+        public CurrencyState currency;
+
         public FactionState() { }
 
         public FactionState(Faction faction, float inclusiveness = 0.5f)

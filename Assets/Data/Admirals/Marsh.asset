@@ -21,6 +21,7 @@ MonoBehaviour:
   regnalNumber: 0
   epithet: 
   callName: 
+  signatureShipName: 
   isProtagonist: 0
   rankTier: 5
   leadership: 83
@@ -29,8 +30,37 @@ MonoBehaviour:
   mobility: 86
   operation: 78
   intelligence: 80
+  humility: 50
+  ambition: 50
+  isSpecialForces: 0
+  isTranscendent: 0
+  isHyoriHikyo: 0
+  isInnovator: 0
+  isRisingHero: 0
+  isPeerlessWarrior: 0
+  isThreeDayRuler: 0
+  isTurncoat: 0
+  virtue: 50
+  claimsImperialDescent: 0
+  isVirtuousLord: 0
+  isWarSaint: 0
+  isFierceGeneral: 0
+  isGrandTactician: 0
+  isKaiser: 0
+  isRightHand: 0
+  isMagician: 0
   baseStrength: 8500
   hasPreferredFormation: 1
   preferredFormation: 1
   staffOfficers: []
   staffBonusRatio: 0.2
+  talents: []
+  fame: 0
+  specialty: 0
+  fatigue: 0
+  woundSeverity: 0
+  growth:
+    experience: 0
+    archetype: 3
+  personality: 2
+  personalLoyalty: 1

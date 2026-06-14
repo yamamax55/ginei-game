@@ -39,21 +39,12 @@ namespace Ginei
         private List<AdmiralData> admiralPool; // デモ提督プール（候補）
         private object escWindowToken;      // UIWindowStack 登録トークン（#ウィンドウESC）
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        // 【一旦廃棄】艦隊編成（艦艇選択）メニューは観測層へ移行。B は艦艇オブザーバ（FleetObserverOverlay）が使う。
+        // 自動生成を止めて本パネルを出さない（コードは将来の操作化のため温存）。復活時は Bootstrap を元に戻す。
+        // [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-            SceneManager.sceneLoaded += OnSceneLoaded;
-            TryCreate(SceneManager.GetActiveScene());
-        }
-
-        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => TryCreate(scene);
-
-        private static void TryCreate(Scene scene)
-        {
-            if (scene.name != "Strategy") return;
-            if (UnityEngine.Object.FindAnyObjectByType<FleetOrganizationPanel>() != null) return;
-            new GameObject("FleetOrganizationPanel").AddComponent<FleetOrganizationPanel>();
+            // 無効化（艦艇観測層へ移行）。
         }
 
         private void Awake()

@@ -287,9 +287,11 @@ namespace Ginei
             AddCommand(cmd.transform, "勢力", () => UnityEngine.Object.FindAnyObjectByType<CampaignObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "財政", () => UnityEngine.Object.FindAnyObjectByType<EconomyObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "軍事", () => UnityEngine.Object.FindAnyObjectByType<MilitaryObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "艦艇", () => UnityEngine.Object.FindAnyObjectByType<FleetObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "人事", () => UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "決裁", () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle());
             AddCommand(cmd.transform, "法令", () => UnityEngine.Object.FindAnyObjectByType<LawObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "教育", () => UnityEngine.Object.FindAnyObjectByType<EducationObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "情報", () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle());
             AddCommand(cmd.transform, "通知", () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle());
             AddCommand(cmd.transform, "ヘルプ", () => UnityEngine.Object.FindAnyObjectByType<HelpOverlay>()?.Toggle());
@@ -502,7 +504,7 @@ namespace Ginei
             switch (hint)
             {
                 case CampaignHint.前線へ潜行: return "交戦中の回廊をダブルクリックで潜行（手動指揮）";
-                case CampaignHint.任務を発令: return "C: 攻略任務を発令 ／ B: 艦隊を編成";
+                case CampaignHint.任務を発令: return "C: 攻略任務を発令 ／ B: 艦艇観測";
                 case CampaignHint.領土を広げよ: return "艦隊を選んで右クリックで敵星系へ進軍";
                 default: return "好機を待つ";
             }

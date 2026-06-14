@@ -46,6 +46,7 @@ namespace Ginei
         public float panRange = 14f;
 
         private bool isOpen;
+        private object escWindowToken;  // UIWindowStack 登録トークン（#ウィンドウESC）
         private float liveViewSize;     // 現在のズーム（viewSize を実行時に上書きせず別持ち＝実効値パターン）
         private Vector2 viewBaseCenter; // パンの基準中心（クランプ用）
         private bool panActive;
@@ -120,6 +121,9 @@ namespace Ginei
             mapImage.color = Color.white;
 
             root.SetActive(false);
+
+            // ESC は UIWindowStack 経由で「手前から閉じる」（#ウィンドウESC）。
+            escWindowToken = UIWindowStack.Register(() => isOpen, Close, 950, "星系図");
         }
 
         private void BuildTitleBar(Transform parent, RectTransform windowRT)
@@ -222,7 +226,7 @@ namespace Ginei
         private void Update()
         {
             if (!isOpen) return;
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) { Close(); return; }
+            // Esc は UIWindowStack 経由（GalaxyView）で「手前から閉じる」＝自前で読まない。
             if (Mouse.current == null || viewCam == null || mapRT == null) return;
 
             bool overMap = TryCursorWorld(out Vector3 cursorWorld);
@@ -286,6 +290,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            UIWindowStack.Unregister(escWindowToken);
             Cleanup();
             if (instance == this) instance = null;
         }

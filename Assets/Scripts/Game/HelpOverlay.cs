@@ -94,6 +94,9 @@ namespace Ginei
 
         // ===== Unity ライフサイクル =====
 
+        // UIWindowStack 登録トークン（#ウィンドウESC）
+        private object escWindowToken;
+
         private void Awake()
         {
             // シーンから文脈を決定（このシーンで有効なキー/操作だけをヘルプに出す）
@@ -102,7 +105,11 @@ namespace Ginei
             BuildUI();
             // 初期状態は非表示
             SetVisible(false);
+            // ESC は UIWindowStack 経由で「手前から閉じる」（H は従来どおり開閉トグル）。
+            escWindowToken = UIWindowStack.Register(() => panel != null && panel.activeSelf, () => SetVisible(false), canvasSortingOrder, "ヘルプ");
         }
+
+        private void OnDestroy() => UIWindowStack.Unregister(escWindowToken);
 
         private void Update()
         {

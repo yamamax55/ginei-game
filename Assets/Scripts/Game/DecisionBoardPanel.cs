@@ -24,6 +24,7 @@ namespace Ginei
         private TMP_FontAsset jpFont;
         private float savedTimeScale = 1f;
         private bool pausedClock;
+        private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
         private string lastSig = "";
         private Transform[] columns;            // 列の中身（4本）
         private TextMeshProUGUI[] columnHeaders; // 列見出し（件数表示）
@@ -67,6 +68,14 @@ namespace Ginei
             EnsureEventSystem();
             BuildUI();
             SetVisible(false);
+            // ESC は UIWindowStack 経由で「手前から閉じる」（#ウィンドウESC）。K は従来どおり開閉トグル。
+            escWindowToken = UIWindowStack.Register(() => root != null && root.activeSelf, Close, 1100, "決裁ボード");
+        }
+
+        private void OnDestroy()
+        {
+            UIWindowStack.Unregister(escWindowToken);
+            if (instance == this) instance = null;
         }
 
         private void Update()

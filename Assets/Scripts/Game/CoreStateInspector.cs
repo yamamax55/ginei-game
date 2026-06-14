@@ -206,12 +206,18 @@ namespace Ginei
 
         // ===== ライフサイクル =====
 
+        private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
+
         private void Awake()
         {
             EnsureDefaultRoots();
             BuildUI();
             SetVisible(false);
+            // ESC は UIWindowStack 経由で「手前から閉じる」（J は従来どおり開閉トグル）。
+            escWindowToken = UIWindowStack.Register(() => panel != null && panel.activeSelf, () => SetVisible(false), canvasSortingOrder, "状態インスペクタ");
         }
+
+        private void OnDestroy() => UIWindowStack.Unregister(escWindowToken);
 
         private void Update()
         {

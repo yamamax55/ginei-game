@@ -17,31 +17,47 @@ MonoBehaviour:
   objectiveFaction: 1
   timeLimit: 120
   targetAdmiral: {fileID: 0}
+  battlefieldRadius: 20
+  objectivePoint: {x: 0, y: 0}
+  objectiveRadius: 5
+  holdDuration: 30
   fleets:
   - admiral: {fileID: 11400000, guid: 265d62009b5eae7438525f0bac88f9c2, type: 2}
     faction: 0
     factionData: {fileID: 11400000, guid: 75ec5c38a3141f44f887b41659d1f721, type: 2}
     spawnPosition: {x: 6, y: 2}
     formation: 0
+    baseStrength: 0
     fleetNumber: 0
     fleetName: 
     corps: 
     armyGroup: 
+    loyalty: 1
+    intrigue: 0
+    reinforcementDelay: 0
   - admiral: {fileID: 11400000, guid: 29bb0dd971650764bab9cd158dbe16df, type: 2}
     faction: 0
     factionData: {fileID: 11400000, guid: 75ec5c38a3141f44f887b41659d1f721, type: 2}
     spawnPosition: {x: 6, y: -2}
     formation: 3
+    baseStrength: 0
     fleetNumber: 0
     fleetName: 
     corps: 
     armyGroup: 
+    loyalty: 1
+    intrigue: 0
+    reinforcementDelay: 0
   - admiral: {fileID: 11400000, guid: 7a37dc3fe507a3d4aab80e4afc7a3781, type: 2}
     faction: 1
     factionData: {fileID: 11400000, guid: ea71d0e8cea1618408676db2ca67b928, type: 2}
     spawnPosition: {x: -5, y: 0}
     formation: 2
+    baseStrength: 0
     fleetNumber: 0
     fleetName: 
     corps: 
     armyGroup: 
+    loyalty: 1
+    intrigue: 0
+    reinforcementDelay: 0

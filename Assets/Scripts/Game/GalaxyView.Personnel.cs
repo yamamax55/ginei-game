@@ -44,6 +44,7 @@ namespace Ginei
                 commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
                 commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
                 id = SeedFoundingYouth(id, y); // 世代交代ループの種＝結婚適齢の若者（男女）
+                id = SeedDemoCivilService(id, y); // 指導者/政治家/文官/官僚/技術者をシード（人事観測層のテスト）
                 nextPersonId = id; // 卒業生はこの続き番号で採番
             }
 
@@ -215,6 +216,215 @@ namespace Ginei
                 enrollFactor *= KindergartenRules.EducationFactor(kg.enrollmentRate);
                 effectiveQuality = KindergartenRules.EffectiveIntakeQuality(effectiveQuality, kg.quality);
             }
+        }
+
+        /// <summary>
+        /// 教育オブザーバ（<see cref="EducationObserverOverlay"/>）向けの読み取りダンプ。教育データは GalaxyView 内
+        /// （<see cref="SetupPersonnel"/> で構築）にあるため、ここで勢力ごとに整形して観測層へ渡す（観測専用＝状態は変えない）。
+        /// </summary>
+        public string BuildEducationDump()
+        {
+            var sb = new System.Text.StringBuilder(2048);
+            sb.Append("<b>教育オブザーバ</b>　教育チェーン（幼→小→中→高→上級）と人材供給　(U で閉じる)\n");
+            sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
+            if (DemoFactions == null || DemoFactions.Length == 0)
+            {
+                sb.Append("\n<color=#ffcc66>教育データがありません（戦略マップ未起動）。</color>");
+                return sb.ToString();
+            }
+            for (int i = 0; i < DemoFactions.Length; i++) AppendEducationFaction(sb, DemoFactions[i]);
+            sb.Append("\n<color=#6f8a9a>※ 教育チェーンが普及・充実するほど候補母数（進学度）と実効素質が上がり、良い士官/官吏が育つ。</color>");
+            return sb.ToString();
+        }
+
+        private void AppendEducationFaction(System.Text.StringBuilder sb, Faction fac)
+        {
+            sb.Append('\n').Append("<color=#e7e0b0>◤ ").Append(fac).Append("</color>\n");
+
+            // 基礎教育チェーン（就学率・質）
+            Kindergarten kg = KindergartenOf(fac);
+            ElementarySchool es = ElementarySchoolOf(fac);
+            MiddleSchool ms = MiddleSchoolOf(fac);
+            HighSchool hs = HighSchoolOf(fac);
+            AppendEduStage(sb, "  幼稚園", kg?.enrollmentRate, kg?.quality);
+            AppendEduStage(sb, "  小学校", es?.enrollmentRate, es?.quality);
+            AppendEduStage(sb, "  中学校", ms?.enrollmentRate, ms?.quality);
+            AppendEduStage(sb, "  高校　", hs?.enrollmentRate, hs?.quality);
+
+            // 派生：基礎素質0.5 をチェーンに通したときの候補母数倍率・実効素質（実挙動と同じ ResolveEducation）。
+            ResolveEducation(fac, 0.5f, true, out float ef, out float eq);
+            sb.Append("    <color=#9fb0c0>進学度(候補母数×)</color> <color=#ffd28a>×")
+              .Append(ef.ToString("0.00")).Append("</color>")
+              .Append("　<color=#9fb0c0>実効素質(0.5→)</color> <color=#a0e0a0>")
+              .Append(eq.ToString("0.00")).Append("</color>\n");
+
+            AppendEduUpper(sb, fac);
+        }
+
+        /// <summary>基礎教育1段（就学率・質の小バー）。学校が無ければ「なし」。</summary>
+        private void AppendEduStage(System.Text.StringBuilder sb, string label, float? enroll, float? quality)
+        {
+            sb.Append(label);
+            if (enroll == null) { sb.Append("  <color=#6f8a9a>（なし）</color>\n"); return; }
+            sb.Append("  就学 "); AppendEduMiniBar(sb, enroll.Value, "#7fd4ff");
+            sb.Append("  質 ");   AppendEduMiniBar(sb, quality ?? 0f, "#a0e0a0");
+            sb.Append('\n');
+        }
+
+        private void AppendEduMiniBar(System.Text.StringBuilder sb, float v01, string hex)
+        {
+            v01 = Mathf.Clamp01(v01);
+            const int w = 8;
+            int f = Mathf.RoundToInt(v01 * w);
+            sb.Append("<color=").Append(hex).Append('>');
+            for (int i = 0; i < w; i++) sb.Append(i < f ? '█' : '░');
+            sb.Append("</color> ").Append(v01.ToString("0.00"));
+        }
+
+        /// <summary>上級学校（士官学校/大学/高専/短大/専門）を1行で列挙。</summary>
+        private void AppendEduUpper(System.Text.StringBuilder sb, Faction fac)
+        {
+            sb.Append("    <color=#9fb0c0>上級:</color>");
+            bool any = false;
+            if (academies != null)
+                foreach (var a in academies) if (a != null && a.faction == fac)
+                { sb.Append(" [士官学校 定員").Append(a.capacity).Append("/質").Append(a.quality.ToString("0.0")).Append(']'); any = true; }
+            if (universities != null)
+                foreach (var u in universities) if (u != null && u.faction == fac)
+                { sb.Append(" [").Append(u.track == CareerTrack.テクノクラート ? "工科大" : "大学").Append(" 定員").Append(u.capacity).Append("/質").Append(u.quality.ToString("0.0")).Append(']'); any = true; }
+            if (colleges != null)
+                foreach (var c in colleges) if (c != null && c.faction == fac)
+                { sb.Append(" [高専 定員").Append(c.capacity).Append("/質").Append(c.quality.ToString("0.0")).Append(']'); any = true; }
+            if (juniorColleges != null)
+                foreach (var j in juniorColleges) if (j != null && j.faction == fac)
+                { sb.Append(" [短大 定員").Append(j.capacity).Append(']'); any = true; }
+            if (vocationalSchools != null)
+                foreach (var v in vocationalSchools) if (v != null && v.faction == fac)
+                { sb.Append(" [専門 定員").Append(v.capacity).Append(']'); any = true; }
+            if (!any) sb.Append(" <color=#6f8a9a>なし</color>");
+            sb.Append('\n');
+        }
+
+        /// <summary>
+        /// 文民・指導者ロスターのデモシード（人事観測層のテスト＝指導者/政治家/文官/官僚/技術者を見やすく揃える）。
+        /// 全員 <see cref="PersonRole.文民"/>＝<see cref="isSovereign"/>/<see cref="isPolitician"/> と文才/技才で
+        /// <see cref="PersonVocationRules.VocationOf"/> が 君主/政治家/文官/技術者 に振り分ける。返り値は次の人物 id。
+        /// </summary>
+        private int SeedDemoCivilService(int id, int year)
+        {
+            if (DemoFactions == null || civilians == null) return id;
+            foreach (Faction fac in DemoFactions)
+            {
+                // 指導者：君主/元首
+                string sov = fac == Faction.帝国 ? "皇帝（デモ）" : "最高評議会議長（デモ）";
+                civilians.Add(new Person(id++, sov, fac, PersonRole.文民)
+                { isSovereign = true, birthYear = year - 50, leadership = 82, operation = 78, intelligence = 75 });
+
+                // 指導者：政治家（民意と票で生き死にする・GOV-6）
+                civilians.Add(new Person(id++, $"{fac}の政治家A", fac, PersonRole.文民)
+                { isPolitician = true, birthYear = year - 48, leadership = 66, operation = 70, intelligence = 72 });
+                civilians.Add(new Person(id++, $"{fac}の政治家B", fac, PersonRole.文民)
+                { isPolitician = true, birthYear = year - 56, leadership = 60, operation = 66, intelligence = 68 });
+
+                // 文民：文官・官僚（行政の主流）
+                civilians.Add(new Person(id++, $"{fac}の文官（次官）", fac, PersonRole.文民)
+                { birthYear = year - 45, operation = 75, intelligence = 70 });
+                civilians.Add(new Person(id++, $"{fac}の官僚（局長）", fac, PersonRole.文民)
+                { birthYear = year - 52, operation = 68, intelligence = 66 });
+                civilians.Add(new Person(id++, $"{fac}の官僚（事務官）", fac, PersonRole.文民)
+                { birthYear = year - 38, operation = 60, intelligence = 63 });
+
+                // 文民：技術者（テクノクラート＝技才が文才以上）
+                civilians.Add(new Person(id++, $"{fac}の技術官僚", fac, PersonRole.文民)
+                { birthYear = year - 42, operation = 55, intelligence = 56, research = 76, engineering = 72, planning = 62, production = 66 });
+            }
+            return id;
+        }
+
+        // ===== 戦略デモの初期軍備（艦隊台帳・編制ツリー・指揮班）＝艦艇/軍事観測層を満たす =====
+
+        private static readonly string[] ImperialAdmiralNames =
+            { "ロイエンタール", "ミッターマイアー", "ワーレン", "ビッテンフェルト", "ケンプ", "ルッツ",
+              "メックリンガー", "ファーレンハイト", "シュタインメッツ", "ミュラー", "アイゼナッハ", "ベルゲングリューン" };
+        private static readonly string[] AllianceAdmiralNames =
+            { "ヤン", "ビュコック", "アッテンボロー", "ウランフ", "ボロディン", "ムライ",
+              "フィッシャー", "パエッタ", "アップルトン", "モートン", "チュンウーチェン", "ルグランジュ" };
+
+        /// <summary>
+        /// 戦略デモの初期軍備を勢力ごとにシードする（観測層を満たす＝ステラテジーのテスト）。
+        /// 既に現役艦隊がある勢力は据え置き（実シナリオ・往復保持を尊重）。会戦入場で <see cref="FleetRoster"/> は
+        /// クリアされるため、戦略へ戻るたびに空なら再シードする。<see cref="AdmiralData"/> はデモ用に実行時生成。
+        /// </summary>
+        private void SeedDemoMilitary()
+        {
+            if (DemoFactions == null) return;
+            for (int i = 0; i < DemoFactions.Length; i++) SeedFactionMilitary(DemoFactions[i]);
+        }
+
+        private void SeedFactionMilitary(Faction fac)
+        {
+            // 冪等：既に現役艦隊があるならシードしない。
+            IReadOnlyList<FleetUnitData> existing = FleetRoster.AllFleets(fac);
+            if (existing != null)
+                for (int i = 0; i < existing.Count; i++)
+                    if (existing[i] != null && existing[i].IsActive) return;
+
+            string[] names = fac == Faction.帝国 ? ImperialAdmiralNames : AllianceAdmiralNames;
+            int ni = 0;
+            AdmiralData NextAdmiral(int tier, int boost)
+            {
+                string nm = ni < names.Length ? names[ni] : names[ni % names.Length] + "・" + (ni / names.Length + 1);
+                ni++;
+                return MakeDemoAdmiral(nm, tier, fac, boost);
+            }
+
+            int reqFleet = OrderOfBattle.RequiredTier(EchelonType.艦隊);
+            int reqCorps = OrderOfBattle.RequiredTier(EchelonType.軍団);
+            int reqArmy = OrderOfBattle.RequiredTier(EchelonType.軍集団);
+
+            // 軍集団（最上位）＝総司令。配下を付ける前に配属するので tier ゲートのみで通る。
+            string armyName = fac == Faction.帝国 ? "帝国宇宙艦隊総軍" : "同盟宇宙艦隊総軍";
+            MilitaryFormation army = OrderOfBattle.Create(EchelonType.軍集団, fac, armyName);
+            OrderOfBattle.AssignCommander(army.id, NextAdmiral(reqArmy, 25));
+
+            // 2軍団×2艦隊（編制ツリー）。
+            int[][] fleetStrength = { new[] { 3000, 2600 }, new[] { 2400, 2000 } };
+            for (int c = 0; c < 2; c++)
+            {
+                MilitaryFormation corps = OrderOfBattle.Create(EchelonType.軍団, fac, $"第{c + 1}軍団");
+                OrderOfBattle.AssignCommander(corps.id, NextAdmiral(reqCorps + (c == 0 ? 1 : 0), 15));
+                OrderOfBattle.AttachFormation(army.id, corps.id);
+
+                for (int k = 0; k < 2; k++)
+                {
+                    FleetUnitData fleet = FleetRoster.CreateFleet(fac);
+                    fleet.baseStrength = fleetStrength[c][k];
+                    FleetRoster.AssignAdmiral(fleet, NextAdmiral(reqFleet, 8), reqFleet);
+                    CommandStaffRules.AssignVice(fleet, NextAdmiral(reqFleet - 1, 0));
+                    CommandStaffRules.AssignChief(fleet, NextAdmiral(reqFleet - 2, 0));
+                    OrderOfBattle.AttachFleet(corps.id, fleet.fleetNumber);
+                }
+            }
+
+            // 予備（直轄・梯団に属さない）艦隊を1つ＝編制外も観測できる。
+            FleetUnitData reserve = FleetRoster.CreateFleet(fac);
+            reserve.baseStrength = 1200;
+            FleetRoster.AssignAdmiral(reserve, NextAdmiral(reqFleet, 4), reqFleet);
+        }
+
+        /// <summary>デモ用の提督（AdmiralData）を実行時生成する。能力は階級ブーストで緩く差をつける。</summary>
+        private AdmiralData MakeDemoAdmiral(string name, int tier, Faction fac, int boost)
+        {
+            var a = ScriptableObject.CreateInstance<AdmiralData>();
+            a.admiralName = name; a.rankTier = tier; a.faction = fac;
+            int b = Mathf.Clamp(55 + boost, 40, 98);
+            a.leadership = b;
+            a.attack = Mathf.Clamp(b - 5, 40, 98);
+            a.defense = Mathf.Clamp(b - 3, 40, 98);
+            a.mobility = Mathf.Clamp(b - 2, 40, 98);
+            a.operation = Mathf.Clamp(b - 8, 40, 98);
+            a.intelligence = Mathf.Clamp(b - 6, 40, 98);
+            return a;
         }
 
         /// <summary>

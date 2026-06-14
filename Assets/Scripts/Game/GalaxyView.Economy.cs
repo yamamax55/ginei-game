@@ -115,6 +115,10 @@ namespace Ginei
                 if (!hyper && InflationRules.IsHyperinflation(s.currency.inflationRate))
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
                         $"{s.faction} ハイパーインフレ（{s.currency.currencyName}・年率 {(int)(s.currency.inflationRate * 100)}%）");
+
+                // 国債（#161/#185 配線）：額面を債務に同期し、財政健全度→信用リスク・市場金利→価格を収束（財政悪化→価格↓利回り↑）。
+                s.sovereignBond = SovereignBondRules.Ensure(s.sovereignBond, s.faction);
+                SovereignBondRules.TickYear(s.sovereignBond, s.fiscal, economy, 1f);
             }
 
             // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。

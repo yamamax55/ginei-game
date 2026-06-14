@@ -94,6 +94,32 @@ namespace Ginei.Tests
             Assert.AreEqual(expected, c.exchangeRate, 1e-4f);
         }
 
+        // ===== CurrencyRules.CrossRate（為替クロスレート） =====
+
+        [Test]
+        public void CrossRate_EqualStrengthIsParity()
+        {
+            var a = new CurrencyState { exchangeRate = 1f };
+            var b = new CurrencyState { exchangeRate = 1f };
+            Assert.AreEqual(1f, CurrencyRules.CrossRate(a, b), 1e-5f);
+        }
+
+        [Test]
+        public void CrossRate_StrongBaseBuysMoreQuote()
+        {
+            var strong = new CurrencyState { exchangeRate = 1.2f };
+            var weak = new CurrencyState { exchangeRate = 0.8f };
+            Assert.AreEqual(1.5f, CurrencyRules.CrossRate(strong, weak), 1e-4f);   // 1.2/0.8
+            Assert.AreEqual(1f / 1.5f, CurrencyRules.CrossRate(weak, strong), 1e-4f); // 逆は逆数
+        }
+
+        [Test]
+        public void CrossRate_EdgeCases()
+        {
+            Assert.AreEqual(1f, CurrencyRules.CrossRate(null, new CurrencyState()), 1e-5f);
+            Assert.AreEqual(0f, CurrencyRules.CrossRate(new CurrencyState { exchangeRate = 1f }, new CurrencyState { exchangeRate = 0f }), 1e-5f);
+        }
+
         [Test]
         public void TickYear_NullSafe()
         {

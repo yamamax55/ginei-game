@@ -97,7 +97,9 @@ namespace Ginei
                 AppendFaction(sb, s);
             }
 
-            sb.Append("\n<color=#6f8a9a>※ 歳入(税収)→予算配分→歳出。赤字は国債→利払い→翌年へ。利払いが基礎黒字を超えると債務スパイラル。</color>");
+            AppendCrossRates(sb, c);
+
+            sb.Append("\n<color=#6f8a9a>※ 歳入(税収)→予算配分→歳出。赤字は国債→利払い→翌年へ／国債は財政悪化で価格↓利回り↑。為替は通貨間の相対的強さ。</color>");
             return sb.ToString();
         }
 
@@ -150,6 +152,19 @@ namespace Ginei
                     sb.Append("  <color=#ff7a6a>⚠ ハイパーインフレ</color>\n");
             }
 
+            // 国債（#161/#185 配線）：額面=債務／価格・利回りは財政悪化で逆相関に動く。
+            Bond bond = s.sovereignBond;
+            if (bond != null)
+            {
+                sb.Append("  <color=#9fb0c0>国債</color> 額面 ").Append(bond.faceValue.ToString("#,0"))
+                  .Append("　価格 ").Append(bond.price.ToString("0.00"))
+                  .Append("　利回り ").Append((BondMarketRules.CurrentYield(bond) * 100f).ToString("0.0")).Append('%');
+                if (bond.defaultRisk > 0.01f)
+                    sb.Append("　<color=").Append(bond.defaultRisk >= 0.5f ? "#ff7a6a" : "#ffd28a").Append('>')
+                      .Append("信用リスク ").Append((bond.defaultRisk * 100f).ToString("0")).Append("%</color>");
+                sb.Append('\n');
+            }
+
             if (debtSpiral)
                 sb.Append("  <color=#ff7a6a>⚠ 債務スパイラル（利払い>基礎黒字＝複利膨張）</color>\n");
 
@@ -161,6 +176,26 @@ namespace Ginei
                 foreach (BudgetCategory cat in System.Enum.GetValues(typeof(BudgetCategory)))
                     AppendBar(sb, "  " + cat, BudgetRules.Share(b, cat), "#7fd4ff");
             }
+        }
+
+        /// <summary>為替クロスレート（#為替）＝通貨ペアの相対的強さ。通貨を持つ勢力の各順序対を1行ずつ。</summary>
+        private void AppendCrossRates(StringBuilder sb, CampaignState c)
+        {
+            var withCur = new System.Collections.Generic.List<FactionState>();
+            for (int i = 0; i < c.states.Count; i++)
+                if (c.states[i] != null && c.states[i].currency != null) withCur.Add(c.states[i]);
+            if (withCur.Count < 2) return;
+
+            sb.Append('\n').Append("<color=#e7e0b0>◤ 為替クロスレート</color>\n");
+            for (int a = 0; a < withCur.Count; a++)
+                for (int b = 0; b < withCur.Count; b++)
+                {
+                    if (a == b) continue;
+                    CurrencyState ca = withCur[a].currency, cb = withCur[b].currency;
+                    float rate = CurrencyRules.CrossRate(ca, cb);
+                    sb.Append("  1 <color=#c9a0ff>").Append(ca.currencyName).Append("</color> = <color=#ffe08a>")
+                      .Append(rate.ToString("0.000")).Append("</color> ").Append(cb.currencyName).Append('\n');
+                }
         }
 
         private void AppendBar(StringBuilder sb, string label, float v01, string colorHex)

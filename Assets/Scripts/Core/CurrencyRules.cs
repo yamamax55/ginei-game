@@ -22,6 +22,17 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 為替クロスレート（#為替）＝<paramref name="baseC"/> 通貨1単位が <paramref name="quoteC"/> 通貨で何単位か。
+        /// 各通貨の対基準為替係数（財政健全度由来）の比＝相対的な強さ。quote が無価値（≤0）は0、いずれか null は1。
+        /// </summary>
+        public static float CrossRate(CurrencyState baseC, CurrencyState quoteC)
+        {
+            if (baseC == null || quoteC == null) return 1f;
+            float q = quoteC.exchangeRate;
+            return q <= 0f ? 0f : Mathf.Max(0f, baseC.exchangeRate) / q;
+        }
+
+        /// <summary>
         /// 通貨を1年ぶん進める：赤字（歳出&gt;歳入）を貨幣化＝通貨増発（対経済規模）→物価上昇／インフレ率、
         /// 通貨供給は赤字ぶん増える、財政健全度→為替係数。黒字なら増発0＝物価は均衡へ収束する。
         /// </summary>

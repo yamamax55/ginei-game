@@ -49,6 +49,10 @@ namespace Ginei
         /// （セーブ非対象・null=未設定＝復元時は名前を決定論で再割当）。</summary>
         public CurrencyState currency;
 
+        /// <summary>国債＝債務の市場証書（#161/#185）。<see cref="SovereignBondRules"/> が年次で額面を <see cref="fiscal"/>.debt に同期し
+        /// 財政健全度→信用リスク・市場金利→価格を動かす（財政悪化→価格↓利回り↑）。在席のセッション状態（セーブ非対象・null=未設定）。</summary>
+        public Bond sovereignBond;
+
         public FactionState() { }
 
         public FactionState(Faction faction, float inclusiveness = 0.5f)

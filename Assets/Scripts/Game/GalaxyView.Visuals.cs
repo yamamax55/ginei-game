@@ -391,21 +391,31 @@ namespace Ginei
             return go;
         }
 
+        /// <summary>
+        /// 円ディスクのスプライトを生成する（星系ドット/艦隊マル/リング/会戦ピン共用）。
+        /// 深ズーム対応：高解像度＋<b>縁をアンチエイリアス</b>（アルファのなめらかな falloff）で、
+        /// 強く拡大してもギザギザにならず滑らかな円を保つ（解像度に比例した縁幅で AA）。
+        /// pixelsPerUnit=size なので世界サイズは解像度に依らず常に直径1ワールド単位。
+        /// </summary>
         private static Sprite MakeDiscSprite(int size)
         {
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true); // mipmap＝縮小時のちらつき防止
             float r = size * 0.5f;
             Vector2 c = new Vector2(r, r);
+            float edge = Mathf.Max(1f, size / 128f); // AA の縁幅（解像度に比例）
             var cols = new Color32[size * size];
             for (int y = 0; y < size; y++)
                 for (int x = 0; x < size; x++)
                 {
                     float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), c);
-                    cols[y * size + x] = (d <= r - 1f) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+                    // r-edge まで不透明、r で透明へなめらかに（縁を AA＝深ズームでも滑らかな円）
+                    float a = Mathf.Clamp01((r - d) / edge);
+                    cols[y * size + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
                 }
             tex.SetPixels32(cols);
-            tex.Apply();
+            tex.Apply(true); // mipmap を生成
             tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
             return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
         }
 

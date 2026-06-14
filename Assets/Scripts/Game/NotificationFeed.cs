@@ -135,15 +135,24 @@ namespace Ginei
             var go = new GameObject("Row");
             go.transform.SetParent(rowsParent, false);
 
+            // ダブルクリックで起動できる通知（例：接敵→潜行）はクリック可能にして印を付ける。
+            bool actionable = NotificationActionRegistry.Has(n.seq);
+
             var label = go.AddComponent<TextMeshProUGUI>();
-            label.text = $"▸ {n.message}";
+            label.text = (actionable ? "⚔ " : "▸ ") + n.message;
             label.fontSize = 18f;
             label.color = SeverityColor(n.severity);
-            label.raycastTarget = false;                       // クリックスルー
+            label.raycastTarget = actionable;                  // 通常はクリックスルー／操作可能行だけ受ける
             label.alignment = TextAlignmentOptions.Left;
             label.enableWordWrapping = false;                  // 1行固定（枠の高さを安定させる）
             label.overflowMode = TextOverflowModes.Ellipsis;   // 長文は…で省略（全文は N で）
             if (jpFont != null) label.font = jpFont;
+
+            if (actionable)
+            {
+                var click = go.AddComponent<NotificationRowClick>();
+                click.seq = n.seq;
+            }
 
             var le = go.AddComponent<LayoutElement>();
             le.minHeight = rowHeight;

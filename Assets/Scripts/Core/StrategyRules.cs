@@ -21,6 +21,26 @@ namespace Ginei
     }
 
     /// <summary>
+    /// 自動解決した回廊会戦の結末（通知・ピン留め用）。発生回廊（無向の {min,max} 星系）・勝者/敗者勢力・勝者残存兵力。
+    /// </summary>
+    public readonly struct EncounterOutcome
+    {
+        public readonly int sysMin;
+        public readonly int sysMax;
+        public readonly Faction winner;
+        public readonly Faction loser;
+        public readonly int survivorStrength;
+        public EncounterOutcome(int sysMin, int sysMax, Faction winner, Faction loser, int survivorStrength)
+        {
+            this.sysMin = sysMin;
+            this.sysMax = sysMax;
+            this.winner = winner;
+            this.loser = loser;
+            this.survivorStrength = survivorStrength;
+        }
+    }
+
+    /// <summary>
     /// 戦略マップの判定ルール（C-1 #34 仕上げ）。会戦トリガー（回廊での敵対遭遇）と
     /// 星系の占領（所有フリップ）の唯一の窓口。敵対判定は必ず FactionRelations 経由。純ロジック。
     /// </summary>
@@ -256,7 +276,13 @@ namespace Ginei
         /// 兵力差で勝敗（ResolveCorridorBattle）。敗者は除去、勝者は残存兵力で進行を続ける（相打ちは両方除去）。
         /// 解決した戦闘数を返す。毎フレーム呼ぶ想定（Tick の後）。
         /// </summary>
-        public static int ResolveEncounters(StrategicFleetRegistry reg)
+        public static int ResolveEncounters(StrategicFleetRegistry reg) => ResolveEncounters(reg, null);
+
+        /// <summary>
+        /// <see cref="ResolveEncounters(StrategicFleetRegistry)"/> の結末収集版。解決した各会戦の結末
+        /// （発生回廊・勝者/敗者・勝者残存兵力）を <paramref name="outcomes"/> に追加する（通知・ピン留め用・null可）。
+        /// </summary>
+        public static int ResolveEncounters(StrategicFleetRegistry reg, IList<EncounterOutcome> outcomes)
         {
             if (reg == null) return 0;
             int count = 0;
@@ -267,7 +293,16 @@ namespace Ginei
                 if (reg.GetFleet(a.id) == null || reg.GetFleet(b.id) == null) continue; // 既に除去済み
                 if (!FleetsCollided(a, b)) continue; // 回廊内でまだ接触していない（複数艦が同じ回廊に居られる）
 
-                ApplyBattleResult(reg, a, b, ResolveCorridorBattle(a.strength, b.strength));
+                CorridorBattleResult r = ResolveCorridorBattle(a.strength, b.strength);
+                if (outcomes != null)
+                {
+                    StrategicFleet w = r.attackerWon ? a : b;
+                    StrategicFleet l = r.attackerWon ? b : a;
+                    int mn = Mathf.Min(a.currentSystemId, a.destinationSystemId);
+                    int mx = Mathf.Max(a.currentSystemId, a.destinationSystemId);
+                    outcomes.Add(new EncounterOutcome(mn, mx, w.faction, l.faction, r.survivorStrength));
+                }
+                ApplyBattleResult(reg, a, b, r);
                 count++;
             }
             return count;

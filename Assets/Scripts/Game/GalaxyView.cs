@@ -48,8 +48,8 @@ namespace Ginei
         [Range(0.05f, 0.6f)] public float zoomPerNotch = 0.3f;
         [Tooltip("ズーム追従の滑らかさ（小さいほどゆっくり滑らかに・大きいほど即時。unscaled 駆動）")]
         public float zoomLerpSpeed = 11f;
-        [Tooltip("ズーム下限（近づける限界）")]
-        public float minZoom = 3f;
+        [Tooltip("ズーム下限（近づける限界）。小さいほど寄れる：1.0 で星系ひとつが画面に収まるくらいまで寄れる")]
+        public float minZoom = 0.3f;
         [Tooltip("ズーム上限（引きの限界）")]
         public float maxZoom = 16f;
         [Tooltip("左ドラッグをパンと見なすしきい値（ピクセル）。これ未満で離せばクリック（選択/ダブルクリック）")]
@@ -89,6 +89,25 @@ namespace Ginei
         private float occupyTimer;
         private float engagedElapsed;      // 交戦中が継続している時間（自動解決の猶予計測）
         private double currentAutoResolveSeconds; // TIME-4：現交戦の自動解決所要時間（AutoBattleSim 算出・game-seconds）
+        // 接敵通知：通知済みの交戦回廊キー（min,max を合成）。交戦が解けたら外して再接敵で再通知。
+        private readonly HashSet<long> notifiedEngagements = new HashSet<long>();
+        private readonly HashSet<long> engagedKeyScratch = new HashSet<long>(); // 毎フレームの現交戦キー集計（使い回し）
+        private readonly List<EncounterOutcome> resolvedOutcomes = new List<EncounterOutcome>(); // 自動解決の結末収集（使い回し）
+
+        [Header("会戦結果ピン（控えめ）")]
+        [Tooltip("会戦が起きた回廊に残す結果ピンの最大数（古いものから消す）")]
+        public int maxBattlePins = 12;
+        // 会戦記録ピン（控えめなX印）。1年で消える＋マウスオーバーであらましをポップアップ。
+        private sealed class BattlePinRecord
+        {
+            public GameObject go;
+            public Vector2 worldPos;
+            public string summary;          // ホバー時のあらまし（複数行）
+            public double bornGameSeconds;  // 生成時の game-秒（経過1年で消す）
+        }
+        private readonly List<BattlePinRecord> battlePins = new List<BattlePinRecord>();
+        private GameObject battleTooltip;   // ホバー用ポップアップ（遅延生成）
+        private TextMesh battleTooltipText;
         private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
         private Vector2 lastClickWorld;
         private SpriteRenderer backdrop;    // 背景星雲（galaxy_backdrop・視野追従）
@@ -204,11 +223,15 @@ namespace Ginei
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.03f, 0.03f, 0.07f);
 
-            disc = MakeDiscSprite(64);
+            disc = MakeDiscSprite(256); // 高解像度＋AA縁＝深ズームでも星系ドットが滑らかな円を保つ
             lineMat = new Material(Shader.Find("Sprites/Default"));
             LoadFleetSprites();
 
             SetupBackdrop(); // 背景星雲（galaxy_backdrop）を視野追従で敷く（#2384）
+
+            // 接敵通知のアクション（seq→潜行）は破棄済み参照を残さないよう毎シーン初期化する。
+            NotificationActionRegistry.Clear();
+            notifiedEngagements.Clear();
 
             BuildDemoGalaxy();
             SetupGovernance();
@@ -217,11 +240,34 @@ namespace Ginei
 
             // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映。
             // さらに、潜行中に銀河の時計は止まらない＝観ていなかった他戦線は自動侵攻で決着（#586 ④⑤）。
-            if (BattleHandoff.Resolved && StrategyRules.ApplyHandoffResult(reg))
+            if (BattleHandoff.Resolved && BattleHandoff.Pending)
             {
-                int others = StrategyRules.ResolveEncounters(reg);
-                NotificationCenter.Push(NotificationCategory.戦闘,
-                    others > 0 ? $"実会戦の結果を反映（観ていない{others}戦線は自動解決）" : "実会戦の結果を反映しました");
+                // 反映前に手動会戦の場所・勝敗を控える（ApplyHandoffResult は敗者を除去するため）。
+                StrategicFleet ma = reg != null ? reg.GetFleet(BattleHandoff.fleetIdA) : null;
+                StrategicFleet mb = reg != null ? reg.GetFleet(BattleHandoff.fleetIdB) : null;
+                bool haveInfo = ma != null && mb != null;
+                int mMin = 0, mMax = 0, mSurv = 0;
+                Faction mWin = Faction.帝国, mLose = Faction.同盟;
+                if (haveInfo)
+                {
+                    mMin = Mathf.Min(ma.currentSystemId, ma.destinationSystemId);
+                    mMax = Mathf.Max(ma.currentSystemId, ma.destinationSystemId);
+                    mWin = BattleHandoff.sideAWon ? ma.faction : mb.faction;
+                    mLose = BattleHandoff.sideAWon ? mb.faction : ma.faction;
+                    mSurv = BattleHandoff.survivorStrength;
+                }
+
+                if (StrategyRules.ApplyHandoffResult(reg))
+                {
+                    if (haveInfo) AnnounceOutcome(new EncounterOutcome(mMin, mMax, mWin, mLose, mSurv), manual: true);
+
+                    resolvedOutcomes.Clear();
+                    int others = StrategyRules.ResolveEncounters(reg, resolvedOutcomes);
+                    for (int i = 0; i < resolvedOutcomes.Count; i++) AnnounceOutcome(resolvedOutcomes[i], manual: false);
+                    if (others > 0)
+                        NotificationCenter.Push(NotificationCategory.戦闘,
+                            $"観ていない{others}戦線は自動解決しました");
+                }
             }
 
             // 惑星攻城の戦術マップでの進捗を惑星へ書き戻す（#131）
@@ -266,6 +312,7 @@ namespace Ginei
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
             // プレイヤーはダブルクリックで潜行＝手動指揮へ。放置すれば猶予後に自動解決（#586 ①④）。
             StrategyRules.BeginEngagements(reg);
+            NotifyNewEngagements(); // 接敵を通知（ダブルクリックで潜行可能なアクション付き）
             if (AnyEngaged())
             {
                 // TIME-4（#950）：自動解決の所要時間を AutoBattleSim（裏の簡易戦術シミュ）で算出＝
@@ -274,7 +321,9 @@ namespace Ginei
                 engagedElapsed += dt;
                 if (engagedElapsed >= currentAutoResolveSeconds)
                 {
-                    StrategyRules.ResolveEncounters(reg); // 放置の自動解決。プールは減らさない（手動会戦と統一）
+                    resolvedOutcomes.Clear();
+                    StrategyRules.ResolveEncounters(reg, resolvedOutcomes); // 放置の自動解決。プールは減らさない（手動会戦と統一）
+                    for (int i = 0; i < resolvedOutcomes.Count; i++) AnnounceOutcome(resolvedOutcomes[i], manual: false);
                     engagedElapsed = 0f;
                     currentAutoResolveSeconds = 0.0;
                 }
@@ -299,6 +348,7 @@ namespace Ginei
 
 
             HandleMouse();
+            UpdateBattlePins(); // 会戦記録ピンの寿命（1年で消える）＋ホバーであらまし表示
             Refresh();
         }
 
@@ -468,6 +518,218 @@ namespace Ginei
             float sx = sprSize.x > 0f ? (worldW / sprSize.x) * backdropCover : 1f;
             float sy = sprSize.y > 0f ? (worldH / sprSize.y) * backdropCover : 1f;
             backdrop.transform.localScale = new Vector3(sx, sy, 1f);
+        }
+
+        /// <summary>
+        /// 新たに接敵（交戦開始）した回廊を通知する。<b>プレイヤー勢力が関与する</b>交戦だけを対象にし、
+        /// 通知にはダブルクリックでその会戦へ潜行するアクションを紐づける（<see cref="NotificationActionRegistry"/>）。
+        /// 交戦が解けた回廊は通知済みから外し、再接敵で再通知する。
+        /// </summary>
+        private void NotifyNewEngagements()
+        {
+            if (reg == null || reg.fleets == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+
+            engagedKeyScratch.Clear();
+            // まず現在交戦中で「プレイヤーが関与する」回廊キーを集める
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || !f.engaged || f.faction != player) continue;
+                engagedKeyScratch.Add(CorridorKey(f.currentSystemId, f.destinationSystemId));
+            }
+
+            // 新規キーを通知（既知のものは飛ばす）
+            foreach (long key in engagedKeyScratch)
+            {
+                if (notifiedEngagements.Contains(key)) continue;
+                notifiedEngagements.Add(key);
+                DecodeCorridorKey(key, out int sysA, out int sysB);
+                double dur = EstimateAutoResolveSeconds(sysA, sysB);
+                string when = dur > 0.0 ? $"約{Mathf.CeilToInt((float)dur)}秒で自動解決／" : "";
+                string label = $"敵艦隊と接敵：{SystemName(sysA)}〜{SystemName(sysB)}（{when}ダブルクリックで潜行）";
+                long seq = NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.警告, label);
+                int a = sysA, b = sysB; // クロージャ用にキャプチャ
+                NotificationActionRegistry.Register(seq, () => DescendCorridorBySystems(a, b));
+            }
+
+            // 交戦が解けた回廊は通知済みから除外（次に接敵したらまた通知する）
+            notifiedEngagements.RemoveWhere(k => !engagedKeyScratch.Contains(k));
+        }
+
+        /// <summary>無向の回廊キー（小さいID×大きな桁＋大きいID）。星系IDは小さいので衝突しない。</summary>
+        private static long CorridorKey(int a, int b)
+        {
+            int min = Mathf.Min(a, b), max = Mathf.Max(a, b);
+            return (long)min * 100000L + max;
+        }
+
+        private static void DecodeCorridorKey(long key, out int a, out int b)
+        {
+            a = (int)(key / 100000L);
+            b = (int)(key % 100000L);
+        }
+
+        /// <summary>星系名（無ければID）を返す。通知文言用。</summary>
+        private string SystemName(int id)
+        {
+            StarSystem s = map != null ? map.GetSystem(id) : null;
+            return (s != null && !string.IsNullOrEmpty(s.systemName)) ? s.systemName : $"星系{id}";
+        }
+
+        /// <summary>勢力の表示名（戦略艦隊は legacy enum）。</summary>
+        private static string FactionLabel(Faction f) => f.ToString();
+
+        /// <summary>指定回廊の交戦ペアから、放置時の自動解決所要 game-秒を見積もる（AutoBattleSim）。無ければ0。</summary>
+        private double EstimateAutoResolveSeconds(int sysA, int sysB)
+        {
+            if (!StrategyRules.TryGetEngagementOnCorridor(reg, sysA, sysB, out var a, out var b)) return 0.0;
+            var r = AutoBattleSim.Resolve(a.strength, b.strength);
+            return r.durationSeconds > 0.0 ? r.durationSeconds : autoResolveDelay;
+        }
+
+        /// <summary>会戦の決着を通知し、発生回廊に控えめな結果ピンを残す（#接敵通知）。</summary>
+        private void AnnounceOutcome(EncounterOutcome o, bool manual)
+        {
+            string place = $"{SystemName(o.sysMin)}〜{SystemName(o.sysMax)}";
+            string mode = manual ? "・潜行" : "・自動解決";
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                $"会戦決着：{place}　{FactionLabel(o.winner)}が{FactionLabel(o.loser)}を撃破（残存{o.survivorStrength}）{mode}");
+
+            // ホバー用のあらまし（複数行）
+            string summary =
+                $"【会戦記録】{place}{mode}\n" +
+                $"勝者：{FactionLabel(o.winner)}（残存 {o.survivorStrength}）\n" +
+                $"敗者：{FactionLabel(o.loser)}（壊滅）";
+            AddBattlePin(o.sysMin, o.sysMax, o.winner, summary);
+        }
+
+        /// <summary>
+        /// 会戦が起きた回廊の中点に「控えめな」結果ピンを残す（勝者色のごく薄いドット＋小さな ×）。
+        /// 星系/艦隊より背面・低アルファで目立たせない。上限 <see cref="maxBattlePins"/> で古いものから消す。
+        /// 経過1年で消える＋マウスオーバーで <paramref name="summary"/> をポップアップ表示する。
+        /// </summary>
+        private void AddBattlePin(int sysMin, int sysMax, Faction winner, string summary)
+        {
+            StarSystem a = map != null ? map.GetSystem(sysMin) : null;
+            StarSystem b = map != null ? map.GetSystem(sysMax) : null;
+            if (a == null || b == null) return;
+
+            Vector2 mid = (a.position + b.position) * 0.5f;
+            var go = new GameObject($"BattlePin_{sysMin}_{sysMax}");
+            go.transform.SetParent(transform, false);
+            go.transform.position = (Vector3)mid;
+            go.transform.localScale = Vector3.one * (systemScale * 0.5f);
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = disc;
+            Color wc = FactionColor(winner);
+            sr.color = new Color(wc.r, wc.g, wc.b, 0.18f); // ごく薄い勝者色
+            sr.sortingOrder = 1;                            // 回廊(0)より前・星系(2)/艦隊(4)より背面
+
+            // 小さな × の印（くすんだ金・半透明・背面）。会戦跡を示すが目立たせない。
+            var lblGo = MakeLabel(go.transform, "×", Vector3.zero, 0.5f);
+            var ltm = lblGo.GetComponent<TextMesh>();
+            ltm.color = new Color(0.82f, 0.78f, 0.6f, 0.5f);
+            var lmr = lblGo.GetComponent<MeshRenderer>();
+            if (lmr != null) lmr.sortingOrder = 1;
+
+            double now = StrategySession.Clock != null ? StrategySession.Clock.ElapsedSeconds : 0d;
+            battlePins.Add(new BattlePinRecord { go = go, worldPos = mid, summary = summary, bornGameSeconds = now });
+            while (battlePins.Count > Mathf.Max(1, maxBattlePins))
+            {
+                BattlePinRecord old = battlePins[0];
+                battlePins.RemoveAt(0);
+                if (old != null && old.go != null) Destroy(old.go);
+            }
+        }
+
+        /// <summary>暦の1年あたりの game-秒（既定 60秒/日 ×30日 ×12月＝21600）。</summary>
+        private static double OneYearSeconds()
+        {
+            var p = GameDate.DateParams.Default;
+            return p.secondsPerDay * p.daysPerMonth * p.monthsPerYear;
+        }
+
+        /// <summary>会戦記録ピンを更新：経過1年で消す＋マウスオーバーであらましをポップアップ。</summary>
+        private void UpdateBattlePins()
+        {
+            // 1年で消える（game-時間基準＝ポーズ中は進まない）
+            double now = StrategySession.Clock != null ? StrategySession.Clock.ElapsedSeconds : 0d;
+            double oneYear = OneYearSeconds();
+            for (int i = battlePins.Count - 1; i >= 0; i--)
+            {
+                BattlePinRecord p = battlePins[i];
+                if (p == null) { battlePins.RemoveAt(i); continue; }
+                if (oneYear > 0d && now - p.bornGameSeconds >= oneYear)
+                {
+                    if (p.go != null) Destroy(p.go);
+                    battlePins.RemoveAt(i);
+                }
+            }
+            UpdateBattlePinTooltip();
+        }
+
+        /// <summary>
+        /// マウス直下の会戦記録ピンを探し、あればあらましのポップアップを出す（無ければ隠す）。
+        /// ズーム非依存：当たり判定は<b>画面ピクセル</b>で行い（×印を覆うピクセル半径＋下限）、
+        /// ポップアップは orthographicSize に追従させて<b>画面上で一定サイズ</b>・×印のすぐ近くに出す（HoI4風）。
+        /// </summary>
+        private void UpdateBattlePinTooltip()
+        {
+            if (cam == null || Mouse.current == null || battlePins.Count == 0 || PointerOverUI())
+            {
+                if (battleTooltip != null) battleTooltip.SetActive(false);
+                return;
+            }
+
+            // 画面ピクセル基準の当たり判定（ズームに依らず掴みやすい＝×印の画面サイズを覆い、下限18px）。
+            float pixelsPerWorld = Screen.height / (2f * Mathf.Max(0.01f, cam.orthographicSize));
+            float markScreenR = (systemScale * 0.6f) * pixelsPerWorld;
+            float hoverPixels = Mathf.Max(18f, markScreenR);
+
+            Vector2 mouseScreen = Mouse.current.position.ReadValue();
+            BattlePinRecord hit = null;
+            float best = float.MaxValue;
+            for (int i = 0; i < battlePins.Count; i++)
+            {
+                BattlePinRecord p = battlePins[i];
+                if (p == null || p.go == null) continue;
+                Vector3 sp = cam.WorldToScreenPoint((Vector3)p.worldPos);
+                float d = Vector2.Distance(mouseScreen, new Vector2(sp.x, sp.y));
+                if (d <= hoverPixels && d < best) { best = d; hit = p; }
+            }
+
+            if (hit == null)
+            {
+                if (battleTooltip != null) battleTooltip.SetActive(false);
+                return;
+            }
+
+            EnsureBattleTooltip();
+            // 文字は他のマップラベル（星系名）と同じく world-fixed＝ズームインで大きく読みやすくなる。
+            // 位置は ×印の右上へ「ズームに比例した小オフセット」で、どのズームでも印のすぐ近くに出す。
+            float worldPerPixel = (2f * cam.orthographicSize) / Mathf.Max(1f, Screen.height);
+            Vector3 off = new Vector3(14f, 14f, 0f) * worldPerPixel;
+            battleTooltip.transform.position = (Vector3)(hit.worldPos) + off;
+            battleTooltipText.text = hit.summary;
+            battleTooltip.SetActive(true);
+        }
+
+        /// <summary>ホバーポップアップ（世界座標の TextMesh）を遅延生成する。文字は world-fixed＝ズームインで大きく読める。</summary>
+        private void EnsureBattleTooltip()
+        {
+            if (battleTooltip != null) return;
+            var go = MakeLabel(transform, "", Vector3.zero, 0.6f); // 星系名(0.9)よりやや小さい読める大きさ
+            go.name = "BattlePinTooltip";
+            go.transform.localScale = Vector3.one;               // world-fixed（毎フレーム拡縮しない）
+            battleTooltipText = go.GetComponent<TextMesh>();
+            battleTooltipText.anchor = TextAnchor.LowerLeft;     // ×印の右上へ伸びる
+            battleTooltipText.alignment = TextAlignment.Left;
+            battleTooltipText.color = new Color(1f, 0.95f, 0.8f);
+            var mr = go.GetComponent<MeshRenderer>();
+            if (mr != null) mr.sortingOrder = 12;                 // ピン/星系/艦隊より前面
+            battleTooltip = go;
         }
 
         /// <summary>交戦中（engaged）の艦隊が1隻でも居るか。</summary>

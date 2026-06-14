@@ -77,6 +77,32 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void NotResolved_VisualCaptureMode_IsInfoNotWarning_AndPasses()
+        {
+            var obs = Healthy();
+            obs.resolved = false;
+            obs.visualCaptureOnly = true; // スクショ撮影目的＝非決着はバグでない（描画速度の制約）
+            var r = PlaytestInvariants.Evaluate(obs);
+            Assert.AreEqual(0, r.CountOf(PlaytestSeverity.警告), "可視化モードでは非決着を警告にしない");
+            Assert.AreEqual(1, r.CountOf(PlaytestSeverity.情報), "情報として記録は残す");
+            Assert.IsTrue(r.Passed, "警告以上が無いので PASS");
+            Assert.AreEqual(0, r.SuggestedExitCode);
+            Assert.IsTrue(HasMessageContaining(r, "可視化キャプチャ"));
+        }
+
+        [Test]
+        public void NotResolved_VisualCaptureMode_StillFlagsRealException()
+        {
+            var obs = Healthy();
+            obs.resolved = false;
+            obs.visualCaptureOnly = true;
+            obs.errorLogs.Add("ArgumentNullException: shader"); // 実バグは可視化モードでも致命のまま
+            var r = PlaytestInvariants.Evaluate(obs);
+            Assert.AreEqual(1, r.CountOf(PlaytestSeverity.致命));
+            Assert.IsFalse(r.Passed);
+        }
+
+        [Test]
         public void NotResolved_WithoutHostiles_DoesNotWarnResolution()
         {
             var obs = Healthy();

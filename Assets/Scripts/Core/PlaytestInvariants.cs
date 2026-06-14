@@ -59,10 +59,18 @@ namespace Ginei
                     "開始時に敵対する旗艦ペアが無い（シナリオ/陣営設定の不備の可能性）。"));
         }
 
-        /// <summary>敵対ペアがあったのに決着しなかった＝デッドロック/勝敗判定の不備の疑い。</summary>
+        /// <summary>
+        /// 敵対ペアがあったのに決着しなかった＝デッドロック/勝敗判定の不備の疑い。
+        /// ただし可視化キャプチャ実行（<see cref="PlaytestObservations.visualCaptureOnly"/>）では
+        /// ソフトGL描画が遅く時間内決着しないのが常でバグでないため、警告でなく情報に降格する（FAILさせない）。
+        /// </summary>
         public static void CheckResolution(PlaytestObservations obs, List<PlaytestFinding> findings)
         {
-            if (obs.hadHostilePairAtStart && !obs.resolved)
+            if (!(obs.hadHostilePairAtStart && !obs.resolved)) return;
+            if (obs.visualCaptureOnly)
+                findings.Add(new PlaytestFinding(PlaytestSeverity.情報, PlaytestCategory.進行,
+                    "可視化キャプチャ中に会戦が時間内に決着しなかった（描画速度の制約・所見対象外）。", obs.durationSeconds));
+            else
                 findings.Add(new PlaytestFinding(PlaytestSeverity.警告, PlaytestCategory.進行,
                     "会戦が時間内に決着しなかった（デッドロック・勝敗判定の不備の可能性）。", obs.durationSeconds));
         }

@@ -110,12 +110,51 @@ namespace Ginei.Tests
             Assert.IsFalse(BattleAllegianceRules.ShouldWithdraw(list, Faction.同盟, Faction.帝国));
         }
 
-        /// <summary>null 安全：null リストは遷移0・退き false。</summary>
+        /// <summary>膠着打開：双方が全員静観で戦う者が居なければ、各陣営の最忠実な前衛が「戦う」へ転じる。</summary>
+        [Test]
+        public void 膠着打開_双方静観なら各陣営の前衛が開戦する()
+        {
+            // baseline 0.4 想定（intrigue=0）＝net<0.5 で全員静観＝両軍膠着
+            var list = new List<Allegiance>
+            {
+                new Allegiance(1, Faction.同盟, 100, loyalty: 0.4f) { stance = Stance.静観 },
+                new Allegiance(2, Faction.同盟, 120, loyalty: 0.45f) { stance = Stance.静観 }, // 同盟で最忠実
+                new Allegiance(3, Faction.帝国, 90, loyalty: 0.35f) { stance = Stance.静観 },
+                new Allegiance(4, Faction.帝国, 80, loyalty: 0.3f) { stance = Stance.静観 },
+            };
+            var changes = new List<StanceChange>();
+            int n = BattleAllegianceRules.BreakStalemate(list, Faction.同盟, Faction.帝国, changes);
+
+            Assert.AreEqual(2, n, "各陣営から1隊ずつ開戦する");
+            Assert.AreEqual(Stance.戦う, list[1].stance, "同盟は最忠実な #2 が前衛に立つ");
+            Assert.AreEqual(Stance.戦う, list[2].stance, "帝国は最忠実な #3 が前衛に立つ");
+            Assert.IsTrue(changes.Exists(c => c.id == 2 && c.to == Stance.戦う));
+            Assert.IsTrue(changes.Exists(c => c.id == 3 && c.to == Stance.戦う));
+        }
+
+        /// <summary>膠着打開：既にどちらかが戦っている（趨勢がある）なら何もしない。</summary>
+        [Test]
+        public void 膠着打開_片側が戦っていれば介入しない()
+        {
+            var list = new List<Allegiance>
+            {
+                new Allegiance(1, Faction.同盟, 100, loyalty: 1f) { stance = Stance.戦う },
+                new Allegiance(2, Faction.帝国, 100, loyalty: 0.4f) { stance = Stance.静観 },
+            };
+            var changes = new List<StanceChange>();
+            int n = BattleAllegianceRules.BreakStalemate(list, Faction.同盟, Faction.帝国, changes);
+
+            Assert.AreEqual(0, n);
+            Assert.AreEqual(Stance.静観, list[1].stance, "敵が戦っている側は静観退き(ShouldWithdraw)の領分");
+        }
+
+        /// <summary>null 安全：null リストは遷移0・退き false・膠着打開0。</summary>
         [Test]
         public void Null安全()
         {
             Assert.AreEqual(0, BattleAllegianceRules.ResolveTransitions(null, Faction.同盟, Faction.帝国, P, new List<StanceChange>()));
             Assert.IsFalse(BattleAllegianceRules.ShouldWithdraw(null, Faction.同盟, Faction.帝国));
+            Assert.AreEqual(0, BattleAllegianceRules.BreakStalemate(null, Faction.同盟, Faction.帝国, new List<StanceChange>()));
         }
     }
 }

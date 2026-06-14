@@ -150,6 +150,24 @@ namespace Ginei
               .Append("　希少 ").Append(prodRare.ToString("0.##"))
               .Append("　<color=#6f8a9a>(惑星 ").Append(ownedCount).Append(")</color>\n");
 
+            // --- 希少資源の備蓄（#178 配線・種類別＝鉱床のある惑星から偏って貯まる） ---
+            StrategicResourceStockpile rare = gv != null ? gv.GetStrategicStockpile(fac) : null;
+            if (rare != null && !rare.IsEmpty)
+            {
+                sb.Append("  <color=#c9a0ff>希少資源</color>　");
+                foreach (StrategicResourceType t in StrategicResourceRules.All)
+                {
+                    float v = rare.Get(t);
+                    if (v <= 0f) continue;
+                    sb.Append(t).Append(' ').Append(v.ToString("#,0.#")).Append("　");
+                }
+                sb.Append('\n');
+            }
+            else if (gv != null)
+            {
+                sb.Append("  <color=#9aa7b2>希少資源＝まだ備蓄なし（鉱床のある所有惑星が無い／産出待ち）</color>\n");
+            }
+
             // --- 軍需要＋艦隊補給（StrategicFleet・#2049） ---
             var fleets = new List<StrategicFleet>();
             var reg = StrategySession.Reg;

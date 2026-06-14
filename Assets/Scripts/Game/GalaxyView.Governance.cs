@@ -29,7 +29,11 @@ namespace Ginei
                 if (s == null) continue;
                 // 復元に無い星系（初回・新規）だけ作る。住民の思想＝開始所有勢力（占領されても変わらない＝燻りの源）。
                 if (!provinces.ContainsKey(s.id))
-                    provinces[s.id] = new Province(s.id, IdeologyOf(s.owner), 100f);
+                {
+                    var prov = new Province(s.id, IdeologyOf(s.owner), 100f);
+                    SeedStrategicDeposit(prov, s.id); // #178：希少資源の鉱床を決定論で偏在配置（一部星系のみ）
+                    provinces[s.id] = prov;
+                }
                 // 復帰時点の所有を基準に（往復直後に誤って OnOccupied しないため）。
                 prevOwners[s.id] = s.owner;
             }
@@ -41,6 +45,23 @@ namespace Ginei
             CampaignRules.EnsureStates(StrategySession.Campaign);
 
             AnnounceCampaignObjective(); // 遊べる縦スライス：目標と初手をプレイヤーに提示（オンボーディング）
+        }
+
+        /// <summary>
+        /// 希少資源の鉱床を星系IDから決定論で偏在配置する（#178 配線）。約4割の星系のみ鉱床を持ち、
+        /// 種類（レアメタル/反応物質/超伝導体/希少結晶）と豊富さ（0.4〜1.0）も決定論で決まる＝再生成・往復で安定。
+        /// </summary>
+        private static void SeedStrategicDeposit(Province p, int systemId)
+        {
+            if (p == null || p.hasStrategicResource) return;
+            unchecked
+            {
+                uint h = (uint)systemId * 2654435761u + 1013904223u;
+                if (h % 5u >= 2u) return; // ~40% の星系のみ鉱床あり（偏在＝偏った産出）
+                p.hasStrategicResource = true;
+                p.strategicResource = (StrategicResourceType)(int)((h >> 11) % 4u);
+                p.strategicAbundance = 0.4f + (h >> 7) % 7u / 10f; // 0.4..1.0
+            }
         }
 
         private FactionData MakeDemoFaction(string name, string ideology, Faction legacy)

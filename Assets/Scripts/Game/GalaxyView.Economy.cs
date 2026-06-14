@@ -135,12 +135,20 @@ namespace Ginei
         private readonly System.Collections.Generic.Dictionary<Faction, ResourceStockpile> stateStockpiles
             = new System.Collections.Generic.Dictionary<Faction, ResourceStockpile>();
 
+        // --- 希少資源備蓄（#178 配線）：所有惑星の鉱床（偏在）から年次産出を貯める勢力ごとのストア。 ---
+        private readonly System.Collections.Generic.Dictionary<Faction, StrategicResourceStockpile> strategicStockpiles
+            = new System.Collections.Generic.Dictionary<Faction, StrategicResourceStockpile>();
+
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
 
         /// <summary>勢力の資源備蓄（物資/弾薬/燃料）。未生成なら null。観測層（兵站オブザーバ）専用＝read-only。</summary>
         public ResourceStockpile GetStateStockpile(Faction faction)
             => stateStockpiles.TryGetValue(faction, out var s) ? s : null;
+
+        /// <summary>勢力の希少資源備蓄（レアメタル/反応物質/超伝導体/希少結晶・#178）。未生成なら null。観測層（兵站オブザーバ）専用＝read-only。</summary>
+        public StrategicResourceStockpile GetStrategicStockpile(Faction faction)
+            => strategicStockpiles.TryGetValue(faction, out var s) ? s : null;
 
         /// <summary>星系の生産チェーン在庫（森林→木材→建材→住宅・#2091）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
         public ChainStock GetChainStock(int systemId)
@@ -179,6 +187,15 @@ namespace Ginei
                 // 年次産出（所有惑星の類型×統治で物資/燃料を産む）。
                 for (int i = 0; i < owned.Count; i++)
                     ResourceProductionRules.ProduceFromProvince(stock, owned[i], 1f);
+
+                // 希少資源（#178 配線）：鉱床のある所有惑星だけが偏って産出する＝勢力ごとの希少資源備蓄へ蓄積。
+                if (!strategicStockpiles.TryGetValue(fac, out var rare) || rare == null)
+                {
+                    rare = new StrategicResourceStockpile();
+                    strategicStockpiles[fac] = rare;
+                }
+                for (int i = 0; i < owned.Count; i++)
+                    StrategicResourceRules.ProduceFromProvince(rare, owned[i], 1f);
 
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
                 var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);

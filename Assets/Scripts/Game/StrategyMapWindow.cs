@@ -32,8 +32,15 @@ namespace Ginei
         public Color accentColor = new Color(1f, 0.84f, 0.36f, 1f);
         public Color desktopColor = new Color(0.02f, 0.02f, 0.05f, 1f);
 
+        [Header("リサイズ")]
+        [Tooltip("右下のリサイズグリップの一辺（ピクセル）")]
+        public float resizeGripSize = 22f;
+        [Tooltip("マップ窓の最小幅/高さ（画面比 0〜1）")]
+        public float minWindowFrac = 0.2f;
+
         // マップ窓の正規化矩形（画面全体を 0〜1 とした位置/大きさ）。camera.rect と窓UIの両方に使う＝必ず一致。
-        private Rect mapRect = new Rect(0.02f, 0.03f, 0.96f, 0.83f);
+        // 初期は左寄せ・幅約63%・上メニュー直下から高さ約55%（右と下に通知/決裁の浮き窓ぶんの余白を残す）。
+        private Rect mapRect = new Rect(0.01f, 0.31f, 0.63f, 0.55f);
 
         private Camera cam;
         private Camera bgCam;
@@ -43,8 +50,15 @@ namespace Ginei
         private RectTransform titleBarRT;
         private RectTransform contentRT;
         private RectTransform edgeLeft, edgeRight, edgeBottom;
+        private RectTransform resizeGripRT;
         private TextMeshProUGUI clockLabel;
         private TextMeshProUGUI statsLabel;
+
+        // 最小化（タイトルバーだけ残してマップ表示を畳む）
+        private bool minimized;
+        private int savedCullingMask;
+        private CameraClearFlags savedClearFlags;
+        private TextMeshProUGUI minimizeLabel;
 
         // 目標（勝利進捗＋次の一手）— B：目的可視化（#遊べる縦スライス）
         private RectTransform objectiveFillRT;
@@ -83,8 +97,10 @@ namespace Ginei
         private void OnDestroy()
         {
             if (cam != null && rectApplied) cam.rect = originalRect;
+            if (cam != null && minimized) { cam.cullingMask = savedCullingMask; cam.clearFlags = savedClearFlags; } // 最小化中の破棄でも復元
             if (bgCam != null) Destroy(bgCam.gameObject);
             GalaxyView.HideWorldHud = false;
+            UIDragMove.TopReservedPx = 0f; // 戦略を離れたら確保帯を解除（他シーンに持ち越さない）
         }
 
         private void Update()
@@ -102,7 +118,12 @@ namespace Ginei
             if (objectiveTimer >= ObjectiveInterval) { objectiveTimer = 0f; UpdateObjective(); }
         }
 
-        private void LateUpdate() => ApplyLayout();
+        private void LateUpdate()
+        {
+            // ドラッグで動かせる各窓（観測オーバーレイ等）が上メニューより上へ行かないよう、確保帯＝上メニュー高を公開。
+            UIDragMove.TopReservedPx = menuBarFrac * Screen.height;
+            ApplyLayout();
+        }
 
         // ===== カメラ =====
 
@@ -132,17 +153,43 @@ namespace Ginei
             ApplyLayout();
         }
 
+        /// <summary>右下グリップのドラッグで窓（mapRect）をリサイズする（上端＝top は固定し下/右辺を動かす）。</summary>
+        private void OnResizeDrag(Vector2 deltaPixels)
+        {
+            float sw = Screen.width > 0 ? Screen.width : 1920f;
+            float sh = Screen.height > 0 ? Screen.height : 1080f;
+            float topY = mapRect.yMax;            // 上端を固定（上メニュー側を動かさない）
+            mapRect.width = Mathf.Max(minWindowFrac, mapRect.width + deltaPixels.x / sw);
+            mapRect.y += deltaPixels.y / sh;       // 下辺をカーソルに追従
+            mapRect.height = Mathf.Max(minWindowFrac, topY - mapRect.y);
+            mapRect.y = topY - mapRect.height;     // height をクランプしたぶん下辺を整合
+            ApplyLayout();
+        }
+
         /// <summary>mapRect を camera.rect と窓UIのアンカーへ反映（両者とも画面全体基準＝一致）。</summary>
         private void ApplyLayout()
         {
             if (cam == null) return;
-            mapRect.width = Mathf.Clamp(mapRect.width, 0.15f, 1f);
-            mapRect.height = Mathf.Clamp(mapRect.height, 0.15f, 1f);
+            float sh = Screen.height > 0 ? Screen.height : 1080f;
+            // 上メニューバー＋窓タイトルバーのぶんを差し引いた上限＝窓の上端はここを越えない（#4）。
+            float titleFrac = mapTitleHeight / sh;
+            float topLimit = Mathf.Clamp01(1f - menuBarFrac - titleFrac);
+
+            mapRect.width = Mathf.Clamp(mapRect.width, minWindowFrac, 1f);
+            mapRect.height = Mathf.Clamp(mapRect.height, minWindowFrac, Mathf.Max(minWindowFrac, topLimit));
             mapRect.x = Mathf.Clamp(mapRect.x, 0f, 1f - mapRect.width);
-            mapRect.y = Mathf.Clamp(mapRect.y, 0f, 1f - mapRect.height);
+            mapRect.y = Mathf.Clamp(mapRect.y, 0f, Mathf.Max(0f, topLimit - mapRect.height));
             cam.rect = mapRect;
 
             float x0 = mapRect.xMin, x1 = mapRect.xMax, y0 = mapRect.yMin, y1 = mapRect.yMax;
+
+            // 最小化中は本体（マップ枠・縁・グリップ）を隠してタイトルバーだけ残す。
+            bool body = !minimized;
+            if (contentRT != null) contentRT.gameObject.SetActive(body);
+            if (edgeLeft != null) edgeLeft.gameObject.SetActive(body);
+            if (edgeRight != null) edgeRight.gameObject.SetActive(body);
+            if (edgeBottom != null) edgeBottom.gameObject.SetActive(body);
+            if (resizeGripRT != null) resizeGripRT.gameObject.SetActive(body);
 
             if (contentRT != null) { Stretch(contentRT, x0, y0, x1, y1); }
             if (titleBarRT != null)
@@ -157,6 +204,16 @@ namespace Ginei
             Edge(edgeLeft, x0, y0, x0, y1, new Vector2(0f, 0.5f), new Vector2(2f, 0f));
             Edge(edgeRight, x1, y0, x1, y1, new Vector2(1f, 0.5f), new Vector2(2f, 0f));
             Edge(edgeBottom, x0, y0, x1, y0, new Vector2(0.5f, 0f), new Vector2(0f, 2f));
+
+            // 右下リサイズグリップ（窓の右下角）。
+            if (resizeGripRT != null)
+            {
+                resizeGripRT.anchorMin = new Vector2(x1, y0);
+                resizeGripRT.anchorMax = new Vector2(x1, y0);
+                resizeGripRT.pivot = new Vector2(1f, 0f);
+                resizeGripRT.sizeDelta = new Vector2(resizeGripSize, resizeGripSize);
+                resizeGripRT.anchoredPosition = Vector2.zero;
+            }
         }
 
         private static void Stretch(RectTransform rt, float x0, float y0, float x1, float y1)
@@ -252,7 +309,10 @@ namespace Ginei
             var drag = bar.gameObject.AddComponent<MapWindowDrag>();
             drag.onDragDelta = OnTitleDrag;
             var cap = AddText(bar, "≡ 星系マップ　（ドラッグで移動）", 15f, accentColor, TextAlignmentOptions.Left);
-            SetAnchors(cap.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-12f, 0f));
+            SetAnchors(cap.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-44f, 0f));
+
+            // 最小化／復元ボタン（右上の「—」）。タイトルバーだけ残してマップ表示を畳む。
+            BuildMinimizeButton(bar);
 
             // 中身領域（透明＝マップを見せる・クリックを塞がない）。アンカーは ApplyLayout で mapRect に合わせる。
             contentRT = new GameObject("MapContent").AddComponent<RectTransform>();
@@ -263,6 +323,60 @@ namespace Ginei
             edgeLeft = MakeEdge(root, edge);
             edgeRight = MakeEdge(root, edge);
             edgeBottom = MakeEdge(root, edge);
+
+            // 右下リサイズグリップ（つかんで窓の大きさを変える）。raycast を受けてドラッグを拾う。
+            var gripGo = new GameObject("MapResizeGrip");
+            gripGo.transform.SetParent(root, false);
+            resizeGripRT = gripGo.AddComponent<RectTransform>();
+            var gripImg = gripGo.AddComponent<Image>();
+            gripImg.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.85f);
+            gripImg.raycastTarget = true;
+            var gripDrag = gripGo.AddComponent<MapWindowDrag>();
+            gripDrag.onDragDelta = OnResizeDrag;
+        }
+
+        /// <summary>タイトルバー右端に最小化／復元ボタン（—／＋）を作る。</summary>
+        private void BuildMinimizeButton(Transform titleBar)
+        {
+            var go = new GameObject("MinimizeButton");
+            go.transform.SetParent(titleBar, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 0.5f);
+            rt.sizeDelta = new Vector2(38f, 0f);
+            rt.anchoredPosition = new Vector2(-4f, 0f);
+            var img = go.AddComponent<Image>();
+            img.color = buttonColor;
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(ToggleMinimize);
+            minimizeLabel = AddText(go.transform, "—", 18f, accentColor, TextAlignmentOptions.Center);
+            minimizeLabel.fontStyle = FontStyles.Bold;
+            SetAnchors(minimizeLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        }
+
+        /// <summary>最小化／復元を切り替える。最小化中はマップ描画を畳み（カメラ非描画）、タイトルバーだけ残す。</summary>
+        public void ToggleMinimize()
+        {
+            minimized = !minimized;
+            if (cam != null)
+            {
+                if (minimized)
+                {
+                    // マップを描かず背景デスクトップ（黒）を見せる＝タイトルバーだけ残った最小化状態。
+                    savedCullingMask = cam.cullingMask;
+                    savedClearFlags = cam.clearFlags;
+                    cam.cullingMask = 0;
+                    cam.clearFlags = CameraClearFlags.Depth;
+                }
+                else
+                {
+                    cam.cullingMask = savedCullingMask;
+                    cam.clearFlags = savedClearFlags;
+                }
+            }
+            if (minimizeLabel != null) minimizeLabel.text = minimized ? "＋" : "—";
+            ApplyLayout();
         }
 
         private static RectTransform MakeEdge(Transform parent, Color color)

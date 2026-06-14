@@ -235,6 +235,23 @@ namespace Ginei
                     }
                 }
 
+            // 賠償（P1 配線）：進行中の戦争で戦況の不利な側（敗勢）が有利な側へ年次賠償を払う＝戦争が経済を消耗させる。
+            var wars = WarLedger.All;
+            if (wars != null)
+                for (int w = 0; w < wars.Count; w++)
+                {
+                    WarState ws = wars[w];
+                    if (ws == null || Mathf.Abs(ws.warScore) < 0.2f) continue; // 拮抗は賠償なし
+                    bool aWinning = ws.warScore > 0f;
+                    if (!System.Enum.TryParse(aWinning ? ws.factionA : ws.factionB, out Faction wf)) continue;
+                    if (!System.Enum.TryParse(aWinning ? ws.factionB : ws.factionA, out Faction lf)) continue;
+                    FactionState winner = StateOf(wf), loser = StateOf(lf);
+                    if (winner == null || loser == null) continue;
+                    float rep = Mathf.Min(loser.treasury * 0.05f,
+                        DiplomaticActionAiRules.ProposedReparations(Mathf.Abs(ws.warScore), CampaignRules.EconomyBase(loser)));
+                    if (rep > 0f) { loser.treasury = Mathf.Max(0f, loser.treasury - rep); winner.treasury += rep; }
+                }
+
             // 条約効果（P1 配線）：締結中の条約は毎年 opinion を補強する（DiplomaticEffectRules→DiplomacyRules）。
             var treaties = TreatyLedger.All;
             if (treaties != null)

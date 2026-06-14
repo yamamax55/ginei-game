@@ -45,12 +45,18 @@ namespace Ginei
             new GameObject("PersonObserverOverlay").AddComponent<PersonObserverOverlay>();
         }
 
+        private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
+
         private void Awake()
         {
             jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             BuildUI();
             SetVisible(false);
+            // ESC は UIWindowStack 経由で「手前から閉じる」（P は従来どおり開閉トグル）。
+            escWindowToken = UIWindowStack.Register(() => root != null && root.activeSelf, () => SetVisible(false), canvasSortingOrder, "人物名鑑");
         }
+
+        private void OnDestroy() => UIWindowStack.Unregister(escWindowToken);
 
         private void Update()
         {

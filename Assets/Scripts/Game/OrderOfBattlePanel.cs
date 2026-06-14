@@ -30,6 +30,7 @@ namespace Ginei
         private Faction faction;
         private int selectedFleet;  // 移動対象の艦隊番号（0=未選択）
         private int commandTarget;  // 司令選任中の梯団id（0=未選択）
+        private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -52,6 +53,8 @@ namespace Ginei
         {
             instance = this;
             Build();
+            // ESC は UIWindowStack 経由で「手前から閉じる」（自前でキー直読みしない）。O は従来どおり開閉トグル。
+            escWindowToken = UIWindowStack.Register(() => isOpen, Close, 95, "編制管理");
         }
 
         private void Update()
@@ -60,8 +63,7 @@ namespace Ginei
             if (Keyboard.current.oKey.wasPressedThisFrame) Toggle();
             if (isOpen)
             {
-                Time.timeScale = 0f; // 倍速キー等で解除されてもポーズ維持
-                if (Keyboard.current.escapeKey.wasPressedThisFrame) Close();
+                Time.timeScale = 0f; // 倍速キー等で解除されてもポーズ維持（Esc は PauseManager 経由で閉じる）
             }
         }
 
@@ -282,6 +284,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            UIWindowStack.Unregister(escWindowToken);
             if (isOpen) Time.timeScale = savedTimeScale;
             if (instance == this) instance = null;
         }

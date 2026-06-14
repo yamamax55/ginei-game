@@ -22,6 +22,7 @@ namespace Ginei
         public static bool IsOpen => instance != null && instance.isOpen;
 
         private bool isOpen;
+        private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
         private GameObject root;
         private TextMeshProUGUI titleText;
         private TextMeshProUGUI bodyText;
@@ -101,6 +102,9 @@ namespace Ginei
             bodyLE.flexibleHeight = 1f;
 
             root.SetActive(false);
+
+            // ESC は UIWindowStack 経由で「手前から閉じる」（#ウィンドウESC）。
+            escWindowToken = UIWindowStack.Register(() => isOpen, Close, 950, "星系情報");
         }
 
         /// <summary>タイトルバー（Windows 風・つかんでドラッグ移動＋×で閉じる）。観測窓と同型。</summary>
@@ -197,11 +201,7 @@ namespace Ginei
             if (root != null) root.SetActive(false);
         }
 
-        private void Update()
-        {
-            if (!isOpen) return;
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) Close();
-        }
+        // Esc は UIWindowStack 経由（GalaxyView）で「手前から閉じる」＝自前で読まない。
 
         private string BuildInfo(StarSystem s, Province prov, int neighborCount, string fleetSummary)
         {
@@ -319,6 +319,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            UIWindowStack.Unregister(escWindowToken);
             if (instance == this) instance = null;
         }
     }

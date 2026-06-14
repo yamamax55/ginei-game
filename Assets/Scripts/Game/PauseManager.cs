@@ -63,30 +63,19 @@ namespace Ginei
 
         private void HandleInput()
         {
-            // 艦隊詳細パネル／編制パネル表示中は、そのパネルがポーズ／Esc を握る（入力を譲る）。
+            // 入力は GameInput に集約（#107）。キー直読みをやめ論理アクションで問い合わせる。
+
+            // Esc（#ウィンドウESC）：重ねたウィンドウを最前面から1枚閉じ、無くなったらシステムメニュー。
+            // 艦隊詳細/編制パネルが開いていても ESC は常に評価する（各パネルは自前で Esc を読まず UIWindowStack 経由で閉じる）。
+            if (GameInput.WasPressed(GameAction.キャンセル)) HandleEscape();
+
+            // 艦隊詳細パネル／編制パネル表示中は、時間操作（Space/倍速）はそのパネルへ譲る（ポーズ維持）。
             if (FleetDetailPanel.IsOpen || OrderOfBattlePanel.IsOpen) return;
 
-            // 入力は GameInput に集約（#107）。キー直読みをやめ論理アクションで問い合わせる。
             // Space: 一時停止 / 再開
             if (GameInput.WasPressed(GameAction.ポーズ))
             {
                 TogglePause();
-            }
-
-            // Esc: ポーズメニュー
-            // 優先順位「コマンドメニューを閉じる ＞ 移動/攻撃目標指定キャンセル ＞ ポーズ切替」。
-            // 前2者が処理する状況ではポーズメニューを開かず、それぞれの処理に任せる。
-            if (GameInput.WasPressed(GameAction.キャンセル))
-            {
-                CommandMenu commandMenu = Object.FindAnyObjectByType<CommandMenu>();
-                FleetCommander commander = Object.FindAnyObjectByType<FleetCommander>();
-                bool handledElsewhere = (commandMenu != null && commandMenu.IsOpen)
-                                        || (commander != null && commander.IsWaitingForMoveTarget)
-                                        || (commander != null && commander.IsWaitingForAttackTarget);
-                if (!handledElsewhere)
-                {
-                    TogglePauseMenu();
-                }
             }
 
             // 数字キー: 倍速切り替え（Ctrl＋数字＝グループ選択#83とは修飾キーで分離）
@@ -96,6 +85,27 @@ namespace Ginei
                 if (GameInput.WasPressed(GameAction.倍速2倍)) SetTimeScale(2f);
                 if (GameInput.WasPressed(GameAction.倍速3倍)) SetTimeScale(3f);
             }
+        }
+
+        /// <summary>
+        /// Esc の解決（優先順位「コマンドメニューを閉じる ＞ 移動/攻撃目標指定キャンセル ＞ 手前のウィンドウを閉じる ＞
+        /// システムメニュー」）。前2者（入力モード）は各自がキャンセルを処理するので譲る。
+        /// </summary>
+        private void HandleEscape()
+        {
+            // 1. 会戦固有の入力モード（右クリックメニュー／移動・攻撃目標指定）は各自が処理＝ここでは譲る。
+            CommandMenu commandMenu = Object.FindAnyObjectByType<CommandMenu>();
+            FleetCommander commander = Object.FindAnyObjectByType<FleetCommander>();
+            bool inputMode = (commandMenu != null && commandMenu.IsOpen)
+                             || (commander != null && commander.IsWaitingForMoveTarget)
+                             || (commander != null && commander.IsWaitingForAttackTarget);
+            if (inputMode) return;
+
+            // 2. 重ねたウィンドウ（観測オーバーレイ・各パネル）を最前面から1枚閉じる。
+            if (UIWindowStack.CloseTopmost()) return;
+
+            // 3. どのウィンドウも無ければシステムメニュー（再開/タイトルへ）を開閉する。
+            TogglePauseMenu();
         }
 
         public void TogglePause()

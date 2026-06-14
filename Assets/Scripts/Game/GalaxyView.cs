@@ -232,9 +232,14 @@ namespace Ginei
 
         private void Update()
         {
-            // イベント提示モーダル／艦隊編成画面／決裁／終了画面 表示中は戦略マップの入力・進行を止める。
+            // ESC（#ウィンドウESC）：重ねたウィンドウを最前面から1枚ずつ閉じ、無くなったらシステムメニュー。
+            // モーダル窓が盤面入力を塞ぐ前（下の early-return より前）に評価し、閉じた窓自身もここで処理する。
+            if (GameInput.WasPressed(GameAction.キャンセル)) HandleStrategyEscape();
+
+            // イベント提示モーダル／艦隊編成画面／決裁／終了画面／システムメニュー 表示中は戦略マップの入力・進行を止める。
             // SystemDetailPanel は非モーダル窓化したので塞がない（開いたままマップ操作・進行が続く）。
-            if (StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen || CampaignEndOverlay.IsOpen) return;
+            if (StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen
+                || CampaignEndOverlay.IsOpen || StrategySystemMenu.IsOpen) return;
 
             // 盤面が未構築（Start 前・リロード途中）なら何もしない＝reg/map の null 参照を全面ガード。
             if (map == null || reg == null) return;
@@ -3087,6 +3092,19 @@ namespace Ginei
 
         // ===== 入力 =====
 
+        /// <summary>
+        /// ESC の解決（#ウィンドウESC）：①重ねたウィンドウ（観測オーバーレイ・各パネル）を最前面から1枚閉じる。
+        /// ②閉じる窓が無ければシステムメニュー（再開/セーブ/タイトル）を開閉する。
+        /// </summary>
+        private void HandleStrategyEscape()
+        {
+            if (UIWindowStack.CloseTopmost()) return;        // 手前のウィンドウを1枚閉じる
+            // ESC で閉じない専用モーダル（イベント提示は選択が必要／終了画面は終端）の上にはシステムメニューを被せない。
+            if (StrategyEventPanel.IsOpen || CampaignEndOverlay.IsOpen) return;
+            StrategySystemMenu menu = Object.FindAnyObjectByType<StrategySystemMenu>();
+            if (menu != null) menu.Toggle();                  // 無ければシステムメニュー開閉
+        }
+
         private void HandleKeys()
         {
             var kb = Keyboard.current;
@@ -3305,7 +3323,8 @@ namespace Ginei
         }
 
         /// <summary>戦役の全状態をファイルへ保存する（F5・手動）。</summary>
-        private void SaveCampaign()
+        /// <summary>世界状態を全永続化する（F5／システムメニューの「セーブ」から）。</summary>
+        public void SaveCampaign()
         {
             WriteCampaignSave();
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, "セーブしました（F9 で再開）");

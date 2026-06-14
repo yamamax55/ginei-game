@@ -37,6 +37,7 @@ namespace Ginei
         private int detailFleet;            // 編集中の艦隊番号（0=一覧）
         private StaffSlot selectingSlot;    // 選任中のスロット（None=詳細）
         private List<AdmiralData> admiralPool; // デモ提督プール（候補）
+        private object escWindowToken;      // UIWindowStack 登録トークン（#ウィンドウESC）
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -59,6 +60,8 @@ namespace Ginei
         {
             instance = this;
             Build();
+            // ESC は UIWindowStack 経由で「手前から閉じる」。多段ナビ（選任→詳細→一覧→閉じる）は Back で1段ずつ戻す。
+            escWindowToken = UIWindowStack.Register(() => isOpen, Back, 95, "艦隊編成");
         }
 
         private void Update()
@@ -67,8 +70,7 @@ namespace Ginei
             if (Keyboard.current.bKey.wasPressedThisFrame) Toggle();
             if (isOpen)
             {
-                Time.timeScale = 0f; // 開いている間はポーズを維持
-                if (Keyboard.current.escapeKey.wasPressedThisFrame) Back();
+                Time.timeScale = 0f; // 開いている間はポーズを維持（Esc は GalaxyView 経由で Back）
             }
         }
 
@@ -351,6 +353,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            UIWindowStack.Unregister(escWindowToken);
             if (isOpen) Time.timeScale = savedTimeScale;
             if (instance == this) instance = null;
         }

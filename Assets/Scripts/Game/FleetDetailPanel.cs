@@ -24,6 +24,7 @@ namespace Ginei
         private float savedTimeScale = 1f;
         private GameObject root;
         private TextMeshProUGUI bodyText;
+        private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
 
         /// <summary>指定艦隊の詳細を表示する（必要なら生成）。</summary>
         public static void Show(Selectable fleet)
@@ -94,6 +95,9 @@ namespace Ginei
             CreateButton(panel.transform, "閉じる (Esc)", Close);
 
             root.SetActive(false);
+
+            // ESC は UIWindowStack 経由で「手前から閉じる」（自前でキー直読みしない）。
+            escWindowToken = UIWindowStack.Register(() => isOpen, Close, 90, "艦隊詳細");
         }
 
         private void Display(Selectable fleet)
@@ -122,9 +126,8 @@ namespace Ginei
         private void Update()
         {
             if (!isOpen) return;
-            // 倍速キー等で解除されてもポーズを維持する。
+            // 倍速キー等で解除されてもポーズを維持する。Esc は UIWindowStack 経由（PauseManager）で閉じる。
             Time.timeScale = 0f;
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) Close();
         }
 
         private string BuildInfo(Selectable fleet)
@@ -254,6 +257,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            UIWindowStack.Unregister(escWindowToken);
             if (isOpen) Time.timeScale = savedTimeScale;
             if (instance == this) instance = null;
         }

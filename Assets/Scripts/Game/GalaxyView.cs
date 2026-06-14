@@ -102,6 +102,8 @@ namespace Ginei
         [Header("内政スライス（S5/S6）")]
         [Tooltip("税率の1操作あたりの増減")]
         public float taxStep = 0.05f;
+        [Tooltip("デバッグモード（` キーで切替）。税率レバー [ ] 等のデバッグ専用操作を有効化する。通常プレイでは税率は内政/AIに委ね手動レバーは出さない（タイクン化回避＝高位の決断＋創発的帰結）。")]
+        public bool debugMode = false;
         [Tooltip("民心(希望)がこの値を下回ると不満イベントを提示")]
         public float hopeEventThreshold = 0.35f;
         private EventEngine policyEngine;
@@ -588,7 +590,7 @@ namespace Ginei
             // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示（バナー直下）
             policyLine = MakeLabel(transform, "", new Vector3(0f, 6.6f, 0f), 0.7f).GetComponent<TextMesh>();
             policyLine.color = new Color(0.85f, 0.9f, 0.7f);
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 回廊ダブルクリック:潜行 / 星系ダブルクリック:システムビュー / 右ク:進軍 / I:星系情報 / [ ]:税率 / +/-・1・2・3:速度 / Space:停止",
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 回廊ダブルクリック:潜行 / 星系ダブルクリック:システムビュー / 右ク:進軍 / I:星系情報 / +/-・1・2・3:速度 / Space:停止",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }
@@ -2899,7 +2901,10 @@ namespace Ginei
             float hope = s.community != null ? s.community.hope : 0f;
             float stab = CampaignRules.EffectiveStability(StrategySession.Campaign,
                 GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国);
-            policyLine.text = $"税率 {s.taxRate * 100f:0}%　国庫 {s.treasury:0}　民心 {hope * 100f:0}%　安定度 {stab * 100f:0}%　[=/- で税率]";
+            // 読み取り表示（税率/国庫/民心/安定度）は観測＝常時。税率レバーのヒントはデバッグモード時のみ（` で切替）。
+            string tag = debugMode ? "【DEBUG】 " : "";
+            string lever = debugMode ? "　[ ] で税率" : "";
+            policyLine.text = $"{tag}税率 {s.taxRate * 100f:0}%　国庫 {s.treasury:0}　民心 {hope * 100f:0}%　安定度 {stab * 100f:0}%{lever}";
             // 民心が閾値割れで警告色
             policyLine.color = hope < hopeEventThreshold ? new Color(1f, 0.5f, 0.4f) : new Color(0.85f, 0.9f, 0.7f);
         }
@@ -3089,12 +3094,17 @@ namespace Ginei
             GameClock clock = StrategySession.Clock;
             // ポーズ/速度プリセットは統一クロックを駆動（TIME-1）。速度の +/- は TimeDisplay が全シーン共通で処理。
             if (kb.spaceKey.wasPressedThisFrame && clock != null) clock.TogglePause();
-            // S5：税率レバー（] で増税 / [ で減税。+/- は時間速度に割当のためブラケットへ）。
-            FactionState ps = PlayerState();
-            if (ps != null)
+            // デバッグモード切替（` キー）。税率レバー等のデバッグ専用機能の入力/表示をまとめてゲートする。
+            if (kb.backquoteKey.wasPressedThisFrame) debugMode = !debugMode;
+            // 税率レバー（★デバッグ専用）：] で増税 / [ で減税。通常プレイでは税率は内政/AI委任で動かしレバーは出さない（タイクン化回避）。
+            if (debugMode)
             {
-                if (kb.rightBracketKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate + taxStep);
-                if (kb.leftBracketKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate - taxStep);
+                FactionState ps = PlayerState();
+                if (ps != null)
+                {
+                    if (kb.rightBracketKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate + taxStep);
+                    if (kb.leftBracketKey.wasPressedThisFrame) ps.taxRate = Mathf.Clamp01(ps.taxRate - taxStep);
+                }
             }
             if (clock != null)
             {

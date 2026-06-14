@@ -167,6 +167,12 @@
 | `LogisticsObserverOverlay` | 兵站オブザーバ（観測オーバーレイ・**兵站ヒーロー表示**・#92-95/#2049/#2077）。**Q キー**（上メニュー「兵站」）。勢力ごとに資源備蓄（物資/弾薬/燃料＝`GalaxyView.GetStateStockpile`）／所有惑星の産出（`ResourceProductionRules.ProvinceRate`＋希少資源）／軍需要（`MilitaryDemandRules.AggregateDemand`）／艦隊補給（`StrategicFleet.supply`）と補給線途絶を集約。経済(E)は国庫/税率のみ＝3資源・補給線・前線枯渇（滅びの時計#94）は本窓。**観測専用**。詳細は「観測層」節。 |
 | `DemographicsObserverOverlay` | 人口オブザーバ（観測オーバーレイ・**人口ヒーロー表示**・#153/#194/#110）。**Z キー**（上メニュー「人口」）。勢力ごとに所有惑星を集約し年齢コホート/従属指数/人口局面（`DemographicsRules.Phase`）・職業構成（`OccupationRules.Workers`）・就業率/徴募源・定住魅力（`PopulationMigrationRules.Attractiveness`）。`SystemView` 惑星ごと表示の勢力横断マクロ版。観測専用ゆえ `demographics` を生成しない（既存フィールドのみ）。詳細は「観測層」節。 |
 | `LaborObserverOverlay` | 労働オブザーバ（観測オーバーレイ・**労働ヒーロー表示**・#2026/#2034/#2042）。**X キー**（上メニュー「労働」）。勢力ごとに所有惑星を人口加重集約し労働技能（`PopLaborTickRules.OverallSkill`）／賃金指数（`Province.wageIndex`）／就業率／生活水準（`Province.livingStandard`）／飢餓（`Province.foodShortage`）。`GalaxyView.RunAnnualLifecycleTick`（年次）の労働→所得→消費→生活水準ループの帰結を映す。**観測専用**。詳細は「観測層」節。 |
+| `FiscalObserverOverlay` | 財政オブザーバ（観測オーバーレイ・**財政ヒーロー表示**・#161/#162/#163）。**Alt+F**（上メニュー「財政詳」）。勢力ごとに `FactionState.fiscal`（歳入/歳出/国債/金利/`IsDebtSpiral`/`FiscalHealthFactor`/為替）＋`FactionState.budget`（`BudgetRules.Share` の分野配分）。`GalaxyView.RunFiscalYearTick`（年次）が回す債務スパイラル・予算配分を映す（E は国庫/税率のみ）。**観測専用**。詳細は「観測層」節。 |
+| `ProductionObserverOverlay` | 生産・流通オブザーバ（観測オーバーレイ・**生産ヒーロー表示**・#2091/#2098）。**Alt+P**（上メニュー「生産」）。勢力ごとに所有惑星の生産チェーン在庫（`GalaxyView.GetChainStock`＝森林/木材/建材/住宅）と消費財BOM在庫（`GalaxyView.GetCommodityStock`＋`CommodityCatalog.ByCategory(消費財)`）を集約。市場#179 は未配線。**観測専用**。詳細は「観測層」節。 |
+| `GovernmentObserverOverlay` | 政府オブザーバ（観測オーバーレイ・**政府ヒーロー表示**・GOV #142/#144/#158）。**Alt+G**（上メニュー「政府」）。勢力ごとに首班（`PartyRules.Premier`）・要職任命（`GovernmentRegistry.Appointments`）・省庁ツリー（`GalaxyView.MinistriesOf`＝二官八省＋配下官僚数）。P/M に対する文民政府版。**観測専用**。詳細は「観測層」節。 |
+| `ShipyardObserverOverlay` | 造船オブザーバ（観測オーバーレイ・**造船ヒーロー表示**・#884）。**Alt+B**（上メニュー「造船」）。勢力ごとに造船所数/稼働/キュー総数＋稼働中の建艦オーダー（`BuildOrder` 艦種/役割・進捗・残）を `GalaxyView.Shipyards` から集約。建艦パイプラインの可視化（完成は艦艇プール B へ就役）。**観測専用**。詳細は「観測層」節。 |
+| `PersonnelDynamicsObserverOverlay` | 人物動態オブザーバ（観測オーバーレイ・**人物動態ヒーロー表示**・LIFE #151-154）。**Alt+L**（上メニュー「人物動」）。勢力ごとに `CommanderRoster`＋`CivilianRoster` を集計し 存命/死亡/捕虜/行方不明（`CaptiveStatus`）/在野・平均年齢（`LifecycleRules.Age`・`GalaxyView.CampaignYear`）・職分内訳（`PersonVocationRules.VocationOf`）。P の時系列・処遇版。**観測専用**。詳細は「観測層」節。 |
+| `ChronicleObserverOverlay` | イベントオブザーバ（観測オーバーレイ・**事象ヒーロー表示**・#116）。**Alt+D**（上メニュー「事象」）。`GalaxyView.PolicyEngine`（`EventEngine`）の提示中イベント/保留件数を映す。`DisclosureLedger`（#495）は未配線（観測対象なしと明示）。**観測専用**。詳細は「観測層」節。 |
 
 ### 戦略レイヤー（Phase C／純ロジックは test-first）
 > 銀河グラフ（星系＝ノード／回廊＝エッジ）上を戦略艦隊が時限ワープで移動し、敵対勢力に挟まれた回廊（前線）では亜光速で侵入→接触で実会戦（Battle シーン）に移行する。**敵対判定は `FactionRelations`、艦在庫は `StrategicFleetRegistry`、戦闘ロジックは `StrategyRules`（static）が唯一の窓口**。非 MonoBehaviour の純データ/純ロジックは EditMode テストで担保（`Assets/Tests/EditMode`）。
@@ -312,7 +318,7 @@
 
 ## 観測層（デバッグ可視化・Core生成に自動追従）
 > Core の純ロジック（社会・政治シミュ層 等）が盤面で何を計算しているかを**眺める窓**＝第1層「観測化」。操作はさせない（read-only）。狙いは「Core は増えるが何も見えない」乖離を構造的に潰すこと＝**生成と観測を歩調させる**。
-- 窓口は13（G/J/M/N/E/L/U/B＋外交Y/政治O/兵站Q/人口Z/労働X。ほか 決裁K・人物P。いずれも Strategy/Battle に自動生成・**状態は一切変えない**）：
+- 窓口は19（G/J/M/N/E/L/U/B＋外交Y/政治O/兵站Q/人口Z/労働X＋財政Alt+F/生産Alt+P/政府Alt+G/造船Alt+B/人物動態Alt+L/イベントAlt+D。ほか 決裁K・人物P。単一文字キーは A〜Z 使い切ったため第2弾は Alt＋文字＝上メニューからも開ける。いずれも Strategy/Battle に自動生成・**状態は一切変えない**）：
   - `CampaignObserverOverlay`（**G**）＝国家状態の手仕上げヒーロー表示（`StrategySession.Campaign` の `FactionState` を意味づけして見せる）。
   - `CoreStateInspector`（**J**）＝**登録ルートをリフレクションで全ダンプする汎用版**。既定ルート＝`StrategySession.Campaign`/`Provinces`/`Clock`＋軍系 static ストア（`FleetPool`/`FleetRoster`/`OrderOfBattle`）＋`NotificationCenter.All`。
   - `MilitaryObserverOverlay`（**M**）＝軍の手仕上げヒーロー表示。勢力ごとに `FleetPool`（保有総艦艇）／`OrderOfBattle`（編制ツリー＝司令の階級ゲート可視化）／`FleetRoster`（艦隊台帳＝指揮班・兵力）＋`CommandStaffRules` の実効能力を集約（#146/#147/#148/#885）。
@@ -326,11 +332,17 @@
   - `LogisticsObserverOverlay`（**Q**・上メニュー「兵站」）＝兵站のヒーロー表示（#92-95/#2049/#2077）。勢力ごとに資源備蓄（物資/弾薬/燃料＝`GalaxyView.GetStateStockpile`）／所有惑星の産出（`ResourceProductionRules.ProvinceRate`＋希少資源）／軍需要（`MilitaryDemandRules.AggregateDemand`）／艦隊の補給レディネス（`StrategicFleet.supply`）と補給線途絶を集約。経済(E)は国庫/税率だけ＝3資源・補給線・前線枯渇（滅びの時計#94）は本窓が担う。
   - `DemographicsObserverOverlay`（**Z**・上メニュー「人口」）＝人口のヒーロー表示（#153/#194/#110）。勢力ごとに所有惑星を集約し年齢コホート/従属指数/人口局面（`DemographicsRules.Phase`）・職業構成（`OccupationRules.Workers`）・就業率/徴募源（軍属）・定住魅力（`PopulationMigrationRules.Attractiveness`）。`SystemView` の惑星ごと表示の勢力横断マクロ版。観測専用ゆえ `demographics` を生成しない（既存フィールドのみ）。
   - `LaborObserverOverlay`（**X**・上メニュー「労働」）＝労働のヒーロー表示（#2026/#2034/#2042）。勢力ごとに所有惑星を人口加重集約し労働技能（`PopLaborTickRules.OverallSkill`）／賃金指数（`Province.wageIndex`）／就業率／生活水準（`Province.livingStandard`）／飢餓（`Province.foodShortage`）。`GalaxyView.RunAnnualLifecycleTick`（年次）が回す労働→所得→消費→生活水準のループの帰結を映す。
+  - `FiscalObserverOverlay`（**Alt+F**・上メニュー「財政詳」）＝財政のヒーロー表示（#161/#162/#163）。勢力ごとに `FactionState.fiscal`（歳入/歳出/国債/`FiscalRules.IsDebtSpiral`/金利/`FiscalHealthFactor`/為替）と `FactionState.budget`（`BudgetRules.Share` の分野配分）。`GalaxyView.RunFiscalYearTick`（年次）が回す債務スパイラル・予算配分のトレードオフを映す（E は国庫/税率のみ＝財政詳細は本窓）。
+  - `ProductionObserverOverlay`（**Alt+P**・上メニュー「生産」）＝生産・流通のヒーロー表示（#2091/#2098）。勢力ごとに所有惑星の生産チェーン在庫（`GalaxyView.GetChainStock`＝森林/木材/建材/住宅）と消費財BOM在庫（`GalaxyView.GetCommodityStock`＋`CommodityCatalog.ByCategory(消費財)`）を集約。市場#179 は未配線。
+  - `GovernmentObserverOverlay`（**Alt+G**・上メニュー「政府」）＝政府のヒーロー表示（GOV #142/#144/#158）。勢力ごとに首班（`PartyRules.Premier`＝与党党首）・要職任命（`GovernmentRegistry.Appointments`＝官職/所掌/在任者）・省庁ツリー（`GalaxyView.MinistriesOf`＝二官八省と配下官僚数）。P（軍人中心）/M（軍編制）に対する文民政府版。
+  - `ShipyardObserverOverlay`（**Alt+B**・上メニュー「造船」）＝造船のヒーロー表示（#884）。勢力ごとに造船所数/稼働数/キュー総数＋稼働中の建艦オーダー（`BuildOrder` 艦種/役割・進捗バー・残）を `GalaxyView.Shipyards` から集約。完成は艦艇プール（B）へ就役＝建艦パイプラインの可視化。
+  - `PersonnelDynamicsObserverOverlay`（**Alt+L**・上メニュー「人物動」）＝人物動態のヒーロー表示（LIFE #151-154）。勢力ごとに `GalaxyView.CommanderRoster`＋`CivilianRoster` を集計し 存命/死亡（`Person.IsDeceased`）/捕虜/行方不明（`CaptiveStatus`）/在野（`isFreeAgent`）・平均年齢（`LifecycleRules.Age`）・職分内訳（`PersonVocationRules.VocationOf`）。P（能力スナップショット）の時系列・処遇版。
+  - `ChronicleObserverOverlay`（**Alt+D**・上メニュー「事象」）＝イベントのヒーロー表示（#116）。`GalaxyView.PolicyEngine`（`EventEngine`）の提示中イベント/保留件数を映す。開示エンジン（`DisclosureLedger`・#495）は現在未配線（観測対象なしと明示）。
 - **汎用インスペクタは再帰ダンプ**＝既存ルートから**到達できる state は自動で表示される**。新しい Core 型を既存ルート配下（`CampaignState`/`FactionState`/`Province` 等）にぶら下げたら **Register 不要**（再帰で勝手に出る）。
 - **★規約（新しい Core state を実装したら）**：以下は Game 層 `CoreStateInspector.cs` への追記のみ＝**Core 純ロジックは read-only のまま**。自動コード化ルーチンも Core state 型を生やすたびにこの2点を同時に行う。
   1. **独立した新ルート**（既存ルートから到達できない static 保管庫等）を作ったときだけ、`CoreStateInspector.Register("ラベル", () => 対象)` を1行足す。既存ルート配下なら不要。
   2. **新しい state フィールド/プロパティ**を足したら、`CoreStateInspector` の `glossary` に `{ "フィールド名", "日本語説明" }` を1行足す（無くても崩れないが説明が出ない）。
-- 入力（G/J/M/N/E/L/U/B/Y/O/Q/Z/X）は `GameInput`（#107）の `観測オーバーレイ切替`/`状態インスペクタ切替`/`軍観測切替`/`通知ログ切替`/`経済観測切替`/`法令観測切替`/`教育観測切替`/`艦艇観測切替`/`外交観測切替`/`政治観測切替`/`兵站観測切替`/`人口観測切替`/`労働観測切替` に集約済み。`HelpOverlay` にも掲載。第2層「操作化」（プレイヤーがレバーを回す）はここから手で昇格させる＝自動化しない核。
+- 入力（G/J/M/N/E/L/U/B/Y/O/Q/Z/X ＋ Alt+F/Alt+P/Alt+G/Alt+B/Alt+L/Alt+D）は `GameInput`（#107）の `観測オーバーレイ切替`/`状態インスペクタ切替`/`軍観測切替`/`通知ログ切替`/`経済観測切替`/`法令観測切替`/`教育観測切替`/`艦艇観測切替`/`外交観測切替`/`政治観測切替`/`兵站観測切替`/`人口観測切替`/`労働観測切替`/`財政観測切替`/`生産観測切替`/`政府観測切替`/`造船観測切替`/`人物動態観測切替`/`イベント観測切替` に集約済み（第2弾は単一文字を使い切ったため Alt＋文字）。`HelpOverlay` にも掲載。第2層「操作化」（プレイヤーがレバーを回す）はここから手で昇格させる＝自動化しない核。
 
 ## スケーラビリティ規律（終盤ラグを生まない・PERF #1117）
 > グランドストラテジーの宿痾＝**終盤ラグ**を構造的に避ける。反面教師は Stellaris（pop単位経済が際限なく増え、毎ティック全再計算、N²相互作用、直列）。設計＝`docs/late-game-performance-design.md`。**「タイクン化回避」＝そのまま「ラグ回避」**（同じ決断の裏表）。新しい Tick系・カップリング・リストを足すときは下の5原則を必ず守る。

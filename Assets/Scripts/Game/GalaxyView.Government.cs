@@ -22,6 +22,22 @@ namespace Ginei
         /// <summary>文官要職（観測用・人物名鑑が在任を表示）。</summary>
         public IReadOnlyList<Office> CivilOffices => civilOffices;
 
+        /// <summary>勢力の省庁ツリー（二官八省・GOV-5 #158）。未配線/非デモ勢力は null。観測層（政府オブザーバ）専用＝read-only。</summary>
+        public IReadOnlyList<Ministry> MinistriesOf(Faction f)
+        {
+            if (ministries == null) return null;
+            int idx = FactionIndex(f);
+            return (idx >= 0 && idx < ministries.Length) ? ministries[idx] : null;
+        }
+
+        /// <summary>勢力の太政官（最上位省）id。未配線/非デモ勢力は −1。観測層専用＝read-only。</summary>
+        public int TopMinistryIdOf(Faction f)
+        {
+            if (ministryTopId == null) return -1;
+            int idx = FactionIndex(f);
+            return (idx >= 0 && idx < ministryTopId.Length) ? ministryTopId[idx] : -1;
+        }
+
         /// <summary>DemoFactions 内の番号（非デモ勢力は −1）。</summary>
         private int FactionIndex(Faction f)
         {

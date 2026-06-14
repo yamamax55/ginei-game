@@ -175,6 +175,11 @@ namespace Ginei
         /// <summary>武官ネームドのロスター（観測用・人物名鑑が読む）。</summary>
         public IReadOnlyList<Person> CommanderRoster => commanders;
 
+        /// <summary>現在のキャンペーン年（観測用・人物動態オブザーバが年齢/死亡判定に使う）。</summary>
+        public int CampaignYear => campaignYear;
+        /// <summary>内政イベントエンジン（観測用・read-only。提示中/保留件数/発火回数を読む）。</summary>
+        public EventEngine PolicyEngine => policyEngine;
+
         // 幼稚園/小学校/中学校/高校（#155-157 の土台）：勢力ごとの就学前〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
         private List<Kindergarten> kindergartens;
         private List<ElementarySchool> elementarySchools;

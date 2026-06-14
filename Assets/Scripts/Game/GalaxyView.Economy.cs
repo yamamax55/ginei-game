@@ -142,6 +142,17 @@ namespace Ginei
         public ResourceStockpile GetStateStockpile(Faction faction)
             => stateStockpiles.TryGetValue(faction, out var s) ? s : null;
 
+        /// <summary>星系の生産チェーン在庫（森林→木材→建材→住宅・#2091）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
+        public ChainStock GetChainStock(int systemId)
+            => chainStocks.TryGetValue(systemId, out var cs) ? cs : null;
+
+        /// <summary>星系のBOM消費財在庫（食品/衣類等・#2098）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
+        public CommodityStock GetCommodityStock(int systemId)
+            => bomStocks.TryGetValue(systemId, out var cs) ? cs : null;
+
+        /// <summary>星系ごとの造船所一覧（建艦キュー/進捗・#884）。観測層（造船オブザーバ）専用＝read-only。</summary>
+        public System.Collections.Generic.IReadOnlyList<Shipyard> Shipyards => shipyards;
+
         /// <summary>国家ごとに所有惑星から産出→行政・インフラが消費→不足で統治逼迫＝安定度低下（STATEDEM-6）。</summary>
         private void RunStateConsumptionTick()
         {

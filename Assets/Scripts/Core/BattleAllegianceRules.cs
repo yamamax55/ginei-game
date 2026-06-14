@@ -65,5 +65,41 @@ namespace Ginei
             return LoyaltyRules.EffectiveStrength(list, side) <= 0
                 && LoyaltyRules.EffectiveStrength(list, enemySide) > 0;
         }
+
+        /// <summary>
+        /// 膠着打開：<b>双方とも戦う者が居ない（実効兵力0同士）</b>なら、各陣営で最も純忠誠の高い諸侯を
+        /// 「戦う」に転じさせて膠着を破る（前衛が意を決して開戦する）。これで趨勢が生まれ、以後のカスケードで
+        /// 劣勢側の調略済み諸侯が寝返る等、戦いが動き出す（両軍静観のまま永久に固まるのを防ぐ）。
+        /// どちらかが既に戦っている（趨勢がある）場合は何もしない。変化を <paramref name="outChanges"/> へ追加し件数を返す。
+        /// </summary>
+        public static int BreakStalemate(IList<Allegiance> list, Faction sideA, Faction sideB, IList<StanceChange> outChanges)
+        {
+            if (list == null) return 0;
+            if (LoyaltyRules.EffectiveStrength(list, sideA) > 0) return 0;
+            if (LoyaltyRules.EffectiveStrength(list, sideB) > 0) return 0;
+            int count = 0;
+            count += CommitVanguard(list, sideA, outChanges);
+            count += CommitVanguard(list, sideB, outChanges);
+            return count;
+        }
+
+        /// <summary>side 陣営で最も純忠誠(loyalty-intrigue)の高い未確定の諸侯を「戦う」へ転じる（前衛の開戦）。</summary>
+        private static int CommitVanguard(IList<Allegiance> list, Faction side, IList<StanceChange> outChanges)
+        {
+            Allegiance best = null;
+            float bestNet = 0f;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Allegiance a = list[i];
+                if (a == null || a.locked || a.side != side || a.strength <= 0) continue;
+                float net = a.loyalty - a.intrigue;
+                if (best == null || net > bestNet) { best = a; bestNet = net; }
+            }
+            if (best == null || best.stance == Stance.戦う) return 0;
+            Stance from = best.stance;
+            best.stance = Stance.戦う;
+            outChanges?.Add(new StanceChange(best.id, from, Stance.戦う));
+            return 1;
+        }
     }
 }

@@ -159,10 +159,26 @@ namespace Ginei
 
         // 交戦中判定に使う旗艦の武装（Start でキャッシュ）
         private FleetWeapon flagshipWeapon;
+        private FleetStrength flagshipStrength;
 
         // 速度上限の基準＝旗艦の最高速（Start でキャッシュ。無ければフォールバック）
         private FleetMovement flagshipMovement;
         private float flagshipMaxSpeed = 6f;
+
+        [Header("包囲（敵旗艦フルボッコ）")]
+        [Tooltip("敵旗艦が配下艦を全て失い十分近い場合、配下艦が陣形を解いて敵旗艦を取り囲み集中攻撃する")]
+        public bool enableEncircleExposed = true;
+        [Tooltip("自旗艦から敵旗艦がこの距離以内なら包囲を発動（裸の旗艦が近いときの止め）")]
+        public float encircleDetectRange = 12f;
+        [Tooltip("敵旗艦を取り囲むリングの半径（小さいほど密着＝点射でフルボッコ）")]
+        public float encircleRingRadius = 2.2f;
+        [Tooltip("包囲対象の再走査間隔（秒・timeScale 追従）")]
+        public float encircleUpdateInterval = 0.5f;
+
+        // 包囲（フルボッコ）の対象＝裸になった近接の敵旗艦。null=通常の陣形追従。
+        private FleetStrength encircleTarget;
+        private float nextEncircleScan;
+        private float encirclePhase; // 部隊ごとのリング位相（重なり分散）
 
         // 分離スキャンの間引き用タイマー（timeScale 追従の Time.time 基準）
         private float nextSeparationTime = 0f;
@@ -218,12 +234,16 @@ namespace Ginei
             InitVelocities();
             RecolorFleet();            // 生成した配下艦にも陣営色を反映（艦種の色味#80は FactionColor が陣営色×classTint で適用）
             flagshipWeapon = GetComponent<FleetWeapon>();
+            flagshipStrength = GetComponent<FleetStrength>();
             flagshipMovement = GetComponent<FleetMovement>();
             if (flagshipMovement != null) flagshipMaxSpeed = flagshipMovement.maxSpeed;
             lastFlagshipPos = transform.position; // EMOV-4 旗艦移動量の基準
             mainCam = Camera.main;                 // EMOV-5 LOD 用（null は毎回再取得を試みる）
             // 分離スキャンの初回位相を分散（全部隊が同フレームに走らないように）
             nextSeparationTime = Time.time + Random.value * Mathf.Max(0f, separationUpdateInterval);
+            // 包囲リングの位相を部隊ごとにばらして重なりを散らす＋走査初回位相も分散
+            encirclePhase = Random.value * Mathf.PI * 2f;
+            nextEncircleScan = Time.time + Random.value * Mathf.Max(0f, encircleUpdateInterval);
         }
 
         /// <summary>
@@ -503,7 +523,56 @@ namespace Ginei
 
         private void Update()
         {
+            UpdateEncircleTarget();
             UpdateShipPositions();
+        }
+
+        /// <summary>
+        /// 包囲（フルボッコ）対象を更新する。<b>配下艦を全て失って裸になった敵旗艦が十分近い</b>とき、
+        /// 自部隊の配下艦がそれを取り囲んで集中攻撃する（止めの群がり）。走査は間引き（負荷対策）。
+        /// </summary>
+        private void UpdateEncircleTarget()
+        {
+            if (!enableEncircleExposed || SutegamariActive) { encircleTarget = null; return; }
+
+            // 既存対象は毎フレーム軽く有効性チェック（裸でなくなった/退却した/遠ざかった等で解除）
+            if (encircleTarget != null && !IsValidEncircleTarget(encircleTarget)) encircleTarget = null;
+
+            if (Time.time < nextEncircleScan) return;
+            nextEncircleScan = Time.time + Mathf.Max(0.1f, encircleUpdateInterval);
+
+            // 自旗艦が戦えない状態（退却/非戦闘/静観/射撃管制・退避）なら包囲しない
+            if (flagshipStrength == null || !flagshipStrength.IsAlive || !flagshipStrength.IsCombatant
+                || flagshipStrength.IsRetreating || !flagshipStrength.IsFighting
+                || !RoeRules.CanFire(flagshipStrength.stance))
+            {
+                encircleTarget = null;
+                return;
+            }
+
+            Vector2 pos = transform.position;
+            FleetStrength best = null;
+            float bestDist = float.MaxValue;
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength e = flagships[i];
+                if (e == null || e == flagshipStrength) continue;
+                if (!IsValidEncircleTarget(e)) continue;
+                float d = Vector2.Distance(pos, e.transform.position);
+                if (d <= encircleDetectRange && d < bestDist) { bestDist = d; best = e; }
+            }
+            encircleTarget = best;
+        }
+
+        /// <summary>包囲対象として有効か＝敵対・生存・戦闘艦で、かつ<b>配下艦が尽きて裸</b>であること。</summary>
+        private bool IsValidEncircleTarget(FleetStrength e)
+        {
+            if (e == null || !e.IsAlive || !e.IsCombatant) return false;
+            if (flagshipStrength == null || !FactionRelations.IsHostile(flagshipStrength, e)) return false;
+            Squadron sq = e.GetComponent<Squadron>();
+            if (sq == null) return false;
+            return sq.LivingEscortCount() <= 0; // まだ楯（配下艦）が残るなら包囲しない
         }
 
         /// <summary>島津の捨てがまり中か＝配下艦が殿を務め旗艦の離脱を援護中（FleetStrength が設定）。</summary>
@@ -548,9 +617,14 @@ namespace Ginei
 
             EnsureSlots();
 
+            // 包囲（フルボッコ）中は陣形追従をやめ、裸の敵旗艦を取り囲む（密着・敵を向いて点射）。
+            bool encircling = encircleTarget != null;
+            Vector2 encircleCenter = encircling ? (Vector2)encircleTarget.transform.position : Vector2.zero;
+
             // 交戦中はゆっくり追従（穴埋め移動も緩やかに）。非交戦時は従来の機敏さ。
+            // ただし包囲時は素早く間合いを詰める（フルボッコをもたつかせない）＝smoothTime を使う。
             bool inCombat = (flagshipWeapon != null && flagshipWeapon.IsInCombat);
-            float st = inCombat ? combatSmoothTime : smoothTime;
+            float st = (inCombat && !encircling) ? combatSmoothTime : smoothTime;
 
             float dt = Time.deltaTime;
             // EMOV-4：航行（移動中・非交戦）は隊形を広げ、交戦/停止では締める（実効間隔・基準非破壊）。
@@ -563,9 +637,6 @@ namespace Ginei
             for (int i = 0; i < memberShips.Count; i++)
             {
                 if (memberShips[i] == null) continue;
-                // EMOV-1：添字順でなく割り当てスロットを参照（席替え交差を防ぐ）。
-                int slot = (i < slotForMember.Count) ? slotForMember[i] : -1;
-                if (slot < 0 || slot >= cachedSlots.Count) continue;
 
                 // #80 艦種の速度倍率を上限に乗算（戦艦は遅く・駆逐艦は速く＝速い遊撃）。FleetMovement は不変。
                 float speedMul = (i < memberEscorts.Count && memberEscorts[i] != null)
@@ -573,9 +644,22 @@ namespace Ginei
                 float maxSpeed = baseMaxSpeed * Mathf.Max(0.1f, speedMul);
                 float maxStep = maxSpeed * dt;
 
-                // ローカル座標→ワールド座標（旗艦の回転に追従。root スケールは1前提）。実効間隔（EMOV-4）を乗算。
-                Vector3 targetWorldPos = transform.TransformPoint(cachedSlots[slot] * spacingFactor);
-                targetWorldPos.z = transform.position.z;
+                Vector3 targetWorldPos;
+                if (encircling)
+                {
+                    // 包囲リング上の自分の持ち場（敵旗艦中心・部隊ごとの位相でばらす）＝取り囲んでフルボッコ。
+                    Vector2 ring = EncircleRules.RingSlot(encircleCenter, i, memberShips.Count, encircleRingRadius, encirclePhase);
+                    targetWorldPos = new Vector3(ring.x, ring.y, transform.position.z);
+                }
+                else
+                {
+                    // EMOV-1：添字順でなく割り当てスロットを参照（席替え交差を防ぐ）。
+                    int slot = (i < slotForMember.Count) ? slotForMember[i] : -1;
+                    if (slot < 0 || slot >= cachedSlots.Count) continue;
+                    // ローカル座標→ワールド座標（旗艦の回転に追従。root スケールは1前提）。実効間隔（EMOV-4）を乗算。
+                    targetWorldPos = transform.TransformPoint(cachedSlots[slot] * spacingFactor);
+                    targetWorldPos.z = transform.position.z;
+                }
 
                 Vector2 currentPos = memberShips[i].position;
                 Vector2 velBefore = velocities[i];
@@ -603,8 +687,11 @@ namespace Ginei
 
                 memberShips[i].position = new Vector3(nextPos.x, nextPos.y, targetWorldPos.z);
 
-                // 向き：十分な速度で移動中は進行方向へ弧を描いて回頭、定位置付近では旗艦の向き（射界）へ戻す。
-                UpdateEscortFacing(memberShips[i], delta, dt);
+                // 向き：包囲中は敵旗艦へ正対（射界に捉えて点射）。通常は移動方向／旗艦の向きへ。
+                if (encircling)
+                    FaceShipToward(memberShips[i], encircleCenter, dt);
+                else
+                    UpdateEscortFacing(memberShips[i], delta, dt);
             }
 
             // 同一部隊内のすり抜け・重なりを押し離しで解消（間引き＋位相分散で軽量に）。
@@ -616,6 +703,16 @@ namespace Ginei
         /// 定位置付近では旗艦の向きへ戻す。回頭は速度制限つき（瞬間的な向き反転を防ぐ）。
         /// ※移動中は前を向けない＝撃ちにくい、という挙動は仕様として許容（#69）。
         /// </summary>
+        /// <summary>配下艦の前方(+Y)を指定座標へ向ける（包囲時に敵旗艦へ正対して射界に捉える）。回頭は速度制限つき。</summary>
+        private void FaceShipToward(Transform ship, Vector2 target, float dt)
+        {
+            if (dt <= 0f) return;
+            Vector2 dir = target - (Vector2)ship.position;
+            if (dir.sqrMagnitude < 1e-6f) return;
+            float ang = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f; // up を dir に向ける
+            ship.rotation = Quaternion.RotateTowards(ship.rotation, Quaternion.Euler(0f, 0f, ang), escortRotationSpeed * dt);
+        }
+
         private void UpdateEscortFacing(Transform ship, Vector2 delta, float dt)
         {
             if (dt <= 0f) return;

@@ -352,8 +352,21 @@ namespace Ginei
             {
                 FactionState sa = CampaignRules.GetState(campaign, a.faction);
                 FactionState sb = CampaignRules.GetState(campaign, b.faction);
-                if (sa != null) { BattleHandoff.loyaltyA = FactionLoyaltyRules.BaselineLoyalty(sa); BattleHandoff.intrigueA = FactionLoyaltyRules.BribeSusceptibility(sa); }
-                if (sb != null) { BattleHandoff.loyaltyB = FactionLoyaltyRules.BaselineLoyalty(sb); BattleHandoff.intrigueB = FactionLoyaltyRules.BribeSusceptibility(sb); }
+                // intrigue（調略済み度）＝「既に敵に付け入られている度合い」。弱った国（基準忠誠<0.5）だけが
+                // 事前浸透を抱える。健全〜中庸の国は intrigue=0 で素直に戦う＝全艦が静観して膠着するのを防ぐ
+                // （以前は susceptibility をそのまま入れ、loyalty<0.75 の艦隊が全て静観して両軍膠着していた）。
+                if (sa != null)
+                {
+                    float baseA = FactionLoyaltyRules.BaselineLoyalty(sa);
+                    BattleHandoff.loyaltyA = baseA;
+                    BattleHandoff.intrigueA = baseA < 0.5f ? FactionLoyaltyRules.BribeSusceptibility(sa) : 0f;
+                }
+                if (sb != null)
+                {
+                    float baseB = FactionLoyaltyRules.BaselineLoyalty(sb);
+                    BattleHandoff.loyaltyB = baseB;
+                    BattleHandoff.intrigueB = baseB < 0.5f ? FactionLoyaltyRules.BribeSusceptibility(sb) : 0f;
+                }
             }
 
             // 軍の質（C4）：降下する艦隊の補給（弾薬即応）を戦闘力倍率へ＝干上がった艦隊は会戦で弱い。

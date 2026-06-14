@@ -32,10 +32,12 @@ namespace Ginei
         private RectTransform formationSubRect;
         private LayoutElement formationSubLayout;
 
+        // 現在開いているサブメニューのカテゴリ（同じカテゴリ再クリックで閉じるトグル判定）
+        private string openCategory;
+
         private void Start()
         {
             if (commander == null) commander = Object.FindAnyObjectByType<FleetCommander>();
-            BuildFormationButtons();
             CacheFormationSubMenu();
             CloseMenu();
         }
@@ -52,49 +54,6 @@ namespace Ginei
             formationSubLayout = formationSubMenu.GetComponent<LayoutElement>();
             if (formationSubLayout == null) formationSubLayout = formationSubMenu.AddComponent<LayoutElement>();
             formationSubLayout.ignoreLayout = true; // 親レイアウトに巻き込ませない（重なり防止）
-        }
-
-        /// <summary>
-        /// 陣形サブメニューのボタンを Formation enum から動的生成する。
-        /// enum の変更（種類・順序）に自動追従し、シーン側の手配線に依存しない。
-        /// </summary>
-        private void BuildFormationButtons()
-        {
-            if (formationSubMenu == null || buttonPrefab == null) return;
-
-            // 既存の子（手配線のボタン等）を除去（buttonPrefab 自体は除く）
-            List<GameObject> toDestroy = new List<GameObject>();
-            foreach (Transform child in formationSubMenu.transform)
-            {
-                if (child.gameObject != buttonPrefab) toDestroy.Add(child.gameObject);
-            }
-            foreach (var obj in toDestroy)
-            {
-#if UNITY_EDITOR
-                if (!Application.isPlaying) DestroyImmediate(obj);
-                else Destroy(obj);
-#else
-                Destroy(obj);
-#endif
-            }
-
-            string[] names = System.Enum.GetNames(typeof(Formation));
-            for (int i = 0; i < names.Length; i++)
-            {
-                int idx = i; // クロージャ用にキャプチャ
-                GameObject btnObj = Instantiate(buttonPrefab, formationSubMenu.transform);
-                btnObj.SetActive(true);
-
-                TextMeshProUGUI textComp = btnObj.GetComponentInChildren<TextMeshProUGUI>();
-                if (textComp != null)
-                {
-                    textComp.text = names[idx];
-                    if (textComp.font == null) textComp.font = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
-                }
-
-                Button btnComp = btnObj.GetComponent<Button>();
-                if (btnComp != null) btnComp.onClick.AddListener(() => ChangeFormation(idx));
-            }
         }
 
         private void Update()
@@ -153,71 +112,50 @@ namespace Ginei
             ClearDynamicButtons();
 
             formationSubMenu.SetActive(false);
+            openCategory = null;
 
             bool fleetSelected = commander.SelectedFleets.Count > 0;
             int buttonCount = 0;
 
-            // 要件：艦隊選択時の右クリックメニューの一番上は移動にする
+            // 右クリックメニューはトップを少数のカテゴリに集約し、詳細はサブメニュー（▸）へ送る（項目過多の解消）。
             if (fleetSelected)
             {
-                // 1. 移動 (最優先)
+                // 1. 移動（最頻＝トップに直置き）
                 CreateButton("移動", CommandMove);
                 buttonCount++;
 
-                // 2. 後退 (向きを保ったまま下がる＝戦いながら離脱)
-                CreateButton("後退", CommandReverse);
-                buttonCount++;
-
-                // 3. 攻撃 (選択中は常に表示。選んだ後に攻撃目標の敵旗艦をクリックで指定する)
+                // 2. 攻撃（トップに直置き。選んだ後に攻撃目標を指定）
                 CreateButton("攻撃", CommandAttack);
                 buttonCount++;
 
-                // 3b. 標準命令（#85）：アタックムーブ／停止／その場保持
-                CreateButton("アタックムーブ", CommandAttackMove);
-                buttonCount++;
-                CreateButton("停止", CommandStop);
-                buttonCount++;
-                CreateButton("その場保持", CommandHold);
+                // 3. 特殊 ▸（アタックムーブ／後退／停止／その場保持・#85）
+                CreateButton("特殊 ▸", () => OpenCategory("standard", StandardOrderItems()));
                 buttonCount++;
 
-                // 3. 陣形変更
-                CreateButton("陣形変更", ToggleFormationSubMenu);
+                // 4. 陣形 ▸（Formation enum から動的生成）
+                CreateButton("陣形 ▸", () => OpenCategory("formation", FormationItems(false)));
                 buttonCount++;
 
-                // 3c. 軍団陣形（軍団長が乗艦している軍団旗艦の選択時のみ＝CSG・乗艦している艦からのみ軍団指揮）。
+                // 4. 軍団 ▸（軍団長が乗艦している軍団旗艦の選択時のみ＝CSG）。軍団陣形＋前列交代をまとめる。
                 FleetStrength sel0 = commander.SelectedFleets[0] != null ? commander.SelectedFleets[0].GetComponent<FleetStrength>() : null;
                 if (sel0 != null && sel0.IsCorpsFlagship)
                 {
-                    CreateButton("軍団陣形", ToggleCorpsFormationSubMenu);
-                    buttonCount++;
-                    CreateButton("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); });
+                    CreateButton("軍団 ▸", () => OpenCategory("corps", FormationItems(true)));
                     buttonCount++;
                 }
-                
-                // 3d. 特殊指揮（アクティブ指揮 #2175）：選択中の全艦隊へ発令（クールダウン制）。
-                CreateButton("一斉砲撃", () => { IssueActiveCommand(ActiveCommand.一斉砲撃); CloseMenu(); });
-                buttonCount++;
-                CreateButton("突撃", () => { IssueActiveCommand(ActiveCommand.突撃); CloseMenu(); });
-                buttonCount++;
-                CreateButton("不退転", () => { IssueActiveCommand(ActiveCommand.不退転); CloseMenu(); });
+
+                // 5. 特殊指揮 ▸（一斉砲撃／突撃／不退転・#2175）
+                CreateButton("特殊指揮 ▸", () => OpenCategory("special", SpecialCommandItems()));
                 buttonCount++;
 
-                // 3e. 交戦規定（ROE・#2258）：選択中の全艦隊へスタンスを設定する。
-                CreateButton("ROE:攻撃的", () => { SetStanceAll(EngagementStance.攻撃的); CloseMenu(); });
-                buttonCount++;
-                CreateButton("ROE:防御的", () => { SetStanceAll(EngagementStance.防御的); CloseMenu(); });
-                buttonCount++;
-                CreateButton("ROE:射撃管制", () => { SetStanceAll(EngagementStance.射撃管制); CloseMenu(); });
-                buttonCount++;
-                CreateButton("ROE:退避", () => { SetStanceAll(EngagementStance.退避); CloseMenu(); });
+                // 6. 交戦規定 ▸（ROE・#2258）
+                CreateButton("交戦規定 ▸", () => OpenCategory("roe", RoeItems()));
                 buttonCount++;
 
-                // 4. 情報（選択中は常に表示。クリック対象が無ければ先頭の選択艦隊の詳細を出す）
+                // 7. 情報（クリック対象が無ければ先頭の選択艦隊の詳細）
                 Selectable infoTarget = (lastClickedFleet != null) ? lastClickedFleet : commander.SelectedFleets[0];
                 CreateButton("情報", () => { ShowFleetInfo(infoTarget); CloseMenu(); });
                 buttonCount++;
-
-                // 「選択」「選択解除」は要件により非表示
             }
             else if (lastClickedFleet != null)
             {
@@ -235,8 +173,11 @@ namespace Ginei
         }
 
         private void CreateButton(string label, UnityEngine.Events.UnityAction action)
+            => CreateButtonIn(menuRect, label, action);
+
+        private void CreateButtonIn(Transform parent, string label, UnityEngine.Events.UnityAction action)
         {
-            GameObject btnObj = Instantiate(buttonPrefab, menuRect);
+            GameObject btnObj = Instantiate(buttonPrefab, parent);
             btnObj.SetActive(true);
             
             // テキスト設定
@@ -354,25 +295,99 @@ namespace Ginei
             }
         }
 
-        /// <summary>陣形サブメニューの開閉。開くときはメインメニューの脇（画面端と反対側）へ配置する。</summary>
-        private void ToggleFormationSubMenu()
+        /// <summary>
+        /// カテゴリのサブメニュー（▸）を開く汎用窓口。単一の <see cref="formationSubMenu"/> パネルを使い回し、
+        /// 渡された項目でボタンを作り直してメインメニューの脇へ配置する。同じカテゴリの再クリックで閉じる（トグル）。
+        /// </summary>
+        private void OpenCategory(string key, List<(string label, UnityEngine.Events.UnityAction action)> items)
         {
-            corpsFormationMode = false; // 通常＝艦隊の陣形変更
             if (formationSubMenu == null) return;
-            bool show = !formationSubMenu.activeSelf;
-            formationSubMenu.SetActive(show);
-            if (show) PositionFormationSubMenu();
+
+            // 同じカテゴリを再クリック＝閉じる
+            if (formationSubMenu.activeSelf && openCategory == key)
+            {
+                formationSubMenu.SetActive(false);
+                openCategory = null;
+                return;
+            }
+
+            openCategory = key;
+            ClearSubMenuButtons();
+            for (int i = 0; i < items.Count; i++)
+                CreateButtonIn(formationSubMenu.transform, items[i].label, items[i].action);
+
+            formationSubMenu.SetActive(true);
+            if (formationSubRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(formationSubRect);
+            PositionFormationSubMenu();
         }
 
-        /// <summary>軍団陣形サブメニューの開閉。陣形を選ぶと選択艦隊の軍団を集結させ陣形を組む（軍団長は後方）。</summary>
-        private void ToggleCorpsFormationSubMenu()
+        /// <summary>サブメニューパネルの子ボタンを全て破棄する（再構築のため）。</summary>
+        private void ClearSubMenuButtons()
         {
-            corpsFormationMode = true; // 同じサブメニューを軍団モードで使う
-            if (formationSubMenu == null) return;
-            bool show = !formationSubMenu.activeSelf;
-            formationSubMenu.SetActive(show);
-            if (show) PositionFormationSubMenu();
+            List<GameObject> toDestroy = new List<GameObject>();
+            foreach (Transform child in formationSubMenu.transform)
+            {
+                if (child.gameObject == buttonPrefab) continue;
+                toDestroy.Add(child.gameObject);
+            }
+            foreach (var obj in toDestroy)
+            {
+#if UNITY_EDITOR
+                if (!Application.isPlaying) DestroyImmediate(obj);
+                else Destroy(obj);
+#else
+                Destroy(obj);
+#endif
+            }
         }
+
+        /// <summary>「特殊 ▸」カテゴリの標準命令（アタックムーブ／後退／停止／その場保持・#85）。移動・攻撃はトップに直置き。</summary>
+        private List<(string, UnityEngine.Events.UnityAction)> StandardOrderItems() => new List<(string, UnityEngine.Events.UnityAction)>
+        {
+            ("アタックムーブ", CommandAttackMove),
+            ("後退", CommandReverse),
+            ("停止", CommandStop),
+            ("その場保持", CommandHold),
+        };
+
+        /// <summary>「陣形 ▸」「軍団 ▸」の項目（Formation enum から動的生成・軍団モードは前列交代を追加）。</summary>
+        private List<(string, UnityEngine.Events.UnityAction)> FormationItems(bool corps)
+        {
+            var items = new List<(string, UnityEngine.Events.UnityAction)>();
+            string[] names = System.Enum.GetNames(typeof(Formation));
+            for (int i = 0; i < names.Length; i++)
+            {
+                int idx = i; // クロージャ用にキャプチャ
+                items.Add((names[idx], () => ApplyFormation(idx, corps)));
+            }
+            if (corps)
+                items.Add(("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); }));
+            return items;
+        }
+
+        /// <summary>陣形（艦隊／軍団）を適用してメニューを閉じる。</summary>
+        private void ApplyFormation(int idx, bool corps)
+        {
+            corpsFormationMode = corps;
+            ChangeFormation(idx);
+        }
+
+        /// <summary>「特殊指揮 ▸」の項目（一斉砲撃／突撃／不退転・#2175）。</summary>
+        private List<(string, UnityEngine.Events.UnityAction)> SpecialCommandItems() => new List<(string, UnityEngine.Events.UnityAction)>
+        {
+            ("一斉砲撃", () => { IssueActiveCommand(ActiveCommand.一斉砲撃); CloseMenu(); }),
+            ("突撃", () => { IssueActiveCommand(ActiveCommand.突撃); CloseMenu(); }),
+            ("不退転", () => { IssueActiveCommand(ActiveCommand.不退転); CloseMenu(); }),
+        };
+
+        /// <summary>「交戦規定 ▸」の項目（ROE・#2258）。</summary>
+        private List<(string, UnityEngine.Events.UnityAction)> RoeItems() => new List<(string, UnityEngine.Events.UnityAction)>
+        {
+            ("攻撃的", () => { SetStanceAll(EngagementStance.攻撃的); CloseMenu(); }),
+            ("防御的", () => { SetStanceAll(EngagementStance.防御的); CloseMenu(); }),
+            ("射撃管制", () => { SetStanceAll(EngagementStance.射撃管制); CloseMenu(); }),
+            ("退避", () => { SetStanceAll(EngagementStance.退避); CloseMenu(); }),
+        };
 
         /// <summary>
         /// 陣形サブメニューをメインメニューの左右どちらかの脇に配置する。
@@ -499,6 +514,7 @@ namespace Ginei
         {
             if (menuRoot != null) menuRoot.SetActive(false);
             if (formationSubMenu != null) formationSubMenu.SetActive(false);
+            openCategory = null;
         }
     }
 }

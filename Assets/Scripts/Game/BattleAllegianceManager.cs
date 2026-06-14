@@ -141,6 +141,17 @@ namespace Ginei
             BattleAllegianceRules.ResolveTransitions(allegiances, sideA, sideB, p, changes);
             for (int i = 0; i < changes.Count; i++) Apply(changes[i]);
 
+            // 膠着打開：双方とも静観し合って戦う者が居なければ、各陣営の前衛が開戦して趨勢を生む
+            // （両軍静観のまま永久に固まる「お互い静観」を防ぐ）。開戦後に再解決して劣勢側の寝返り等へ繋ぐ。
+            changes.Clear();
+            if (BattleAllegianceRules.BreakStalemate(allegiances, sideA, sideB, changes) > 0)
+            {
+                for (int i = 0; i < changes.Count; i++) Apply(changes[i]);
+                changes.Clear();
+                BattleAllegianceRules.ResolveTransitions(allegiances, sideA, sideB, p, changes);
+                for (int i = 0; i < changes.Count; i++) Apply(changes[i]);
+            }
+
             // 静観退き：戦う者が尽きた側の静観組は戦わずして戦場を去る（決着を停滞させない）
             WithdrawBystandersIfDecided(sideA, sideB);
             WithdrawBystandersIfDecided(sideB, sideA);

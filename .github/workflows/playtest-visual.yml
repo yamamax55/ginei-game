@@ -73,36 +73,48 @@ jobs:
 
       - name: Run headless playtest under xvfb（描画あり）
         if: steps.guard.outputs.ok == 'true'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"   # llvmpipe（ソフトGL）を強制＝GPU 無しでも URP を描画
         run: |
           set -u
           # Docker（root）が作った成果物を実行可能に。
           sudo chmod -R a+rwx build || true
           # xvfb（仮想ディスプレイ）＋ソフトウェア GL（llvmpipe）。スクショに描画が要るため -nographics は使わない。
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri
+          sudo apt-get install -y xvfb libgl1-mesa-dri libglu1-mesa
 
           OUT="$PWD/playtest-out"
           mkdir -p "$OUT"
-          EXE="$PWD/build/StandaloneLinux64/ginei.x86_64"
-          if [ ! -f "$EXE" ]; then
-            echo "::error::ビルド成果物が見つからない: $EXE"; ls -laR build || true; exit 1
+          echo "---- build/StandaloneLinux64（実行ファイル名の確認用）----"
+          ls -la "$PWD/build/StandaloneLinux64" || true
+
+          # 実行ファイルを動的に探す（版で .x86_64 / buildName そのまま 等に揺れるため決め打ちしない）。
+          EXE="$(find "$PWD/build/StandaloneLinux64" -maxdepth 1 -type f -name '*.x86_64' | head -1)"
+          if [ -z "$EXE" ]; then
+            EXE="$(find "$PWD/build/StandaloneLinux64" -maxdepth 1 -type f -name 'ginei' | head -1)"
           fi
-          chmod +x "$EXE" || true
 
-          # PlaytestRunner が決着 or 180会戦秒で Application.Quit する。保険で timeout。
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
-            timeout 600 "$EXE" \
-              -ginei-playtest "${{ github.event.inputs.scenario }}" "$OUT/report.json" \
-              -ginei-shots "$OUT" \
-              -screen-width 1280 -screen-height 720 -screen-fullscreen 0 \
-              -logFile "$OUT/player.log" \
-            || echo "player 終了コード $? （timeout/quit は許容＝成果物で判断）"
+          if [ -z "$EXE" ] || [ ! -f "$EXE" ]; then
+            echo "::warning::実行ファイルが見つかりません（上の ls で名前を確認）。player は起動できませんが診断ログは artifact に上げます。"
+            echo "no executable found under build/StandaloneLinux64" > "$OUT/player.log"
+          else
+            chmod +x "$EXE" || true
+            echo "EXE=$EXE"
+            # PlaytestRunner が決着 or 180会戦秒で Application.Quit する。保険で timeout。
+            xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+              timeout 600 "$EXE" \
+                -ginei-playtest "${{ github.event.inputs.scenario }}" "$OUT/report.json" \
+                -ginei-shots "$OUT" \
+                -screen-width 1280 -screen-height 720 -screen-fullscreen 0 \
+                -logFile "$OUT/player.log" \
+              || echo "player 終了コード $? （timeout/quit は許容＝成果物で判断）"
+          fi
 
-          echo "---- player.log (tail) ----"; tail -n 80 "$OUT/player.log" 2>/dev/null || true
+          echo "---- player.log (tail) ----"; tail -n 100 "$OUT/player.log" 2>/dev/null || true
           echo "---- 成果物 ----"; ls -la "$OUT" || true
-          # スクショが1枚も無ければ警告（描画/GL 失敗の兆候）。
+          # スクショが1枚も無ければ警告（描画/GL 失敗の兆候）。ステップ自体は失敗させない（成果物で判断）。
           if ! ls "$OUT"/shot_*.png >/dev/null 2>&1; then
-            echo "::warning::スクショ(PNG)が生成されていません（GL/描画の確認が必要な可能性）。レポートJSONとplayer.logで切り分けてください。"
+            echo "::warning::スクショ(PNG)が生成されていません（GL/描画 or 実行ファイル名の確認が必要）。report.json と player.log で切り分けてください。"
           fi
 
       - name: Upload artifacts (PNG + JSON + log)

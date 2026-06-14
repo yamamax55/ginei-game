@@ -316,12 +316,16 @@ namespace Ginei
         /// <summary>
         /// 提督データから艦隊ステータスを初期化します。
         /// </summary>
+        /// <summary>提督の特技/スキル→戦闘倍率（攻撃/防御/機動・#特技 会戦配線）。ApplyAdmiralData でキャッシュ＝毎発再計算しない（終盤ラグ規律）。</summary>
+        public AdmiralCombatBonusRules.CombatFactors combatBonus = AdmiralCombatBonusRules.CombatFactors.Identity;
+
         public void ApplyAdmiralData()
         {
-            if (admiralData == null) return;
+            if (admiralData == null) { combatBonus = AdmiralCombatBonusRules.CombatFactors.Identity; return; }
 
             admiralName = admiralData.EpithetName;
             faction = admiralData.faction;
+            combatBonus = AdmiralCombatBonusRules.FromAdmiral(admiralData); // 特技→戦闘倍率をキャッシュ（攻撃/防御/機動）
 
             // 統率によって兵力上限を決定（基準兵力を補正）。RANKCMD-1：基準兵力は艦隊側（EffectiveBaseStrength）が出所。
             // 例：統率100で基準*1.5, 統率0で基準*0.5。参謀補完を反映した実効統率を使用（基準値は非破壊）。
@@ -349,6 +353,8 @@ namespace Ginei
             float defenseValue = admiralData != null ? admiralData.EffectiveDefense : 0f;
             // 防御100でダメージ50%カット（公式は CombatModifiers に集約・DefenseDamageFactor(0)=1.0 で軽減なし）
             int finalDamage = Mathf.RoundToInt(rawDamage * CombatModifiers.DefenseDamageFactor(defenseValue));
+            // 提督の防御特技（#特技）：被ダメをキャッシュ倍率で軽減（>1で軽減・実効値パターン・基準非破壊）。
+            if (combatBonus.defense > 0.0001f) finalDamage = Mathf.RoundToInt(finalDamage / combatBonus.defense);
 
             // 旗艦は固い：旗艦本体への被ダメージをさらに軽減（容易に撃墜されないように・実効値パターン）。
             if (flagshipDamageReduction > 0f)

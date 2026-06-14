@@ -253,6 +253,7 @@ namespace Ginei
             if (strength != null && strength.admiralData != null)
             {
                 m.Mul(CombatModifiers.AbilityFactor(strength.admiralData.EffectiveMobility));
+                m.Mul(strength.combatBonus.mobility); // 提督の機動特技（#特技）：キャッシュ倍率（1.0中心）
             }
 
             // 士気による補正（敗走時は専用倍率を適用し、段階的な士気補正と二重に掛けない）

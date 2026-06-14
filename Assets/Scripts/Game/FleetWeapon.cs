@@ -399,6 +399,9 @@ namespace Ginei
                 fAtk, LanchesterFactor,
                 myStrength != null ? myStrength.qualityFactor : 1f, // 軍の質（C4）
                 bd);
+            // 提督の攻撃特技（#特技）：キャッシュ倍率で最終ダメージを補正（毎発の talents→skills 変換はしない＝終盤ラグ規律）。
+            if (myStrength != null && myStrength.combatBonus.attack > 0.0001f)
+                finalDamage = Mathf.RoundToInt(finalDamage * myStrength.combatBonus.attack);
 
             // 特殊作戦部隊（#SOF）：出身提督が艦隊単独の特殊作戦＝側背/包囲（後方かく乱・周りこみ）を行うと +20%。
             if (isSof && isFlank)

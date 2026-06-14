@@ -185,6 +185,12 @@ namespace Ginei
                 warProductionFactor[s.faction] = 1f + WarEconomyTickRules.WarProductionFactor(mobRate, 1f);
                 if (atWar && s.community != null)
                     s.community.hope = Mathf.Clamp01(s.community.hope + WarEconomyTickRules.HomeFrontSupportDelta(mobRate, 0.3f) * 0.05f);
+
+                // 文化（P3 配線）：正統性×包摂で文化結束/信仰を更新→安定度modifierを所有星系へ後段反映。
+                if (!cultureStates.TryGetValue(s.faction, out var culture) || culture == null) { culture = new CultureState(); cultureStates[s.faction] = culture; }
+                float legit = s.regime != null ? s.regime.legitimacy : 0.5f;
+                CultureSynthesisTickRules.TickYear(culture, legit, s.inclusiveness, 1f);
+                cultureStabilityMod[s.faction] = CultureSynthesisTickRules.StabilityModifier(culture);
             }
 
             // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。
@@ -197,6 +203,9 @@ namespace Ginei
                     // 金融危機の実打撃：所有星系の安定度を産出低下ぶん削る（OutputFactor 1.0で無害・0.5で最大−5）。
                     if (crisisOutputFactor.TryGetValue(sys.owner, out float cof) && cof < 1f)
                         prov.stability = Mathf.Clamp(prov.stability - (1f - cof) * 10f, 0f, 100f);
+                    // 文化結束→安定度（P3・±bounded）。
+                    if (cultureStabilityMod.TryGetValue(sys.owner, out float csm))
+                        prov.stability = Mathf.Clamp(prov.stability + csm, 0f, 100f);
                 }
         }
 
@@ -362,6 +371,14 @@ namespace Ginei
             = new System.Collections.Generic.Dictionary<Faction, IntelState>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> warProductionFactor
             = new System.Collections.Generic.Dictionary<Faction, float>();
+        private readonly System.Collections.Generic.Dictionary<Faction, CultureState> cultureStates
+            = new System.Collections.Generic.Dictionary<Faction, CultureState>();
+        private readonly System.Collections.Generic.Dictionary<Faction, float> cultureStabilityMod
+            = new System.Collections.Generic.Dictionary<Faction, float>();
+
+        /// <summary>勢力の文化状態（結束/信仰・観測層専用＝read-only）。</summary>
+        public CultureState GetCulture(Faction faction)
+            => cultureStates.TryGetValue(faction, out var c) ? c : null;
 
         /// <summary>勢力の諜報状態（能力/防諜・観測層専用＝read-only）。</summary>
         public IntelState GetIntel(Faction faction)

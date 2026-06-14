@@ -259,8 +259,18 @@ namespace Ginei
                 bool was = successionCrisis.TryGetValue(s.faction, out var pc) && pc;
                 successionCrisis[s.faction] = now;
                 if (now && !was)
+                {
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
-                        $"{s.faction} 継承危機＝内乱リスク（正統性 {legitimacy:0.00}）");
+                        $"{s.faction} 継承危機＝内乱勃発（正統性 {legitimacy:0.00}）");
+                    // 内乱の帰結（P2 配線・bounded）：正統性失墜・軍備損耗・所有星系の安定度低下。
+                    s.regime.legitimacy = Mathf.Clamp01(s.regime.legitimacy - 0.1f);
+                    int pool = FleetPool.Get(s.faction);
+                    if (pool > 0) FleetPool.Add(s.faction, -(int)(pool * 0.1f)); // 内乱で軍の1割を喪失
+                    if (map != null && provinces != null)
+                        foreach (var sys in map.systems)
+                            if (sys != null && sys.owner == s.faction && provinces.TryGetValue(sys.id, out var prov) && prov != null)
+                                prov.stability = Mathf.Max(0f, prov.stability - 10f);
+                }
             }
         }
 

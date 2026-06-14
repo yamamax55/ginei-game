@@ -43,6 +43,7 @@ namespace Ginei
                 provinces.TryGetValue(yard.systemId, out var prov);
                 float factor = ShipyardRules.ProductionFactor(prov); // BUILD-2：安定度比例＝支配≠即建艦
                 factor *= ShipbuildingFundingFactor(yard.faction);   // G3：建艦予算の出資度が建艦速度に効く（#163→#884）
+                factor *= TechEffectRules.BuildSpeedFactor(TechLevelOf(yard.faction)); // P0：技術水準→建艦速度（研究の出口）
                 var done = ShipyardRules.Tick(yard, secondsPerDay, factor);
                 for (int j = 0; j < done.Count; j++)
                 {
@@ -138,10 +139,6 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
                         $"{s.faction} 通貨改鋳の露見＝{s.currency.currencyName}の信認低下（品位 {(int)(s.currency.silverContent * 100)}%）");
 
-                // 国債（#161/#185 配線）：額面を債務に同期し、財政健全度→信用リスク・市場金利→価格を収束（財政悪化→価格↓利回り↑）。
-                s.sovereignBond = SovereignBondRules.Ensure(s.sovereignBond, s.faction);
-                SovereignBondRules.TickYear(s.sovereignBond, s.fiscal, economy, 1f);
-
                 // 中央銀行・金融政策（P0 配線）：インフレギャップに反応して政策金利を調整（テイラールール・OMO）。
                 if (!centralBanks.TryGetValue(s.faction, out var cb) || cb == null)
                 {
@@ -150,15 +147,31 @@ namespace Ginei
                 }
                 float infl = s.currency != null ? s.currency.inflationRate : 0f;
                 MonetaryAuthorityRules.TickYear(cb, infl, 0f, 1f);
+                // 中銀↔通貨（P0 配線）：政策金利が物価目標を上回る引き締めは物価をわずかに冷ます（bounded）。
+                if (s.currency != null && cb.policyRate > cb.inflationTarget)
+                    s.currency.priceLevel = Mathf.Max(0.1f, s.currency.priceLevel * (1f - Mathf.Min(0.05f, cb.policyRate - cb.inflationTarget)));
 
-                // 金融安定（P0 配線）：財政・物価から金融危機を検出して通知（債務デフレ/スパイラル）。
+                // 国債（#161/#185 配線）：額面を債務に同期し、財政健全度→信用リスク・市場金利(政策金利込み)→価格を収束。
+                s.sovereignBond = SovereignBondRules.Ensure(s.sovereignBond, s.faction);
+                SovereignBondRules.TickYear(s.sovereignBond, s.fiscal, economy, 1f, cb.policyRate);
+
+                // 金融安定（P0 配線）：財政・物価から危機を検出→通知＋実打撃（国庫収縮/支持低下/所有星系の安定度低下は後段）。
                 float priceLvl = s.currency != null ? s.currency.priceLevel : 1f;
                 bool wasCrisis = financialCrisis.TryGetValue(s.faction, out var pc) && pc;
                 bool nowCrisis = FinancialStabilityRules.DetectCrisis(s.fiscal, economy);
                 financialCrisis[s.faction] = nowCrisis;
-                if (nowCrisis && !wasCrisis)
-                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
-                        $"{s.faction} 金融危機（債務 {s.fiscal.debt:0}・物価 {priceLvl:0.00}）");
+                if (nowCrisis)
+                {
+                    float sev = FinancialStabilityRules.CrisisSeverity(s.fiscal, economy, priceLvl, FiscalRules.DebtRatio(s.fiscal, economy));
+                    s.treasury = Mathf.Max(0f, s.treasury - s.treasury * CrisisEffectRules.TreasuryContraction(sev)); // 国庫収縮
+                    if (s.community != null)
+                        s.community.hope = Mathf.Clamp01(s.community.hope + CrisisEffectRules.SupportDelta(sev) * 0.01f); // 支持低下(負delta)
+                    crisisOutputFactor[s.faction] = CrisisEffectRules.OutputFactor(sev); // 産出/安定度へ後段で反映
+                    if (!wasCrisis)
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                            $"{s.faction} 金融危機（債務 {s.fiscal.debt:0}・物価 {priceLvl:0.00}・打撃 {(int)(sev * 100)}%）");
+                }
+                else crisisOutputFactor[s.faction] = 1f;
             }
 
             // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。
@@ -168,6 +181,9 @@ namespace Ginei
                     if (sys == null || !provinces.TryGetValue(sys.id, out var prov) || prov == null) continue;
                     if (adminBonusByFaction.TryGetValue(sys.owner, out float ab))
                         prov.stability = Mathf.Clamp(prov.stability + ab, 0f, 100f);
+                    // 金融危機の実打撃：所有星系の安定度を産出低下ぶん削る（OutputFactor 1.0で無害・0.5で最大−5）。
+                    if (crisisOutputFactor.TryGetValue(sys.owner, out float cof) && cof < 1f)
+                        prov.stability = Mathf.Clamp(prov.stability - (1f - cof) * 10f, 0f, 100f);
                 }
         }
 
@@ -327,6 +343,8 @@ namespace Ginei
             = new System.Collections.Generic.Dictionary<Faction, float>();
         private readonly System.Collections.Generic.Dictionary<Faction, bool> financialCrisis
             = new System.Collections.Generic.Dictionary<Faction, bool>();
+        private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
+            = new System.Collections.Generic.Dictionary<Faction, float>();
 
         /// <summary>勢力が金融危機中か（観測層専用＝read-only）。</summary>
         public bool IsFinancialCrisis(Faction faction)
@@ -341,6 +359,10 @@ namespace Ginei
         /// <summary>勢力の直近年の徴兵数（FleetPool へ加えた兵力）。観測層専用＝read-only。</summary>
         public float GetLastRecruits(Faction faction)
             => lastRecruits.TryGetValue(faction, out var v) ? v : 0f;
+
+        /// <summary>勢力の技術水準（研究状態・未生成は0）。技術効果（建艦/戦力の質）の入力。</summary>
+        private float TechLevelOf(Faction fac)
+            => researchStates.TryGetValue(fac, out var rs) && rs != null ? rs.techLevel : 0f;
 
         /// <summary>勢力の平均労働技能（所有惑星を人口加重・研究効率の入力）。0..1。</summary>
         private float FactionAvgSkill(Faction fac)
@@ -501,7 +523,9 @@ namespace Ginei
                 float recruitPool = 0f;
                 for (int i = 0; i < owned.Count; i++) recruitPool += OccupationRules.RecruitablePool(owned[i]);
                 float recruits = RecruitmentProgramRules.AnnualRecruits(recruitPool, PeacetimeMobilizationRate);
-                float trained = RecruitmentProgramRules.TrainedStrength(recruits, facSkill);
+                // P0：徴兵の質＝技術×練度×訓練技能（頭数だけでなく質が戦力に効く）。練度は平時0。
+                float quality = ForceQualityFactorRules.QualityFactor(rs != null ? rs.techLevel : 0f, 0f, facSkill);
+                float trained = RecruitmentProgramRules.TrainedStrength(recruits, quality);
                 lastRecruits[fac] = trained;
                 if (trained >= 1f) FleetPool.Add(fac, (int)trained);
 

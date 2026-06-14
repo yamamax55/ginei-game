@@ -292,6 +292,11 @@ namespace Ginei
             AddCommand(cmd.transform, "決裁", () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle());
             AddCommand(cmd.transform, "法令", () => UnityEngine.Object.FindAnyObjectByType<LawObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "教育", () => UnityEngine.Object.FindAnyObjectByType<EducationObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "外交", () => UnityEngine.Object.FindAnyObjectByType<DiplomacyObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "政治", () => UnityEngine.Object.FindAnyObjectByType<PoliticsObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "兵站", () => UnityEngine.Object.FindAnyObjectByType<LogisticsObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "人口", () => UnityEngine.Object.FindAnyObjectByType<DemographicsObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "労働", () => UnityEngine.Object.FindAnyObjectByType<LaborObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "情報", () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle());
             AddCommand(cmd.transform, "通知", () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle());
             AddCommand(cmd.transform, "ヘルプ", () => UnityEngine.Object.FindAnyObjectByType<HelpOverlay>()?.Toggle());

@@ -210,6 +210,7 @@ namespace Ginei
 
         private void Start()
         {
+            Active = this; // 観測層が国庫（資源備蓄）等のライブ状態を読むための弱参照（OnDestroy で解除）
             // 戦略マップシーンのコンテキストを設定（#107：会戦から戻った後も正しく絞られるよう再セット）
             GameInput.SetContext(InputContext.戦略);
 
@@ -777,6 +778,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            if (Active == this) Active = null;
             if (lineMat != null) Destroy(lineMat);
             if (disc != null && disc.texture != null) Destroy(disc.texture);
         }

@@ -135,6 +135,13 @@ namespace Ginei
         private readonly System.Collections.Generic.Dictionary<Faction, ResourceStockpile> stateStockpiles
             = new System.Collections.Generic.Dictionary<Faction, ResourceStockpile>();
 
+        /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
+        public static GalaxyView Active { get; private set; }
+
+        /// <summary>勢力の資源備蓄（物資/弾薬/燃料）。未生成なら null。観測層（兵站オブザーバ）専用＝read-only。</summary>
+        public ResourceStockpile GetStateStockpile(Faction faction)
+            => stateStockpiles.TryGetValue(faction, out var s) ? s : null;
+
         /// <summary>国家ごとに所有惑星から産出→行政・インフラが消費→不足で統治逼迫＝安定度低下（STATEDEM-6）。</summary>
         private void RunStateConsumptionTick()
         {

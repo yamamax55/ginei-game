@@ -22,6 +22,11 @@ namespace Ginei
         法令観測切替,
         教育観測切替,
         艦艇観測切替,
+        外交観測切替,
+        政治観測切替,
+        兵站観測切替,
+        人口観測切替,
+        労働観測切替,
         // 会戦
         ポーズ,
         倍速等速,
@@ -95,6 +100,16 @@ namespace Ginei
             new InputBinding(GameAction.教育観測切替,     Key.U,         InputContext.共通),
             // 艦艇オブザーバ（艦艇プール 総/割当/残＋艦隊台帳 兵力/指揮班を観測＝戦略/会戦で開閉）。
             new InputBinding(GameAction.艦艇観測切替,     Key.B,         InputContext.共通),
+            // 外交オブザーバ（勢力ペアの関係値/外交状態・進行中の戦争・締結条約を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.外交観測切替,     Key.Y,         InputContext.共通),
+            // 政治オブザーバ（政党/有効政党数/分極化・衆参選挙日程を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.政治観測切替,     Key.O,         InputContext.共通),
+            // 兵站オブザーバ（資源備蓄/産出・艦隊補給/枯渇・補給線を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.兵站観測切替,     Key.Q,         InputContext.共通),
+            // 人口オブザーバ（年齢コホート/局面・出生死亡・移住/亡命・職業構成を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.人口観測切替,     Key.Z,         InputContext.共通),
+            // 労働オブザーバ（労働力/失業/賃金・技能・生活水準/飢餓を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.労働観測切替,     Key.X,         InputContext.共通),
             new InputBinding(GameAction.ポーズ,         Key.Space,     InputContext.会戦),
             new InputBinding(GameAction.倍速等速,       Key.Digit1,    InputContext.会戦),
             new InputBinding(GameAction.倍速2倍,        Key.Digit2,    InputContext.会戦),
@@ -246,6 +261,11 @@ namespace Ginei
             { GameAction.法令観測切替,   "法令オブザーバを開く / 閉じる（法の支配/法治・治安＝犯罪→秩序→抑圧）" },
             { GameAction.教育観測切替,   "教育オブザーバを開く / 閉じる（教育チェーン 幼→小→中→高→上級 と人材供給）" },
             { GameAction.艦艇観測切替,   "艦艇オブザーバを開く / 閉じる（艦艇プール 総/割当/残・艦隊台帳の兵力/指揮班）" },
+            { GameAction.外交観測切替,   "外交オブザーバを開く / 閉じる（関係値・外交状態・進行中の戦争・締結条約）" },
+            { GameAction.政治観測切替,   "政治オブザーバを開く / 閉じる（政党・有効政党数・分極化・衆参選挙）" },
+            { GameAction.兵站観測切替,   "兵站オブザーバを開く / 閉じる（資源備蓄/産出・艦隊補給/枯渇・補給線）" },
+            { GameAction.人口観測切替,   "人口オブザーバを開く / 閉じる（年齢コホート/局面・出生死亡・移住/亡命・職業）" },
+            { GameAction.労働観測切替,   "労働オブザーバを開く / 閉じる（労働力/失業/賃金・技能・生活水準/飢餓）" },
             { GameAction.ポーズ,         "ポーズ / 再開" },
             { GameAction.倍速等速,       "等速（×1）" },
             { GameAction.倍速2倍,        "倍速（×2）" },

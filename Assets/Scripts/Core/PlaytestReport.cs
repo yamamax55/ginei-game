@@ -61,6 +61,9 @@ namespace Ginei
         public bool resolved;
         /// <summary>開始時に敵対する旗艦ペアがあったか。無ければ進行系の不変条件はスキップ。</summary>
         public bool hadHostilePairAtStart = true;
+        /// <summary>可視化キャプチャ（スクショ撮影）目的の実行か。true のとき非決着は警告でなく情報に降格する
+        /// （CI のソフトGL描画は遅く時間内に決着しないのが常＝バグでないため FAIL させない）。例外等の判定は不変。</summary>
+        public bool visualCaptureOnly = false;
         public int screenWidth = 1920;
         public int screenHeight = 1080;
         /// <summary>会戦中に捕捉した例外/Error ログ（各1件＝致命）。</summary>

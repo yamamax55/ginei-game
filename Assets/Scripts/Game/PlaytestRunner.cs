@@ -159,6 +159,8 @@ namespace Ginei
                 timeLimitSeconds = timeLimit,
                 resolved = resolved,
                 hadHostilePairAtStart = hostileStart,
+                // スクショ撮影目的の実行では非決着を警告にしない（CI描画が遅く決着しないのは常＝バグでない）。
+                visualCaptureOnly = captureScreenshots,
                 screenWidth = Screen.width > 0 ? Screen.width : 1920,
                 screenHeight = Screen.height > 0 ? Screen.height : 1080,
                 errorLogs = errorLogs,

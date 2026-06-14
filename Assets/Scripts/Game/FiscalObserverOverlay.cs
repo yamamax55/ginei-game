@@ -180,8 +180,10 @@ namespace Ginei
             {
                 CentralBank cb = gvv.GetCentralBank(s.faction);
                 ResearchState rsx = gvv.GetResearch(s.faction);
+                IntelState intel = gvv.GetIntel(s.faction);
                 sb.Append("  <color=#9fb0c0>中銀</color> 政策金利 ").Append(cb != null ? (cb.policyRate * 100f).ToString("0.0") : "—").Append('%')
                   .Append("　<color=#9fb0c0>技術</color> ").Append(rsx != null ? rsx.techLevel.ToString("0.0") : "—")
+                  .Append("　<color=#9fb0c0>諜報</color> ").Append(intel != null ? (intel.capability * 100f).ToString("0") + "%" : "—")
                   .Append("　<color=#9fb0c0>徴兵/年</color> ").Append(gvv.GetLastRecruits(s.faction).ToString("#,0"));
                 if (gvv.IsFinancialCrisis(s.faction)) sb.Append("　<color=#ff7a6a>⚠ 金融危機</color>");
                 sb.Append('\n');

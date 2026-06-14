@@ -202,6 +202,14 @@ namespace Ginei
                     float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
                     var factors = new DiplomacyRules.OpinionFactors(-0.5f, 0.2f, true, 0f, false);
                     var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);
+
+                    // 外交アクションAI（P1 配線）：険悪×国力優位なら制裁＝相手の国庫を bounded に削る（効果額は DiplomaticEffectRules 委譲）。
+                    float op = state.Opinion(a, b);
+                    FactionState saa = StateOf(fa), sbb = StateOf(fb);
+                    if (sbb != null && DiplomaticActionAiRules.ShouldSanction(op, strA, strB))
+                        sbb.treasury = Mathf.Max(0f, sbb.treasury - Mathf.Min(sbb.treasury * 0.05f, DiplomaticEffectRules.SanctionEconomicHit(CampaignRules.EconomyBase(sbb), 0.2f)));
+                    if (saa != null && DiplomaticActionAiRules.ShouldSanction(op, strB, strA))
+                        saa.treasury = Mathf.Max(0f, saa.treasury - Mathf.Min(saa.treasury * 0.05f, DiplomaticEffectRules.SanctionEconomicHit(CampaignRules.EconomyBase(saa), 0.2f)));
                     switch (ev)
                     {
                         case DiplomacyEvent.宣戦布告:

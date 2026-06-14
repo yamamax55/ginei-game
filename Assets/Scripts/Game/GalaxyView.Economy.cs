@@ -44,6 +44,7 @@ namespace Ginei
                 float factor = ShipyardRules.ProductionFactor(prov); // BUILD-2：安定度比例＝支配≠即建艦
                 factor *= ShipbuildingFundingFactor(yard.faction);   // G3：建艦予算の出資度が建艦速度に効く（#163→#884）
                 factor *= TechEffectRules.BuildSpeedFactor(TechLevelOf(yard.faction)); // P0：技術水準→建艦速度（研究の出口）
+                if (warProductionFactor.TryGetValue(yard.faction, out float wpf)) factor *= wpf; // P1：戦時動員→軍需生産↑
                 var done = ShipyardRules.Tick(yard, secondsPerDay, factor);
                 for (int j = 0; j < done.Count; j++)
                 {
@@ -172,6 +173,18 @@ namespace Ginei
                             $"{s.faction} 金融危機（債務 {s.fiscal.debt:0}・物価 {priceLvl:0.00}・打撃 {(int)(sev * 100)}%）");
                 }
                 else crisisOutputFactor[s.faction] = 1f;
+
+                // 諜報（P1 配線）：軍事予算の一部を諜報へ→能力育成（可視度/工作の素・観測）。
+                if (!intelStates.TryGetValue(s.faction, out var intel) || intel == null) { intel = new IntelState(); intelStates[s.faction] = intel; }
+                float intelFunding = s.budget != null ? BudgetRules.Get(s.budget, BudgetCategory.軍事) * 0.1f : 0f;
+                IntelligenceTickRules.TickYear(intel, intelFunding, 1f);
+
+                // 戦時経済（P1 配線）：交戦中は動員→軍需生産が増え（建艦へ後段反映）、銃後の支持が削られる。
+                bool atWar = IsAtWar(s.faction);
+                float mobRate = atWar ? WartimeMobilizationRate : PeacetimeMobilizationRate;
+                warProductionFactor[s.faction] = 1f + WarEconomyTickRules.WarProductionFactor(mobRate, 1f);
+                if (atWar && s.community != null)
+                    s.community.hope = Mathf.Clamp01(s.community.hope + WarEconomyTickRules.HomeFrontSupportDelta(mobRate, 0.3f) * 0.05f);
             }
 
             // 内政予算の出資度を所有星系の Province 安定度へ年次反映（過剰で+・不足で−・0..100）。
@@ -218,7 +231,7 @@ namespace Ginei
         // 1人あたり需要係数（少量で価格が創発＝タイクン化回避）。
         private const float DemandSupplies = 0.012f, DemandFuel = 0.005f, DemandAmmo = 0.002f, DemandLuxury = 0.006f;
         // P0 交易の輸送コスト（基準価格単位・これ未満の価格差は裁定が起きない）／P1 平時の動員率。
-        private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f;
+        private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f, WartimeMobilizationRate = 0.3f;
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
@@ -345,6 +358,28 @@ namespace Ginei
             = new System.Collections.Generic.Dictionary<Faction, bool>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
             = new System.Collections.Generic.Dictionary<Faction, float>();
+        private readonly System.Collections.Generic.Dictionary<Faction, IntelState> intelStates
+            = new System.Collections.Generic.Dictionary<Faction, IntelState>();
+        private readonly System.Collections.Generic.Dictionary<Faction, float> warProductionFactor
+            = new System.Collections.Generic.Dictionary<Faction, float>();
+
+        /// <summary>勢力の諜報状態（能力/防諜・観測層専用＝read-only）。</summary>
+        public IntelState GetIntel(Faction faction)
+            => intelStates.TryGetValue(faction, out var s) ? s : null;
+
+        /// <summary>勢力が現在いずれかの戦争の当事者か（WarLedger 参照・P1 戦時経済）。</summary>
+        private static bool IsAtWar(Faction fac)
+        {
+            var wars = WarLedger.All;
+            if (wars == null) return false;
+            string n = fac.ToString();
+            for (int i = 0; i < wars.Count; i++)
+            {
+                var w = wars[i];
+                if (w != null && (w.factionA == n || w.factionB == n)) return true;
+            }
+            return false;
+        }
 
         /// <summary>勢力が金融危機中か（観測層専用＝read-only）。</summary>
         public bool IsFinancialCrisis(Faction faction)
@@ -522,7 +557,8 @@ namespace Ginei
                 // 徴兵・動員（P1 配線）：徴募源(軍属#110)×動員率→練度反映の戦力を FleetPool へ加える。
                 float recruitPool = 0f;
                 for (int i = 0; i < owned.Count; i++) recruitPool += OccupationRules.RecruitablePool(owned[i]);
-                float recruits = RecruitmentProgramRules.AnnualRecruits(recruitPool, PeacetimeMobilizationRate);
+                float mobRate = IsAtWar(fac) ? WartimeMobilizationRate : PeacetimeMobilizationRate; // P1：戦時は動員率↑＝徴兵増
+                float recruits = RecruitmentProgramRules.AnnualRecruits(recruitPool, mobRate);
                 // P0：徴兵の質＝技術×練度×訓練技能（頭数だけでなく質が戦力に効く）。練度は平時0。
                 float quality = ForceQualityFactorRules.QualityFactor(rs != null ? rs.techLevel : 0f, 0f, facSkill);
                 float trained = RecruitmentProgramRules.TrainedStrength(recruits, quality);

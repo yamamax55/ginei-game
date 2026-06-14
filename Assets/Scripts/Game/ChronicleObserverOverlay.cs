@@ -103,7 +103,10 @@ namespace Ginei
 
             sb.Append("\n<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
             sb.Append("<color=#e7e0b0>◤ 開示エンジン（秘史/真相/予言/エンディング）</color>\n");
-            sb.Append("  <color=#9aa7b2>DisclosureLedger は現在未配線（観測対象なし）。</color>\n");
+            sb.Append("  <color=#9fb0c0>開示進捗</color> ＝ <color=#ffe08a>").Append((gv.DisclosureProgress() * 100f).ToString("0")).Append("%</color>");
+            sb.Append("　断片 ").Append(gv.IsDisclosureRevealed("secret_fragment") ? "◎" : "—")
+              .Append("／真相 ").Append(gv.IsDisclosureRevealed("ancient_truth") ? "◎" : "—")
+              .Append("／結末 ").Append(gv.IsDisclosureRevealed("ending_unlocked") ? "◎" : "—").Append('\n');
 
             sb.Append("\n<color=#6f8a9a>※ 提示中＝プレイヤーへ提示すべきイベント。保留＝発火待ちキュー。履歴の列挙APIは無いため現状値のみ。</color>");
             return sb.ToString();

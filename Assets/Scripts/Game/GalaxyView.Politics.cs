@@ -216,8 +216,86 @@ namespace Ginei
                     }
                 }
 
+            // 条約効果（P1 配線）：締結中の条約は毎年 opinion を補強する（DiplomaticEffectRules→DiplomacyRules）。
+            var treaties = TreatyLedger.All;
+            if (treaties != null)
+                for (int t = 0; t < treaties.Count; t++)
+                {
+                    ActiveTreaty tr = treaties[t];
+                    if (tr == null) continue;
+                    float delta = DiplomaticEffectRules.TreatyOpinionDelta(tr.type) * 0.1f; // 年次の控えめな補強
+                    if (Mathf.Abs(delta) > 0.0001f) DiplomacyRules.AdjustOpinion(state, tr.factionA, tr.factionB, delta);
+                }
+
             // 失効した条約を整理（status系は平時へ）。
             TreatyManagementRules.ExpireDue(state, campaignYear);
+        }
+
+        // 継承危機（P2 配線）：勢力ごとの内乱リスク状態（観測/通知のエッジ検出用）。
+        private readonly System.Collections.Generic.Dictionary<Faction, bool> successionCrisis
+            = new System.Collections.Generic.Dictionary<Faction, bool>();
+
+        /// <summary>勢力が継承危機（内乱リスク）中か（観測層専用＝read-only）。</summary>
+        public bool IsSuccessionCrisis(Faction faction)
+            => successionCrisis.TryGetValue(faction, out var v) && v;
+
+        /// <summary>
+        /// 継承・内乱（P2 配線）：正統性と派閥対立から継承紛争リスクを解き、内乱の閾値を超えたら通知する
+        /// （`SuccessionCrisisRules` 委譲＝後継者不明＋低正統性で危機）。年次（`RunAnnualLifecycleTick`）から呼ぶ。
+        /// </summary>
+        private void RunSuccessionTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null || s.regime == null) continue;
+                float legitimacy = s.regime.legitimacy;
+                float factionalism = 1f - s.inclusiveness;            // 収奪的(低包摂)ほど派閥対立
+                bool hasHeir = legitimacy > 0.5f;                      // proxy：正統性が高い＝後継明確
+                float risk = SuccessionCrisisRules.SuccessionDisputeRisk(hasHeir, legitimacy, factionalism);
+                bool now = SuccessionCrisisRules.WouldEruptCivilWar(risk, 0.6f);
+                bool was = successionCrisis.TryGetValue(s.faction, out var pc) && pc;
+                successionCrisis[s.faction] = now;
+                if (now && !was)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.faction} 継承危機＝内乱リスク（正統性 {legitimacy:0.00}）");
+            }
+        }
+
+        // 開示エンジン（P3 配線・#495 物語の背骨）：秘史→真相→エンディングの連鎖開示。
+        private DisclosureLedger disclosureLedger;
+        private SampleDisclosures.Chronicle chronicle;
+
+        /// <summary>開示の進捗（0..1・観測層専用＝read-only）。</summary>
+        public float DisclosureProgress() => disclosureLedger != null ? disclosureLedger.Progress() : 0f;
+        /// <summary>指定 id の秘史が開示済みか（観測層専用）。</summary>
+        public bool IsDisclosureRevealed(string id) => disclosureLedger != null && disclosureLedger.IsRevealed(id);
+
+        /// <summary>
+        /// 開示（P3 配線）：`DisclosureLedger` に秘史連鎖（`SampleDisclosures`）を登録し、年次で `Evaluate`＝
+        /// 条件・前提が満ちた秘史を不動点まで連鎖開示して通知する。デモは開幕から一定年で断片が見つかる
+        /// （探索#119 配線までの仮トリガ）。年次（`RunAnnualLifecycleTick`）から呼ぶ。
+        /// </summary>
+        private void RunDisclosureTick()
+        {
+            if (disclosureLedger == null)
+            {
+                disclosureLedger = new DisclosureLedger();
+                disclosureLedger.Register(SampleDisclosures.SecretFragment());
+                disclosureLedger.Register(SampleDisclosures.AncientTruth());
+                disclosureLedger.Register(SampleDisclosures.EndingUnlock());
+                chronicle = new SampleDisclosures.Chronicle();
+            }
+            if (!chronicle.fragmentFound && campaignYear >= TimeDisplay.StartYear + 5)
+                chronicle.fragmentFound = true; // 仮トリガ（探索が実装されたらそこから立てる）
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            var revealed = disclosureLedger.Evaluate(new EventContext(pf, -1, chronicle));
+            if (revealed != null)
+                for (int i = 0; i < revealed.Count; i++)
+                    NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
+                        $"【{revealed[i].category}】{revealed[i].title}");
         }
 
         /// <summary>

@@ -268,7 +268,7 @@ namespace Ginei
                     if (haveInfo) AnnounceOutcome(new EncounterOutcome(mMin, mMax, mWin, mLose, mSurv), manual: true);
 
                     resolvedOutcomes.Clear();
-                    int others = StrategyRules.ResolveEncounters(reg, resolvedOutcomes);
+                    int others = StrategyRules.ResolveEncounters(reg, resolvedOutcomes, CombatFactorOf);
                     for (int i = 0; i < resolvedOutcomes.Count; i++) AnnounceOutcome(resolvedOutcomes[i], manual: false);
                     if (others > 0)
                         NotificationCenter.Push(NotificationCategory.戦闘,
@@ -328,7 +328,7 @@ namespace Ginei
                 if (engagedElapsed >= currentAutoResolveSeconds)
                 {
                     resolvedOutcomes.Clear();
-                    StrategyRules.ResolveEncounters(reg, resolvedOutcomes); // 放置の自動解決。プールは減らさない（手動会戦と統一）
+                    StrategyRules.ResolveEncounters(reg, resolvedOutcomes, CombatFactorOf); // 放置の自動解決（補給×技術の実効戦力で勝敗）。プールは減らさない
                     for (int i = 0; i < resolvedOutcomes.Count; i++) AnnounceOutcome(resolvedOutcomes[i], manual: false);
                     engagedElapsed = 0f;
                     currentAutoResolveSeconds = 0.0;

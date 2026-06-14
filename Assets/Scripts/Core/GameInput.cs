@@ -19,6 +19,7 @@ namespace Ginei
         軍観測切替,
         通知ログ切替,
         経済観測切替,
+        法令観測切替,
         // 会戦
         ポーズ,
         倍速等速,
@@ -86,6 +87,8 @@ namespace Ginei
             new InputBinding(GameAction.通知ログ切替,     Key.N,         InputContext.共通),
             // 経済オブザーバ（国庫・税率・課税ベース・税収・版図一体化を観測＝戦略/会戦で開閉）。
             new InputBinding(GameAction.経済観測切替,     Key.E,         InputContext.共通),
+            // 法令オブザーバ（法の支配/法治・治安〔犯罪→秩序→抑圧〕を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.法令観測切替,     Key.L,         InputContext.共通),
             new InputBinding(GameAction.ポーズ,         Key.Space,     InputContext.会戦),
             new InputBinding(GameAction.倍速等速,       Key.Digit1,    InputContext.会戦),
             new InputBinding(GameAction.倍速2倍,        Key.Digit2,    InputContext.会戦),
@@ -234,6 +237,7 @@ namespace Ginei
             { GameAction.軍観測切替,     "軍 編制オブザーバを開く / 閉じる（艦隊台帳・編制ツリー・艦艇プール）" },
             { GameAction.通知ログ切替,   "通知ログを開く / 閉じる（カテゴリ別に履歴を遡る）" },
             { GameAction.経済観測切替,   "経済オブザーバを開く / 閉じる（国庫・税率・課税ベース・税収・版図一体化）" },
+            { GameAction.法令観測切替,   "法令オブザーバを開く / 閉じる（法の支配/法治・治安＝犯罪→秩序→抑圧）" },
             { GameAction.ポーズ,         "ポーズ / 再開" },
             { GameAction.倍速等速,       "等速（×1）" },
             { GameAction.倍速2倍,        "倍速（×2）" },

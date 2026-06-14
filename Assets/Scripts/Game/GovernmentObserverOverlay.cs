@@ -124,12 +124,12 @@ namespace Ginei
                 // 件数の事前カウント
                 for (int i = 0; i < apps.Count; i++)
                 {
-                    Appointment ap = apps[i];
+                    GovernmentRegistry.Appointment ap = apps[i];
                     if (ap.holder != null && ap.holder.Faction == s.faction) matched++;
                 }
                 for (int i = 0; i < apps.Count && shown < 12; i++)
                 {
-                    Appointment ap = apps[i];
+                    GovernmentRegistry.Appointment ap = apps[i];
                     if (ap.holder == null || ap.holder.Faction != s.faction) continue;
                     sb.Append("  ").Append(ap.office.officeName)
                       .Append("（").Append(ap.office.domain).Append('/').Append(ap.office.scope).Append("）＝ ")

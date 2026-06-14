@@ -237,6 +237,7 @@ namespace Ginei
             // イベント提示モーダル／艦隊編成画面／決裁／終了画面／システムメニュー 表示中は戦略マップの入力・進行を止める。
             // SystemDetailPanel は非モーダル窓化したので塞がない（開いたままマップ操作・進行が続く）。
             if (StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen
+                || DecisionBoardPanel.DetailOpen
                 || CampaignEndOverlay.IsOpen || StrategySystemMenu.IsOpen) return;
 
             // 盤面が未構築（Start 前・リロード途中）なら何もしない＝reg/map の null 参照を全面ガード。

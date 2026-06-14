@@ -273,6 +273,14 @@ namespace Ginei
             header.transform.SetParent(card.transform, false);
             var hbg = header.AddComponent<Image>();
             hbg.color = new Color(0f, 0f, 0f, 0.25f);
+            // ヘッダをクリックで決裁の概要を中央モーダル表示（開閉▾／最小化─ ボタンは子で上に乗るので別途反応）
+            {
+                PendingDecision dd = d;
+                var headerBtn = header.AddComponent<Button>();
+                headerBtn.targetGraphic = hbg;
+                headerBtn.transition = UnityEngine.UI.Selectable.Transition.None;
+                headerBtn.onClick.AddListener(() => DecisionBoardPanel.ShowDetail(dd));
+            }
             var hlg = header.AddComponent<HorizontalLayoutGroup>();
             hlg.spacing = 4f; hlg.childControlWidth = true; hlg.childControlHeight = true;
             hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = true;

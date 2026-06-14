@@ -505,6 +505,20 @@ namespace Ginei
                 case GameAction.軍観測切替:
                 case GameAction.通知ログ切替:
                 case GameAction.経済観測切替:
+                case GameAction.法令観測切替:
+                case GameAction.教育観測切替:
+                case GameAction.艦艇観測切替:
+                case GameAction.外交観測切替:
+                case GameAction.政治観測切替:
+                case GameAction.兵站観測切替:
+                case GameAction.人口観測切替:
+                case GameAction.労働観測切替:
+                case GameAction.財政観測切替:
+                case GameAction.生産観測切替:
+                case GameAction.政府観測切替:
+                case GameAction.造船観測切替:
+                case GameAction.人物動態観測切替:
+                case GameAction.イベント観測切替:
                 case GameAction.決裁ボード切替:
                 case GameAction.人物名鑑切替: return "観測オーバーレイ";
                 case GameAction.ポーズ:

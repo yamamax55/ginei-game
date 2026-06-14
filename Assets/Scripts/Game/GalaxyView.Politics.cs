@@ -202,6 +202,25 @@ namespace Ginei
                     float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
                     var factors = new DiplomacyRules.OpinionFactors(-0.5f, 0.2f, true, 0f, false);
                     var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);
+
+                    // 外交アクションAI（P1 配線）：険悪×国力優位なら制裁＝相手の国庫を bounded に削る（効果額は DiplomaticEffectRules 委譲）。
+                    float op = state.Opinion(a, b);
+                    FactionState saa = StateOf(fa), sbb = StateOf(fb);
+                    if (sbb != null && DiplomaticActionAiRules.ShouldSanction(op, strA, strB))
+                        sbb.treasury = Mathf.Max(0f, sbb.treasury - Mathf.Min(sbb.treasury * 0.05f, DiplomaticEffectRules.SanctionEconomicHit(CampaignRules.EconomyBase(sbb), 0.2f)));
+                    if (saa != null && DiplomaticActionAiRules.ShouldSanction(op, strB, strA))
+                        saa.treasury = Mathf.Max(0f, saa.treasury - Mathf.Min(saa.treasury * 0.05f, DiplomaticEffectRules.SanctionEconomicHit(CampaignRules.EconomyBase(saa), 0.2f)));
+
+                    // 諜報の工作（P1 配線）：険悪なら高能力側が相手にサボタージュ＝相手の国庫を bounded に削る（防諜で守る）。
+                    if (op < -20f)
+                    {
+                        IntelState ia = intelStates.TryGetValue(fa, out var iav) ? iav : null;
+                        IntelState ib = intelStates.TryGetValue(fb, out var ibv) ? ibv : null;
+                        if (ia != null && sbb != null && IntelligenceTickRules.SabotageSuccess(ia.capability, ib != null ? ib.counterIntel : 0f, SabotageRoll(fa, fb)))
+                            sbb.treasury = Mathf.Max(0f, sbb.treasury - Mathf.Min(sbb.treasury * 0.03f, IntelligenceTickRules.SabotageEffect(ia.capability) * CampaignRules.EconomyBase(sbb) * 0.05f));
+                        if (ib != null && saa != null && IntelligenceTickRules.SabotageSuccess(ib.capability, ia != null ? ia.counterIntel : 0f, SabotageRoll(fb, fa)))
+                            saa.treasury = Mathf.Max(0f, saa.treasury - Mathf.Min(saa.treasury * 0.03f, IntelligenceTickRules.SabotageEffect(ib.capability) * CampaignRules.EconomyBase(saa) * 0.05f));
+                    }
                     switch (ev)
                     {
                         case DiplomacyEvent.宣戦布告:
@@ -216,8 +235,124 @@ namespace Ginei
                     }
                 }
 
+            // 賠償（P1 配線）：進行中の戦争で戦況の不利な側（敗勢）が有利な側へ年次賠償を払う＝戦争が経済を消耗させる。
+            var wars = WarLedger.All;
+            if (wars != null)
+                for (int w = 0; w < wars.Count; w++)
+                {
+                    WarState ws = wars[w];
+                    if (ws == null || Mathf.Abs(ws.warScore) < 0.2f) continue; // 拮抗は賠償なし
+                    bool aWinning = ws.warScore > 0f;
+                    if (!System.Enum.TryParse(aWinning ? ws.factionA : ws.factionB, out Faction wf)) continue;
+                    if (!System.Enum.TryParse(aWinning ? ws.factionB : ws.factionA, out Faction lf)) continue;
+                    FactionState winner = StateOf(wf), loser = StateOf(lf);
+                    if (winner == null || loser == null) continue;
+                    float rep = Mathf.Min(loser.treasury * 0.05f,
+                        DiplomaticActionAiRules.ProposedReparations(Mathf.Abs(ws.warScore), CampaignRules.EconomyBase(loser)));
+                    if (rep > 0f) { loser.treasury = Mathf.Max(0f, loser.treasury - rep); winner.treasury += rep; }
+                }
+
+            // 条約効果（P1 配線）：締結中の条約は毎年 opinion を補強する（DiplomaticEffectRules→DiplomacyRules）。
+            var treaties = TreatyLedger.All;
+            if (treaties != null)
+                for (int t = 0; t < treaties.Count; t++)
+                {
+                    ActiveTreaty tr = treaties[t];
+                    if (tr == null) continue;
+                    float delta = DiplomaticEffectRules.TreatyOpinionDelta(tr.type) * 0.1f; // 年次の控えめな補強
+                    if (Mathf.Abs(delta) > 0.0001f) DiplomacyRules.AdjustOpinion(state, tr.factionA, tr.factionB, delta);
+                }
+
             // 失効した条約を整理（status系は平時へ）。
             TreatyManagementRules.ExpireDue(state, campaignYear);
+        }
+
+        // 継承危機（P2 配線）：勢力ごとの内乱リスク状態（観測/通知のエッジ検出用）。
+        private readonly System.Collections.Generic.Dictionary<Faction, bool> successionCrisis
+            = new System.Collections.Generic.Dictionary<Faction, bool>();
+
+        /// <summary>勢力が継承危機（内乱リスク）中か（観測層専用＝read-only）。</summary>
+        public bool IsSuccessionCrisis(Faction faction)
+            => successionCrisis.TryGetValue(faction, out var v) && v;
+
+        /// <summary>
+        /// 継承・内乱（P2 配線）：正統性と派閥対立から継承紛争リスクを解き、内乱の閾値を超えたら通知する
+        /// （`SuccessionCrisisRules` 委譲＝後継者不明＋低正統性で危機）。年次（`RunAnnualLifecycleTick`）から呼ぶ。
+        /// </summary>
+        private void RunSuccessionTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null || s.regime == null) continue;
+                float legitimacy = s.regime.legitimacy;
+                float factionalism = 1f - s.inclusiveness;            // 収奪的(低包摂)ほど派閥対立
+                bool hasHeir = legitimacy > 0.5f;                      // proxy：正統性が高い＝後継明確
+                float risk = SuccessionCrisisRules.SuccessionDisputeRisk(hasHeir, legitimacy, factionalism);
+                bool now = SuccessionCrisisRules.WouldEruptCivilWar(risk, 0.6f);
+                bool was = successionCrisis.TryGetValue(s.faction, out var pc) && pc;
+                successionCrisis[s.faction] = now;
+                if (now && !was)
+                {
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.faction} 継承危機＝内乱勃発（正統性 {legitimacy:0.00}）");
+                    // 内乱の帰結（P2 配線・bounded）：正統性失墜・軍備損耗・所有星系の安定度低下。
+                    s.regime.legitimacy = Mathf.Clamp01(s.regime.legitimacy - 0.1f);
+                    int pool = FleetPool.Get(s.faction);
+                    if (pool > 0) FleetPool.Add(s.faction, -(int)(pool * 0.1f)); // 内乱で軍の1割を喪失
+                    if (map != null && provinces != null)
+                        foreach (var sys in map.systems)
+                            if (sys != null && sys.owner == s.faction && provinces.TryGetValue(sys.id, out var prov) && prov != null)
+                                prov.stability = Mathf.Max(0f, prov.stability - 10f);
+                }
+            }
+        }
+
+        /// <summary>諜報工作の決定論 roll（年×攻撃側×標的のハッシュ→[0,1)）。乱数なし＝セーブ往復で再現。</summary>
+        private float SabotageRoll(Faction attacker, Faction target)
+        {
+            unchecked
+            {
+                uint h = (uint)campaignYear * 2654435761u + (uint)((int)attacker * 73856093) + (uint)((int)target * 19349663) + 0x9E3779B9u;
+                h ^= h >> 13; h *= 0x85EBCA6Bu; h ^= h >> 16;
+                return (h & 0xFFFFFFu) / (float)0x1000000;
+            }
+        }
+
+        // 開示エンジン（P3 配線・#495 物語の背骨）：秘史→真相→エンディングの連鎖開示。
+        private DisclosureLedger disclosureLedger;
+        private SampleDisclosures.Chronicle chronicle;
+
+        /// <summary>開示の進捗（0..1・観測層専用＝read-only）。</summary>
+        public float DisclosureProgress() => disclosureLedger != null ? disclosureLedger.Progress() : 0f;
+        /// <summary>指定 id の秘史が開示済みか（観測層専用）。</summary>
+        public bool IsDisclosureRevealed(string id) => disclosureLedger != null && disclosureLedger.IsRevealed(id);
+
+        /// <summary>
+        /// 開示（P3 配線）：`DisclosureLedger` に秘史連鎖（`SampleDisclosures`）を登録し、年次で `Evaluate`＝
+        /// 条件・前提が満ちた秘史を不動点まで連鎖開示して通知する。デモは開幕から一定年で断片が見つかる
+        /// （探索#119 配線までの仮トリガ）。年次（`RunAnnualLifecycleTick`）から呼ぶ。
+        /// </summary>
+        private void RunDisclosureTick()
+        {
+            if (disclosureLedger == null)
+            {
+                disclosureLedger = new DisclosureLedger();
+                disclosureLedger.Register(SampleDisclosures.SecretFragment());
+                disclosureLedger.Register(SampleDisclosures.AncientTruth());
+                disclosureLedger.Register(SampleDisclosures.EndingUnlock());
+                chronicle = new SampleDisclosures.Chronicle();
+            }
+            if (!chronicle.fragmentFound && campaignYear >= TimeDisplay.StartYear + 5)
+                chronicle.fragmentFound = true; // 仮トリガ（探索が実装されたらそこから立てる）
+            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            var revealed = disclosureLedger.Evaluate(new EventContext(pf, -1, chronicle));
+            if (revealed != null)
+                for (int i = 0; i < revealed.Count; i++)
+                    NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
+                        $"【{revealed[i].category}】{revealed[i].title}");
         }
 
         /// <summary>

@@ -272,6 +272,24 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 実効戦力倍率（補給/技術/軍の質）を織り込む版。**勝敗は実効戦力で決まり、残存兵力は生兵力で算出**する
+        /// （倍率1.0で従来と完全一致＝後方互換）。倍率は <see cref="FleetCombatStrengthRules"/> で合成して渡す。
+        /// </summary>
+        public static CorridorBattleResult ResolveCorridorBattle(int attackerStrength, int defenderStrength, float attackerFactor, float defenderFactor)
+        {
+            int a = attackerStrength > 0 ? attackerStrength : 0;
+            int d = defenderStrength > 0 ? defenderStrength : 0;
+            float af = attackerFactor > 0f ? attackerFactor : 0f;
+            float df = defenderFactor > 0f ? defenderFactor : 0f;
+            float aEff = a * af, dEff = d * df;
+            bool aWon = aEff > dEff;                       // 勝敗は実効戦力で
+            int winnerRaw = aWon ? a : d;
+            float effWin = aWon ? aEff : dEff, effLose = aWon ? dEff : aEff;
+            int survivor = effWin > 0f ? Mathf.RoundToInt(winnerRaw * Mathf.Clamp01((effWin - effLose) / effWin)) : winnerRaw; // 残存は生兵力で
+            return new CorridorBattleResult(aWon, survivor);
+        }
+
+        /// <summary>
         /// 同一回廊上で出会った敵対艦隊を戦闘で解決する（回廊内で味方と敵がぶつかる＝戦闘開始・C-3）。
         /// 兵力差で勝敗（ResolveCorridorBattle）。敗者は除去、勝者は残存兵力で進行を続ける（相打ちは両方除去）。
         /// 解決した戦闘数を返す。毎フレーム呼ぶ想定（Tick の後）。
@@ -282,7 +300,8 @@ namespace Ginei
         /// <see cref="ResolveEncounters(StrategicFleetRegistry)"/> の結末収集版。解決した各会戦の結末
         /// （発生回廊・勝者/敗者・勝者残存兵力）を <paramref name="outcomes"/> に追加する（通知・ピン留め用・null可）。
         /// </summary>
-        public static int ResolveEncounters(StrategicFleetRegistry reg, IList<EncounterOutcome> outcomes)
+        public static int ResolveEncounters(StrategicFleetRegistry reg, IList<EncounterOutcome> outcomes,
+            System.Func<StrategicFleet, float> factorOf = null)
         {
             if (reg == null) return 0;
             int count = 0;
@@ -293,7 +312,10 @@ namespace Ginei
                 if (reg.GetFleet(a.id) == null || reg.GetFleet(b.id) == null) continue; // 既に除去済み
                 if (!FleetsCollided(a, b)) continue; // 回廊内でまだ接触していない（複数艦が同じ回廊に居られる）
 
-                CorridorBattleResult r = ResolveCorridorBattle(a.strength, b.strength);
+                // 実効戦力倍率（補給/技術/軍の質）が与えられれば勝敗へ織り込む（null=従来＝倍率1.0）。
+                float fa = factorOf != null ? factorOf(a) : 1f;
+                float fb = factorOf != null ? factorOf(b) : 1f;
+                CorridorBattleResult r = ResolveCorridorBattle(a.strength, b.strength, fa, fb);
                 if (outcomes != null)
                 {
                     StrategicFleet w = r.attackerWon ? a : b;

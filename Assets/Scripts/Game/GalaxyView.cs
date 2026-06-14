@@ -175,6 +175,11 @@ namespace Ginei
         /// <summary>武官ネームドのロスター（観測用・人物名鑑が読む）。</summary>
         public IReadOnlyList<Person> CommanderRoster => commanders;
 
+        /// <summary>現在のキャンペーン年（観測用・人物動態オブザーバが年齢/死亡判定に使う）。</summary>
+        public int CampaignYear => campaignYear;
+        /// <summary>内政イベントエンジン（観測用・read-only。提示中/保留件数/発火回数を読む）。</summary>
+        public EventEngine PolicyEngine => policyEngine;
+
         // 幼稚園/小学校/中学校/高校（#155-157 の土台）：勢力ごとの就学前〜中等教育。進学率＝候補の母数、質＝候補の素質を左右する（複利）。
         private List<Kindergarten> kindergartens;
         private List<ElementarySchool> elementarySchools;
@@ -210,6 +215,7 @@ namespace Ginei
 
         private void Start()
         {
+            Active = this; // 観測層が国庫（資源備蓄）等のライブ状態を読むための弱参照（OnDestroy で解除）
             // 戦略マップシーンのコンテキストを設定（#107：会戦から戻った後も正しく絞られるよう再セット）
             GameInput.SetContext(InputContext.戦略);
 
@@ -262,7 +268,7 @@ namespace Ginei
                     if (haveInfo) AnnounceOutcome(new EncounterOutcome(mMin, mMax, mWin, mLose, mSurv), manual: true);
 
                     resolvedOutcomes.Clear();
-                    int others = StrategyRules.ResolveEncounters(reg, resolvedOutcomes);
+                    int others = StrategyRules.ResolveEncounters(reg, resolvedOutcomes, CombatFactorOf);
                     for (int i = 0; i < resolvedOutcomes.Count; i++) AnnounceOutcome(resolvedOutcomes[i], manual: false);
                     if (others > 0)
                         NotificationCenter.Push(NotificationCategory.戦闘,
@@ -322,7 +328,7 @@ namespace Ginei
                 if (engagedElapsed >= currentAutoResolveSeconds)
                 {
                     resolvedOutcomes.Clear();
-                    StrategyRules.ResolveEncounters(reg, resolvedOutcomes); // 放置の自動解決。プールは減らさない（手動会戦と統一）
+                    StrategyRules.ResolveEncounters(reg, resolvedOutcomes, CombatFactorOf); // 放置の自動解決（補給×技術の実効戦力で勝敗）。プールは減らさない
                     for (int i = 0; i < resolvedOutcomes.Count; i++) AnnounceOutcome(resolvedOutcomes[i], manual: false);
                     engagedElapsed = 0f;
                     currentAutoResolveSeconds = 0.0;
@@ -777,6 +783,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            if (Active == this) Active = null;
             if (lineMat != null) Destroy(lineMat);
             if (disc != null && disc.texture != null) Destroy(disc.texture);
         }

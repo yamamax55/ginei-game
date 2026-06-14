@@ -105,6 +105,7 @@ namespace Ginei
 
             scenarioName = GameSettings.Instance.scenarioName;
             if (forceAllAI) ForceAllAI();
+            DisableBlockingModals(); // 無人実行で会戦が止まらないよう、ポーズ待ちのイベントモーダルを無効化
             Time.timeScale = Mathf.Max(0.01f, timeScale);
 
             bool hostileStart = HasHostilePair();
@@ -238,6 +239,17 @@ namespace Ginei
                 var ai = all[i] != null ? all[i].GetComponent<FleetAI>() : null;
                 if (ai != null) ai.enabled = true;
             }
+        }
+
+        /// <summary>
+        /// 無人実行で会戦が止まらないよう、ポーズして選択を待つイベントモーダル（<see cref="BattleEventManager"/>）を
+        /// 無効化する。プレイヤーが居ないと誰も選択肢を押せず timeScale=0 のまま会戦が凍結する（可視化スクショも
+        /// モーダルで埋まる）ため。コンポーネントを無効化するだけ＝既存スクリプトは非改変・シーン再生で復活。
+        /// </summary>
+        private static void DisableBlockingModals()
+        {
+            var bem = FindAnyObjectByType<BattleEventManager>();
+            if (bem != null) bem.enabled = false;
         }
 
         private void SnapshotPositions()

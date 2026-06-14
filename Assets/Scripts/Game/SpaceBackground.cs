@@ -89,8 +89,18 @@ namespace Ginei
             renderer.sortingLayerName = "Background";
             renderer.sortingOrder = -100;
 
-            // URP 2D互換マテリアルを作成
-            starMaterial = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
+            // URP 2D互換マテリアルを作成。ビルドには URP 2D シェーダーが含まれない
+            // ことがある（Always Included でない＝Shader.Find が null を返す）ため、
+            // URP 安全な Sprites/Default へフォールバックして例外（背景星空の破綻）を防ぐ。
+            Shader starShader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
+            if (starShader == null) starShader = Shader.Find("Sprites/Default");
+            if (starShader == null) starShader = Shader.Find("Unlit/Transparent");
+            if (starShader == null)
+            {
+                Debug.LogWarning("[SpaceBackground] 星空用シェーダーが見つからないため背景生成を中止します。");
+                return;
+            }
+            starMaterial = new Material(starShader);
 
             // 丸い星のテクスチャを生成して割り当てる
             starMaterial.mainTexture = CreateStarTexture();

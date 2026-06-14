@@ -139,6 +139,17 @@ namespace Ginei
         private readonly System.Collections.Generic.Dictionary<Faction, StrategicResourceStockpile> strategicStockpiles
             = new System.Collections.Generic.Dictionary<Faction, StrategicResourceStockpile>();
 
+        // --- 市場経済（M-1 #179 配線）：勢力ごとに4財（物資/燃料/弾薬/奢侈品）の需給と価格。供給＝産出率・需要＝人口比例で価格が創発する。 ---
+        private readonly System.Collections.Generic.Dictionary<Faction, Market[]> markets
+            = new System.Collections.Generic.Dictionary<Faction, Market[]>();
+        // 各財の基準価格（需給均衡の中心＝供給=需要で戻る先）。GoodType の並び順に対応。
+        private static readonly Good[] MarketGoods =
+        {
+            new Good(GoodType.物資, 1f), new Good(GoodType.燃料, 2f), new Good(GoodType.弾薬, 3f), new Good(GoodType.奢侈品, 5f),
+        };
+        // 1人あたり需要係数（少量で価格が創発＝タイクン化回避）。
+        private const float DemandSupplies = 0.012f, DemandFuel = 0.005f, DemandAmmo = 0.002f, DemandLuxury = 0.006f;
+
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
 
@@ -149,6 +160,10 @@ namespace Ginei
         /// <summary>勢力の希少資源備蓄（レアメタル/反応物質/超伝導体/希少結晶・#178）。未生成なら null。観測層（兵站オブザーバ）専用＝read-only。</summary>
         public StrategicResourceStockpile GetStrategicStockpile(Faction faction)
             => strategicStockpiles.TryGetValue(faction, out var s) ? s : null;
+
+        /// <summary>勢力の市場（指定財の需給/価格・M-1 #179）。未生成なら null。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
+        public Market GetMarket(Faction faction, GoodType good)
+            => markets.TryGetValue(faction, out var arr) && arr != null && (int)good < arr.Length ? arr[(int)good] : null;
 
         /// <summary>星系の生産チェーン在庫（森林→木材→建材→住宅・#2091）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
         public ChainStock GetChainStock(int systemId)
@@ -196,6 +211,35 @@ namespace Ginei
                 }
                 for (int i = 0; i < owned.Count; i++)
                     StrategicResourceRules.ProduceFromProvince(rare, owned[i], 1f);
+
+                // 市場（M-1 #179 配線）：供給＝産出率の合計／需要＝人口比例。価格を均衡へ収束させる＝
+                // 供給>需要で下落・需要>供給で高騰（少量で創発）。経済(財政E)・生活水準と独立の価格レイヤー。
+                float supSupplies = 0f, supFuel = 0f, supAmmo = 0f, popTotal = 0f;
+                for (int i = 0; i < owned.Count; i++)
+                {
+                    supSupplies += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.物資);
+                    supFuel     += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.燃料);
+                    supAmmo     += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.弾薬);
+                    popTotal    += owned[i].population;
+                }
+                float supLuxury = supSupplies * 0.15f; // 余剰物資が奢侈品へ回る proxy
+                if (!markets.TryGetValue(fac, out var mk) || mk == null)
+                {
+                    mk = new Market[]
+                    {
+                        new Market(GoodType.物資,   supSupplies, popTotal * DemandSupplies, MarketGoods[0].basePrice),
+                        new Market(GoodType.燃料,   supFuel,     popTotal * DemandFuel,     MarketGoods[1].basePrice),
+                        new Market(GoodType.弾薬,   supAmmo,     popTotal * DemandAmmo,     MarketGoods[2].basePrice),
+                        new Market(GoodType.奢侈品, supLuxury,   popTotal * DemandLuxury,   MarketGoods[3].basePrice),
+                    };
+                    markets[fac] = mk;
+                }
+                mk[0].supply = supSupplies; mk[0].demand = popTotal * DemandSupplies;
+                mk[1].supply = supFuel;     mk[1].demand = popTotal * DemandFuel;
+                mk[2].supply = supAmmo;     mk[2].demand = popTotal * DemandAmmo;
+                mk[3].supply = supLuxury;   mk[3].demand = popTotal * DemandLuxury;
+                for (int g = 0; g < mk.Length; g++)
+                    MarketRules.Tick(mk[g], MarketGoods[g], MarketRules.MarketParams.Default, 1f);
 
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
                 var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);

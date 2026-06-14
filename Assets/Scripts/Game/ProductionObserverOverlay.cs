@@ -104,7 +104,7 @@ namespace Ginei
                 AppendFaction(sb, map, gv, s.faction);
             }
 
-            sb.Append("\n<color=#6f8a9a>※ 森林→木材→建材→住宅の連鎖（#2091）と食品/衣類等の消費財BOM（#2098）。年次Tickで生産・消費。市場価格#179は未配線。</color>");
+            sb.Append("\n<color=#6f8a9a>※ 森林→木材→建材→住宅の連鎖（#2091）と食品/衣類等の消費財BOM（#2098）と市場価格（#179＝供給/需要で創発）を年次Tickで回す。</color>");
             return sb.ToString();
         }
 
@@ -176,6 +176,21 @@ namespace Ginei
             {
                 sb.Append("  <color=#9aa7b2>消費財BOM 未生成</color>\n");
             }
+
+            // --- 市場（M-1 #179 配線・需給で動く価格） ---
+            sb.Append("  <color=#9fb0c0>市場</color>　");
+            bool anyMarket = false;
+            foreach (GoodType t in System.Enum.GetValues(typeof(GoodType)))
+            {
+                Market m = gv.GetMarket(fac, t);
+                if (m == null) continue;
+                anyMarket = true;
+                string col = m.demand > m.supply * 1.05f ? "#ff9a8a" : (m.supply > m.demand * 1.05f ? "#a0e0a0" : "#ffe08a");
+                sb.Append(t).Append(" <color=").Append(col).Append('>').Append(m.price.ToString("0.00")).Append("</color>")
+                  .Append("<color=#6f8a9a>(供").Append(m.supply.ToString("0.#")).Append("/需").Append(m.demand.ToString("0.#")).Append(")</color>　");
+            }
+            if (!anyMarket) sb.Append("<color=#9aa7b2>未生成</color>");
+            sb.Append('\n');
         }
 
         private void AppendBar(StringBuilder sb, string label, float v01, string colorHex)

@@ -213,6 +213,25 @@ namespace Ginei
                       .Append("　利潤 <color=").Append(pcol).Append('>').Append(profit.ToString("+#,0;-#,0;0")).Append("</color>\n");
                 }
             }
+
+            // --- 株式市場（#185 配線・私有企業の上場銘柄＝利潤→株価） ---
+            var stocks = gv.GetListings(fac);
+            if (stocks != null && stocks.Count > 0)
+            {
+                float index = StockMarketSystemRules.MarketIndex(stocks);
+                float senti = StockMarketSystemRules.MarketSentiment(stocks);
+                string scol = senti >= 0.6f ? "#a0e0a0" : (senti <= 0.4f ? "#ff9a8a" : "#ffe08a");
+                sb.Append("  <color=#9fb0c0>株式市場</color>　指数 ").Append(index.ToString("#,0"))
+                  .Append("　心理 <color=").Append(scol).Append('>').Append((senti * 100f).ToString("0")).Append("%</color>\n");
+                for (int i = 0; i < stocks.Count; i++)
+                {
+                    Listing l = stocks[i];
+                    if (l == null || l.stock == null) continue;
+                    float yld = StockMarketRules.DividendYield(l.stock.dividend, l.stock.sharePrice);
+                    sb.Append("   ").Append(l.name).Append(" 株価 ").Append(l.stock.sharePrice.ToString("0.00"))
+                      .Append("　配当利回り ").Append((yld * 100f).ToString("0.0")).Append("%\n");
+                }
+            }
         }
 
         /// <summary>セクター（産業）が売る市場財（観測表示用・GalaxyView の対応と一致させる）。</summary>

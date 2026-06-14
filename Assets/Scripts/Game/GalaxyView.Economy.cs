@@ -265,17 +265,18 @@ namespace Ginei
             }
         }
 
-        /// <summary>勢力のセクター別企業をデモ生成（専制=国有/民主=私有で所有形態が分かれる＝国有は雇用を守る）。</summary>
+        /// <summary>勢力のセクター別企業をデモ生成。所有形態はセクターごとに私有/国有を混成
+        /// （私有＝株式市場に上場・収益性で雇用調整／国有＝非上場・雇用を守る）＝両方を観測できる。</summary>
         private System.Collections.Generic.List<Enterprise> SeedEnterprises(Faction fac)
         {
-            FactionState st = StateOf(fac);
-            bool democratic = st != null && GovernmentFormRules.IsDemocratic(st.governmentForm);
-            Ownership own = democratic ? Ownership.私有 : Ownership.国有;
             var list = new System.Collections.Generic.List<Enterprise>();
             SystemType[] sectors = { SystemType.工業, SystemType.農業, SystemType.鉱業, SystemType.居住 };
             for (int i = 0; i < sectors.Length; i++)
+            {
+                Ownership own = (i % 2 == 0) ? Ownership.私有 : Ownership.国有; // 偶=私有(上場)/奇=国有
                 list.Add(new Enterprise(fac, sectors[i], employees: 100f, capital: 1000f, productivity: 1f, wageRate: 1f,
                     name: $"{fac}{sectors[i]}{(own == Ownership.国有 ? "公社" : "社")}", ownership: own));
+            }
             return list;
         }
 
@@ -286,6 +287,30 @@ namespace Ginei
             float sum = 0f;
             for (int i = 0; i < owned.Count; i++) sum += OccupationRules.Workers(owned[i], occ);
             return sum;
+        }
+
+        // --- 株式会社・株式市場（#185 配線）：私有企業を上場し、利潤→EPS/配当→株価を市場で収束させる。 ---
+        private readonly System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Listing>> listings
+            = new System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Listing>>();
+        private const float StockPayoutRatio = 0.3f; // 配当性向（EPS の何割を配当に回すか）
+
+        /// <summary>勢力の上場銘柄一覧（株価/配当/心理・#185）。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
+        public System.Collections.Generic.IReadOnlyList<Listing> GetListings(Faction faction)
+            => listings.TryGetValue(faction, out var l) ? l : null;
+
+        /// <summary>私有企業を上場銘柄（Listing＋Company）に仕立てる（国有は非上場）。</summary>
+        private static System.Collections.Generic.List<Listing> SeedListings(System.Collections.Generic.List<Enterprise> firms)
+        {
+            var list = new System.Collections.Generic.List<Listing>();
+            if (firms == null) return list;
+            for (int i = 0; i < firms.Count; i++)
+            {
+                Enterprise e = firms[i];
+                if (e == null || e.ownership != Ownership.私有) continue; // 私有のみ上場
+                var stock = new Company(earnings: 0f, sharePrice: 1f, dividend: 0f, sentiment: 0.5f);
+                list.Add(new Listing(e, stock, shares: 100f, name: e.name));
+            }
+            return list;
         }
 
         /// <summary>星系の生産チェーン在庫（森林→木材→建材→住宅・#2091）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
@@ -387,6 +412,23 @@ namespace Ginei
                     float profit = EnterpriseRules.Tick(firm, price, laborSupply, 1f);
                     if (firm.ownership == Ownership.国有 && profit > 0f && fstate != null)
                         fstate.treasury += profit * 0.5f; // 国有企業利潤の一部を国庫へ
+                }
+
+                // 株式会社・株式市場（#185 配線）：私有企業を上場し、利潤→1株あたり収益/配当→株価を市場で収束させる。
+                if (!listings.TryGetValue(fac, out var mkt) || mkt == null)
+                {
+                    mkt = SeedListings(firms);
+                    listings[fac] = mkt;
+                }
+                var sp = StockMarketRules.StockParams.Default;
+                for (int i = 0; i < mkt.Count; i++)
+                {
+                    Listing l = mkt[i];
+                    if (l == null || l.enterprise == null || l.stock == null) continue;
+                    Market lm = mk[(int)GoodForSector(l.enterprise.sector)];
+                    float lprice = lm != null ? lm.price : 1f;
+                    StockMarketSystemRules.SyncEarnings(l, lprice, StockPayoutRatio); // 利潤→EPS/配当
+                    StockMarketRules.Tick(l.stock, sp, 1f);                           // 株価を適正へ収束
                 }
 
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。

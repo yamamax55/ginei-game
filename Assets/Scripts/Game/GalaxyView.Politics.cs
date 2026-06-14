@@ -210,6 +210,17 @@ namespace Ginei
                         sbb.treasury = Mathf.Max(0f, sbb.treasury - Mathf.Min(sbb.treasury * 0.05f, DiplomaticEffectRules.SanctionEconomicHit(CampaignRules.EconomyBase(sbb), 0.2f)));
                     if (saa != null && DiplomaticActionAiRules.ShouldSanction(op, strB, strA))
                         saa.treasury = Mathf.Max(0f, saa.treasury - Mathf.Min(saa.treasury * 0.05f, DiplomaticEffectRules.SanctionEconomicHit(CampaignRules.EconomyBase(saa), 0.2f)));
+
+                    // 諜報の工作（P1 配線）：険悪なら高能力側が相手にサボタージュ＝相手の国庫を bounded に削る（防諜で守る）。
+                    if (op < -20f)
+                    {
+                        IntelState ia = intelStates.TryGetValue(fa, out var iav) ? iav : null;
+                        IntelState ib = intelStates.TryGetValue(fb, out var ibv) ? ibv : null;
+                        if (ia != null && sbb != null && IntelligenceTickRules.SabotageSuccess(ia.capability, ib != null ? ib.counterIntel : 0f, SabotageRoll(fa, fb)))
+                            sbb.treasury = Mathf.Max(0f, sbb.treasury - Mathf.Min(sbb.treasury * 0.03f, IntelligenceTickRules.SabotageEffect(ia.capability) * CampaignRules.EconomyBase(sbb) * 0.05f));
+                        if (ib != null && saa != null && IntelligenceTickRules.SabotageSuccess(ib.capability, ia != null ? ia.counterIntel : 0f, SabotageRoll(fb, fa)))
+                            saa.treasury = Mathf.Max(0f, saa.treasury - Mathf.Min(saa.treasury * 0.03f, IntelligenceTickRules.SabotageEffect(ib.capability) * CampaignRules.EconomyBase(saa) * 0.05f));
+                    }
                     switch (ev)
                     {
                         case DiplomacyEvent.宣戦布告:
@@ -279,6 +290,17 @@ namespace Ginei
                             if (sys != null && sys.owner == s.faction && provinces.TryGetValue(sys.id, out var prov) && prov != null)
                                 prov.stability = Mathf.Max(0f, prov.stability - 10f);
                 }
+            }
+        }
+
+        /// <summary>諜報工作の決定論 roll（年×攻撃側×標的のハッシュ→[0,1)）。乱数なし＝セーブ往復で再現。</summary>
+        private float SabotageRoll(Faction attacker, Faction target)
+        {
+            unchecked
+            {
+                uint h = (uint)campaignYear * 2654435761u + (uint)((int)attacker * 73856093) + (uint)((int)target * 19349663) + 0x9E3779B9u;
+                h ^= h >> 13; h *= 0x85EBCA6Bu; h ^= h >> 16;
+                return (h & 0xFFFFFFu) / (float)0x1000000;
             }
         }
 

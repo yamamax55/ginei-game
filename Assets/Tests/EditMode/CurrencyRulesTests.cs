@@ -120,6 +120,71 @@ namespace Ginei.Tests
             Assert.AreEqual(0f, CurrencyRules.CrossRate(new CurrencyState { exchangeRate = 1f }, new CurrencyState { exchangeRate = 0f }), 1e-5f);
         }
 
+        // ===== 基軸通貨（#ReserveCurrencyRules 配線） =====
+
+        [Test]
+        public void TickReserve_HighSharesRaiseStatusAndYieldSeigniorage()
+        {
+            var c = new CurrencyState(); // reserveStatus=0 から
+            float income = CurrencyRules.TickReserve(c, tradeShare: 1f, militaryHegemony: 1f, trustInIssuer: 1f, globalTradeVolume: 1000f, dt: 1f);
+            Assert.Greater(c.reserveStatus, 0f, "高い交易/軍事/信認で基軸度が上がる");
+            Assert.GreaterOrEqual(income, 0f);
+            Assert.AreEqual(ReserveCurrencyRules.SeigniorageIncome(c.reserveStatus, 1000f), income, 1e-4f, "発行益は ReserveCurrencyRules へ委譲");
+        }
+
+        [Test]
+        public void TickReserve_NullSafe()
+        {
+            Assert.AreEqual(0f, CurrencyRules.TickReserve(null, 1f, 1f, 1f, 1000f, 1f), 1e-5f);
+        }
+
+        // ===== 通貨改鋳（#CoinageRules 配線） =====
+
+        [Test]
+        public void TickCoinage_DebasementErodesTrustAndMints()
+        {
+            var c = new CurrencyState { silverContent = 1f, publicTrust = 1f, moneySupply = 1000f };
+            float minted = CurrencyRules.TickCoinage(c, targetSilverContent: 0.5f, dt: 1f);
+            Assert.AreEqual(0.5f, c.silverContent, 1e-4f, "品位は目標へ下がる");
+            Assert.Less(c.publicTrust, 1f, "品位低下で信認が崩れる");
+            Assert.Greater(minted, 0f, "品位を抜いたぶんが改鋳益");
+        }
+
+        [Test]
+        public void TickCoinage_PureCoinageMintsNothing()
+        {
+            var c = new CurrencyState { silverContent = 1f, publicTrust = 1f, moneySupply = 1000f };
+            float minted = CurrencyRules.TickCoinage(c, targetSilverContent: 1f, dt: 1f);
+            Assert.AreEqual(0f, minted, 1e-4f, "純度維持なら改鋳益なし");
+            Assert.GreaterOrEqual(c.publicTrust, 1f - 1e-4f, "信認は崩れない");
+        }
+
+        [Test]
+        public void RealValueFactor_LowTrustReducesValue()
+        {
+            var trusted = new CurrencyState { publicTrust = 1f };
+            var distrusted = new CurrencyState { publicTrust = 0.3f };
+            Assert.Less(CurrencyRules.RealValueFactor(distrusted), CurrencyRules.RealValueFactor(trusted),
+                "信認が低いほど実質購買力が下がる（額面通りに通らない）");
+            Assert.AreEqual(1f, CurrencyRules.RealValueFactor(null), 1e-5f);
+        }
+
+        // ===== 市場価格→物価（#179↔物価 コストプッシュ） =====
+
+        [Test]
+        public void TickYear_MarketPressureAddsInflation()
+        {
+            var baseC = new CurrencyState();
+            var pressC = new CurrencyState();
+            var fs = new FiscalState(revenue: 100f, baseExpenditure: 100f, debt: 0f); // 赤字0
+            float economy = 200f;
+
+            CurrencyRules.TickYear(baseC, fs, economy, 1f, marketPressure: 0f);
+            CurrencyRules.TickYear(pressC, fs, economy, 1f, marketPressure: 0.2f);
+
+            Assert.Greater(pressC.inflationRate, baseC.inflationRate, "市場の逼迫はコストプッシュでインフレを上げる");
+        }
+
         [Test]
         public void TickYear_NullSafe()
         {

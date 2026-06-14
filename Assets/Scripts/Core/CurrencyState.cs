@@ -24,6 +24,15 @@ namespace Ginei
         /// <summary>政策金利（中央銀行・将来用）。</summary>
         public float policyRate = 0.02f;
 
+        /// <summary>基軸通貨度 0..1（#ReserveCurrencyRules＝世界の決済標準である度合い。高いほど発行益＝法外な特権）。</summary>
+        public float reserveStatus = 0f;
+        /// <summary>貨幣の品位＝銀含有 0..1（#CoinageRules・1=純。改鋳で下げると発行益だが信認が崩れる）。</summary>
+        public float silverContent = 1f;
+        /// <summary>通貨への信認 0..1（#CoinageRules・品位低下の露見で崩れ、戻すと回復。低いと額面通りに通らない＝グレシャム）。</summary>
+        public float publicTrust = 1f;
+        /// <summary>直近の発行益（基軸特権＋改鋳・表示用）。</summary>
+        public float seigniorageIncome = 0f;
+
         public CurrencyState() { }
 
         public CurrencyState(string currencyName)

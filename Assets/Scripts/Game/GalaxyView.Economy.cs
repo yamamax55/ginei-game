@@ -86,6 +86,10 @@ namespace Ginei
             // ③ 帰結（出資度→実効・G3/G5）：社会保障→希望／財政健全度→希望／内政→安定度／債務スパイラル通知。
             var p = FiscalRules.FiscalParams.Default;
             var adminBonusByFaction = new System.Collections.Generic.Dictionary<Faction, float>();
+            // 基軸通貨（#ReserveCurrencyRules）用：世界全体の経済規模＝交易量・各勢力のシェアの分母。
+            float totalEconomy = 0f;
+            for (int i = 0; i < camp.states.Count; i++)
+                if (camp.states[i] != null) totalEconomy += Mathf.Max(0f, CampaignRules.EconomyBase(camp.states[i]));
             for (int i = 0; i < camp.states.Count; i++)
             {
                 FactionState s = camp.states[i];
@@ -111,10 +115,28 @@ namespace Ginei
                 // 通貨（#通貨 配線）：赤字の貨幣化→インフレ／財政健全度→為替。固有名は決定論で割り当て（冪等）。
                 s.currency = CurrencyRules.Ensure(s.currency, s.faction);
                 bool hyper = s.currency.priceLevel > 0f && InflationRules.IsHyperinflation(s.currency.inflationRate);
-                CurrencyRules.TickYear(s.currency, s.fiscal, economy, 1f);
+                float marketPressure = MarketPressureOf(s.faction); // 市場価格#179→物価（前年の市場逼迫＝コストプッシュ）
+                CurrencyRules.TickYear(s.currency, s.fiscal, economy, 1f, marketPressure);
                 if (!hyper && InflationRules.IsHyperinflation(s.currency.inflationRate))
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
                         $"{s.faction} ハイパーインフレ（{s.currency.currencyName}・年率 {(int)(s.currency.inflationRate * 100)}%）");
+
+                // 基軸通貨（#ReserveCurrencyRules 配線）：交易/軍事/信認シェアから基軸度→世界交易の発行益（不労所得）を国庫へ。
+                float health2 = economy > 0f ? FiscalRules.FiscalHealthFactor(s.fiscal, economy, p) : 1f;
+                float share = totalEconomy > 0f ? Mathf.Clamp01(economy / totalEconomy) : 0f;
+                float reserveSeigniorage = CurrencyRules.TickReserve(s.currency, share, share, health2, totalEconomy, 1f);
+                s.treasury += reserveSeigniorage;
+
+                // 通貨改鋳（#CoinageRules 配線）：財政難ほど品位を落として発行益を得る（健全=純1.0／困窮=0.5まで改鋳）→信認毀損。
+                float targetSilver = Mathf.Clamp01(0.5f + 0.5f * health2);
+                float prevTrust = s.currency.publicTrust;
+                float mintGain = CurrencyRules.TickCoinage(s.currency, targetSilver, 1f);
+                s.treasury += mintGain;
+                if (s.community != null && s.currency.publicTrust < 0.6f) // 改鋳の露見＝信認低下で民心毀損（グレシャム）
+                    s.community.hope = Mathf.Clamp01(s.community.hope - (0.6f - s.currency.publicTrust) * 0.1f);
+                if (prevTrust >= 0.5f && s.currency.publicTrust < 0.5f)
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{s.faction} 通貨改鋳の露見＝{s.currency.currencyName}の信認低下（品位 {(int)(s.currency.silverContent * 100)}%）");
 
                 // 国債（#161/#185 配線）：額面を債務に同期し、財政健全度→信用リスク・市場金利→価格を収束（財政悪化→価格↓利回り↑）。
                 s.sovereignBond = SovereignBondRules.Ensure(s.sovereignBond, s.faction);
@@ -176,6 +198,38 @@ namespace Ginei
         /// <summary>勢力の市場（指定財の需給/価格・M-1 #179）。未生成なら null。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
         public Market GetMarket(Faction faction, GoodType good)
             => markets.TryGetValue(faction, out var arr) && arr != null && (int)good < arr.Length ? arr[(int)good] : null;
+
+        // 市場価格#179→物価：市場の逼迫（需要>供給）をコストプッシュへ写す係数と上限（runaway 回避で控えめ・bounded）。
+        private const float MarketCostPushScale = 0.1f, MarketCostPushCap = 0.2f;
+
+        /// <summary>勢力の市場逼迫（前年）をインフレのコストプッシュ（0..上限）へ写す＝市場価格#179→物価。</summary>
+        private float MarketPressureOf(Faction fac)
+        {
+            if (!markets.TryGetValue(fac, out var mk) || mk == null) return 0f;
+            float sum = 0f; int n = 0;
+            for (int g = 0; g < mk.Length; g++)
+            {
+                Market m = mk[g];
+                if (m == null || m.supply <= 0f) continue;
+                sum += Mathf.Max(0f, m.demand / m.supply - 1f); // 需給比>1＝逼迫
+                n++;
+            }
+            return n == 0 ? 0f : Mathf.Clamp(sum / n * MarketCostPushScale, 0f, MarketCostPushCap);
+        }
+
+        /// <summary>勢力通貨の物価水準（インフレ）。未設定は1.0＝物価→市場の名目スケール。</summary>
+        private float PriceLevelOf(Faction fac)
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return 1f;
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                var st = camp.states[i];
+                if (st != null && st.faction == fac && st.currency != null)
+                    return Mathf.Max(0.01f, st.currency.priceLevel);
+            }
+            return 1f;
+        }
 
         /// <summary>星系の生産チェーン在庫（森林→木材→建材→住宅・#2091）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
         public ChainStock GetChainStock(int systemId)
@@ -250,8 +304,13 @@ namespace Ginei
                 mk[1].supply = supFuel;     mk[1].demand = popTotal * DemandFuel;
                 mk[2].supply = supAmmo;     mk[2].demand = popTotal * DemandAmmo;
                 mk[3].supply = supLuxury;   mk[3].demand = popTotal * DemandLuxury;
+                // 物価→市場（#179↔物価）：通貨のインフレ（priceLevel）で名目の基準価格が上がる＝市場価格に物価が乗る。
+                float priceLevel = PriceLevelOf(fac);
                 for (int g = 0; g < mk.Length; g++)
-                    MarketRules.Tick(mk[g], MarketGoods[g], MarketRules.MarketParams.Default, 1f);
+                {
+                    var scaledGood = new Good(MarketGoods[g].goodType, MarketGoods[g].basePrice * priceLevel);
+                    MarketRules.Tick(mk[g], scaledGood, MarketRules.MarketParams.Default, 1f);
+                }
 
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
                 var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);

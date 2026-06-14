@@ -35,22 +35,58 @@ namespace Ginei
         /// <summary>
         /// 通貨を1年ぶん進める：赤字（歳出&gt;歳入）を貨幣化＝通貨増発（対経済規模）→物価上昇／インフレ率、
         /// 通貨供給は赤字ぶん増える、財政健全度→為替係数。黒字なら増発0＝物価は均衡へ収束する。
+        /// <paramref name="marketPressure"/>（0..・市場の逼迫＝需要超）はコストプッシュとして増発相当に上乗せ（市場価格#179→物価）。
         /// </summary>
-        public static void TickYear(CurrencyState c, FiscalState fs, float economy, float dt)
+        public static void TickYear(CurrencyState c, FiscalState fs, float economy, float dt, float marketPressure = 0f)
         {
             if (c == null || fs == null || dt <= 0f) return;
 
             var ip = InflationParams.Default;
             var fp = FiscalRules.FiscalParams.Default;
 
-            // 赤字を中央銀行が刷って埋める＝通貨増発（対経済規模 0..1）。黒字は0。
+            // 赤字を中央銀行が刷って埋める＝通貨増発（対経済規模 0..1）。黒字は0。市場の逼迫をコストプッシュで上乗せ。
             float deficit = Mathf.Max(0f, fs.baseExpenditure - fs.revenue);
-            float printing = economy > 0f ? Mathf.Clamp01(deficit / economy) : 0f;
+            float printing = economy > 0f ? deficit / economy : 0f;
+            printing = Mathf.Clamp01(printing + Mathf.Max(0f, marketPressure));
 
             c.inflationRate = InflationRules.InflationRate(printing, DefaultOutputGrowth, ip);
             c.priceLevel = InflationRules.PriceLevelTick(c.priceLevel, printing, DefaultOutputGrowth, dt, ip);
             c.moneySupply = Mathf.Max(0f, c.moneySupply + deficit * dt);
             c.exchangeRate = economy > 0f ? FiscalRules.ExchangeRateFactor(fs, economy, fp) : 1f;
         }
+
+        /// <summary>
+        /// 基軸通貨（#ReserveCurrencyRules 配線）：交易シェア・軍事覇権・発行体信認から基軸度を更新し、
+        /// 世界交易量に応じた発行益（不労所得＝法外な特権）を返す（行き先＝国庫は呼び出し側）。
+        /// </summary>
+        public static float TickReserve(CurrencyState c, float tradeShare, float militaryHegemony, float trustInIssuer, float globalTradeVolume, float dt)
+        {
+            if (c == null || dt <= 0f) return 0f;
+            c.reserveStatus = Mathf.Clamp01(ReserveCurrencyRules.ReserveStatusTick(
+                c.reserveStatus, tradeShare, militaryHegemony, trustInIssuer, dt));
+            c.seigniorageIncome = ReserveCurrencyRules.SeigniorageIncome(c.reserveStatus, Mathf.Max(0f, globalTradeVolume));
+            return c.seigniorageIncome;
+        }
+
+        /// <summary>
+        /// 通貨改鋳（#CoinageRules 配線）：品位（銀含有）を <paramref name="targetSilverContent"/> へ寄せ、期待(純=1)を
+        /// 下回ると信認が崩れる／戻すと回復する。品位を下げたぶんの改鋳益（シニョリッジ）を返す（行き先＝国庫は呼び出し側）。
+        /// </summary>
+        public static float TickCoinage(CurrencyState c, float targetSilverContent, float dt)
+        {
+            if (c == null || dt <= 0f) return 0f;
+            var p = CoinageParams.Default;
+            float prevSilver = c.silverContent;
+            c.silverContent = Mathf.Clamp01(Mathf.MoveTowards(c.silverContent, Mathf.Clamp01(targetSilverContent), dt));
+            // 品位が期待(1.0)を下回ると信認が崩れ、戻すと回復する（露見の力学）。
+            c.publicTrust = Mathf.Clamp01(CoinageRules.DebasementTick(c.publicTrust, c.silverContent, 1f, dt, p));
+            // 改鋳益＝このtickで減らした品位ぶん×通貨供給（貴金属を抜いたぶんが発行益）。
+            float minted = Mathf.Max(0f, prevSilver - c.silverContent) * Mathf.Max(0f, c.moneySupply);
+            return minted;
+        }
+
+        /// <summary>信認による実質購買力（#CoinageRules）＝1未満なら通貨が額面通りに通らない（グレシャム＝悪貨が良貨を駆逐）。</summary>
+        public static float RealValueFactor(CurrencyState c)
+            => c == null ? 1f : CoinageRules.RealPurchasingPower(1f, c.publicTrust);
     }
 }

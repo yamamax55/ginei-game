@@ -148,8 +148,17 @@ namespace Ginei
                   .Append(infl >= 0.5f ? "#ff7a6a" : (infl >= 0.1f ? "#ffd28a" : "#a0e0a0")).Append('>')
                   .Append((infl * 100f).ToString("0.0")).Append("%</color>")
                   .Append("　<color=#9fb0c0>通貨供給</color> ").Append(s.currency.moneySupply.ToString("#,0")).Append('\n');
+                // 基軸通貨（#ReserveCurrencyRules）＋通貨改鋳（#CoinageRules）。
+                sb.Append("  <color=#9fb0c0>基軸度</color> ").Append((s.currency.reserveStatus * 100f).ToString("0")).Append('%')
+                  .Append("　<color=#9fb0c0>発行益</color> ").Append(s.currency.seigniorageIncome.ToString("#,0"))
+                  .Append("　<color=#9fb0c0>品位</color> ").Append((s.currency.silverContent * 100f).ToString("0")).Append('%')
+                  .Append("　<color=#9fb0c0>信認</color> <color=")
+                  .Append(s.currency.publicTrust < 0.5f ? "#ff7a6a" : (s.currency.publicTrust < 0.8f ? "#ffd28a" : "#a0e0a0")).Append('>')
+                  .Append((s.currency.publicTrust * 100f).ToString("0")).Append("%</color>\n");
                 if (InflationRules.IsHyperinflation(infl))
                     sb.Append("  <color=#ff7a6a>⚠ ハイパーインフレ</color>\n");
+                if (s.currency.publicTrust < 0.5f)
+                    sb.Append("  <color=#ff7a6a>⚠ 改鋳の露見＝通貨信認の崩壊（グレシャム）</color>\n");
             }
 
             // 国債（#161/#185 配線）：額面=債務／価格・利回りは財政悪化で逆相関に動く。

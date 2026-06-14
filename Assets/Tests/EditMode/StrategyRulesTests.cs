@@ -145,11 +145,37 @@ namespace Ginei.Tests
             Assert.AreEqual(0, StrategyRules.CollidedEncounters(null).Count);
             Assert.AreEqual(0, StrategyRules.BeginEngagements(null));
             Assert.AreEqual(0, StrategyRules.ResolveEncounters(null));
+            Assert.AreEqual(0, StrategyRules.ResolveEncounters(null, new System.Collections.Generic.List<EncounterOutcome>()));
             Assert.IsFalse(StrategyRules.TryFindCollision(null, out _, out _));
             Assert.IsFalse(StrategyRules.TryGetEngagementOnCorridor(null, 0, 1, out _, out _));
             Assert.AreEqual(0, StrategyRules.ResolveAllOccupations(null, null));
             Assert.AreEqual(0, StrategyRules.TickSieges(null, null, 1f));
             Assert.IsFalse(StrategyRules.ApplyHandoffResult(null));
+        }
+
+        [Test]
+        public void ResolveEncounters_RecordsOutcome_WinnerLoserLocationSurvivor()
+        {
+            var m = MakeMap();
+            var imp = new StrategicFleet(1, 0, Faction.帝国); imp.strength = 100; imp.BeginWarp(m, 1); // 0→1
+            var ally = new StrategicFleet(2, 1, Faction.同盟); ally.strength = 60; ally.BeginWarp(m, 0); // 1→0（同一回廊）
+            var reg = new StrategicFleetRegistry(m); reg.Add(imp); reg.Add(ally);
+
+            var outcomes = new System.Collections.Generic.List<EncounterOutcome>();
+            int resolved = 0, safety = 0;
+            while (resolved == 0 && safety++ < 1000)
+            {
+                reg.Tick(0.1f);                                  // 回廊上を進めて接触させる
+                resolved = StrategyRules.ResolveEncounters(reg, outcomes);
+            }
+
+            Assert.AreEqual(1, resolved, "接触で1件解決する");
+            Assert.AreEqual(1, outcomes.Count);
+            Assert.AreEqual(Faction.帝国, outcomes[0].winner, "兵力100が勝つ");
+            Assert.AreEqual(Faction.同盟, outcomes[0].loser);
+            Assert.AreEqual(40, outcomes[0].survivorStrength, "残存＝100-60");
+            Assert.AreEqual(0, outcomes[0].sysMin, "発生回廊は {0,1}");
+            Assert.AreEqual(1, outcomes[0].sysMax);
         }
 
         [Test]

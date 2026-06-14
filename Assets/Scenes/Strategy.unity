@@ -240,8 +240,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 77c6597a7e4e439f91631d32b5eb41fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Ginei.Runtime::Ginei.GalaxyView
-  systemScale: 0.8
-  fleetScale: 0.4
+  systemScale: 1.6
+  fleetScale: 0.7
   empireColor: {r: 0.85, g: 0.3, b: 0.25, a: 1}
   allianceColor: {r: 0.3, g: 0.5, b: 0.9, a: 1}
   corridorColor: {r: 0.5, g: 0.55, b: 0.7, a: 0.9}

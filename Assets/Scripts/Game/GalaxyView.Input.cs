@@ -343,7 +343,25 @@ namespace Ginei
         private bool TryDescend(Vector2 w)
         {
             if (!NearestCorridor(w, out Corridor c, out _, out float d) || d > 0.6f) return false;
-            if (!StrategyRules.TryGetEngagementOnCorridor(reg, c.aId, c.bId, out var a, out var b)) return false;
+            return DescendCorridorBySystems(c.aId, c.bId);
+        }
+
+        /// <summary>
+        /// 指定回廊（星系 sysA–sysB）上の交戦中ペアへ潜行する（接敵通知のダブルクリックからも呼ぶ）。
+        /// その回廊に交戦が無ければ（既に決着等）false。戦略シーン以外では何もしない（stale 起動の保険）。
+        /// </summary>
+        public bool DescendCorridorBySystems(int sysA, int sysB)
+        {
+            if (reg == null) return false;
+            if (SceneManager.GetActiveScene().name != "Strategy") return false;
+            if (!StrategyRules.TryGetEngagementOnCorridor(reg, sysA, sysB, out var a, out var b)) return false;
+            return DescendOnEngagement(a, b);
+        }
+
+        /// <summary>交戦中ペア a/b の会戦へ潜行（Battle シーンへ）。旗幟・軍の質を積んで受け渡す。</summary>
+        private bool DescendOnEngagement(StrategicFleet a, StrategicFleet b)
+        {
+            if (a == null || b == null) return false;
             BattleHandoff.Queue(a, b, "Strategy");
 
             // 旗幟（#817）：国家状態から基準忠誠/調略の付け入りやすさを積む＝腐った国の艦隊は会戦中に寝返りうる。

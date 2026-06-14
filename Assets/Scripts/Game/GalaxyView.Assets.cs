@@ -21,6 +21,17 @@ namespace Ginei
             return null;
         }
 
+        /// <summary>id から人物を解決（武官 commanders と文民 civilians の両方）＝資産収益を文民/指導者にも流す。</summary>
+        private Person ResolvePerson(int id)
+        {
+            Person c = ResolveCommander(id);
+            if (c != null) return c;
+            if (civilians != null)
+                for (int i = 0; i < civilians.Count; i++)
+                    if (civilians[i] != null && civilians[i].id == id) return civilians[i];
+            return null;
+        }
+
         /// <summary>相続人＝故人と同勢力の最高位の存命司令（本人除く・同位は先頭）。不在なら null（=没収）。</summary>
         private Person FindHeir(Person d)
         {
@@ -62,6 +73,25 @@ namespace Ginei
                         value = 800f, upkeepRate = 0.03f, prestige = 8f
                     };
                     NamedAssetRegistry.Register(flagship);
+                }
+            // 文民/指導者の固有資産：君主＝領地、政治家＝邸宅、文官/技術者＝小邸宅（私有財産カードのテスト充実）。
+            if (civilians != null)
+                for (int i = 0; i < civilians.Count; i++)
+                {
+                    Person c = civilians[i];
+                    if (c == null) continue;
+                    var voc = PersonVocationRules.VocationOf(c);
+                    NamedAsset a;
+                    if (voc == PersonVocation.君主)
+                        a = new NamedAsset(NamedAssetRegistry.NextId(), $"{c.name}の御料地", NamedAssetCategory.領地)
+                        { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, value = 8000f, yieldRate = 0.03f, prestige = 25f };
+                    else if (voc == PersonVocation.政治家)
+                        a = new NamedAsset(NamedAssetRegistry.NextId(), $"{c.name}邸", NamedAssetCategory.邸宅)
+                        { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, value = 2000f, upkeepRate = 0.02f, prestige = 6f };
+                    else
+                        a = new NamedAsset(NamedAssetRegistry.NextId(), $"{c.name}邸", NamedAssetCategory.邸宅)
+                        { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, value = 600f, upkeepRate = 0.01f, prestige = 2f };
+                    NamedAssetRegistry.Register(a);
                 }
             namedAssetsSeeded = true;
         }
@@ -112,6 +142,23 @@ namespace Ginei
                     var deed = new PropertyDeed(0, c.faction == Faction.同盟 ? 1 : 0, 0.2f, 3000f)
                     { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, rentRate = 0.04f };
                     PropertyDeedRegistry.Register(deed);
+                }
+            // 文民/指導者の金融資産・不動産：君主/政治家ほど厚い（私有財産カードのテスト充実）。
+            if (civilians != null)
+                for (int i = 0; i < civilians.Count; i++)
+                {
+                    Person c = civilians[i];
+                    if (c == null) continue;
+                    var voc = PersonVocationRules.VocationOf(c);
+                    float units = voc == PersonVocation.君主 ? 800f : voc == PersonVocation.政治家 ? 200f : 40f;
+                    FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.株式, $"{c.faction}重工")
+                    { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, underlyingId = underlying++, units = units, unitPrice = 10f, incomePerUnit = 0.5f, bookCost = units * 10f });
+                    if (voc == PersonVocation.君主 || voc == PersonVocation.政治家)
+                    {
+                        var cdeed = new PropertyDeed(0, c.faction == Faction.同盟 ? 1 : 0, voc == PersonVocation.君主 ? 0.4f : 0.15f, 4000f)
+                        { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, rentRate = 0.04f };
+                        PropertyDeedRegistry.Register(cdeed);
+                    }
                 }
             financialAssetsSeeded = true;
         }

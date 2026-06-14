@@ -39,10 +39,10 @@ namespace Ginei
                 int y = campaignYear;
                 int id = 1;
                 // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
-                commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
-                commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
-                commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
-                commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+                commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8, wealth = 30000, financialTrait = FinancialTrait.貯金 });
+                commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8, wealth = 45000, financialTrait = FinancialTrait.投資 });
+                commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7, wealth = 12000, financialTrait = FinancialTrait.浪費 });
+                commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9, wealth = 55000, financialTrait = FinancialTrait.貯金 });
                 id = SeedFoundingYouth(id, y); // 世代交代ループの種＝結婚適齢の若者（男女）
                 id = SeedDemoCivilService(id, y); // 指導者/政治家/文官/官僚/技術者をシード（人事観測層のテスト）
                 nextPersonId = id; // 卒業生はこの続き番号で採番
@@ -315,28 +315,28 @@ namespace Ginei
             if (DemoFactions == null || civilians == null) return id;
             foreach (Faction fac in DemoFactions)
             {
-                // 指導者：君主/元首
+                // 指導者：君主/元首（私有財産も多め＝詳細カードの私有財産テスト）
                 string sov = fac == Faction.帝国 ? "皇帝（デモ）" : "最高評議会議長（デモ）";
                 civilians.Add(new Person(id++, sov, fac, PersonRole.文民)
-                { isSovereign = true, birthYear = year - 50, leadership = 82, operation = 78, intelligence = 75 });
+                { isSovereign = true, birthYear = year - 50, leadership = 82, operation = 78, intelligence = 75, wealth = 500000, financialTrait = FinancialTrait.投資 });
 
                 // 指導者：政治家（民意と票で生き死にする・GOV-6）
                 civilians.Add(new Person(id++, $"{fac}の政治家A", fac, PersonRole.文民)
-                { isPolitician = true, birthYear = year - 48, leadership = 66, operation = 70, intelligence = 72 });
+                { isPolitician = true, birthYear = year - 48, leadership = 66, operation = 70, intelligence = 72, wealth = 60000, financialTrait = FinancialTrait.浪費 });
                 civilians.Add(new Person(id++, $"{fac}の政治家B", fac, PersonRole.文民)
-                { isPolitician = true, birthYear = year - 56, leadership = 60, operation = 66, intelligence = 68 });
+                { isPolitician = true, birthYear = year - 56, leadership = 60, operation = 66, intelligence = 68, wealth = 40000, financialTrait = FinancialTrait.投資 });
 
                 // 文民：文官・官僚（行政の主流）
                 civilians.Add(new Person(id++, $"{fac}の文官（次官）", fac, PersonRole.文民)
-                { birthYear = year - 45, operation = 75, intelligence = 70 });
+                { birthYear = year - 45, operation = 75, intelligence = 70, wealth = 18000, financialTrait = FinancialTrait.貯金 });
                 civilians.Add(new Person(id++, $"{fac}の官僚（局長）", fac, PersonRole.文民)
-                { birthYear = year - 52, operation = 68, intelligence = 66 });
+                { birthYear = year - 52, operation = 68, intelligence = 66, wealth = 12000, financialTrait = FinancialTrait.貯金 });
                 civilians.Add(new Person(id++, $"{fac}の官僚（事務官）", fac, PersonRole.文民)
-                { birthYear = year - 38, operation = 60, intelligence = 63 });
+                { birthYear = year - 38, operation = 60, intelligence = 63, wealth = 6000, financialTrait = FinancialTrait.貯金 });
 
                 // 文民：技術者（テクノクラート＝技才が文才以上）
                 civilians.Add(new Person(id++, $"{fac}の技術官僚", fac, PersonRole.文民)
-                { birthYear = year - 42, operation = 55, intelligence = 56, research = 76, engineering = 72, planning = 62, production = 66 });
+                { birthYear = year - 42, operation = 55, intelligence = 56, research = 76, engineering = 72, planning = 62, production = 66, wealth = 15000, financialTrait = FinancialTrait.投資 });
             }
             return id;
         }
@@ -700,7 +700,7 @@ namespace Ginei
 
             // ネームド資産（NASSET-6・#2063 配線）：人物/国家が固有名の資産（旗艦・宮殿等）を持ち、収益→財産・値上がり・相続。
             SeedNamedAssets();                                  // デモ資産シード（冪等）
-            NamedAssetTickRules.TickYear(ResolveCommander);     // 純収益→所有者 wealth#2056・時価値上がり
+            NamedAssetTickRules.TickYear(ResolvePerson);        // 純収益→所有者 wealth#2056・時価値上がり（武官/文民とも）
             for (int f = 0; f < DemoFactions.Length; f++)       // 国家資産の純収益は国庫#163 相当へ（デモはログのみ）
             {
                 float fInc = NamedAssetEffectRules.FactionAnnualIncome(DemoFactions[f]);
@@ -711,7 +711,7 @@ namespace Ginei
             // ネームド金融資産・不動産（NFIN-6・#2070 配線）：株式/債券/投資信託の配当・惑星所有権の地代→財産、紙くず化。
             SeedFinancialAssets();                                  // デモ金融/不動産シード（冪等）
             MaybeCrashAStock();                                     // 紙くず化デモ（暴落#185）
-            NamedFinancialTickRules.TickYear(ResolveCommander);    // 配当/地代→所有者 wealth#2056
+            NamedFinancialTickRules.TickYear(ResolvePerson);       // 配当/地代→所有者 wealth#2056（武官/文民とも）
             for (int f = 0; f < DemoFactions.Length; f++)          // 国家の金融/不動産収益（デモはログ）
             {
                 float fInc = NamedFinancialTickRules.FactionAnnualIncome(DemoFactions[f]);

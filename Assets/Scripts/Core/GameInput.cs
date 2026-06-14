@@ -22,6 +22,7 @@ namespace Ginei
         法令観測切替,
         教育観測切替,
         艦艇観測切替,
+        政治観測切替,
         // 会戦
         ポーズ,
         倍速等速,
@@ -95,6 +96,8 @@ namespace Ginei
             new InputBinding(GameAction.教育観測切替,     Key.U,         InputContext.共通),
             // 艦艇オブザーバ（艦艇プール 総/割当/残＋艦隊台帳 兵力/指揮班を観測＝戦略/会戦で開閉）。
             new InputBinding(GameAction.艦艇観測切替,     Key.B,         InputContext.共通),
+            // 政治オブザーバ（政党制・選挙日程・成熟度/分極化を観測＝戦略/会戦で開閉）。
+            new InputBinding(GameAction.政治観測切替,     Key.Y,         InputContext.共通),
             new InputBinding(GameAction.ポーズ,         Key.Space,     InputContext.会戦),
             new InputBinding(GameAction.倍速等速,       Key.Digit1,    InputContext.会戦),
             new InputBinding(GameAction.倍速2倍,        Key.Digit2,    InputContext.会戦),
@@ -246,6 +249,7 @@ namespace Ginei
             { GameAction.法令観測切替,   "法令オブザーバを開く / 閉じる（法の支配/法治・治安＝犯罪→秩序→抑圧）" },
             { GameAction.教育観測切替,   "教育オブザーバを開く / 閉じる（教育チェーン 幼→小→中→高→上級 と人材供給）" },
             { GameAction.艦艇観測切替,   "艦艇オブザーバを開く / 閉じる（艦艇プール 総/割当/残・艦隊台帳の兵力/指揮班）" },
+            { GameAction.政治観測切替,   "政治オブザーバを開く / 閉じる（政党制・選挙日程・成熟度/分極化）" },
             { GameAction.ポーズ,         "ポーズ / 再開" },
             { GameAction.倍速等速,       "等速（×1）" },
             { GameAction.倍速2倍,        "倍速（×2）" },

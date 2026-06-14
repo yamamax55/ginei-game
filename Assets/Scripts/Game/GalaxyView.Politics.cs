@@ -156,6 +156,35 @@ namespace Ginei
             }
         }
 
+        /// <summary>
+        /// 政治観測層をすぐ確認できるよう、開始時にデモ政体（帝国＝君主制／同盟＝共和制）を確定し、
+        /// 民主政治（選挙）の勢力に二院＋デモ政党をシードする（年次の <see cref="RunPoliticsTick"/> を待たずに表示できる）。
+        /// 形態の確定はここで一度きり（<see cref="regimeFormsSeeded"/>＝tick 側の再確定を抑止）。
+        /// </summary>
+        private void SeedDemoPolitics()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null) continue;
+                if (s.governmentForm == GovernmentForm.首長制)
+                    s.governmentForm = s.faction == Faction.帝国 ? GovernmentForm.君主制
+                                     : s.faction == Faction.同盟 ? GovernmentForm.共和制
+                                     : GovernmentForm.首長制;
+
+                if (ElectoralSystemRules.IsElectoral(s.governmentForm))
+                {
+                    if (s.politics == null) s.politics = new PoliticsState();
+                    PoliticsTickRules.EnsureChambers(s.politics, campaignYear);
+                    SeedDemoParties(s);
+                }
+            }
+            regimeFormsSeeded = true; // tick 側の形態確定をスキップ（ここで確定済み）
+        }
+
         /// <summary>デモ用の政党シード：多党乱立から出発させる（成熟が上がると二大政党へ収束する＝#159）。</summary>
         private void SeedDemoParties(FactionState s)
         {

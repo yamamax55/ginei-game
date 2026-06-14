@@ -289,6 +289,7 @@ namespace Ginei
             AddCommand(cmd.transform, "軍事", () => UnityEngine.Object.FindAnyObjectByType<MilitaryObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "艦艇", () => UnityEngine.Object.FindAnyObjectByType<FleetObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "人事", () => UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "政治", () => UnityEngine.Object.FindAnyObjectByType<PoliticsObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "決裁", () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle());
             AddCommand(cmd.transform, "法令", () => UnityEngine.Object.FindAnyObjectByType<LawObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "教育", () => UnityEngine.Object.FindAnyObjectByType<EducationObserverOverlay>()?.Toggle());

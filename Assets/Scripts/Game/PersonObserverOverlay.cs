@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -35,6 +36,16 @@ namespace Ginei
         private readonly List<Image> tabBgs = new List<Image>();
         private readonly List<TextMeshProUGUI> tabTexts = new List<TextMeshProUGUI>();
 
+        // 人物名のクリック（TMP リンク）→ 詳細カード（士官情報）
+        private readonly Dictionary<string, object> linkTargets = new Dictionary<string, object>();
+        private int linkSeq;
+        private GameObject detailRoot;
+        private Image detailPortrait;
+        private TextMeshProUGUI detailPortraitInitial;
+        private TextMeshProUGUI detailTitle;
+        private TextMeshProUGUI detailBody;
+        private object escDetailToken;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
@@ -63,13 +74,40 @@ namespace Ginei
             escWindowToken = UIWindowStack.Register(() => root != null && root.activeSelf, () => SetVisible(false), canvasSortingOrder, "人事");
         }
 
-        private void OnDestroy() => UIWindowStack.Unregister(escWindowToken);
+        private void OnDestroy()
+        {
+            UIWindowStack.Unregister(escWindowToken);
+            UIWindowStack.Unregister(escDetailToken);
+        }
 
         private void Update()
         {
             if (GameInput.WasPressed(GameAction.人物名鑑切替)) Toggle();
             if (root != null && root.activeSelf && bodyLabel != null)
+            {
                 bodyLabel.text = BuildDump();
+                HandleLinkClick();
+            }
+        }
+
+        /// <summary>本文の人物名（TMP リンク）をクリックしたら詳細カードを開く。</summary>
+        private void HandleLinkClick()
+        {
+            if (detailRoot != null && detailRoot.activeSelf) return; // 詳細表示中は本文クリックを無視
+            if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
+            Vector2 mp = Mouse.current.position.ReadValue();
+            int li = TMP_TextUtilities.FindIntersectingLink(bodyLabel, mp, null); // overlay＝camera null
+            if (li < 0) return;
+            string id = bodyLabel.textInfo.linkInfo[li].GetLinkID();
+            if (linkTargets.TryGetValue(id, out object obj)) OpenDetail(obj);
+        }
+
+        /// <summary>クリック対象をリンクID へ登録し、`&lt;link&gt;` のIDを返す（BuildDump 毎に採番リセット）。</summary>
+        private string Link(object o)
+        {
+            string id = "L" + (linkSeq++);
+            linkTargets[id] = o;
+            return id;
         }
 
         public void Toggle() { SetVisible(root != null && !root.activeSelf); }
@@ -86,7 +124,8 @@ namespace Ginei
         private string BuildDump()
         {
             var sb = new StringBuilder(4096);
-            sb.Append("<b>人事</b>　").Append(TabLabels[activeTab]).Append("　(P で閉じる)\n");
+            linkTargets.Clear(); linkSeq = 0; // 人物名リンクを毎回採番し直す
+            sb.Append("<b>人事</b>　").Append(TabLabels[activeTab]).Append("　<color=#8aa0b0>(名前クリックで詳細／P で閉じる)</color>\n");
             sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
 
             switch (activeTab)
@@ -127,7 +166,7 @@ namespace Ginei
             bool ruler = v == PersonVocation.君主;
             string label = ruler ? "君主/元首" : "政治家";
             string col = ruler ? "#ffd54a" : "#bfe9c0";
-            sb.Append($"\n<color={col}>◆ [{label}] {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>\n");
+            sb.Append($"\n<color={col}>◆ [{label}] <link=\"{Link(p)}\">{p.name}</link></color>　<color=#9fb0c0>[{p.faction}]</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
         }
 
@@ -168,7 +207,7 @@ namespace Ginei
         {
             string rank = RankSystem.ResolveRankNameOrDefault(null, p.rankTier);
             string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
-            sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　<color=#8aa0b0>{p.serviceStatus}</color>\n");
+            sb.Append($"\n<color=#bfe9c0>◆ {rankPart}<link=\"{Link(p)}\">{p.name}</link></color>　<color=#9fb0c0>[{p.faction}]</color>　<color=#8aa0b0>{p.serviceStatus}</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 攻撃 {p.attack} ／ 防御 {p.defense} ／ 機動 {p.mobility} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
         }
 
@@ -178,7 +217,7 @@ namespace Ginei
             string rank = RankSystem.ResolveRankNameOrDefault(null, a.rankTier);
             string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
             string proto = a.isProtagonist ? "　<color=#ffd54a>★主人公</color>" : "";
-            sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{a.EpithetName}</color>　<color=#9fb0c0>[{a.faction}]</color>{proto}\n");
+            sb.Append($"\n<color=#bfe9c0>◆ {rankPart}<link=\"{Link(a)}\">{a.EpithetName}</link></color>　<color=#9fb0c0>[{a.faction}]</color>{proto}\n");
             sb.Append($"  統率 {a.EffectiveLeadership} ／ 攻撃 {a.EffectiveAttack} ／ 防御 {a.EffectiveDefense}");
             sb.Append($" ／ 機動 {a.EffectiveMobility} ／ 運営 {a.EffectiveOperation} ／ 情報 {a.EffectiveIntelligence}\n");
             string extra = $"  指揮可能規模 〜{CommandCapacityRules.MaxStrengthForTier(a.rankTier):#,0}隻";
@@ -222,7 +261,7 @@ namespace Ginei
             string noble = JapaneseCourtRankRules.IsNobility(p.courtRank) ? "　<color=#ffd54a>貴族</color>" : "";
             string post = gv != null ? gv.CivilPostOf(p) : "";
             string postPart = string.IsNullOrEmpty(post) ? "" : $"　<color=#ffd54a>在任:{post}</color>";
-            sb.Append($"\n<color=#bfe9c0>◆ [{voc}] {ikai} {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　考第:{kou}{noble}{postPart}\n");
+            sb.Append($"\n<color=#bfe9c0>◆ [{voc}] {ikai} <link=\"{Link(p)}\">{p.name}</link></color>　<color=#9fb0c0>[{p.faction}]</color>　考第:{kou}{noble}{postPart}\n");
             if (v == PersonVocation.技術者)
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}　<color=#9aa7b3>研究 {p.research} ／ 技術 {p.engineering}</color>\n");
             else
@@ -278,8 +317,204 @@ namespace Ginei
             bodyLabel.raycastTarget = false;
             if (jpFont != null) bodyLabel.font = jpFont;
 
+            BuildDetail(canvasObj.transform);
+
             UpdateTabVisuals();
             root.SetActive(false);
+        }
+
+        // ===== 詳細カード（士官情報・人物名クリックで開く） =====
+
+        private void BuildDetail(Transform canvasTr)
+        {
+            detailRoot = new GameObject("Detail");
+            detailRoot.transform.SetParent(canvasTr, false);
+            var drt = detailRoot.AddComponent<RectTransform>();
+            drt.anchorMin = Vector2.zero; drt.anchorMax = Vector2.one;
+            drt.offsetMin = Vector2.zero; drt.offsetMax = Vector2.zero;
+            var dim = detailRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.55f);
+            var dimBtn = detailRoot.AddComponent<Button>(); // 外側クリックで閉じる
+            dimBtn.transition = UnityEngine.UI.Selectable.Transition.None;
+            dimBtn.onClick.AddListener(CloseDetail);
+
+            // フレーム（中央・士官情報カード）
+            var frame = new GameObject("DetailFrame");
+            frame.transform.SetParent(detailRoot.transform, false);
+            var frt = frame.AddComponent<RectTransform>();
+            frt.anchorMin = frt.anchorMax = new Vector2(0.5f, 0.5f);
+            frt.pivot = new Vector2(0.5f, 0.5f);
+            frt.sizeDelta = new Vector2(660f, 380f);
+            frame.AddComponent<Image>().color = new Color(0.10f, 0.13f, 0.20f, 0.99f);
+
+            // 肖像（プレースホルダ＝陣営色＋頭文字。専用立ち絵アセットは未整備のため簡易表示）
+            var portGo = new GameObject("Portrait");
+            portGo.transform.SetParent(frame.transform, false);
+            var portRt = portGo.AddComponent<RectTransform>();
+            portRt.anchorMin = new Vector2(0f, 1f); portRt.anchorMax = new Vector2(0f, 1f);
+            portRt.pivot = new Vector2(0f, 1f);
+            portRt.sizeDelta = new Vector2(150f, 170f);
+            portRt.anchoredPosition = new Vector2(22f, -22f);
+            detailPortrait = portGo.AddComponent<Image>();
+            detailPortrait.color = new Color(0.2f, 0.25f, 0.35f, 1f);
+            detailPortraitInitial = MakeLabel(portGo.transform, "", 64f, Color.white);
+            detailPortraitInitial.alignment = TextAlignmentOptions.Center;
+            var pirt = detailPortraitInitial.rectTransform;
+            pirt.anchorMin = Vector2.zero; pirt.anchorMax = Vector2.one;
+            pirt.offsetMin = Vector2.zero; pirt.offsetMax = Vector2.zero;
+
+            // 氏名＋階級（上部・肖像の右）
+            detailTitle = MakeLabel(frame.transform, "", 24f, new Color(1f, 0.85f, 0.4f));
+            var trt = detailTitle.rectTransform;
+            trt.anchorMin = new Vector2(0f, 1f); trt.anchorMax = new Vector2(1f, 1f);
+            trt.pivot = new Vector2(0f, 1f);
+            trt.offsetMin = new Vector2(190f, -52f); trt.offsetMax = new Vector2(-16f, -16f);
+            detailTitle.alignment = TextAlignmentOptions.TopLeft;
+
+            // 諸元（肖像の右・本文）
+            detailBody = MakeLabel(frame.transform, "", 18f, new Color(0.92f, 0.94f, 0.97f));
+            var brt = detailBody.rectTransform;
+            brt.anchorMin = new Vector2(0f, 0f); brt.anchorMax = new Vector2(1f, 1f);
+            brt.offsetMin = new Vector2(190f, 54f); brt.offsetMax = new Vector2(-16f, -56f);
+            detailBody.alignment = TextAlignmentOptions.TopLeft;
+            detailBody.enableWordWrapping = true;
+
+            // 閉じる
+            var btnObj = new GameObject("Close");
+            btnObj.transform.SetParent(frame.transform, false);
+            var crt = btnObj.AddComponent<RectTransform>();
+            crt.anchorMin = new Vector2(1f, 0f); crt.anchorMax = new Vector2(1f, 0f);
+            crt.pivot = new Vector2(1f, 0f);
+            crt.sizeDelta = new Vector2(120f, 38f);
+            crt.anchoredPosition = new Vector2(-16f, 14f);
+            btnObj.AddComponent<Image>().color = new Color(0.26f, 0.40f, 0.56f, 1f);
+            var cbtn = btnObj.AddComponent<Button>();
+            cbtn.transition = UnityEngine.UI.Selectable.Transition.None;
+            cbtn.onClick.AddListener(CloseDetail);
+            var clabel = MakeLabel(btnObj.transform, "閉じる", 18f, Color.white);
+            clabel.alignment = TextAlignmentOptions.Center;
+            var clrt = clabel.rectTransform;
+            clrt.anchorMin = Vector2.zero; clrt.anchorMax = Vector2.one;
+            clrt.offsetMin = Vector2.zero; clrt.offsetMax = Vector2.zero;
+
+            // ESC は詳細カードを先に閉じる（人事本体より手前）。
+            escDetailToken = UIWindowStack.Register(() => detailRoot != null && detailRoot.activeSelf, CloseDetail, canvasSortingOrder + 1, "士官情報");
+
+            detailRoot.SetActive(false);
+        }
+
+        private void OpenDetail(object obj)
+        {
+            if (obj == null || detailRoot == null) return;
+            if (obj is AdmiralData a) FillAdmiral(a);
+            else if (obj is Person p) FillPerson(p);
+            else return;
+            detailRoot.transform.SetAsLastSibling();
+            detailRoot.SetActive(true);
+        }
+
+        private void CloseDetail() { if (detailRoot != null) detailRoot.SetActive(false); }
+
+        private void FillAdmiral(AdmiralData a)
+        {
+            string rank = RankSystem.ResolveRankNameOrDefault(null, a.rankTier);
+            SetPortrait(a.faction, a.ShortName);
+            detailTitle.text = $"{(string.IsNullOrEmpty(rank) ? "" : rank + " ")}{a.EpithetName}";
+            var sb = new StringBuilder(512);
+            sb.Append($"<color=#9fb0c0>所属</color> {a.faction}　<color=#9fb0c0>職分</color> 武官（提督）\n");
+            if (a.isProtagonist) sb.Append("<color=#ffd54a>★主人公</color>\n");
+            sb.Append('\n');
+            sb.Append($"統率 <b>{a.EffectiveLeadership}</b>　　攻撃 <b>{a.EffectiveAttack}</b>　　防御 <b>{a.EffectiveDefense}</b>\n");
+            sb.Append($"機動 <b>{a.EffectiveMobility}</b>　　運営 <b>{a.EffectiveOperation}</b>　　情報 <b>{a.EffectiveIntelligence}</b>\n\n");
+            sb.Append($"<color=#9fb0c0>指揮可能規模</color> 〜{CommandCapacityRules.MaxStrengthForTier(a.rankTier):#,0} 隻\n");
+            if (a.HasStaff) sb.Append($"<color=#9fb0c0>参謀</color> {a.GetStaffNames()}\n");
+            if (a.hasPreferredFormation) sb.Append($"<color=#9fb0c0>得意陣形</color> {a.preferredFormation}\n");
+            detailBody.text = sb.ToString();
+        }
+
+        private void FillPerson(Person p)
+        {
+            var voc = PersonVocationRules.VocationOf(p);
+            string vlabel = voc.ToString();
+            string rank = p.role == PersonRole.軍人 ? RankSystem.ResolveRankNameOrDefault(null, p.rankTier) : "";
+            string ikai = JapaneseCourtRankRules.Name(p.courtRank);
+            SetPortrait(p.faction, p.name);
+            detailTitle.text = $"{(string.IsNullOrEmpty(rank) ? "" : rank + " ")}{p.name}";
+
+            var sb = new StringBuilder(512);
+            sb.Append($"<color=#9fb0c0>所属</color> {p.faction}　<color=#9fb0c0>職分</color> {vlabel}　<color=#9fb0c0>状態</color> {p.serviceStatus}\n");
+            if (p.role == PersonRole.文民) sb.Append($"<color=#9fb0c0>位階</color> {ikai}　<color=#9fb0c0>考第</color> {(p.merit != null ? p.merit.lastRating.ToString() : "未評定")}\n");
+            sb.Append('\n');
+            sb.Append($"統率 <b>{p.leadership}</b>　　攻撃 <b>{p.attack}</b>　　防御 <b>{p.defense}</b>\n");
+            sb.Append($"機動 <b>{p.mobility}</b>　　運営 <b>{p.operation}</b>　　情報 <b>{p.intelligence}</b>\n");
+            if (voc == PersonVocation.技術者 || p.research > 0 || p.engineering > 0)
+                sb.Append($"\n<color=#9aa7b3>研究 {p.research}　技術 {p.engineering}　計画 {p.planning}　生産 {p.production}</color>\n");
+            if (p.role == PersonRole.軍人)
+                sb.Append($"\n<color=#9fb0c0>指揮可能規模</color> 〜{CommandCapacityRules.MaxStrengthForTier(p.rankTier):#,0} 隻\n");
+
+            AppendPrivateAssets(sb, p);
+            detailBody.text = sb.ToString();
+        }
+
+        /// <summary>人物の私有財産（流動資産＋ネームド資産/金融資産/不動産）を詳細カードへ追記する（#2056/#2063/#2070）。</summary>
+        private void AppendPrivateAssets(StringBuilder sb, Person p)
+        {
+            int pid = p.id;
+            float liquid = p.wealth;
+            float netWorth = NamedAssetEffectRules.TotalNetWorthOfPerson(pid, liquid);
+            float income = NamedAssetEffectRules.PersonAnnualIncome(pid);
+            var named = NamedAssetRegistry.OwnedByPerson(pid);
+            var holdings = FinancialHoldingRegistry.OwnedByPerson(pid);
+            var deeds = PropertyDeedRegistry.OwnedByPerson(pid);
+
+            sb.Append("\n<color=#5b6b7a>──── 私有財産 ────</color>\n");
+            sb.Append($"<color=#9fb0c0>流動資産</color> {liquid:#,0}　<color=#9fb0c0>特性</color> {p.financialTrait}　<color=#9fb0c0>年収</color> {income:#,0}\n");
+            sb.Append($"<color=#9fb0c0>総資産</color> <b><color=#ffe08a>{netWorth:#,0}</color></b>\n");
+
+            const int Cap = 5;
+            if (named != null && named.Count > 0)
+            {
+                sb.Append($"<color=#9fb0c0>ネームド資産</color>（{named.Count}件・計 {NamedAssetRegistry.TotalValueOfPerson(pid):#,0}）\n");
+                for (int i = 0; i < named.Count && i < Cap; i++)
+                    sb.Append($"  ・[{named[i].category}] {named[i].name}　{named[i].value:#,0}\n");
+            }
+            if (holdings != null && holdings.Count > 0)
+            {
+                float mv = 0f; for (int i = 0; i < holdings.Count; i++) mv += FinancialAssetRules.MarketValue(holdings[i]);
+                sb.Append($"<color=#9fb0c0>金融資産</color>（{holdings.Count}件・時価 {mv:#,0}）\n");
+                for (int i = 0; i < holdings.Count && i < Cap; i++)
+                    sb.Append($"  ・{holdings[i].instrument} {holdings[i].units:#,0}口　時価 {FinancialAssetRules.MarketValue(holdings[i]):#,0}\n");
+            }
+            if (deeds != null && deeds.Count > 0)
+            {
+                float dv = 0f; for (int i = 0; i < deeds.Count; i++) dv += PropertyValuationRules.DeedValue(deeds[i]);
+                sb.Append($"<color=#9fb0c0>不動産</color>（{deeds.Count}件・評価 {dv:#,0}）\n");
+                for (int i = 0; i < deeds.Count && i < Cap; i++)
+                    sb.Append($"  ・星系{deeds[i].systemId}　持分 {deeds[i].share:0.##}　評価 {PropertyValuationRules.DeedValue(deeds[i]):#,0}\n");
+            }
+            bool noAssets = (named == null || named.Count == 0) && (holdings == null || holdings.Count == 0) && (deeds == null || deeds.Count == 0);
+            if (noAssets) sb.Append("<color=#7a8694>（固有資産なし＝流動資産のみ。年次で資産が形成される）</color>\n");
+        }
+
+        /// <summary>肖像プレースホルダを陣営色＋頭文字で設定する（専用立ち絵は未整備）。</summary>
+        private void SetPortrait(Faction fac, string name)
+        {
+            Color c = fac == Faction.帝国 ? new Color(0.45f, 0.18f, 0.18f, 1f) : new Color(0.16f, 0.24f, 0.42f, 1f);
+            if (detailPortrait != null) detailPortrait.color = c;
+            if (detailPortraitInitial != null)
+                detailPortraitInitial.text = string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1);
+        }
+
+        /// <summary>詳細カード用の TMP ラベル生成（子・フォント適用）。</summary>
+        private TextMeshProUGUI MakeLabel(Transform parent, string text, float size, Color color)
+        {
+            var go = new GameObject("Label");
+            go.transform.SetParent(parent, false);
+            var t = go.AddComponent<TextMeshProUGUI>();
+            t.text = text; t.fontSize = size; t.color = color;
+            t.raycastTarget = false; t.richText = true;
+            if (jpFont != null) t.font = jpFont;
+            return t;
         }
 
         /// <summary>タイトルバー直下のタブ行（指導者／軍人／文民）。押すとその種別だけに切り替える。</summary>

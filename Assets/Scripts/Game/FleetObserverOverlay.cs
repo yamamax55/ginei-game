@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -43,6 +44,15 @@ namespace Ginei
         private GameObject panel;
         private TextMeshProUGUI bodyLabel;
         private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
+        private TMP_FontAsset jpFont;
+
+        // 艦隊名（第N艦隊）のクリック（TMP リンク）→ 艦隊編成カード
+        private readonly Dictionary<string, FleetUnitData> linkTargets = new Dictionary<string, FleetUnitData>();
+        private int linkSeq;
+        private GameObject detailRoot;
+        private TextMeshProUGUI detailTitle;
+        private TextMeshProUGUI detailBody;
+        private object escDetailToken;
 
         // ===== 自動生成エントリーポイント（HelpOverlay と同型） =====
 
@@ -67,12 +77,18 @@ namespace Ginei
 
         private void Awake()
         {
+            jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             BuildUI();
+            BuildDetail();
             SetVisible(false);
             escWindowToken = UIWindowStack.Register(() => panel != null && panel.activeSelf, () => SetVisible(false), canvasSortingOrder, "艦艇");
         }
 
-        private void OnDestroy() => UIWindowStack.Unregister(escWindowToken);
+        private void OnDestroy()
+        {
+            UIWindowStack.Unregister(escWindowToken);
+            UIWindowStack.Unregister(escDetailToken);
+        }
 
         private void Update()
         {
@@ -80,7 +96,28 @@ namespace Ginei
                 Toggle();
 
             if (panel != null && panel.activeSelf && bodyLabel != null)
+            {
                 bodyLabel.text = BuildDump();
+                HandleLinkClick();
+            }
+        }
+
+        /// <summary>艦隊名（TMP リンク）をクリックしたら艦隊編成カードを開く。</summary>
+        private void HandleLinkClick()
+        {
+            if (detailRoot != null && detailRoot.activeSelf) return;
+            if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
+            int li = TMP_TextUtilities.FindIntersectingLink(bodyLabel, Mouse.current.position.ReadValue(), null);
+            if (li < 0) return;
+            string id = bodyLabel.textInfo.linkInfo[li].GetLinkID();
+            if (linkTargets.TryGetValue(id, out FleetUnitData u)) OpenDetail(u);
+        }
+
+        private string Link(FleetUnitData u)
+        {
+            string id = "F" + (linkSeq++);
+            linkTargets[id] = u;
+            return id;
         }
 
         // ===== 公開API =====
@@ -97,7 +134,8 @@ namespace Ginei
         private string BuildDump()
         {
             var sb = new StringBuilder(4096);
-            sb.Append("<b>艦艇オブザーバ</b>　艦艇プール（総/割当/残）・艦隊台帳（兵力・指揮班）　(B で閉じる)\n");
+            linkTargets.Clear(); linkSeq = 0; // 艦隊名リンクを毎回採番し直す
+            sb.Append("<b>艦艇オブザーバ</b>　艦艇プール（総/割当/残）・艦隊台帳　<color=#8aa0b0>(艦隊名クリックで編成／B で閉じる)</color>\n");
             sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
 
             bool any = false;
@@ -156,7 +194,7 @@ namespace Ginei
                              : (u.assignedAdmiral != null ? u.assignedAdmiral.baseStrength : 0);
                 if (u.status == FleetStatus.現役) { activeCount++; totalShips += strength; }
 
-                sb.Append("    <color=#bfe9c0>◆ ").Append(u.DisplayName).Append("</color>")
+                sb.Append("    <color=#bfe9c0>◆ <link=\"").Append(Link(u)).Append("\">").Append(u.DisplayName).Append("</link></color>")
                   .Append("　<color=#8aa0b0>[").Append(status).Append(" / ").Append(u.shipRole).Append("]</color>")
                   .Append("　<color=#ffd28a>兵力 ").Append(strength.ToString("#,0")).Append("</color>\n");
 
@@ -198,6 +236,169 @@ namespace Ginei
         }
 
         private static string ShortName(AdmiralData a) => a == null ? "" : a.ShortName;
+
+        // ===== 艦隊編成カード（艦隊名クリックで開く・添付画像を本システムに落とし込み） =====
+
+        private void OpenDetail(FleetUnitData u)
+        {
+            if (u == null || detailRoot == null) return;
+            FillFleet(u);
+            detailRoot.transform.SetAsLastSibling();
+            detailRoot.SetActive(true);
+        }
+
+        private void CloseDetail() { if (detailRoot != null) detailRoot.SetActive(false); }
+
+        private void FillFleet(FleetUnitData u)
+        {
+            var prm = CommandStaffRules.CommandParams.Default;
+            int strength = u.baseStrength > 0 ? u.baseStrength
+                         : (u.assignedAdmiral != null ? u.assignedAdmiral.baseStrength : 0);
+
+            detailTitle.text = $"{u.DisplayName}　<size=70%><color=#9fb0c0>[{u.faction}]</color></size>";
+
+            var sb = new StringBuilder(720);
+
+            // 艦隊司令官
+            if (u.assignedAdmiral != null)
+            {
+                var a = u.assignedAdmiral;
+                string rank = RankSystem.ResolveRankNameOrDefault(u.factionData, a.rankTier);
+                sb.Append($"<color=#9fb0c0>艦隊司令官</color>　{(string.IsNullOrEmpty(rank) ? "" : rank + " ")}{a.ShortName}\n");
+            }
+            else sb.Append("<color=#9fb0c0>艦隊司令官</color>　<color=#7a8694>空席</color>\n");
+
+            // 艦隊幕僚（副提督・参謀・提督付き幕僚）
+            var staff = new List<string>();
+            if (u.HasVice) staff.Add("副提督 " + ShortName(u.viceCommander));
+            if (u.HasChief) staff.Add("参謀 " + ShortName(u.chiefOfStaff));
+            if (u.assignedAdmiral != null && u.assignedAdmiral.HasStaff) staff.Add("幕僚 " + u.assignedAdmiral.GetStaffNames());
+            sb.Append("<color=#9fb0c0>艦隊幕僚</color>　").Append(staff.Count == 0 ? "<color=#7a8694>（新任枠）</color>" : string.Join("　", staff)).Append('\n');
+
+            // 実効能力（指揮班補正込み）
+            if (u.assignedAdmiral != null)
+                sb.Append($"<color=#9fb0c0>実効</color> 統率 {CommandStaffRules.EffectiveLeadership(u, prm)} ／ 防御 {CommandStaffRules.EffectiveDefense(u, prm)} ／ 運営 {CommandStaffRules.EffectiveOperation(u, prm)} ／ 情報 {CommandStaffRules.EffectiveIntelligence(u, prm)}\n");
+
+            sb.Append('\n');
+
+            // 部隊編成（陣形・役割・状態・旗艦・兵力）
+            string flagship = (u.assignedAdmiral != null && !string.IsNullOrEmpty(u.assignedAdmiral.signatureShipName))
+                            ? u.assignedAdmiral.signatureShipName : "標準旗艦";
+            sb.Append($"<color=#9fb0c0>部隊編成</color>　陣形 {u.formation} ／ 役割 {u.shipRole} ／ 状態 {u.status}\n");
+            sb.Append($"<color=#9fb0c0>旗艦</color> {flagship}　<color=#9fb0c0>兵力</color> <color=#ffd28a>{strength:#,0}</color>\n");
+
+            // 所属梯団（OrderOfBattle ツリーでの位置）
+            string ech = FindEchelonPath(u.faction, u.fleetNumber);
+            if (!string.IsNullOrEmpty(ech)) sb.Append($"<color=#9fb0c0>所属梯団</color>　{ech}\n");
+
+            // 艦種内訳（兵力からの推計＝添付画像の艦種一覧に相当）
+            sb.Append("\n<color=#9aa7b3>― 艦種内訳（兵力からの推計）―</color>\n");
+            AppendClassEstimate(sb, strength);
+
+            detailBody.text = sb.ToString();
+        }
+
+        /// <summary>OrderOfBattle ツリーでこの艦隊が属する梯団パス（軍集団 ⊃ 軍団）を返す。無所属は空。</summary>
+        private string FindEchelonPath(Faction f, int fleetNumber)
+        {
+            IReadOnlyList<MilitaryFormation> forms = OrderOfBattle.AllFormations(f);
+            if (forms == null) return "";
+            MilitaryFormation owner = null;
+            for (int i = 0; i < forms.Count; i++)
+                if (forms[i] != null && forms[i].fleetNumbers != null && forms[i].fleetNumbers.Contains(fleetNumber)) { owner = forms[i]; break; }
+            if (owner == null) return "";
+            var names = new List<string>();
+            MilitaryFormation cur = owner;
+            int guard = 0;
+            while (cur != null && guard++ < 8)
+            {
+                names.Insert(0, cur.DisplayName);
+                cur = cur.parentId != 0 ? OrderOfBattle.Get(cur.parentId) : null;
+            }
+            return string.Join(" ⊃ ", names);
+        }
+
+        private static readonly (string name, float ratio)[] ClassMix =
+        {
+            ("戦艦", 0.30f), ("高速戦艦", 0.05f), ("巡航艦", 0.15f), ("駆逐艦", 0.30f),
+            ("攻撃空母", 0.05f), ("工作艦", 0.05f), ("輸送艦", 0.07f), ("強襲揚陸艦", 0.03f)
+        };
+
+        /// <summary>抽象兵力から艦種別の隻数を推計して2列で並べる（添付画像の艦種カウントに相当・あくまで目安）。</summary>
+        private void AppendClassEstimate(StringBuilder sb, int strength)
+        {
+            int ships = Mathf.Max(0, Mathf.RoundToInt(strength / 15f)); // 抽象兵力→隻数の目安
+            for (int i = 0; i < ClassMix.Length; i++)
+            {
+                int c = Mathf.RoundToInt(ships * ClassMix[i].ratio);
+                sb.Append($"  {ClassMix[i].name} <color=#e6edf3>{c}</color>");
+                if (i % 2 == 1) sb.Append('\n');
+            }
+            if (ClassMix.Length % 2 == 1) sb.Append('\n');
+        }
+
+        // ===== 詳細カード UI =====
+
+        private void BuildDetail()
+        {
+            detailRoot = new GameObject("FleetDetail");
+            detailRoot.transform.SetParent(overlayRoot.transform, false);
+            var drt = detailRoot.AddComponent<RectTransform>();
+            drt.anchorMin = Vector2.zero; drt.anchorMax = Vector2.one; drt.offsetMin = Vector2.zero; drt.offsetMax = Vector2.zero;
+            var dim = detailRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.55f);
+            var dimBtn = detailRoot.AddComponent<Button>();
+            dimBtn.transition = UnityEngine.UI.Selectable.Transition.None;
+            dimBtn.onClick.AddListener(CloseDetail);
+
+            var frame = new GameObject("Frame");
+            frame.transform.SetParent(detailRoot.transform, false);
+            var frt = frame.AddComponent<RectTransform>();
+            frt.anchorMin = frt.anchorMax = new Vector2(0.5f, 0.5f);
+            frt.pivot = new Vector2(0.5f, 0.5f);
+            frt.sizeDelta = new Vector2(700f, 470f);
+            frame.AddComponent<Image>().color = new Color(0.08f, 0.10f, 0.16f, 0.99f);
+
+            detailTitle = MakeLabel(frame.transform, "", 24f, new Color(1f, 0.85f, 0.4f));
+            var ttr = detailTitle.rectTransform;
+            ttr.anchorMin = new Vector2(0f, 1f); ttr.anchorMax = new Vector2(1f, 1f); ttr.pivot = new Vector2(0f, 1f);
+            ttr.offsetMin = new Vector2(20f, -54f); ttr.offsetMax = new Vector2(-20f, -16f);
+            detailTitle.alignment = TextAlignmentOptions.TopLeft;
+
+            detailBody = MakeLabel(frame.transform, "", 18f, new Color(0.92f, 0.94f, 0.97f));
+            var btr = detailBody.rectTransform;
+            btr.anchorMin = Vector2.zero; btr.anchorMax = Vector2.one;
+            btr.offsetMin = new Vector2(20f, 56f); btr.offsetMax = new Vector2(-20f, -58f);
+            detailBody.alignment = TextAlignmentOptions.TopLeft;
+            detailBody.enableWordWrapping = true;
+
+            var btnObj = new GameObject("Close");
+            btnObj.transform.SetParent(frame.transform, false);
+            var crt = btnObj.AddComponent<RectTransform>();
+            crt.anchorMin = new Vector2(1f, 0f); crt.anchorMax = new Vector2(1f, 0f); crt.pivot = new Vector2(1f, 0f);
+            crt.sizeDelta = new Vector2(120f, 38f); crt.anchoredPosition = new Vector2(-16f, 14f);
+            btnObj.AddComponent<Image>().color = new Color(0.26f, 0.40f, 0.56f, 1f);
+            var cbtn = btnObj.AddComponent<Button>();
+            cbtn.transition = UnityEngine.UI.Selectable.Transition.None;
+            cbtn.onClick.AddListener(CloseDetail);
+            var clabel = MakeLabel(btnObj.transform, "閉じる", 18f, Color.white);
+            clabel.alignment = TextAlignmentOptions.Center;
+            var clrt = clabel.rectTransform;
+            clrt.anchorMin = Vector2.zero; clrt.anchorMax = Vector2.one; clrt.offsetMin = Vector2.zero; clrt.offsetMax = Vector2.zero;
+
+            escDetailToken = UIWindowStack.Register(() => detailRoot != null && detailRoot.activeSelf, CloseDetail, canvasSortingOrder + 1, "艦隊編成");
+            detailRoot.SetActive(false);
+        }
+
+        private TextMeshProUGUI MakeLabel(Transform parent, string text, float size, Color color)
+        {
+            var go = new GameObject("Label");
+            go.transform.SetParent(parent, false);
+            var t = go.AddComponent<TextMeshProUGUI>();
+            t.text = text; t.fontSize = size; t.color = color; t.raycastTarget = false; t.richText = true;
+            if (jpFont != null) t.font = jpFont;
+            return t;
+        }
 
         // ===== UI 構築（MilitaryObserverOverlay と同型） =====
 

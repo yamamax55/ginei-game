@@ -429,6 +429,16 @@ namespace Ginei
             SetupPersonnel();
             SetupShipyard();
             SeedDemoMilitary(); // 艦艇/軍事観測層を満たす初期軍備（艦隊台帳・編制ツリー・指揮班）を勢力ごとにシード
+            SeedDemoPolitics(); // 政治観測層を満たすデモ政体・政党・選挙日程をシード（民主政治の勢力）
+            // テスト用配置の統合：私有財産（ネームド資産/金融資産/不動産）も開始時にシード＝詳細カードが最初から埋まる。
+            // 人物は戦略入場ごとに再生成され id が変わるため、資産レジストリも作り直して所有者と整合させる。
+            NamedAssetRegistry.Clear();
+            FinancialHoldingRegistry.Clear();
+            PropertyDeedRegistry.Clear();
+            namedAssetsSeeded = false;
+            financialAssetsSeeded = false;
+            SeedNamedAssets();
+            SeedFinancialAssets();
         }
 
         /// <summary>

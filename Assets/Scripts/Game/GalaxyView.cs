@@ -344,9 +344,21 @@ namespace Ginei
 
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
             // プレイヤーはダブルクリックで潜行＝手動指揮へ。放置すれば猶予後に自動解決（#586 ①④）。
-            StrategyRules.BeginEngagements(reg);
-            StrategyRules.BeginSystemEngagements(reg); // 惑星上など同一星系での接敵も交戦に（fleet-vs-fleet）
+            int newEngagements = StrategyRules.BeginEngagements(reg);
+            newEngagements += StrategyRules.BeginSystemEngagements(reg); // 惑星上など同一星系での接敵も交戦に（fleet-vs-fleet）
             NotifyNewEngagements(); // 接敵を通知（ダブルクリックで潜行可能なアクション付き）
+
+            // 新たに接敵が生じたら自動解決の観測ウィンドウをリセットする（共有タイマーの積み残し対策）。
+            // engagedElapsed/currentAutoResolveSeconds は全交戦で共有のため、別戦線の交戦が既にタイマーを
+            // 消化していると、後から起きた接敵（とくに惑星上＝同一星系の接敵）が次の解決Tickで即・自動解決され
+            // 「一瞬で会戦が終わる」＝プレイヤーが潜行できない不具合になる。新規接敵のたびに窓を取り直して
+            // 必ず観測/介入の猶予（再計算した所要時間ぶん）を確保する。
+            if (newEngagements > 0)
+            {
+                engagedElapsed = 0f;
+                currentAutoResolveSeconds = 0.0; // 次の AnyEngaged 分岐で ComputeEngagementDuration を取り直す
+            }
+
             if (AnyEngaged())
             {
                 // TIME-4（#950）：自動解決の所要時間を AutoBattleSim（裏の簡易戦術シミュ）で算出＝

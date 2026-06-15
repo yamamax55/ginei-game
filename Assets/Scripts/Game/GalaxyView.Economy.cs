@@ -43,6 +43,7 @@ namespace Ginei
                 provinces.TryGetValue(yard.systemId, out var prov);
                 float factor = ShipyardRules.ProductionFactor(prov); // BUILD-2：安定度比例＝支配≠即建艦
                 factor *= ShipbuildingFundingFactor(yard.faction);   // G3：建艦予算の出資度が建艦速度に効く（#163→#884）
+                factor *= 1f + MilitaryIndustrialRules.ProductionSubsidy(GetMilitaryIndustrialPressure(yard.faction)); // 軍産複合体の補助金で建艦加速（#1389/#204）
                 factor *= TechEffectRules.BuildSpeedFactor(TechLevelOf(yard.faction)); // P0：技術水準→建艦速度（研究の出口）
                 if (warProductionFactor.TryGetValue(yard.faction, out float wpf)) factor *= wpf; // P1：戦時動員→軍需生産↑
                 var done = ShipyardRules.Tick(yard, secondsPerDay, factor);
@@ -228,6 +229,30 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
                         $"{s.faction} 銀行が債務超過（自己資本 {BankRules.Equity(bank):0}・不良債権 {bank.nonPerformingLoans:0}）＝信用収縮");
                 else if (!insolvent) bankInsolventFactions.Remove(s.faction);
+
+                // 軍産複合体（MCN-4 #1389・CAP-3 #204 配線）：造船利権（造船所数×軍事省益の縦割り）が政治圧力となり、
+                // 建艦補助金で過剰建艦を促し（TickShipyard）、調達腐敗で国庫を蝕み、戦争バイアスで外交を好戦化させる（RunDiplomacyTick）。
+                // 複合体が成立した勢力は平時に軍需依存経済が冷える＝軍縮＝平和が経済問題になる倒錯（#204）。数式は MilitaryIndustrialRules へ委譲（接続のみ）。
+                float sectionalism = MinistryRules.DomainFriction(MinistriesOf(s.faction), OfficeDomain.軍事);
+                float micP = MilitaryIndustrialRules.LobbyingPressure(ShipyardCountOf(s.faction), sectionalism);
+                micPressure[s.faction] = micP;
+                bool atWarMic = IsAtWar(s.faction);
+                // 調達腐敗：政治圧力ぶん軍事費が割高調達・キックバックで国庫から漏れる（bounded）。
+                float milSpend = BudgetRules.Get(s.budget, BudgetCategory.軍事);
+                if (milSpend > 0f)
+                    s.treasury = Mathf.Max(0f, s.treasury - milSpend * MilitaryIndustrialRules.CorruptionGain(micP));
+                // 平和の倒錯（#204）：複合体が成立した勢力は平時に軍需依存経済が冷えて民心が翳る（bounded）。
+                bool micComplex = MilitaryIndustrialRules.IsComplex(micP);
+                if (micComplex && !atWarMic && s.community != null)
+                {
+                    float shock = MilitaryIndustrialRules.PeaceEconomicShock(BudgetRules.Share(s.budget, BudgetCategory.軍事), 0.5f);
+                    s.community.hope = Mathf.Clamp01(s.community.hope - shock * 0.05f);
+                }
+                // 通知（Tier2・エッジ検出）：軍産複合体の成立（構造的戦争バイアス）。解消で解除＝洪水回避。
+                if (micComplex && micComplexFactions.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                        $"{s.faction} 軍産複合体が成立（政治圧力 {(int)(micP * 100)}%）＝構造的な戦争バイアス・調達腐敗");
+                else if (!micComplex) micComplexFactions.Remove(s.faction);
 
                 // 通知（Tier0・エッジ検出）：国庫枯渇＝予算執行が回らない危機（戦費/制裁/債務で国庫が干上がる）。
                 bool empty = s.treasury < economy * 0.02f;
@@ -494,6 +519,9 @@ namespace Ginei
         // 商業銀行（CAP-2 #186・BANK #1976）：勢力ごとの部分準備銀行。年次 RunFiscalYearTick が信用創造・取り付け・債務超過を回す。
         private readonly System.Collections.Generic.Dictionary<Faction, Bank> banks
             = new System.Collections.Generic.Dictionary<Faction, Bank>();
+        // 軍産複合体（MCN-4 #1389・CAP-3 #204）：造船利権の政治圧力（0..1）。年次 RunFiscalYearTick が更新し、建艦補助金/調達腐敗/戦争バイアスへ波及。
+        private readonly System.Collections.Generic.Dictionary<Faction, float> micPressure
+            = new System.Collections.Generic.Dictionary<Faction, float>();
         private readonly System.Collections.Generic.Dictionary<Faction, ResearchState> researchStates
             = new System.Collections.Generic.Dictionary<Faction, ResearchState>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> lastRecruits
@@ -507,6 +535,7 @@ namespace Ginei
         private readonly System.Collections.Generic.HashSet<Faction> bondCrisis = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> bankRunFactions = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> bankInsolventFactions = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> micComplexFactions = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBoom = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBust = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
@@ -552,6 +581,22 @@ namespace Ginei
         /// <summary>勢力の商業銀行（預金/貸出/準備率/信認＝信用創造・取り付け・CAP-2 #186）。観測層専用＝read-only。</summary>
         public Bank GetBank(Faction faction)
             => banks.TryGetValue(faction, out var bk) ? bk : null;
+        /// <summary>勢力の軍産複合体の政治圧力（0..1＝造船利権のロビー・MCN-4 #1389/CAP-3 #204）。観測層専用＝read-only。</summary>
+        public float GetMilitaryIndustrialPressure(Faction faction)
+            => micPressure.TryGetValue(faction, out var v) ? v : 0f;
+        /// <summary>勢力に軍産複合体が成立しているか（政治圧力が閾値以上＝構造的戦争バイアス）。観測層専用＝read-only。</summary>
+        public bool IsMilitaryIndustrialComplex(Faction faction)
+            => MilitaryIndustrialRules.IsComplex(GetMilitaryIndustrialPressure(faction));
+
+        /// <summary>勢力の造船所数（軍産複合体のロビー圧力の入力＝軍需の規模）。</summary>
+        private int ShipyardCountOf(Faction faction)
+        {
+            if (shipyards == null) return 0;
+            int n = 0;
+            for (int i = 0; i < shipyards.Count; i++)
+                if (shipyards[i] != null && shipyards[i].faction == faction) n++;
+            return n;
+        }
         /// <summary>勢力の研究状態（技術水準/進捗）。観測層専用＝read-only。</summary>
         public ResearchState GetResearch(Faction faction)
             => researchStates.TryGetValue(faction, out var rs) ? rs : null;

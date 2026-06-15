@@ -73,7 +73,8 @@ namespace Ginei
             public float angle;        // 現在の公転角(rad)
             public float angularSpeed; // 公転角速度(rad/s・ケプラー則で外側ほど小)
             public Transform planetTf; // 惑星GameObject（位置を動かす）
-            public Transform labelTf;  // 「第N惑星」ラベル（惑星に追従）
+            public Transform labelTf;  // 惑星名ラベル（惑星に追従）
+            public string planetName;  // 惑星の固有名（日本神話ベース・MythicPlanetNames）
             public Province province;  // 惑星単位の内政（単一の真実・#767）
         }
 
@@ -293,7 +294,7 @@ namespace Ginei
             Province p = e.province;
             int output = Mathf.RoundToInt(GovernanceRules.OutputFactor(p) * 100f);
             string unrest = GovernanceRules.IsUnrest(p) ? "　▲反乱リスク" : "";
-            return $"第{Ordinal(e.index + 1)}惑星\n" +
+            return $"{e.planetName}（第{Ordinal(e.index + 1)}惑星）\n" +
                    $"住民思想: {p.nativeIdeology}\n" +
                    $"人口: {Mathf.RoundToInt(p.population)}\n" +
                    $"安定度: {Mathf.RoundToInt(p.stability)}%{unrest}\n" +
@@ -502,12 +503,13 @@ namespace Ginei
                 ? planetColors[index % planetColors.Length] : Color.white;
             sr.sortingOrder = -42;
 
-            // 「第N惑星」ラベル（惑星のスケールに引きずられないよう root の子にする）
+            // 惑星名ラベル（日本神話ベースの固有名・惑星のスケールに引きずられないよう root の子にする）
+            string planetName = MythicPlanetNames.For(systemId, index);
             var labelGo = new GameObject($"Planet{index + 1}Label");
             labelGo.transform.SetParent(transform, false);
             labelGo.transform.localPosition = pos + new Vector3(0f, planetScale * 0.9f + 0.3f, 0f);
             var tm = labelGo.AddComponent<TextMesh>();
-            tm.text = $"第{Ordinal(index + 1)}惑星";
+            tm.text = planetName;
             tm.font = FontProvider.JapaneseFont;
             tm.fontSize = 36; tm.characterSize = 0.1f;
             tm.anchor = TextAnchor.LowerCenter; tm.alignment = TextAlignment.Center;
@@ -520,7 +522,7 @@ namespace Ginei
             planets.Add(new PlanetEntry
             {
                 index = index, pos = pos, radius = radius, angle = angle, angularSpeed = omega,
-                planetTf = go.transform, labelTf = labelGo.transform,
+                planetTf = go.transform, labelTf = labelGo.transform, planetName = planetName,
                 province = GeneratePlanetProvince(index)
             });
         }

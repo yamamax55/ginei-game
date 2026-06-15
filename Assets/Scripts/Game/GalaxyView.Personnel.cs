@@ -723,6 +723,8 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 金融/地代収益 {fInc:0}");
             }
 
+            // 資産担保融資（#186/#2070 配線）：司令が土地を担保に借入・利払い、担保割れで差し押さえ＝財産を信用に裏付ける流動化。
+            RunCollateralLoanTick();
             // 財産の自動取引（資産市場・#2056 配線）：司令が財産特性で資産を売買＝投資型が買い・浪費型が売り（配当反映後の wealth を見て）。
             RunAssetMarketTick();
 

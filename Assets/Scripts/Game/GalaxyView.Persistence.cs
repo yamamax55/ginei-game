@@ -73,6 +73,7 @@ namespace Ginei
             // ネームド財産（金融資産#2070・不動産権利証#2070/惑星の土地#2019）は戦役固有＝持ち越さない（再シードで作り直す）。
             FinancialHoldingRegistry.Clear();
             PropertyDeedRegistry.Clear();
+            LandLeaseRegistry.Clear(); // 土地賃貸借（貸出基盤#2019）も戦役固有
         }
 
         /// <summary>

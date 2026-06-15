@@ -248,11 +248,17 @@ namespace Ginei
                 sb.AppendLine($"地価: {Mathf.RoundToInt(re.landValue)}　賃料: {Mathf.RoundToInt(re.rentLevel)}　価格/賃料: {p2r}倍{(bubble ? "　▲バブル" : "")}");
             }
             else sb.AppendLine("地価データなし（年次で形成）");
-            int statePct = Mathf.RoundToInt(PlanetLandRules.StateShare(s.id) * 100f);
-            int personPct = Mathf.RoundToInt(PlanetLandRules.PersonShare(s.id) * 100f);
-            int firmPct = Mathf.RoundToInt(PlanetLandRules.EnterpriseShare(s.id) * 100f);
+            SystemType landType = prov != null ? prov.systemType : SystemType.居住;
+            int statePct = Mathf.RoundToInt(PlanetLandRules.StateShare(s.id, landType) * 100f);
+            int personPct = Mathf.RoundToInt(PlanetLandRules.PersonShare(s.id, landType) * 100f);
+            int firmPct = Mathf.RoundToInt(PlanetLandRules.EnterpriseShare(s.id, landType) * 100f);
             int deedCount = PropertyDeedRegistry.CountDeedsOnSystem(s.id);
             sb.AppendLine($"土地所有: 国家 {statePct}%　個人 {personPct}%　企業 {firmPct}%（権利証 {deedCount}枚）");
+            // 土地分割（地目・#2019）：用途ゾーンと私有区画。惑星の大きさで分割可能数が決まる。
+            if (prov != null)
+                sb.AppendLine($"区画(最大{LandZoningRules.MaxSubdivisions(prov)})　住宅地 {Mathf.RoundToInt(LandZoningRules.ZoneWeight(prov, LandUseType.住宅地) * 100f)}%／農地 {Mathf.RoundToInt(LandZoningRules.ZoneWeight(prov, LandUseType.農地) * 100f)}%／鉱山 {Mathf.RoundToInt(LandZoningRules.ZoneWeight(prov, LandUseType.鉱山) * 100f)}%");
+            int leaseCount = LandLeaseRegistry.OnSystem(s.id).Count;
+            if (leaseCount > 0) sb.AppendLine($"賃貸借: {leaseCount}件（貸出中）");
 
             sb.AppendLine();
             sb.AppendLine("― 惑星防衛 ―");

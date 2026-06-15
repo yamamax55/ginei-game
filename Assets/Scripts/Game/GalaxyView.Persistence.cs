@@ -68,6 +68,8 @@ namespace Ginei
         public static void ResetCampaignStatics()
         {
             objectiveAnnounced = false;
+            PersonDecisionLedger.Clear(); // 人物の決裁履歴も戦役を跨いで持ち越さない（稟議基盤整備）
+            RingiDirector.Ledger.Clear(); // 進行中の稟議在庫も戦役跨ぎでクリア（DESK-6 合流）
         }
 
         /// <summary>

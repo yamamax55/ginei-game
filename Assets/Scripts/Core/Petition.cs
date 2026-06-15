@@ -29,6 +29,14 @@ namespace Ginei
 
         public PetitionOrigin origin = PetitionOrigin.建白;
 
+        /// <summary>起案者（ICharacter.id・0=なし）。人物が上司へ挙げる稟議で誰が起こしたか（<see cref="PersonRingiRules"/>）。</summary>
+        public int drafterId;
+
+        /// <summary>宛先の人物（決裁する上司の ICharacter.id・0=箱宛て＝目安箱）。0以外なら、その人物だけが
+        /// 決裁できる（<see cref="PersonRingiRules.Adjudicate"/>）＝組織内の稟議（部下→上司）。箱宛て（プレイヤーの
+        /// 越階回路）は従来どおり 0 のまま（後方互換）。</summary>
+        public int addresseeId;
+
         /// <summary>執行で呼ぶ効果の識別子（WF の効果レジストリで解決＝直列化可・決定論保存）。</summary>
         public string effectKey = "";
 

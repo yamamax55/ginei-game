@@ -152,6 +152,25 @@ namespace Ginei
             return n == 0 ? 0f : sum / n;
         }
 
+        /// <summary>
+        /// ある所掌（<see cref="OfficeDomain"/>）の省庁の省益の平均（0..1・該当無し/null は0）。＝その政策分野を所管する官僚機構の
+        /// 縦割り抵抗を1係数に集約。稟議の伝播/執行（<see cref="PetitionFlowRules"/>）が「財政案件＝大蔵省の省益」のように
+        /// 分野別の摩擦を引く窓口（read-only・<see cref="IReadOnlyList{T}"/> で省庁ツリーをそのまま渡せる）。
+        /// </summary>
+        public static float DomainFriction(IReadOnlyList<Ministry> list, OfficeDomain domain)
+        {
+            if (list == null) return 0f;
+            float sum = 0f; int n = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Ministry m = list[i];
+                if (m == null || m.domain != domain) continue;
+                sum += Mathf.Clamp01(m.institutionalInterest);
+                n++;
+            }
+            return n == 0 ? 0f : sum / n;
+        }
+
         // --- 内部 ---
 
         private static void CollectOfficials(List<Ministry> list, int id, List<int> acc)

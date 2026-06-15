@@ -367,11 +367,13 @@ namespace Ginei
                 var list = kv.Value;
                 if (list.Count <= 1) continue; // 1隻なら散らさない
                 list.Sort((a, b) => a.id.CompareTo(b.id)); // 決定論（毎フレ同じ並び）
-                // 隻数に応じて半径を少し広げ、輪状に等間隔配置（開始角を固定）。
-                float radius = fleetClusterSpread * (1f + 0.12f * (list.Count - 2));
-                for (int i = 0; i < list.Count; i++)
+                int n = list.Count;
+                // 隣り合う艦隊どうしが fleetClusterSpread（中心間距離・ワールド）以上離れる輪の半径を求める。
+                // 弦長 2r*sin(π/n)=spread を r について解く＝隻数が増えると輪が自然に広がり、どの2隻も重ならない。
+                float radius = fleetClusterSpread / (2f * Mathf.Sin(Mathf.PI / n));
+                for (int i = 0; i < n; i++)
                 {
-                    float ang = Mathf.PI * 2f * i / list.Count + Mathf.PI * 0.5f;
+                    float ang = Mathf.PI * 2f * i / n + Mathf.PI * 0.5f;
                     fleetClusterOffsets[list[i].id] = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * radius;
                 }
             }

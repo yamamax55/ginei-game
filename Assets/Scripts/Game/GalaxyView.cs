@@ -29,8 +29,8 @@ namespace Ginei
         public Color selectColor = new Color(1f, 0.95f, 0.4f);
 
         [Header("艦隊表示（重なり回避・軍団）")]
-        [Tooltip("同一星系に複数の艦隊がいるとき、艦隊アイコンを散らして重ならないようにする半径（ワールド）")]
-        public float fleetClusterSpread = 0.55f;
+        [Tooltip("同一星系に複数の艦隊がいるとき、艦隊アイコンを散らす際の隣接艦隊どうしの中心間距離（ワールド）。大きいほど離れる")]
+        public float fleetClusterSpread = 1.7f;
         [Tooltip("軍団隷下の艦隊を囲う四角の色")]
         public Color corpsBoxColor = new Color(0.95f, 0.82f, 0.4f, 0.85f);
         [Tooltip("軍団隷下の四角と艦隊アイコンの余白（ワールド）")]

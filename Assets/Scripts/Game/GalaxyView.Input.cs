@@ -127,8 +127,9 @@ namespace Ginei
                 midPanning = false;
             }
 
-            // 左ボタン：ドラッグで星系マップをスクロール（動かした向きに視点が動く）／小さく押して離せばクリック（選択/ダブルクリック）。
-            // 確定は「離した時」＝スクロールと選択が競合しない。押し始めが UI 上なら一切マップに渡さない。
+            // 左ボタン：ドラッグで艦隊の矩形選択（マーキー）／小さく押して離せばクリック（選択/ダブルクリック）。
+            // 確定は「離した時」＝ドラッグと単クリックが競合しない。押し始めが UI 上なら一切マップに渡さない。
+            // ※マップのスクロールは中ボタンドラッグ・WASD/矢印・画面端で（左ドラッグは選択に充てる）。
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
                 leftPressScreen = Mouse.current.position.ReadValue();
@@ -140,12 +141,14 @@ namespace Ginei
                 Vector2 cur = Mouse.current.position.ReadValue();
                 if (!leftDragging && Vector2.Distance(cur, leftPressScreen) > dragThresholdPixels)
                     leftDragging = true;
-                if (leftDragging) ScrollViewByMouseDelta();
+                if (leftDragging) UpdateMarquee(cur); // 矩形選択の枠を更新（スクロールしない）
             }
             else if (Mouse.current.leftButton.wasReleasedThisFrame)
             {
-                if (!leftPressOverUI && !leftDragging) DoLeftClick(WorldMouse()); // ドラッグでなければクリック確定
+                if (!leftPressOverUI && leftDragging) DoMarqueeSelect(Mouse.current.position.ReadValue()); // 矩形内の艦隊を選択
+                else if (!leftPressOverUI && !leftDragging) DoLeftClick(WorldMouse());                    // ドラッグでなければクリック確定
                 leftDragging = false;
+                ClearMarquee();
             }
             // 右クリック：クリックに近い方を採用。星系の点が近ければ進軍、回廊の線が近ければ
             // その位置で停止保持（端点に居る選択艦のみ）。UI 上では発令しない。
@@ -198,6 +201,55 @@ namespace Ginei
                 else { selectedFleets.Clear(); selectedFleets.Add(nf); }
             }
             else if (!additive) selectedFleets.Clear();
+        }
+
+        // ===== 矩形選択（マーキー・左ドラッグ） =====
+
+        /// <summary>左ドラッグ中：押下点→現在カーソルの矩形をワールド座標で枠表示する。</summary>
+        private void UpdateMarquee(Vector2 curScreen)
+        {
+            Vector3 a = ScreenToWorldAt(leftPressScreen);
+            Vector3 b = ScreenToWorldAt(curScreen);
+            if (marqueeLine == null)
+            {
+                marqueeLine = NewLine("Marquee", 5); // 艦隊(4)より前面
+                marqueeLine.startWidth = marqueeLine.endWidth = 0.06f;
+                marqueeLine.loop = false;
+            }
+            marqueeLine.positionCount = 5;
+            marqueeLine.SetPositions(new[]
+            {
+                new Vector3(a.x, a.y, 0f), new Vector3(b.x, a.y, 0f),
+                new Vector3(b.x, b.y, 0f), new Vector3(a.x, b.y, 0f),
+                new Vector3(a.x, a.y, 0f),
+            });
+            marqueeLine.startColor = marqueeLine.endColor = marqueeColor;
+            marqueeLine.enabled = true;
+        }
+
+        /// <summary>左ドラッグ確定：矩形内の艦隊をすべて選択（Shift で現在の選択に追加）。</summary>
+        private void DoMarqueeSelect(Vector2 curScreen)
+        {
+            Vector3 a = ScreenToWorldAt(leftPressScreen);
+            Vector3 b = ScreenToWorldAt(curScreen);
+            float minX = Mathf.Min(a.x, b.x), maxX = Mathf.Max(a.x, b.x);
+            float minY = Mathf.Min(a.y, b.y), maxY = Mathf.Max(a.y, b.y);
+
+            if (!ShiftHeld()) selectedFleets.Clear();
+            if (reg == null) return;
+            foreach (var f in reg.fleets)
+            {
+                if (f == null) continue;
+                Vector2 p = FleetWorldPos(f);
+                if (p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY && !selectedFleets.Contains(f))
+                    selectedFleets.Add(f);
+            }
+        }
+
+        /// <summary>矩形選択の枠を消す（ドラッグ終了時）。</summary>
+        private void ClearMarquee()
+        {
+            if (marqueeLine != null) marqueeLine.enabled = false;
         }
 
         /// <summary>

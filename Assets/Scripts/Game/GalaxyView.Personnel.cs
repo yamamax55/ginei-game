@@ -723,6 +723,9 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 金融/地代収益 {fInc:0}");
             }
 
+            // 財産税（#163/#917 配線）：司令の固定資産税＋富裕税（平均超過に累進）を徴収し国庫へ＝資産→税→国庫の環。格差を縮める。
+            RunAssetTaxTick();
+
             // 国家・惑星の行政物資消費（STATEDEM-6・#2077 配線）：産出を行政・インフラが消費し、不足で統治が逼迫＝安定度低下。
             RunStateConsumptionTick();
 

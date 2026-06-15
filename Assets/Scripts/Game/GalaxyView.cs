@@ -409,9 +409,8 @@ namespace Ginei
             if (objectiveAnnounced) return;
             objectiveAnnounced = true;
             Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
-            int pct = Mathf.RoundToInt(ActiveVictoryParams().dominationFraction * 100f);
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
-                $"【目標】{player} で銀河の {pct}% を支配せよ（敵を全制圧でも勝利／全星系を失えば敗北）");
+                $"【目標】{player} で銀河の全星系（惑星）を占領せよ＝制覇勝利（全星系を失えば敗北）");
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
                 "操作：星系を右クリックで進軍 → 前線で接触 → 交戦中の回廊をダブルクリックで潜行（会戦へ）。Space/1-3=速度、H=ヘルプ。");
         }

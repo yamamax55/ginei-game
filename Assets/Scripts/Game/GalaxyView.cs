@@ -19,7 +19,8 @@ namespace Ginei
     public partial class GalaxyView : MonoBehaviour
     {
         [Header("見た目")]
-        public float systemScale = 0.8f;
+        [Tooltip("星系（惑星）の円のサイズ。ラベル位置も追従する")]
+        public float systemScale = 1.2f;
         public float fleetScale = 0.4f;
         public Color empireColor = new Color(0.85f, 0.3f, 0.25f);
         public Color allianceColor = new Color(0.3f, 0.5f, 0.9f);

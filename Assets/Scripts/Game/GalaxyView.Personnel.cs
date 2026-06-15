@@ -696,7 +696,11 @@ namespace Ginei
                 if (c == null || c.deathYear != 0) continue;
                 c.financialTrait = (FinancialTrait)(System.Math.Abs(c.id) % 3); // 0貯金/1投資/2浪費
                 float salary = 50f + c.rankTier * 50f; // 俸給 proxy（階級#14 比例・WAGE#1969）
-                float ret = 0.05f + (c.financialTrait == FinancialTrait.投資 ? (UnityEngine.Random.value - 0.5f) * 0.6f : 0f); // 投資は±変動
+                // P3：人物財産↔市場。投資型の利回りは自勢力の株式市場心理に連動（好況で増・暴落で毀損・決定論＝乱数廃止）。
+                float marketMood = 0f;
+                var lst = GetListings(c.faction);
+                if (lst != null && lst.Count > 0) marketMood = StockMarketSystemRules.MarketSentiment(lst) - 0.5f; // -0.5..+0.5
+                float ret = 0.05f + (c.financialTrait == FinancialTrait.投資 ? marketMood * 0.6f : 0f); // 投資は市場連動の±
                 PersonFinanceTickRules.TickYear(c, salary, ret);
             }
 

@@ -244,6 +244,7 @@ namespace Ginei
         private const float DemandSupplies = 0.012f, DemandFuel = 0.005f, DemandAmmo = 0.002f, DemandLuxury = 0.006f;
         // P0 交易の輸送コスト（基準価格単位・これ未満の価格差は裁定が起きない）／P1 平時の動員率。
         private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f, WartimeMobilizationRate = 0.3f;
+        private const float WarPopulationDrain = 0.01f; // 交戦中の年次人口減（総力戦のコスト・P3）
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
@@ -551,6 +552,7 @@ namespace Ginei
                     Market gm = mk[(int)GoodForSector(firm.sector)];
                     float price = gm != null ? gm.price : 1f;
                     float laborSupply = SectorLaborPool(owned, firm.sector) * 0.1f; // 採用余地（供給の一部）
+                    firm.productivity = TechEffectRules.ProductivityFactor(TechLevelOf(fac)); // P2：技術→生産性（研究が経済を工業化＝戦闘とは別チャネル＝二重計上なし）
                     float profit = EnterpriseRules.Tick(firm, price, laborSupply, 1f);
                     if (firm.ownership == Ownership.国有 && profit > 0f && fstate != null)
                         fstate.treasury += profit * 0.5f; // 国有企業利潤の一部を国庫へ
@@ -591,6 +593,14 @@ namespace Ginei
                 float trained = RecruitmentProgramRules.TrainedStrength(recruits, quality);
                 lastRecruits[fac] = trained;
                 if (trained >= 1f) FleetPool.Add(fac, (int)trained);
+
+                // 動員→人口の代償（P3 配線）：交戦中は徴兵・戦災で生産年齢人口が削られる＝総力戦のコスト（bounded・1%/年）。
+                if (IsAtWar(fac))
+                    for (int i = 0; i < owned.Count; i++)
+                    {
+                        owned[i].population = Mathf.Max(0f, owned[i].population * (1f - WarPopulationDrain));
+                        if (owned[i].demographics != null) owned[i].demographics.working = Mathf.Max(0f, owned[i].demographics.working * (1f - WarPopulationDrain));
+                    }
 
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
                 var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);

@@ -61,7 +61,7 @@
 
 - **東証33業種＋サブ業種 archetype（#2016-2025）**：`ChemicalRules`/`SteelRules`/`AutoRules`/`SemiconductorRules`/`ShippingRules`/`RetailRules`/`MiningRules`… 計100+。
 - **金融市場の銘柄系（#185/#161/#1939…）**：`StockMarketRules`/`BondMarketRules`/`FuturesMarketRules`/`MonetaryPolicyRules`/`FinancialCrisisRules`… ＝**集約（国庫/債務#163）に留め、個別銘柄シミュは観測どまり**が設計意図。`BankRules`（CAP-2 #186・BANK #1976）は**勢力単位の集約で配線済み**（`GalaxyView.RunFiscalYearTick`＝信用創造・不良債権・取り付け/債務超過＋銀行利益→国庫・観測＝`FiscalObserverOverlay`）＝個別行シミュには降りない。
-- **メディア/小売/不動産/サービス/宇宙派生（#2025）**：`FilmStudioRules`/`RealEstateRules`/`HotelRules`/`SpaceRailwayRules`… フレーバー。
+- **メディア/小売/サービス/宇宙派生（#2025）**：`FilmStudioRules`/`HotelRules`/`SpaceRailwayRules`… フレーバー。`RealEstateRules`（不動産会社・#2019）は**勢力単位の集約で配線済み**（`GalaxyView.RunFiscalYearTick`＝賃料/NOI→国庫・地価バブル→金融危機で崩壊・観測＝`ProductionObserverOverlay`）＝個別物件 micro には降りない（タイクン化回避を維持）。
 - **世界観・遠未来**：`DisclosureLedger`（秘史開示・要演出UI）・儀礼/婚姻/三密 等。
 
 > ＝Tier C は**「実装しない」ではなく「集約・観測で背景化し、個別ループ化しない」**が正。

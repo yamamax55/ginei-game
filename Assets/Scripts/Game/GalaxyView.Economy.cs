@@ -254,6 +254,82 @@ namespace Ginei
                         $"{s.faction} 軍産複合体が成立（政治圧力 {(int)(micP * 100)}%）＝構造的な戦争バイアス・調達腐敗");
                 else if (!micComplex) micComplexFactions.Remove(s.faction);
 
+                // 商社＝総合商社（FRM-5 #1027 配線）：生産でも金融でもなく、調達と販売を仲介し・自己勘定で裁定し・与信と在庫/為替リスクを負い・川上に事業投資する。
+                // フェザーン #160＝両陣営に売る商社国家の原型。口銭＋与信収益＋権益/事業投資リターン−焦げ付き−在庫評価損＝利益を法人税ぶん国庫へ。
+                // 数式は TradingHouseRules へ委譲（接続のみ）・勢力単位の集約（個社経営へ降りない＝タイクン化回避）。
+                if (!tradingHouses.TryGetValue(s.faction, out var th) || th == null)
+                {
+                    th = new TradingHouse($"{s.faction}商社", capital: Mathf.Max(0f, economy) * TradeHouseCapitalRatio, faction: s.faction);
+                    tradingHouses[s.faction] = th;
+                }
+                float tradeValue = Mathf.Max(0f, economy) * TradeHouseTradeRatio;          // 取引額（市場#179/交易#94 の活動 proxy）
+                th.inventory = tradeValue * TradeHouseInventoryRatio;                       // 在庫（価格/為替リスクを負う）
+                th.tradeCredit = tradeValue * TradeHouseCreditRatio;                        // 与信（トレードファイナンス）
+                th.resourceStakes = Mathf.Max(0f, th.capital) * TradeHouseResourceStakeRatio; // 資源権益への出資（#178）
+                th.businessStakes = Mathf.Max(0f, th.capital) * TradeHouseBusinessStakeRatio; // 川上事業投資（#1022）
+                // 在庫の価格ショック：金融危機で評価損、平時は物価変動（インフレ）を価格変化率 proxy に（capital を破壊的更新）。
+                float priceChange = nowCrisis ? -0.15f : (s.currency != null ? Mathf.Clamp(s.currency.inflationRate, -0.1f, 0.1f) : 0f);
+                TradingHouseRules.ApplyPriceShock(th, priceChange);
+                // 利益＝口銭＋与信収益＋権益/事業投資リターン−取引先焦げ付き。
+                float thCommission = TradingHouseRules.Commission(tradeValue, th.commissionRate);
+                float thTradeFin = TradingHouseRules.TradeFinanceIncome(th.tradeCredit, TradingHouseRules.DefaultTradeCreditSpread);
+                float thStakeRet = TradingHouseRules.ResourceStakeReturn(th.resourceStakes, TradingHouseRules.DefaultStakeReturnRate)
+                                 + TradingHouseRules.BusinessStakeReturn(th.businessStakes, TradingHouseRules.DefaultStakeReturnRate);
+                float thDefaultRate = nowCrisis ? TradeHouseCrisisDefaultRate : TradeHousePeaceDefaultRate;
+                float thLoss = TradingHouseRules.CounterpartyLoss(th.tradeCredit, thDefaultRate);
+                float thProfit = thCommission + thTradeFin + thStakeRet - thLoss;
+                th.capital += thProfit;                                                     // 自己資本に蓄積
+                if (thProfit > 0f) s.treasury += thProfit * CorporateTaxRate;               // 法人税ぶん国庫へ（商社が財政を潤す）
+                // 資源権益→備蓄供給（#178）：確保した供給を勢力の資源備蓄へ納入（備蓄が既生成のときのみ＝順序安全）。
+                if (stateStockpiles.TryGetValue(s.faction, out var thStock) && thStock != null)
+                    TradingHouseRules.DeliverSecuredSupply(thStock, ResourceType.物資, th.resourceStakes, TradeHouseSupplyPerStake, 1f);
+                // 通知（Tier2・エッジ検出）：商社の自己資本が尽きる＝破綻（在庫評価損・焦げ付きがクッションを食い潰す）。
+                bool thInsolvent = th.capital < 0f;
+                if (thInsolvent && tradingHouseInsolvent.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 商社が破綻（在庫評価損・取引先焦げ付きで自己資本が枯渇）");
+                else if (!thInsolvent && th.capital > Mathf.Max(0f, economy) * TradeHouseCapitalRatio * 0.2f) tradingHouseInsolvent.Remove(s.faction);
+
+                // 不動産会社（#2019 配線）：土地・建物を取得し賃貸/売買/開発する。土地を私有財産にできるかは政体による（共産=国有=収益化しない）。
+                // 賃料が NOI を生み利益→国庫、地価が賃料の裏付けより速く値上がりすると不動産バブル→金融危機で崩壊し評価損（銀行担保#186/#1939 の引き金）。
+                // 数式は RealEstateRules へ委譲（接続のみ）・勢力単位の集約（個別物件 micro は持たない＝タイクン化回避）。
+                if (!realEstateFirms.TryGetValue(s.faction, out var re) || re == null)
+                {
+                    re = new RealEstateCompany($"{s.faction}不動産", faction: s.faction);
+                    re.propertyValue = Mathf.Max(0f, economy) * RealEstatePropertyRatio;
+                    re.landValue = re.propertyValue * 0.5f;
+                    re.acquisitionCost = re.propertyValue;
+                    realEstateFirms[s.faction] = re;
+                }
+                string reIdeology = IdeologyOf(s.faction);
+                // 地価/物件価値：平時は値上がり（賃料より速い＝バブルの素）・危機で下落。賃料は所得（経済規模）に連動＝賃料の裏付け。
+                float reAppr = nowCrisis ? RealEstateCrashRate : RealEstateAppreciation;
+                re.landValue = RealEstateRules.LandValueAfterAppreciation(re.landValue, reAppr);
+                re.propertyValue = RealEstateRules.LandValueAfterAppreciation(re.propertyValue, reAppr);
+                re.grossRent = Mathf.Max(0f, economy) * RealEstateRentRatio;
+                re.vacancyRate = nowCrisis ? RealEstateCrisisVacancy : RealEstateRules.DefaultVacancyRate;
+                // 純営業収益（NOI）＝実効賃料−運営費。利益→法人税ぶん国庫（私有可のときのみ＝共産は国有で収益化しない RE-1）。
+                float reEffRent = RealEstateRules.EffectiveRent(re.grossRent, re.vacancyRate);
+                float reNoi = RealEstateRules.NetOperatingIncome(reEffRent, reEffRent * RealEstateOpexRatio);
+                if (reNoi > 0f && RealEstateRules.CanPrivatizeLand(reIdeology))
+                    s.treasury += reNoi * CorporateTaxRate;
+                // 不動産バブル（RE-5・#1939）：価格/賃料倍率が閾値超で割高＝兆候を通知。崩壊で評価損→民心/銀行担保毀損。
+                float reP2r = RealEstateRules.PriceToRentRatio(re.propertyValue, re.grossRent);
+                bool reBubble = RealEstateRules.IsBubble(reP2r, RealEstateRules.DefaultBubbleThreshold);
+                if (reBubble && nowCrisis)
+                {
+                    float burst = RealEstateRules.BubbleBurstLoss(re.propertyValue, RealEstateBurstCorrection);
+                    re.propertyValue = Mathf.Max(0f, re.propertyValue - burst);
+                    re.landValue = Mathf.Max(0f, re.landValue - RealEstateRules.BubbleBurstLoss(re.landValue, RealEstateBurstCorrection));
+                    if (s.community != null) s.community.hope = Mathf.Clamp01(s.community.hope - 0.05f);
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{s.faction} 不動産バブル崩壊（地価暴落 {burst:0}）＝銀行担保毀損・信用収縮");
+                    realEstateBubble.Remove(s.faction);
+                }
+                else if (reBubble && realEstateBubble.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                        $"{s.faction} 不動産バブルの兆候（価格/賃料 {reP2r:0}倍・空室 {(int)(re.vacancyRate * 100)}%）");
+                else if (!reBubble) realEstateBubble.Remove(s.faction);
+
                 // 通知（Tier0・エッジ検出）：国庫枯渇＝予算執行が回らない危機（戦費/制裁/債務で国庫が干上がる）。
                 bool empty = s.treasury < economy * 0.02f;
                 if (empty && treasuryEmpty.Add(s.faction))
@@ -386,6 +462,24 @@ namespace Ginei
         private const float BankNplLossGivenDefault = 0.5f;// 不良債権のデフォルト時損失率
         private const float BankPeaceNplRate = 0.02f;      // 平時の不良債権率（貸出比）
         private const float BankCrisisNplRate = 0.15f;     // 金融危機時の不良債権率（貸出比）
+        // 商社＝総合商社（FRM-5 #1027）の調整値（少量で創発＝タイクン化回避）。
+        private const float TradeHouseCapitalRatio = 0.2f;    // 自己資本＝経済規模×これ
+        private const float TradeHouseTradeRatio = 0.4f;      // 取引額＝経済規模×これ（口銭の素・市場#179/交易#94 proxy）
+        private const float TradeHouseInventoryRatio = 0.3f;  // 在庫＝取引額×これ（価格/為替リスクを負う）
+        private const float TradeHouseCreditRatio = 0.2f;     // 与信＝取引額×これ（トレードファイナンス）
+        private const float TradeHouseResourceStakeRatio = 0.3f; // 資源権益への出資＝自己資本×これ（#178）
+        private const float TradeHouseBusinessStakeRatio = 0.2f; // 川上事業投資＝自己資本×これ（#1022）
+        private const float TradeHousePeaceDefaultRate = 0.02f;  // 平時の取引先デフォルト率
+        private const float TradeHouseCrisisDefaultRate = 0.10f; // 金融危機時の取引先デフォルト率
+        private const float TradeHouseSupplyPerStake = 0.0005f;  // 資源権益が確保する単位あたり供給（#178）
+        // 不動産会社（#2019）の調整値（少量で創発＝タイクン化回避）。
+        private const float RealEstatePropertyRatio = 1.0f;   // 初期物件価値＝経済規模×これ
+        private const float RealEstateRentRatio = 0.06f;      // 年間総賃料＝経済規模×これ（所得連動＝賃料の裏付け）
+        private const float RealEstateAppreciation = 0.03f;   // 平時の地価/物件価値の年間上昇率（賃料より速い＝バブルの素）
+        private const float RealEstateCrashRate = -0.10f;     // 金融危機時の地価下落率
+        private const float RealEstateCrisisVacancy = 0.25f;  // 金融危機時の空室率
+        private const float RealEstateOpexRatio = 0.30f;      // 運営費＝実効賃料×これ（管理/修繕/税）
+        private const float RealEstateBurstCorrection = 0.30f;// バブル崩壊の評価損率
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
@@ -522,6 +616,12 @@ namespace Ginei
         // 軍産複合体（MCN-4 #1389・CAP-3 #204）：造船利権の政治圧力（0..1）。年次 RunFiscalYearTick が更新し、建艦補助金/調達腐敗/戦争バイアスへ波及。
         private readonly System.Collections.Generic.Dictionary<Faction, float> micPressure
             = new System.Collections.Generic.Dictionary<Faction, float>();
+        // 商社＝総合商社（FRM-5 #1027）：勢力ごとの独立商社。年次 RunFiscalYearTick が口銭/与信/権益/在庫評価損を回し利益→国庫・破綻通知。
+        private readonly System.Collections.Generic.Dictionary<Faction, TradingHouse> tradingHouses
+            = new System.Collections.Generic.Dictionary<Faction, TradingHouse>();
+        // 不動産会社（#2019）：勢力ごとの不動産会社。年次 RunFiscalYearTick が賃料/NOI/地価/バブルを回し利益→国庫・崩壊通知。
+        private readonly System.Collections.Generic.Dictionary<Faction, RealEstateCompany> realEstateFirms
+            = new System.Collections.Generic.Dictionary<Faction, RealEstateCompany>();
         private readonly System.Collections.Generic.Dictionary<Faction, ResearchState> researchStates
             = new System.Collections.Generic.Dictionary<Faction, ResearchState>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> lastRecruits
@@ -536,6 +636,8 @@ namespace Ginei
         private readonly System.Collections.Generic.HashSet<Faction> bankRunFactions = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> bankInsolventFactions = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> micComplexFactions = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> tradingHouseInsolvent = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> realEstateBubble = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBoom = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBust = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
@@ -587,6 +689,12 @@ namespace Ginei
         /// <summary>勢力に軍産複合体が成立しているか（政治圧力が閾値以上＝構造的戦争バイアス）。観測層専用＝read-only。</summary>
         public bool IsMilitaryIndustrialComplex(Faction faction)
             => MilitaryIndustrialRules.IsComplex(GetMilitaryIndustrialPressure(faction));
+        /// <summary>勢力の商社（総合商社＝自己資本/在庫/与信/権益・FRM-5 #1027）。観測層専用＝read-only。</summary>
+        public TradingHouse GetTradingHouse(Faction faction)
+            => tradingHouses.TryGetValue(faction, out var th) ? th : null;
+        /// <summary>勢力の不動産会社（地価/物件価値/賃料/空室率・#2019）。観測層専用＝read-only。</summary>
+        public RealEstateCompany GetRealEstateCompany(Faction faction)
+            => realEstateFirms.TryGetValue(faction, out var re) ? re : null;
 
         /// <summary>勢力の造船所数（軍産複合体のロビー圧力の入力＝軍需の規模）。</summary>
         private int ShipyardCountOf(Faction faction)

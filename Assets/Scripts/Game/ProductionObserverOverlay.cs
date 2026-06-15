@@ -232,6 +232,40 @@ namespace Ginei
                       .Append("　配当利回り ").Append((yld * 100f).ToString("0.0")).Append("%\n");
                 }
             }
+
+            // --- 商社＝総合商社（FRM-5 #1027 配線・仲介/裁定/与信/権益で稼ぐ独立エージェント・フェザーン #160） ---
+            TradingHouse th = gv.GetTradingHouse(fac);
+            if (th != null)
+            {
+                string ccol = th.capital < 0f ? "#ff7a6a" : "#a0e0a0";
+                sb.Append("  <color=#9fb0c0>商社</color> ").Append(th.name)
+                  .Append("　自己資本 <color=").Append(ccol).Append('>').Append(th.capital.ToString("#,0")).Append("</color>")
+                  .Append("　在庫 ").Append(th.inventory.ToString("#,0"))
+                  .Append("　与信 ").Append(th.tradeCredit.ToString("#,0"))
+                  .Append("　権益 ").Append(th.resourceStakes.ToString("#,0"))
+                  .Append("　事業投資 ").Append(th.businessStakes.ToString("#,0"));
+                if (th.capital < 0f) sb.Append("　<color=#ff7a6a>⚠ 破綻</color>");
+                sb.Append('\n');
+            }
+
+            // --- 不動産会社（#2019 配線・賃貸/売買/開発・地価バブル RE-5） ---
+            RealEstateCompany re = gv.GetRealEstateCompany(fac);
+            if (re != null)
+            {
+                float effRent = RealEstateRules.EffectiveRent(re.grossRent, re.vacancyRate);
+                float noi = RealEstateRules.NetOperatingIncome(effRent, effRent * 0.3f);
+                float p2r = RealEstateRules.PriceToRentRatio(re.propertyValue, re.grossRent);
+                bool bubble = RealEstateRules.IsBubble(p2r, RealEstateRules.DefaultBubbleThreshold);
+                sb.Append("  <color=#9fb0c0>不動産</color> ").Append(re.name)
+                  .Append("　地価 ").Append(re.landValue.ToString("#,0"))
+                  .Append("　物件価値 ").Append(re.propertyValue.ToString("#,0"))
+                  .Append("　NOI ").Append(noi.ToString("#,0"))
+                  .Append("　空室 ").Append((re.vacancyRate * 100f).ToString("0")).Append('%')
+                  .Append("　価格/賃料 <color=").Append(bubble ? "#ff7a6a" : (p2r > 20f ? "#ffd28a" : "#a0e0a0")).Append('>')
+                  .Append(p2r.ToString("0")).Append("倍</color>");
+                if (bubble) sb.Append("　<color=#ff7a6a>⚠ バブル</color>");
+                sb.Append('\n');
+            }
         }
 
         /// <summary>セクター（産業）が売る市場財（観測表示用・GalaxyView の対応と一致させる）。</summary>

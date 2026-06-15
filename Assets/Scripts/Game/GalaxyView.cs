@@ -451,10 +451,23 @@ namespace Ginei
             RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
         }
 
-        /// <summary>月次の経済Tick（Tick順見直し）：市場価格・企業・株式・交易を月次で回す（日次=重い/年次=粗い の中間＝滑らか＋年次の市場読み手の1年ラグ解消）。</summary>
+        private int monthCounter; // 月次の通し番号（四半期/年次の月割り分散に使う・Tick改善P1/P2）
+
+        /// <summary>
+        /// 月次の経済/社会Tick（Tick改善 P1-P4）：市場（毎月）に加え、外交を四半期（P2 応答性）、重い生産連鎖を
+        /// 月割り stagger（P1 年次スパイク分散・各年1回）、人物財産の時価評価を毎月（P3 市場整合）で回す。
+        /// </summary>
         private void RunMonthlyCampaignTick()
         {
-            RunMarketTick();
+            RunMarketTick();                       // 毎月：市場/企業/株式/交易
+            RunFinancialMarkToMarket();            // P3：保有金融資産を毎月 時価評価（月次市場に追従）
+
+            int m = monthCounter % 12;
+            if (monthCounter % 3 == 0) RunDiplomacyTick();   // P2：外交は四半期（宣戦/講和/賠償/制裁/諜報）
+            if (m == 2)  RunSupplyChainTick();               // P1：重い生産連鎖を月割りで分散（各年1回・dt不変）
+            if (m == 6)  RunBomConsumerTick();
+            if (m == 10) RunScmPlanTick();
+            monthCounter++;
         }
 
         /// <summary>

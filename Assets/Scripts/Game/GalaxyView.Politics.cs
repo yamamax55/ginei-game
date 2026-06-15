@@ -219,9 +219,15 @@ namespace Ginei
                         IntelState ia = intelStates.TryGetValue(fa, out var iav) ? iav : null;
                         IntelState ib = intelStates.TryGetValue(fb, out var ibv) ? ibv : null;
                         if (ia != null && sbb != null && IntelligenceTickRules.SabotageSuccess(ia.capability, ib != null ? ib.counterIntel : 0f, SabotageRoll(fa, fb)))
+                        {
                             sbb.treasury = Mathf.Max(0f, sbb.treasury - Mathf.Min(sbb.treasury * 0.03f, IntelligenceTickRules.SabotageEffect(ia.capability) * CampaignRules.EconomyBase(sbb) * 0.05f));
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.注意, $"{fb} で {fa} の諜報工作（妨害）が発覚"); // Tier1 通知
+                        }
                         if (ib != null && saa != null && IntelligenceTickRules.SabotageSuccess(ib.capability, ia != null ? ia.counterIntel : 0f, SabotageRoll(fb, fa)))
+                        {
                             saa.treasury = Mathf.Max(0f, saa.treasury - Mathf.Min(saa.treasury * 0.03f, IntelligenceTickRules.SabotageEffect(ib.capability) * CampaignRules.EconomyBase(saa) * 0.05f));
+                            NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.注意, $"{fa} で {fb} の諜報工作（妨害）が発覚"); // Tier1 通知
+                        }
                     }
                     switch (ev)
                     {
@@ -251,7 +257,12 @@ namespace Ginei
                 for (int w = 0; w < wars.Count; w++)
                 {
                     WarState ws = wars[w];
-                    if (ws == null || Mathf.Abs(ws.warScore) < 0.2f) continue; // 拮抗は賠償なし
+                    if (ws == null) continue;
+                    // 戦争の財政コスト（配線ループ#5）：損害が大きいほど双方の国庫が消耗する＝戦争は高くつく（全戦争・bounded）。
+                    float warCost = Mathf.Clamp01(ws.casualties) * 0.02f;
+                    if (System.Enum.TryParse(ws.factionA, out Faction caf)) { var sc = StateOf(caf); if (sc != null) sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); }
+                    if (System.Enum.TryParse(ws.factionB, out Faction cbf)) { var sc = StateOf(cbf); if (sc != null) sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); }
+                    if (Mathf.Abs(ws.warScore) < 0.2f) continue; // 拮抗は賠償なし（戦費は上で課済み）
                     bool aWinning = ws.warScore > 0f;
                     if (!System.Enum.TryParse(aWinning ? ws.factionA : ws.factionB, out Faction wf)) continue;
                     if (!System.Enum.TryParse(aWinning ? ws.factionB : ws.factionA, out Faction lf)) continue;
@@ -259,7 +270,11 @@ namespace Ginei
                     if (winner == null || loser == null) continue;
                     float rep = Mathf.Min(loser.treasury * 0.05f,
                         DiplomaticActionAiRules.ProposedReparations(Mathf.Abs(ws.warScore), CampaignRules.EconomyBase(loser)));
-                    if (rep > 0f) { loser.treasury = Mathf.Max(0f, loser.treasury - rep); winner.treasury += rep; }
+                    if (rep > 0f)
+                    {
+                        loser.treasury = Mathf.Max(0f, loser.treasury - rep); winner.treasury += rep;
+                        NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{lf} が {wf} へ賠償を支払（{rep:0}）"); // Tier1 通知
+                    }
                 }
 
             // 条約効果（P1 配線）：締結中の条約は毎年 opinion を補強する（DiplomaticEffectRules→DiplomacyRules）。

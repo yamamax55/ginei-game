@@ -112,6 +112,10 @@ namespace Ginei
                         hopeDelta += (RedistributionRules.ClassSupportDelta(FiscalClass.貧困層, prog)
                                     + RedistributionRules.ClassSupportDelta(FiscalClass.富裕層, prog)) * 0.02f;
                     }
+                    // 物価高→民心（配線ループ#1）：高インフレは生活を圧迫し民心を削る（デフレは無害＝0クランプ）。
+                    if (s.currency != null) hopeDelta -= Mathf.Clamp(s.currency.inflationRate, 0f, 1f) * 0.1f;
+                    // 富裕層の繁栄→民心（配線ループ#4）：司令クラスの富（人物財産#2056）が厚いほど景気感で微増（bounded）。
+                    hopeDelta += Mathf.Clamp(EliteWealthOf(s.faction) / 100000f, 0f, 1f) * 0.02f;
                     s.community.hope = Mathf.Clamp01(s.community.hope + hopeDelta);
                 }
 
@@ -181,6 +185,20 @@ namespace Ginei
                 }
                 else crisisOutputFactor[s.faction] = 1f;
 
+                // 通知（Tier0・エッジ検出）：国庫枯渇＝予算執行が回らない危機（戦費/制裁/債務で国庫が干上がる）。
+                bool empty = s.treasury < economy * 0.02f;
+                if (empty && treasuryEmpty.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 国庫が枯渇（残 {s.treasury:0}）＝財政破綻の瀬戸際");
+                else if (!empty && s.treasury > economy * 0.05f) treasuryEmpty.Remove(s.faction);
+                // 通知（Tier2・エッジ検出）：国債利回りの急騰＝デフォルト懸念（借入コスト爆発）。
+                if (s.sovereignBond != null)
+                {
+                    bool bondHot = BondMarketRules.CurrentYield(s.sovereignBond) > 0.12f;
+                    if (bondHot && bondCrisis.Add(s.faction))
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 国債利回りが急騰（{(BondMarketRules.CurrentYield(s.sovereignBond) * 100):0.0}%）＝デフォルト懸念");
+                    else if (!bondHot && BondMarketRules.CurrentYield(s.sovereignBond) < 0.08f) bondCrisis.Remove(s.faction);
+                }
+
                 // 諜報（P1 配線）：軍事予算の一部を諜報へ→能力育成（可視度/工作の素・観測）。
                 if (!intelStates.TryGetValue(s.faction, out var intel) || intel == null) { intel = new IntelState(); intelStates[s.faction] = intel; }
                 float intelFunding = s.budget != null ? BudgetRules.Get(s.budget, BudgetCategory.軍事) * 0.1f : 0f;
@@ -216,7 +234,44 @@ namespace Ginei
                     // 占領→同化（P0 配線・占領ループの出口）：文化結束が高いほど未統合の占領地が早く同化する（integration↑）。
                     if (prov.integration < 1f && cultureStates.TryGetValue(sys.owner, out var cult) && cult != null)
                         prov.integration = Mathf.Clamp01(prov.integration + CultureSynthesisTickRules.AssimilationRate(cult, prov.integration));
+                    // 飢餓→人口（配線ループ#2）：必需不足が深刻な惑星は餓死/流出で人口が減る（bounded）。
+                    if (prov.foodShortage > 0.3f)
+                        prov.population = Mathf.Max(0f, prov.population * (1f - prov.foodShortage * 0.02f));
+                    // 物価高→生活水準（配線ループ#6）：高インフレは実質購買力を削り生活水準を下げる。
+                    var ist = StateOf(sys.owner);
+                    if (ist != null && ist.currency != null)
+                    {
+                        prov.livingStandard = Mathf.Clamp01(prov.livingStandard - Mathf.Clamp(ist.currency.inflationRate, 0f, 1f) * 0.05f);
+                        // 基軸通貨→輸入優位（配線ループ#7）：基軸度が高いほど安く輸入でき生活水準が上がる（法外な特権の生活面）。
+                        prov.livingStandard = Mathf.Clamp01(prov.livingStandard + ist.currency.reserveStatus * 0.02f);
+                    }
+                    // 前線→安定度（配線ループ#8）：交戦中で敵対勢力に隣接する星系は前線の重圧で安定度が削られる。
+                    if (IsAtWar(sys.owner) && IsFrontline(sys))
+                        prov.stability = Mathf.Max(0f, prov.stability - 3f);
+                    // 崩壊→難民流出（配線ループ#9）：安定度が地に落ちた星系は住民が逃散して人口が減る（bounded）。
+                    if (prov.stability < 20f)
+                        prov.population = Mathf.Max(0f, prov.population * (1f - 0.01f));
+
+                    // 通知（Tier0・エッジ検出）：飢饉の発生／星系崩壊。閾値クロス時のみ通知し回復で解除＝洪水回避。
+                    if (prov.foodShortage > 0.4f && famineSystems.Add(sys.id))
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{sys.systemName}（{sys.owner}）で飢饉が発生（必需充足 {(int)((1f - prov.foodShortage) * 100)}%）");
+                    else if (prov.foodShortage < 0.2f) famineSystems.Remove(sys.id);
+                    if (prov.stability < 20f && collapsedSystems.Add(sys.id))
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{sys.systemName}（{sys.owner}）が統治崩壊＝難民流出（安定度 {(int)prov.stability}）");
+                    else if (prov.stability > 30f) collapsedSystems.Remove(sys.id);
                 }
+        }
+
+        /// <summary>星系が前線か（敵対勢力に隣接・配線ループ#8）。</summary>
+        private bool IsFrontline(StarSystem sys)
+        {
+            if (map == null || sys == null) return false;
+            foreach (int nid in map.Neighbors(sys.id))
+            {
+                StarSystem n = map.GetSystem(nid);
+                if (n != null && n.owner != sys.owner) return true;
+            }
+            return false;
         }
 
         /// <summary>建艦の出資度（G3）＝建艦予算/必要額。歳入の2割を満額基準とする（不足で建艦が遅れる）。</summary>
@@ -251,6 +306,7 @@ namespace Ginei
         private const float DemandSupplies = 0.012f, DemandFuel = 0.005f, DemandAmmo = 0.002f, DemandLuxury = 0.006f;
         // P0 交易の輸送コスト（基準価格単位・これ未満の価格差は裁定が起きない）／P1 平時の動員率。
         private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f, WartimeMobilizationRate = 0.3f;
+        private const float TariffRate = 0.1f; // 交易の関税率（取引フローの何割が国庫へ・配線ループ#3）
         private const float WarPopulationDrain = 0.01f; // 交戦中の年次人口減（総力戦のコスト・P3）
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
@@ -294,6 +350,16 @@ namespace Ginei
             for (int i = 0; i < camp.states.Count; i++)
                 if (camp.states[i] != null && camp.states[i].faction == fac) return camp.states[i];
             return null;
+        }
+
+        /// <summary>勢力の司令クラスの富の合計（人物財産#2056・配線ループ#4 の景気感入力）。</summary>
+        private float EliteWealthOf(Faction fac)
+        {
+            if (commanders == null) return 0f;
+            float sum = 0f;
+            for (int i = 0; i < commanders.Count; i++)
+                if (commanders[i] != null && commanders[i].faction == fac) sum += commanders[i].wealth;
+            return sum;
         }
 
         /// <summary>勢力通貨の物価水準（インフレ）。未設定は1.0＝物価→市場の名目スケール。</summary>
@@ -378,6 +444,13 @@ namespace Ginei
             = new System.Collections.Generic.Dictionary<Faction, float>();
         private readonly System.Collections.Generic.Dictionary<Faction, bool> financialCrisis
             = new System.Collections.Generic.Dictionary<Faction, bool>();
+        // 通知のエッジ検出（閾値クロス時のみ通知し回復で解除＝洪水回避）。
+        private readonly System.Collections.Generic.HashSet<int> famineSystems = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<int> collapsedSystems = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<Faction> treasuryEmpty = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> bondCrisis = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> marketBoom = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> marketBust = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
             = new System.Collections.Generic.Dictionary<Faction, float>();
         private readonly System.Collections.Generic.Dictionary<Faction, IntelState> intelStates
@@ -561,6 +634,13 @@ namespace Ginei
                     StockMarketRules.Tick(l.stock, sp, MonthDt);
                     if (fstate != null) fstate.treasury += Mathf.Max(0f, l.stock.dividend) * Mathf.Max(0f, l.shares) * DividendTaxRate * MonthDt;
                 }
+
+                // 通知（Tier2・エッジ検出）：株式市場の暴騰/暴落（市場心理の極端）。回復で解除＝洪水回避。
+                float senti = StockMarketSystemRules.MarketSentiment(mkt);
+                if (senti > 0.7f && marketBoom.Add(fac)) NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{fac} 株式市場が活況（市場心理 {(int)(senti * 100)}%）");
+                else if (senti < 0.6f) marketBoom.Remove(fac);
+                if (senti < 0.3f && marketBust.Add(fac)) NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{fac} 株式市場が暴落（市場心理 {(int)(senti * 100)}%）");
+                else if (senti > 0.4f) marketBust.Remove(fac);
             }
 
             // 交易（月次）：勢力間で同一財の価格差を裁定で縮める（輸送コスト律速）。
@@ -570,8 +650,19 @@ namespace Ginei
                     if (!markets.TryGetValue(DemoFactions[a], out var ma) || ma == null) continue;
                     if (!markets.TryGetValue(DemoFactions[b], out var mb) || mb == null) continue;
                     int n = Mathf.Min(ma.Length, mb.Length);
+                    FactionState sa = StateOf(DemoFactions[a]), sb = StateOf(DemoFactions[b]);
                     for (int g = 0; g < n; g++)
+                    {
+                        // 交易→関税収入（配線ループ#3）：取引量に関税を課し双方の国庫へ＝交易が財政を潤す（取引前の裁定フローで課税）。
+                        float flow = InterregionalTradeRules.TradeFlow(ma[g], mb[g], TradeTransportCost);
                         InterregionalTradeRules.TickPair(ma[g], mb[g], TradeTransportCost, MonthDt);
+                        if (flow > 0f)
+                        {
+                            float tariff = flow * MonthDt * TariffRate;
+                            if (sa != null) sa.treasury += tariff;
+                            if (sb != null) sb.treasury += tariff;
+                        }
+                    }
                 }
         }
 
@@ -617,7 +708,11 @@ namespace Ginei
                 if (!researchStates.TryGetValue(fac, out var rs) || rs == null) { rs = new ResearchState(); researchStates[fac] = rs; }
                 float facSkill = FactionAvgSkill(fac);
                 float researchFunding = fstate != null && fstate.budget != null ? BudgetRules.Get(fstate.budget, BudgetCategory.研究) : 0f;
+                int beforeTech = Mathf.FloorToInt(rs.techLevel);
                 ResearchProgramRules.TickYear(rs, researchFunding, facSkill, 1f);
+                // 技術マイルストン通知（配線ループ#10）：技術水準が整数の節目を超えたら研究の達成を通知＝研究の手応え。
+                if (Mathf.FloorToInt(rs.techLevel) > beforeTech)
+                    NotificationCenter.Push(NotificationCategory.建艦, NotificationSeverity.情報, $"{fac} 技術水準が {Mathf.FloorToInt(rs.techLevel)} に到達");
 
                 // 徴兵・動員（P1 配線）：徴募源(軍属#110)×動員率→練度反映の戦力を FleetPool へ加える。
                 float recruitPool = 0f;

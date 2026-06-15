@@ -226,8 +226,30 @@ namespace Ginei
                     // 物価高→生活水準（配線ループ#6）：高インフレは実質購買力を削り生活水準を下げる。
                     var ist = StateOf(sys.owner);
                     if (ist != null && ist.currency != null)
+                    {
                         prov.livingStandard = Mathf.Clamp01(prov.livingStandard - Mathf.Clamp(ist.currency.inflationRate, 0f, 1f) * 0.05f);
+                        // 基軸通貨→輸入優位（配線ループ#7）：基軸度が高いほど安く輸入でき生活水準が上がる（法外な特権の生活面）。
+                        prov.livingStandard = Mathf.Clamp01(prov.livingStandard + ist.currency.reserveStatus * 0.02f);
+                    }
+                    // 前線→安定度（配線ループ#8）：交戦中で敵対勢力に隣接する星系は前線の重圧で安定度が削られる。
+                    if (IsAtWar(sys.owner) && IsFrontline(sys))
+                        prov.stability = Mathf.Max(0f, prov.stability - 3f);
+                    // 崩壊→難民流出（配線ループ#9）：安定度が地に落ちた星系は住民が逃散して人口が減る（bounded）。
+                    if (prov.stability < 20f)
+                        prov.population = Mathf.Max(0f, prov.population * (1f - 0.01f));
                 }
+        }
+
+        /// <summary>星系が前線か（敵対勢力に隣接・配線ループ#8）。</summary>
+        private bool IsFrontline(StarSystem sys)
+        {
+            if (map == null || sys == null) return false;
+            foreach (int nid in map.Neighbors(sys.id))
+            {
+                StarSystem n = map.GetSystem(nid);
+                if (n != null && n.owner != sys.owner) return true;
+            }
+            return false;
         }
 
         /// <summary>建艦の出資度（G3）＝建艦予算/必要額。歳入の2割を満額基準とする（不足で建艦が遅れる）。</summary>
@@ -650,7 +672,11 @@ namespace Ginei
                 if (!researchStates.TryGetValue(fac, out var rs) || rs == null) { rs = new ResearchState(); researchStates[fac] = rs; }
                 float facSkill = FactionAvgSkill(fac);
                 float researchFunding = fstate != null && fstate.budget != null ? BudgetRules.Get(fstate.budget, BudgetCategory.研究) : 0f;
+                int beforeTech = Mathf.FloorToInt(rs.techLevel);
                 ResearchProgramRules.TickYear(rs, researchFunding, facSkill, 1f);
+                // 技術マイルストン通知（配線ループ#10）：技術水準が整数の節目を超えたら研究の達成を通知＝研究の手応え。
+                if (Mathf.FloorToInt(rs.techLevel) > beforeTech)
+                    NotificationCenter.Push(NotificationCategory.建艦, NotificationSeverity.情報, $"{fac} 技術水準が {Mathf.FloorToInt(rs.techLevel)} に到達");
 
                 // 徴兵・動員（P1 配線）：徴募源(軍属#110)×動員率→練度反映の戦力を FleetPool へ加える。
                 float recruitPool = 0f;

@@ -61,6 +61,15 @@ namespace Ginei
             return result;
         }
 
+        /// <summary>企業所有の権利証（#1022 法人が所有する土地）。</summary>
+        public static List<PropertyDeed> OwnedByEnterprise(int enterpriseId)
+        {
+            var result = new List<PropertyDeed>();
+            for (int i = 0; i < deeds.Count; i++)
+                if (deeds[i].IsEnterpriseOwned && deeds[i].ownerEnterpriseId == enterpriseId) result.Add(deeds[i]);
+            return result;
+        }
+
         /// <summary>指定惑星の権利証を列挙。</summary>
         public static List<PropertyDeed> DeedsOnSystem(int systemId)
         {

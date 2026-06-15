@@ -73,6 +73,15 @@ namespace Ginei
             return result;
         }
 
+        /// <summary>企業が所有する資産を列挙（#1022 法人＝持株会社/財閥の保有資産）。</summary>
+        public static List<NamedAsset> OwnedByEnterprise(int enterpriseId)
+        {
+            var result = new List<NamedAsset>();
+            for (int i = 0; i < assets.Count; i++)
+                if (assets[i].IsEnterpriseOwned && assets[i].ownerEnterpriseId == enterpriseId) result.Add(assets[i]);
+            return result;
+        }
+
         /// <summary>人物の所有資産の時価合計。</summary>
         public static float TotalValueOfPerson(int personId)
         {

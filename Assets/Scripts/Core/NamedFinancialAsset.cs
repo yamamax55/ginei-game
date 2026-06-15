@@ -17,10 +17,11 @@ namespace Ginei
         public int underlyingId;        // 原資産のid（Listing#185/Bond#161/Trust#2003）
         public string underlyingName;   // 銘柄名（表示用）
 
-        // --- 所有者（人物 or 国家・NamedAsset と同じ表現） ---
+        // --- 所有者（人物 / 国家 / 企業・NamedAsset と同じ表現） ---
         public AssetOwnerKind ownerKind = AssetOwnerKind.人物;
         public int ownerPersonId;
         public Faction ownerFaction;
+        public int ownerEnterpriseId;        // ownerKind==企業 のとき有効（#1022 法人＝持株会社/財閥・後方互換で既定0）
 
         public float units;             // 口数（保有量）
         public float unitPrice;         // 時価（1口あたり）
@@ -42,7 +43,10 @@ namespace Ginei
         /// <summary>国家所有か。</summary>
         public bool IsFactionOwned => ownerKind == AssetOwnerKind.国家;
 
-        /// <summary>所有者キー（集計用）。</summary>
-        public string OwnerKey => IsPersonOwned ? $"P:{ownerPersonId}" : $"F:{ownerFaction}";
+        /// <summary>企業所有か（#1022 法人＝持株会社/財閥）。</summary>
+        public bool IsEnterpriseOwned => ownerKind == AssetOwnerKind.企業;
+
+        /// <summary>所有者キー（集計用＝人物 "P:id"／国家 "F:faction"／企業 "E:id"）。</summary>
+        public string OwnerKey => IsPersonOwned ? $"P:{ownerPersonId}" : IsEnterpriseOwned ? $"E:{ownerEnterpriseId}" : $"F:{ownerFaction}";
     }
 }

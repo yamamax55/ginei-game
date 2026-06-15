@@ -5,8 +5,11 @@ namespace Ginei
     /// <summary>ネームド資産のカテゴリ（NASSET-1・#2063）。固有名を持つ個別資産の種類（少数に絞る）。</summary>
     public enum NamedAssetCategory { 邸宅, 領地, 旗艦, 美術品, 企業, 財宝, 宮殿, 称号 }
 
-    /// <summary>ネームド資産の所有者種別（NASSET-1・#2063）。人物（<see cref="Person"/>）か国家（<see cref="Faction"/>）か。</summary>
-    public enum AssetOwnerKind { 人物, 国家 }
+    /// <summary>
+    /// ネームド資産の所有者種別（NASSET-1・#2063）。人物（<see cref="Person"/>）／国家（<see cref="Faction"/>）／企業（<see cref="Enterprise"/>#1022）。
+    /// 企業は末尾に追加＝既存の直列化（人物=0/国家=1）を保つ後方互換。企業も資産・株式・土地を所有できる（法人＝持株会社/財閥）。
+    /// </summary>
+    public enum AssetOwnerKind { 人物, 国家, 企業 }
 
     /// <summary>
     /// ネームド資産（固有名を持つ個別資産・NASSET-1・#2063・純データ・後方互換）。
@@ -20,10 +23,11 @@ namespace Ginei
         public string name;                  // 固有名（例：「獅子泉宮」「ブリュンヒルト」）
         public NamedAssetCategory category;
 
-        // --- 所有者（ポリモーフィズム＝人物 or 国家） ---
+        // --- 所有者（ポリモーフィズム＝人物 / 国家 / 企業） ---
         public AssetOwnerKind ownerKind = AssetOwnerKind.人物;
         public int ownerPersonId;            // ownerKind==人物 のとき有効
         public Faction ownerFaction;         // ownerKind==国家 のとき有効
+        public int ownerEnterpriseId;        // ownerKind==企業 のとき有効（#1022 法人所有・後方互換で既定0）
 
         // --- 価値・収益（評価は NamedAssetRules） ---
         public float value;                  // 時価（個別資産の評価額）
@@ -49,7 +53,10 @@ namespace Ginei
         /// <summary>国家所有か。</summary>
         public bool IsFactionOwned => ownerKind == AssetOwnerKind.国家;
 
-        /// <summary>所有者キー（表示/集計用＝人物は "P:id"、国家は "F:faction"）。</summary>
-        public string OwnerKey => IsPersonOwned ? $"P:{ownerPersonId}" : $"F:{ownerFaction}";
+        /// <summary>企業所有か（#1022 法人＝持株会社/財閥）。</summary>
+        public bool IsEnterpriseOwned => ownerKind == AssetOwnerKind.企業;
+
+        /// <summary>所有者キー（表示/集計用＝人物 "P:id"／国家 "F:faction"／企業 "E:id"）。</summary>
+        public string OwnerKey => IsPersonOwned ? $"P:{ownerPersonId}" : IsEnterpriseOwned ? $"E:{ownerEnterpriseId}" : $"F:{ownerFaction}";
     }
 }

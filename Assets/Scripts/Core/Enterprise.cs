@@ -12,6 +12,10 @@ namespace Ginei
     [Serializable]
     public class Enterprise
     {
+        /// <summary>企業の識別子（ネームド化＝#1022/#2063）。株式（<see cref="FinancialHolding"/> 株式 の underlyingId）や
+        /// 法人所有（<see cref="AssetOwnerKind.企業"/>）の参照キー。既定0＝未採番（後方互換）。</summary>
+        public int id;
+
         public string name = "企業";
         public Faction faction;
 

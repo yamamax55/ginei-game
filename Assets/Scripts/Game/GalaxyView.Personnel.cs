@@ -713,7 +713,7 @@ namespace Ginei
             RunPlanetLandTick();                                    // 惑星の土地＝ネームド財産：評価を地価へ同期＋国家が残余を所有（#2019/#2070）
             // 時価評価(RunFinancialMarkToMarket)は Tick改善P3 で月次へ移設（市場月次と整合・RunMonthlyCampaignTick）。
             MaybeCrashAStock();                                     // 紙くず化デモ（暴落#185）
-            NamedFinancialTickRules.TickYear(ResolveCommander);    // 配当/地代→所有者 wealth#2056
+            NamedFinancialTickRules.TickYear(ResolveCommander, ResolveEnterprise); // 配当/地代→所有者 wealth#2056（法人所有は企業資本へ・#1022）
             for (int f = 0; f < DemoFactions.Length; f++)          // 国家の金融/不動産（地代）収益→国庫#163
             {
                 float fInc = NamedFinancialTickRules.FactionAnnualIncome(DemoFactions[f]);
@@ -769,6 +769,7 @@ namespace Ginei
                 if (h == null) continue;
                 Faction fac = h.ownerFaction;
                 if (h.ownerKind == AssetOwnerKind.人物) { Person p = ResolveCommander(h.ownerPersonId); if (p != null) fac = p.faction; }
+                else if (h.ownerKind == AssetOwnerKind.企業) { Enterprise e = ResolveEnterprise(h.ownerEnterpriseId); if (e != null) fac = e.faction; }
                 float stockFactor = 1f + (StockSentimentOf(fac) - 0.5f) * 0.3f * MonthDt; // 市場心理で月次ドリフト（×MonthDt＝年次総量保持）
                 float bondPrice = 1f;
                 FactionState st = StateOf(fac);

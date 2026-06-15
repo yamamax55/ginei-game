@@ -100,6 +100,23 @@ namespace Ginei
                 { ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f], underlyingId = underlying++, units = 1000f, unitPrice = 10f, incomePerUnit = 0.5f, bookCost = 10000f });
                 FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.債券, $"{DemoFactions[f]}国債")
                 { ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f], underlyingId = underlying++, units = 500f, unitPrice = 100f, incomePerUnit = 3f, bookCost = 50000f });
+
+                // 法人所有のデモ（企業もネームド財産を持てる・#1022/#2070）：勢力の企業を確保し、私有企業が国有企業の株を持ち合い（財閥/持株会社）、
+                // 私有企業が首都星系に土地を所有する＝株式は国家・個人・企業の3主体が、土地は国家・個人・企業が所有する状態を作る。
+                Faction fac = DemoFactions[f];
+                if (!enterprises.TryGetValue(fac, out var firms) || firms == null) { firms = SeedEnterprises(fac); enterprises[fac] = firms; }
+                Enterprise priv = firms.Find(e => e != null && e.ownership == Ownership.私有);
+                Enterprise state = firms.Find(e => e != null && e.ownership == Ownership.国有);
+                if (priv != null && state != null)
+                {
+                    // 私有企業が国有企業の株式を保有（法人の株式持ち合い）＝企業が株式を所有。
+                    FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.株式, state.name)
+                    { ownerKind = AssetOwnerKind.企業, ownerEnterpriseId = priv.id, underlyingId = state.id, units = 200f, unitPrice = 10f, incomePerUnit = 0.5f, bookCost = 2000f });
+                    // 私有企業が首都星系に土地を所有（地所は RunPlanetLandTick が地価へ評価同期）。
+                    int capitalSys = fac == Faction.同盟 ? 1 : 0;
+                    PropertyDeedRegistry.Register(new PropertyDeed(0, capitalSys, 0.1f, 0f)
+                    { ownerKind = AssetOwnerKind.企業, ownerEnterpriseId = priv.id, rentRate = 0.04f });
+                }
             }
             // 各司令に少数の株式（配当）と、自勢力の星系のいずれかに地所（地代）。地所は持分を小さく自勢力の星系へ分散
             // ＝1惑星に私有が集中しすぎず国家が残余（StateShare）を持てる余地を残す（土地評価は RunPlanetLandTick が地価へ同期）。

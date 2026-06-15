@@ -16,8 +16,8 @@ namespace Ginei
         /// <summary>国家保有地の既定地代率（年）。</summary>
         public const float DefaultStateRentRate = 0.04f;
 
-        /// <summary>惑星の私有持分の合計（人物所有の権利証のみ・0..1にクランプ）。</summary>
-        public static float PrivateShare(int systemId)
+        /// <summary>惑星の個人（人物）所有の持分（0..1にクランプ）。</summary>
+        public static float PersonShare(int systemId)
         {
             float sum = 0f;
             var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
@@ -26,7 +26,30 @@ namespace Ginei
             return Mathf.Clamp01(sum);
         }
 
-        /// <summary>惑星の国家持分＝1−私有持分（国家は残りすべてを所有＝土地は完全所有）。</summary>
+        /// <summary>惑星の企業（法人）所有の持分（#1022 財閥/持株会社が土地を所有・0..1にクランプ）。</summary>
+        public static float EnterpriseShare(int systemId)
+        {
+            float sum = 0f;
+            var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
+            for (int i = 0; i < ds.Count; i++)
+                if (ds[i] != null && ds[i].IsEnterpriseOwned) sum += Mathf.Max(0f, ds[i].share);
+            return Mathf.Clamp01(sum);
+        }
+
+        /// <summary>惑星の私有持分の合計＝個人＋企業（国家以外の所有者・0..1にクランプ）。</summary>
+        public static float PrivateShare(int systemId)
+        {
+            float sum = 0f;
+            var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
+            for (int i = 0; i < ds.Count; i++)
+            {
+                PropertyDeed d = ds[i];
+                if (d != null && (d.IsPersonOwned || d.IsEnterpriseOwned)) sum += Mathf.Max(0f, d.share);
+            }
+            return Mathf.Clamp01(sum);
+        }
+
+        /// <summary>惑星の国家持分＝1−私有持分（個人＋企業）。国家は残りすべてを所有＝土地は完全所有。</summary>
         public static float StateShare(int systemId) => Mathf.Clamp01(1f - PrivateShare(systemId));
 
         /// <summary>権利証の市場評価＝惑星評価額×持分（<see cref="PropertyValuationRules.DeedValue"/> へ委譲）。</summary>
@@ -51,7 +74,7 @@ namespace Ginei
             for (int i = 0; i < ds.Count; i++)
             {
                 PropertyDeed d = ds[i];
-                if (d == null || !d.IsPersonOwned) continue;
+                if (d == null || (!d.IsPersonOwned && !d.IsEnterpriseOwned)) continue; // 個人・企業の私有を国有化
                 d.ownerKind = AssetOwnerKind.国家;
                 d.ownerFaction = faction;
                 d.share = 0f; // 私有持分は没収（国家の残余持分へ集約）

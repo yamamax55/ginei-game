@@ -11,10 +11,11 @@ namespace Ginei
         public int id;
         public int systemId;        // 対象の星系/惑星
 
-        // --- 所有者（人物 or 国家） ---
+        // --- 所有者（人物 / 国家 / 企業） ---
         public AssetOwnerKind ownerKind = AssetOwnerKind.人物;
         public int ownerPersonId;
         public Faction ownerFaction;
+        public int ownerEnterpriseId;   // ownerKind==企業 のとき有効（#1022 法人が土地を所有・後方互換で既定0）
 
         public float share;         // 持分（0..1）
         public float baseValue;     // 惑星全体の評価額（share=1 のときの価値）
@@ -32,6 +33,7 @@ namespace Ginei
 
         public bool IsPersonOwned => ownerKind == AssetOwnerKind.人物;
         public bool IsFactionOwned => ownerKind == AssetOwnerKind.国家;
-        public string OwnerKey => IsPersonOwned ? $"P:{ownerPersonId}" : $"F:{ownerFaction}";
+        public bool IsEnterpriseOwned => ownerKind == AssetOwnerKind.企業;
+        public string OwnerKey => IsPersonOwned ? $"P:{ownerPersonId}" : IsEnterpriseOwned ? $"E:{ownerEnterpriseId}" : $"F:{ownerFaction}";
     }
 }

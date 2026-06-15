@@ -624,9 +624,26 @@ namespace Ginei
             {
                 Ownership own = (i % 2 == 0) ? Ownership.私有 : Ownership.国有; // 偶=私有(上場)/奇=国有
                 list.Add(new Enterprise(fac, sectors[i], employees: 100f, capital: 1000f, productivity: 1f, wageRate: 1f,
-                    name: $"{fac}{sectors[i]}{(own == Ownership.国有 ? "公社" : "社")}", ownership: own));
+                    name: $"{fac}{sectors[i]}{(own == Ownership.国有 ? "公社" : "社")}", ownership: own)
+                { id = EnterpriseId(fac, i) }); // ネームド化＝法人所有/株式の参照キー（#1022/#2063）
             }
             return list;
+        }
+
+        /// <summary>企業のネームドID（勢力×セクターで決定論・株式 underlyingId/法人所有の参照キー）。</summary>
+        private static int EnterpriseId(Faction fac, int sectorIndex) => 1000 + (int)fac * 10 + sectorIndex;
+
+        /// <summary>ネームドIDから企業を解決（法人所有の配当/地代を企業資本へ流す・観測用）。未生成/不在は null。</summary>
+        public Enterprise ResolveEnterprise(int enterpriseId)
+        {
+            foreach (var kv in enterprises)
+            {
+                var firms = kv.Value;
+                if (firms == null) continue;
+                for (int i = 0; i < firms.Count; i++)
+                    if (firms[i] != null && firms[i].id == enterpriseId) return firms[i];
+            }
+            return null;
         }
 
         /// <summary>所有惑星のうちセクターが雇う職業のPOP工員総数（採用の供給上限の素）。</summary>

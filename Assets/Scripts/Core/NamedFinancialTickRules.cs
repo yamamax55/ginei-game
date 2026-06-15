@@ -11,10 +11,11 @@ namespace Ginei
     public static class NamedFinancialTickRules
     {
         /// <summary>
-        /// 1年ぶん：金融資産の収益＋不動産の地代を人物所有者の <see cref="Person.wealth"/> へ加算し、地価を更新。
-        /// <paramref name="resolvePerson"/> は personId→Person（不在/死亡は null＝収益は捨てられる）。
+        /// 1年ぶん：金融資産の収益＋不動産の地代を所有者へ加算し、地価を更新。人物所有は <see cref="Person.wealth"/>#2056、
+        /// 企業所有（#1022 法人＝持株会社/財閥）は <see cref="Enterprise.capital"/>（再投資）へ。国家所有ぶんは <see cref="FactionAnnualIncome"/> で集計。
+        /// <paramref name="resolvePerson"/>＝personId→Person／<paramref name="resolveEnterprise"/>＝enterpriseId→Enterprise（不在/死亡は捨てられる）。
         /// </summary>
-        public static void TickYear(Func<int, Person> resolvePerson)
+        public static void TickYear(Func<int, Person> resolvePerson, Func<int, Enterprise> resolveEnterprise = null)
         {
             // 金融資産の配当/クーポン/分配
             var fin = FinancialHoldingRegistry.All;
@@ -27,6 +28,12 @@ namespace Ginei
                     Person owner = resolvePerson(h.ownerPersonId);
                     if (owner != null && owner.deathYear == 0)
                         owner.wealth = UnityEngine.Mathf.Max(0f, owner.wealth + FinancialAssetRules.AnnualIncome(h));
+                }
+                else if (h.IsEnterpriseOwned && resolveEnterprise != null)
+                {
+                    Enterprise firm = resolveEnterprise(h.ownerEnterpriseId);
+                    if (firm != null)
+                        firm.capital = UnityEngine.Mathf.Max(0f, firm.capital + FinancialAssetRules.AnnualIncome(h)); // 法人の配当→資本（再投資）
                 }
             }
 
@@ -42,8 +49,25 @@ namespace Ginei
                     if (owner != null && owner.deathYear == 0)
                         owner.wealth = UnityEngine.Mathf.Max(0f, owner.wealth + PropertyValuationRules.RentIncome(d));
                 }
+                else if (d.IsEnterpriseOwned && resolveEnterprise != null)
+                {
+                    Enterprise firm = resolveEnterprise(d.ownerEnterpriseId);
+                    if (firm != null)
+                        firm.capital = UnityEngine.Mathf.Max(0f, firm.capital + PropertyValuationRules.RentIncome(d)); // 法人の地代→資本
+                }
                 d.baseValue = PropertyValuationRules.ValueAfterYear(d.baseValue, 0f); // 既定は据え置き（地価変動は呼び側が率を渡す拡張余地）
             }
+        }
+
+        /// <summary>企業（法人）の金融＋不動産の年間収益合計（#1022 法人所有の配当/地代）。</summary>
+        public static float EnterpriseAnnualIncome(int enterpriseId)
+        {
+            float sum = 0f;
+            var fin = FinancialHoldingRegistry.OwnedByEnterprise(enterpriseId);
+            for (int i = 0; i < fin.Count; i++) sum += FinancialAssetRules.AnnualIncome(fin[i]);
+            var prop = PropertyDeedRegistry.OwnedByEnterprise(enterpriseId);
+            for (int i = 0; i < prop.Count; i++) sum += PropertyValuationRules.RentIncome(prop[i]);
+            return sum;
         }
 
         /// <summary>国家の金融＋不動産の年間収益合計（国庫#163 へ流す入力）。</summary>

@@ -249,9 +249,10 @@ namespace Ginei
             }
             else sb.AppendLine("地価データなし（年次で形成）");
             int statePct = Mathf.RoundToInt(PlanetLandRules.StateShare(s.id) * 100f);
-            int privPct = Mathf.RoundToInt(PlanetLandRules.PrivateShare(s.id) * 100f);
+            int personPct = Mathf.RoundToInt(PlanetLandRules.PersonShare(s.id) * 100f);
+            int firmPct = Mathf.RoundToInt(PlanetLandRules.EnterpriseShare(s.id) * 100f);
             int deedCount = PropertyDeedRegistry.CountDeedsOnSystem(s.id);
-            sb.AppendLine($"土地所有: 国家 {statePct}%　個人 {privPct}%（権利証 {deedCount}枚）");
+            sb.AppendLine($"土地所有: 国家 {statePct}%　個人 {personPct}%　企業 {firmPct}%（権利証 {deedCount}枚）");
 
             sb.AppendLine();
             sb.AppendLine("― 惑星防衛 ―");

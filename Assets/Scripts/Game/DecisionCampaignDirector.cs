@@ -150,15 +150,21 @@ namespace Ginei
             }
 
             lastMeterClickTime = -999f; // 次の単発から数え直す
+            bool hit = false;
             for (int i = 0; i < bars.Count; i++)
             {
                 var b = bars[i];
                 if (b.root != null && RectTransformUtility.RectangleContainsScreenPoint(b.root, pos, null))
                 {
+                    // 【診断】どの段階まで来ているかを左下フィードに出す（切り分け用・後で除去）。
+                    NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, $"メーター詳細：{b.name} を表示");
                     ShowDetail(b.name);
+                    hit = true;
                     break;
                 }
             }
+            if (!hit)
+                NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意, "メーター：ダブルクリック検出（バー外）");
         }
 
         // ===== 決裁→メーター =====

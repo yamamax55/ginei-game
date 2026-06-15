@@ -108,6 +108,29 @@ namespace Ginei
             };
         }
 
+        /// <summary>
+        /// 委譲発令＝直属の上官が主命を噛み砕いて部下へ下す（MBO カスケード・TKO-11 #2488）。君主ゲート（<see cref="CanIssue"/>）を
+        /// 通さない＝権限はカスケード上流（君主）から指揮系統で委譲されている前提。発令者/勢力を直接受ける。
+        /// 発令者・拝命者の id が無効（0/同一）なら null。<see cref="MandateCascadeRules.ToLeafMandate"/> が使う窓口。
+        /// </summary>
+        public static SovereignMandate IssueDelegated(int id, int issuerId, int assigneeId, Faction faction,
+            MandateKind kind, string objective, int currentMonth, MandateParams prm)
+        {
+            if (issuerId == 0 || assigneeId == 0 || issuerId == assigneeId) return null;
+            return new SovereignMandate
+            {
+                id = id,
+                faction = faction,
+                issuerId = issuerId,
+                assigneeId = assigneeId,
+                kind = kind,
+                objective = objective ?? "",
+                issuedMonth = currentMonth,
+                dueMonth = currentMonth + prm.durationMonths,
+                status = MandateStatus.拝命,
+            };
+        }
+
         /// <summary>拝命→遂行中（着手）。拝命状態でなければ何もしない。</summary>
         public static bool Begin(SovereignMandate m)
         {

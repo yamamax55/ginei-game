@@ -15,7 +15,9 @@ name: unity-test
 #       アクティベーション回数の上限に当たらないよう、定期 cron は付けず PR＋手動のみにしている
 #       （頻度を上げたい/Pro を入れたら schedule を足す）。
 on:
-  pull_request:
+  # GameCI（実 Unity）は PR 自動起動を停止（ユーザー指示・2026-06-15）。
+  # 手動実行（workflow_dispatch）でのみ走らせる＝必要なときだけ。PR ゲートは Tests（dotnet TestHarness）が担う。
+  # pull_request:   # ← 自動起動を止めるためコメントアウト（再開するならこの行を戻す）
   workflow_dispatch: {}
 
 concurrency:

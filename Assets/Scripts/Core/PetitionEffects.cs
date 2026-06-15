@@ -21,6 +21,8 @@ namespace Ginei
         public const float InclusivenessStepFull = 0.1f;
         /// <summary>満額執行での抑圧（秩序）変更幅。</summary>
         public const float RepressionStepFull = 0.15f;
+        /// <summary>満額執行での国庫（抽象単位）変更幅。</summary>
+        public const float TreasuryStepFull = 50f;
 
         private static readonly Dictionary<string, Action<FactionState, float>> registry = BuildDefaults();
 
@@ -37,6 +39,20 @@ namespace Ginei
             d["reform.inclusive"] = (fs, mag) => fs.inclusiveness = Mathf.Clamp01(fs.inclusiveness + InclusivenessStepFull * Mathf.Clamp01(mag));
             // 治安の強化：抑圧（秩序ルート）を上げる
             d["order.tighten"] = (fs, mag) => { if (fs.community != null) fs.community.repression = Mathf.Clamp01(fs.community.repression + RepressionStepFull * Mathf.Clamp01(mag)); };
+
+            // ----- 軍事・外交（決裁ゲーム MVP・戦略レイヤーへ効く＝メーターは DecisionMeterEffects 同キー） -----
+            // 動員令：国庫を割き民心も削る（軍備の負担）
+            d["mil.mobilize"] = (fs, mag) => { fs.treasury -= TreasuryStepFull * Mathf.Clamp01(mag); if (fs.community != null) fs.community.hope = Mathf.Clamp01(fs.community.hope - HopeStepFull * 0.5f * Mathf.Clamp01(mag)); };
+            // 前線攻勢：戦費で国庫を消費
+            d["mil.offensive"] = (fs, mag) => fs.treasury -= TreasuryStepFull * Mathf.Clamp01(mag);
+            // 防衛強化：守りの費用で国庫を消費（攻勢より軽い）
+            d["mil.defend"] = (fs, mag) => fs.treasury -= TreasuryStepFull * 0.6f * Mathf.Clamp01(mag);
+            // 講和：戦を収め民心が和らぐ
+            d["diplo.ceasefire"] = (fs, mag) => { if (fs.community != null) fs.community.hope = Mathf.Clamp01(fs.community.hope + HopeStepFull * Mathf.Clamp01(mag)); };
+            // 粛清：抑圧を強め包摂を損なう
+            d["purge"] = (fs, mag) => { if (fs.community != null) fs.community.repression = Mathf.Clamp01(fs.community.repression + RepressionStepFull * Mathf.Clamp01(mag)); fs.inclusiveness = Mathf.Clamp01(fs.inclusiveness - InclusivenessStepFull * Mathf.Clamp01(mag)); };
+            // 恩赦：民心が上向き包摂が進む
+            d["amnesty"] = (fs, mag) => { if (fs.community != null) fs.community.hope = Mathf.Clamp01(fs.community.hope + HopeStepFull * Mathf.Clamp01(mag)); fs.inclusiveness = Mathf.Clamp01(fs.inclusiveness + InclusivenessStepFull * Mathf.Clamp01(mag)); };
             return d;
         }
 

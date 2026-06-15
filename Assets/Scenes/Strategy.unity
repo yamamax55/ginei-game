@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &131732240
+--- !u!1 &182150260
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,9 +127,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 131732243}
-  - component: {fileID: 131732242}
-  - component: {fileID: 131732241}
+  - component: {fileID: 182150263}
+  - component: {fileID: 182150262}
+  - component: {fileID: 182150261}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -137,21 +137,21 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &131732241
+--- !u!81 &182150261
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 131732240}
+  m_GameObject: {fileID: 182150260}
   m_Enabled: 1
---- !u!20 &131732242
+--- !u!20 &182150262
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 131732240}
+  m_GameObject: {fileID: 182150260}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
@@ -196,13 +196,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &131732243
+--- !u!4 &182150263
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 131732240}
+  m_GameObject: {fileID: 182150260}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: -10}
@@ -211,7 +211,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &209162202
+--- !u!1 &1371857594
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -219,8 +219,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 209162204}
-  - component: {fileID: 209162203}
+  - component: {fileID: 1371857596}
+  - component: {fileID: 1371857595}
   m_Layer: 0
   m_Name: GalaxyView
   m_TagString: Untagged
@@ -228,20 +228,20 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &209162203
+--- !u!114 &1371857595
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 209162202}
+  m_GameObject: {fileID: 1371857594}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 77c6597a7e4e439f91631d32b5eb41fc, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Ginei.Runtime::Ginei.GalaxyView
-  systemScale: 1.6
-  fleetScale: 0.7
+  m_EditorClassIdentifier: Ginei.Game::Ginei.GalaxyView
+  systemScale: 0.8
+  fleetScale: 0.4
   empireColor: {r: 0.85, g: 0.3, b: 0.25, a: 1}
   allianceColor: {r: 0.3, g: 0.5, b: 0.9, a: 1}
   corridorColor: {r: 0.5, g: 0.55, b: 0.7, a: 0.9}
@@ -249,13 +249,44 @@ MonoBehaviour:
   frontlineColor: {r: 0.9, g: 0.25, b: 0.2, a: 0.95}
   selectColor: {r: 1, g: 0.95, b: 0.4, a: 1}
   galaxySpeed: 1
---- !u!4 &209162204
+  combatColor: {r: 1, g: 0.35, b: 0.15, a: 1}
+  autoResolveDelay: 2.5
+  doubleClickWindow: 0.35
+  systemClickRadius: 0.65
+  defaultZoom: 8
+  zoomPerNotch: 0.3
+  zoomLerpSpeed: 11
+  minZoom: 0.3
+  maxZoom: 16
+  dragThresholdPixels: 8
+  panLimit: 22
+  keyPanSpeed: 26
+  panSmoothTime: 0.1
+  backdropAlpha: 0.55
+  backdropBrightness: 0.4
+  backdropCover: 1.15
+  siegeSuppressRate: 0.05
+  siegeInvadeRate: 0.05
+  siegeDefenseRegen: 0
+  demoPlanetDefense: 100
+  defenseColor: {r: 0.9, g: 0.55, b: 0.25, a: 1}
+  invadeColor: {r: 0.95, g: 0.3, b: 0.3, a: 1}
+  maxBattlePins: 12
+  taxStep: 0.05
+  debugMode: 0
+  hopeEventThreshold: 0.35
+  initialFleetPool: 12000
+  shipyardBuildPower: 1
+  idleCalendarCompression: 30
+  calendarEaseRate: 8
+  maxFrameDt: 0.1
+--- !u!4 &1371857596
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 209162202}
+  m_GameObject: {fileID: 1371857594}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -268,5 +299,5 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 131732243}
-  - {fileID: 209162204}
+  - {fileID: 182150263}
+  - {fileID: 1371857596}

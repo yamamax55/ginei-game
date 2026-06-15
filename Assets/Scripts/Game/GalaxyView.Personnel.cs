@@ -631,7 +631,7 @@ namespace Ginei
 
             if (commanders == null) return;
             var deceased = AnnualLifecycleRules.ProcessMortality(
-                commanders, campaignYear, 1, _ => UnityEngine.Random.value);
+                commanders, campaignYear, 1, p => DetRoll(campaignYear, p.id));
             for (int i = 0; i < deceased.Count; i++)
             {
                 Person d = deceased[i];
@@ -867,7 +867,7 @@ namespace Ginei
             var res = GenerationTickRules.TickYear(
                 commanders, campaignYear,
                 () => nextPersonId++,
-                () => UnityEngine.Random.value,
+                () => DetRoll(campaignYear, NextRollSeed()),
                 new GenerationTickRules.GenerationParams(0.4f, OfficerRosterCap),
                 ChildbirthRules.FertilityParams.Default,
                 HeredityRules.HeredityParams.Default);
@@ -911,7 +911,7 @@ namespace Ginei
             float fshare = faction == Faction.同盟 ? AllianceFemaleShare : ImperialFemaleShare;
             for (int i = 0; i < people.Count; i++)
                 if (people[i] != null)
-                    people[i].sex = UnityEngine.Random.value < fshare ? Sex.女性 : Sex.男性;
+                    people[i].sex = DetRoll(campaignYear, people[i].id) < fshare ? Sex.女性 : Sex.男性;
         }
 
         /// <summary>軍学校＝多段の選抜（幼年学校→士官学校→大学校・#155 細分化）。軍属層から入校し、任官者だけを士官名簿へ。</summary>
@@ -922,7 +922,7 @@ namespace Ginei
             int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction) * enroll), 0, 20);
             if (sitters <= 0) return;
             var eff = new Academy(a.schoolId, a.faction, a.name, a.capacity, eq);
-            var results = MilitaryAcademyRules.RunMilitarySession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            var results = MilitaryAcademyRules.RunMilitarySession(eff, campaignYear, sitters, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
             nextPersonId += results.Count;
             AssignSexes(results, a.faction);
 
@@ -994,7 +994,7 @@ namespace Ginei
         {
             if (civilians == null) return;
             // 文民の老衰（人事の世代交代）
-            var deceased = AnnualLifecycleRules.ProcessMortality(civilians, campaignYear, 1, _ => UnityEngine.Random.value);
+            var deceased = AnnualLifecycleRules.ProcessMortality(civilians, campaignYear, 1, p => DetRoll(campaignYear, p.id));
             for (int i = 0; i < deceased.Count; i++)
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                     $"{deceased[i].faction} {deceased[i].name} 文官 死去（享年 {LifecycleRules.Age(deceased[i], campaignYear)}）");
@@ -1097,7 +1097,7 @@ namespace Ginei
             int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction) * enroll), 0, 40);
             if (sitters <= 0) return;
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
-            var results = ImperialExamRules.RunExamSession(eff, campaignYear, sitters, nextPersonId, _ => UnityEngine.Random.value);
+            var results = ImperialExamRules.RunExamSession(eff, campaignYear, sitters, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
             nextPersonId += results.Count;
             AssignSexes(results, u.faction);
 
@@ -1142,7 +1142,7 @@ namespace Ginei
             int intake = TechnicalCollegeRules.Intake(c, TechnicalCandidatePoolOf(c.faction) * enroll);
             if (intake <= 0) return;
             var eff = new TechnicalCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
-            var grads = TechnicalCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            var grads = TechnicalCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
             nextPersonId += grads.Count;
             AssignSexes(grads, c.faction);
             civilians.AddRange(grads);
@@ -1157,7 +1157,7 @@ namespace Ginei
             int intake = JuniorCollegeRules.Intake(c, CivilCandidatePoolOf(c.faction) * enroll);
             if (intake <= 0) return;
             var eff = new JuniorCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
-            var grads = JuniorCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            var grads = JuniorCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
             nextPersonId += grads.Count;
             AssignSexes(grads, c.faction);
             civilians.AddRange(grads);
@@ -1172,7 +1172,7 @@ namespace Ginei
             int intake = VocationalSchoolRules.Intake(s, TechnicalCandidatePoolOf(s.faction) * enroll);
             if (intake <= 0) return;
             var eff = new VocationalSchool(s.schoolId, s.faction, s.name, s.capacity, eq);
-            var grads = VocationalSchoolRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            var grads = VocationalSchoolRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
             nextPersonId += grads.Count;
             AssignSexes(grads, s.faction);
             civilians.AddRange(grads);
@@ -1187,7 +1187,7 @@ namespace Ginei
             int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll);
             if (intake <= 0) return;
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
-            var grads = UniversityRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => UnityEngine.Random.value);
+            var grads = UniversityRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
             nextPersonId += grads.Count;
             AssignSexes(grads, u.faction);
             civilians.AddRange(grads);

@@ -120,8 +120,8 @@ namespace Ginei
         private void MaybeCrashAStock()
         {
             var stocks = FinancialHoldingRegistry.HoldingsOfInstrument(FinancialInstrument.株式);
-            if (stocks.Count == 0 || UnityEngine.Random.value > 0.05f) return;
-            int victim = stocks[UnityEngine.Random.Range(0, stocks.Count)].underlyingId;
+            if (stocks.Count == 0 || DetRoll(campaignYear, NextRollSeed()) > 0.05f) return;
+            int victim = stocks[(int)(DetRoll(campaignYear, NextRollSeed()) * stocks.Count) % stocks.Count].underlyingId;
             var affected = FinancialHoldingRegistry.HoldingsOfUnderlying(victim);
             string banner = null;
             for (int i = 0; i < affected.Count; i++)

@@ -364,7 +364,7 @@ namespace Ginei
 
                 // まず登用（寝返り＝調略）を試みる（思想差・処遇で決まる稀な成立）。
                 float recruitChance = CaptivityRules.RecruitChance(0.5f, 0.5f);
-                if (UnityEngine.Random.value < recruitChance && CaptivityRules.Recruit(c, captor))
+                if (DetRoll(campaignYear, c.id) < recruitChance && CaptivityRules.Recruit(c, captor))
                 {
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{c.name} {captor} へ登用（寝返り）");
                     continue;
@@ -382,7 +382,7 @@ namespace Ginei
         /// <summary>敵対勢力により低確率で中堅以下の現役将校を捕虜化（前線での捕獲のデモ）。</summary>
         private void MaybeCapture()
         {
-            if (UnityEngine.Random.value > 0.15f) return; // 年あたりの捕獲生起（控えめ）
+            if (DetRoll(campaignYear, NextRollSeed()) > 0.15f) return; // 年あたりの捕獲生起（控えめ）
             var pool = new System.Collections.Generic.List<Person>();
             for (int i = 0; i < commanders.Count; i++)
             {
@@ -391,7 +391,7 @@ namespace Ginei
                     pool.Add(c); // 最高位は捕らえにくい＝中堅以下
             }
             if (pool.Count == 0) return;
-            Person target = pool[UnityEngine.Random.Range(0, pool.Count)];
+            Person target = pool[(int)(DetRoll(campaignYear, NextRollSeed()) * pool.Count) % pool.Count];
             Faction captor = EnemyOf(target.faction);
             if (CaptivityRules.Capture(target, captor, campaignYear))
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, $"{target.faction} {target.name} {captor} の捕虜に");

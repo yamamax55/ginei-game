@@ -457,6 +457,24 @@ namespace Ginei
             RunMarketTick();
         }
 
+        /// <summary>
+        /// 決定論 roll（2種子のハッシュ→[0,1)）。Tick の乱数依存（UnityEngine.Random）を排し、
+        /// 同じセーブから同じ歴史が再生されるよう担保する（規律＝決定論）。年×id 等を種子に使う。
+        /// </summary>
+        internal static float DetRoll(int a, int b)
+        {
+            unchecked
+            {
+                uint h = (uint)a * 2654435761u + (uint)b * 40503u + 0x9E3779B9u;
+                h ^= h >> 13; h *= 0x85EBCA6Bu; h ^= h >> 16;
+                return (h & 0xFFFFFFu) / (float)0x1000000;
+            }
+        }
+
+        private int rollSeq; // 決定論 roll 列の進行カウンタ（年内の連続呼び出しに一意な種子を与える）
+        /// <summary>次の決定論 roll 種子（連番）。乱数 roll を置き換える `_ => DetRoll(campaignYear, NextRollSeed())` 用。</summary>
+        private int NextRollSeed() => unchecked(rollSeq++);
+
         // 軍の補給を1日ぶん（MILSUP-6・#2049 配線）：補給源（自勢力領）から切れた前線艦隊は補給が枯れて損耗する。
         // 現在/出発星系が自勢力領なら補給線が通る＝補給。敵に後背を取られる/前線で孤立すると干上がる（兵糧攻め）。
         private void RunMilitarySupplyTick()

@@ -407,6 +407,29 @@ namespace Ginei
                 }
         }
 
+        /// <summary>
+        /// 惑星の不動産基盤を1年ぶん更新（#2019 惑星層 配線）：各 Province の地価/賃料/地価指数（バブル）を素地から進める。
+        /// 金融危機（#1939）の勢力の惑星は地価指数が崩壊する。勢力集約の不動産会社（<see cref="RealEstateRules"/>）・
+        /// 権利証評価（#2070）が立つ土台＝<see cref="PlanetRealEstateRules"/> へ委譲（個別物件 micro へ降りない＝タイクン化回避）。
+        /// </summary>
+        private void RunPlanetRealEstateTick()
+        {
+            if (map == null || provinces == null) return;
+            var p = PlanetRealEstateRules.Params.Default;
+            int bubbleCount = 0;
+            foreach (var s in map.systems)
+            {
+                if (s == null || !provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
+                PlanetRealEstateRules.TickYear(prov, p, IsFinancialCrisis(s.owner));
+                if (PlanetRealEstateRules.IsBubble(prov.realEstate, p)) bubbleCount++;
+            }
+            // 通知（エッジ検出）：不動産バブルの惑星が増えた＝割高な地価が広がる（崩壊リスク）。解消で解除＝洪水回避。
+            if (bubbleCount >= 3 && realEstateBubbleSpread.Add(0))
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"不動産バブルの惑星が {bubbleCount} に拡大（賃料の裏付けを超えた地価）");
+            else if (bubbleCount == 0) realEstateBubbleSpread.Remove(0);
+        }
+        private readonly System.Collections.Generic.HashSet<int> realEstateBubbleSpread = new System.Collections.Generic.HashSet<int>();
+
         /// <summary>星系が前線か（敵対勢力に隣接・配線ループ#8）。</summary>
         private bool IsFrontline(StarSystem sys)
         {

@@ -345,6 +345,7 @@ namespace Ginei
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
             // プレイヤーはダブルクリックで潜行＝手動指揮へ。放置すれば猶予後に自動解決（#586 ①④）。
             StrategyRules.BeginEngagements(reg);
+            StrategyRules.BeginSystemEngagements(reg); // 惑星上など同一星系での接敵も交戦に（fleet-vs-fleet）
             NotifyNewEngagements(); // 接敵を通知（ダブルクリックで潜行可能なアクション付き）
             if (AnyEngaged())
             {
@@ -356,6 +357,7 @@ namespace Ginei
                 {
                     resolvedOutcomes.Clear();
                     StrategyRules.ResolveEncounters(reg, resolvedOutcomes, CombatFactorOf); // 放置の自動解決（補給×技術の実効戦力で勝敗）。プールは減らさない
+                    StrategyRules.ResolveSystemEncounters(reg, resolvedOutcomes, CombatFactorOf); // 星系上（惑星上）の接敵も自動解決
                     for (int i = 0; i < resolvedOutcomes.Count; i++) AnnounceOutcome(resolvedOutcomes[i], manual: false);
                     engagedElapsed = 0f;
                     currentAutoResolveSeconds = 0.0;
@@ -619,6 +621,17 @@ namespace Ginei
                 if (notifiedEngagements.Contains(key)) continue;
                 notifiedEngagements.Add(key);
                 DecodeCorridorKey(key, out int sysA, out int sysB);
+
+                // 星系上（惑星上）の接敵＝停泊艦隊どうし（current==dest ＝ sysA==sysB）。会戦へ潜行できる。
+                if (sysA == sysB)
+                {
+                    string slabel = $"敵艦隊と接敵：{SystemName(sysA)}（ダブルクリックで会戦へ）";
+                    long sseq = NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.警告, slabel);
+                    int sid = sysA; // クロージャ用にキャプチャ
+                    NotificationActionRegistry.Register(sseq, () => DescendSystemBattleBySystem(sid));
+                    continue;
+                }
+
                 double dur = EstimateAutoResolveSeconds(sysA, sysB);
                 string when = dur > 0.0 ? $"約{Mathf.CeilToInt((float)dur)}秒で自動解決／" : "";
                 string label = $"敵艦隊と接敵：{SystemName(sysA)}〜{SystemName(sysB)}（{when}ダブルクリックで潜行）";

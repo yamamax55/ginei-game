@@ -1131,6 +1131,7 @@ namespace Ginei
 
         /// <summary>国家ごとに所有惑星から産出→行政・インフラが消費→不足で統治逼迫＝安定度低下（STATEDEM-6）。</summary>
         private const float MonthDt = 1f / 12f; // 月次Tickの年比 dt（年次総量を保ちつつ滑らかに・Tick順#P3）
+        private const float DayDt = 1f / 360f;  // 日次Tickの年比 dt（30日×12月＝360日／株価は日次収束＝30回で月次総量と一致）
 
         /// <summary>
         /// 市場経済の月次Tick（Tick順見直し #P0/P1/P2/P3）：市場価格→企業→株式→交易を**月次**で依存順に回す。
@@ -1138,6 +1139,28 @@ namespace Ginei
         /// 価格は dt=1/12 で滑らかに収束（P3 階段状ジャンプ解消）／法人税・配当税は月次ぶん（×MonthDt）で国庫へ＝cadence 平準化（P2）。
         /// 行政消費(#2077)・研究・徴兵・人口は年次の <see cref="RunStateConsumptionTick"/> に残す（責務分割 P1）。
         /// </summary>
+        /// <summary>
+        /// 株価の日次Tick（#株価日次）：上場銘柄の株価を毎日 適正株価（収益×心理）へ収束させる＝値が日々動く。
+        /// 収益/配当の更新は月次（<see cref="RunMarketTick"/>）のまま＝日次は「価格の動き」だけを細かくする
+        /// （DayDt×30日 ≒ MonthDt＝1ヶ月ぶんの収束量は従来と整合）。銘柄は月次で seed 済みのものだけ動かす。
+        /// </summary>
+        private void RunDailyStockTick()
+        {
+            if (listings.Count == 0) return; // 初月の seed 前は何もしない
+            var sp = StockMarketRules.StockParams.Default;
+            foreach (var kv in listings)
+            {
+                var mkt = kv.Value;
+                if (mkt == null) continue;
+                for (int i = 0; i < mkt.Count; i++)
+                {
+                    Listing l = mkt[i];
+                    if (l == null || l.stock == null) continue;
+                    StockMarketRules.Tick(l.stock, sp, DayDt);
+                }
+            }
+        }
+
         private void RunMarketTick()
         {
             if (map == null || provinces == null) return;
@@ -1202,17 +1225,15 @@ namespace Ginei
                         fstate.treasury += profit * (firm.ownership == Ownership.国有 ? 1f : CorporateTaxRate) * MonthDt;
                 }
 
-                // 株式：利潤→EPS/配当→株価（月次収束）。配当税は月次ぶん（×MonthDt）国庫へ。
+                // 株式：利潤→EPS/配当（月次）。株価そのものの動きは日次（RunDailyStockTick）＝より細かく値が動く。
                 if (!listings.TryGetValue(fac, out var mkt) || mkt == null) { mkt = SeedListings(firms); listings[fac] = mkt; }
-                var sp = StockMarketRules.StockParams.Default;
                 for (int i = 0; i < mkt.Count; i++)
                 {
                     Listing l = mkt[i];
                     if (l == null || l.enterprise == null || l.stock == null) continue;
                     Market lm = mk[(int)GoodForSector(l.enterprise.sector)];
                     float lprice = lm != null ? lm.price : 1f;
-                    StockMarketSystemRules.SyncEarnings(l, lprice, StockPayoutRatio);
-                    StockMarketRules.Tick(l.stock, sp, MonthDt);
+                    StockMarketSystemRules.SyncEarnings(l, lprice, StockPayoutRatio); // 収益/配当の更新（月次）
                     if (fstate != null) fstate.treasury += Mathf.Max(0f, l.stock.dividend) * Mathf.Max(0f, l.shares) * DividendTaxRate * MonthDt;
                 }
 

@@ -477,6 +477,7 @@ namespace Ginei
             TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
             RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
+            RunDailyStockTick();     // 株価は日次で動く（#株価日次）：収益/配当は月次のまま価格だけ細かく収束
         }
 
         private int monthCounter; // 月次の通し番号（四半期/年次の月割り分散に使う・Tick改善P1/P2）

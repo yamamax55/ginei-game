@@ -810,8 +810,10 @@ namespace Ginei
         private readonly System.Collections.Generic.Dictionary<int, CommodityStock> bomStocks
             = new System.Collections.Generic.Dictionary<int, CommodityStock>();
         private bool bomSeeded;
-        private int grainId, fiberId, clothId, foodId, clothingId;
-        private Recipe foodRecipe, clothRecipe, clothingRecipe;
+        private int grainId, fiberId, clothId, foodId, clothingId, herbId, medicineId;
+        private Recipe foodRecipe, clothRecipe, clothingRecipe, medicineRecipe;
+        // BOM 充足→支持の蓄積（配線：充足率を勢力ごとに人口加重平均して community.hope へ）。
+        private readonly System.Collections.Generic.HashSet<int> bomBottleneckSystems = new System.Collections.Generic.HashSet<int>();
 
         /// <summary>品目カタログとレシピを冪等 seed（食品←穀物、布←繊維、衣類←布）。</summary>
         private void EnsureBomContent()
@@ -822,9 +824,12 @@ namespace Ginei
             clothId = CommodityCatalog.Register("布", CommodityCategory.中間財).id;
             foodId = CommodityCatalog.Register("食品", CommodityCategory.消費財).id;
             clothingId = CommodityCatalog.Register("衣類", CommodityCategory.消費財).id;
+            herbId = CommodityCatalog.Register("薬草", CommodityCategory.原材料).id;       // 品目拡張：医薬の原材料
+            medicineId = CommodityCatalog.Register("医薬品", CommodityCategory.消費財).id; // 品目拡張：健康に効く消費財
             foodRecipe = RecipeBook.Register(new Recipe(foodId).AddInput(grainId, 1f));        // 食品←穀物×1
             clothRecipe = RecipeBook.Register(new Recipe(clothId).AddInput(fiberId, 2f));       // 布←繊維×2
             clothingRecipe = RecipeBook.Register(new Recipe(clothingId).AddInput(clothId, 2f)); // 衣類←布×2
+            medicineRecipe = RecipeBook.Register(new Recipe(medicineId).AddInput(herbId, 2f));  // 医薬品←薬草×2
             bomSeeded = true;
         }
 
@@ -842,37 +847,72 @@ namespace Ginei
                 float outFactor = GovernanceRules.OutputFactor(prov);
                 cs.Add(grainId, prov.population * 1.5f * outFactor);
                 cs.Add(fiberId, prov.population * 0.6f * outFactor);
+                cs.Add(herbId, prov.population * 0.3f * outFactor); // 品目拡張：薬草（医薬の原材料）
             }
             // Phase 2: 域内物流（DIST-6・#2112）＝余剰の穀物を不足惑星へ回廊で配送（通商破壊で分断）。生産の前に回す。
             RunRegionalDistributionTick();
             // Phase 3: レシピ生産＋消費財需要の充足。
-            int foodShort = 0, clothingShort = 0;
+            int foodShort = 0, clothingShort = 0, medShort = 0;
+            var bomFulfillSum = new System.Collections.Generic.Dictionary<Faction, float>();
+            var bomPopSum = new System.Collections.Generic.Dictionary<Faction, float>();
             foreach (var kv in provinces)
             {
                 Province prov = kv.Value;
                 if (prov == null) continue;
                 if (!bomStocks.TryGetValue(kv.Key, out var cs) || cs == null) continue;
                 float pop = prov.population;
-                // レシピ生産（上流→下流）：食品←穀物、布←繊維、衣類←布。
+                // レシピ生産（上流→下流）：食品←穀物、布←繊維、衣類←布、医薬品←薬草。
                 BomTickRules.Produce(cs, foodRecipe, pop * 1.0f);
                 BomTickRules.Produce(cs, clothRecipe, pop * 0.4f);
                 BomTickRules.Produce(cs, clothingRecipe, pop * 0.2f);
-                // 消費財需要の充足（食品は全員・衣類は控えめ）。
+                BomTickRules.Produce(cs, medicineRecipe, pop * 0.3f);
+                // 消費財需要の充足（食品=必需・衣類/医薬=控えめ）。
                 float foodDemand = ConsumerDemandRules.Demand(pop, 1.0f);
                 float clothingDemand = ConsumerDemandRules.Demand(pop, 0.2f);
+                float medDemand = ConsumerDemandRules.Demand(pop, 0.25f);
                 float foodFulfill = ConsumerDemandRules.Fulfillment(cs.Get(foodId), foodDemand);
                 float clothingFulfill = ConsumerDemandRules.Fulfillment(cs.Get(clothingId), clothingDemand);
+                float medFulfill = ConsumerDemandRules.Fulfillment(cs.Get(medicineId), medDemand);
                 ConsumerDemandRules.Consume(cs, foodId, foodDemand);
                 ConsumerDemandRules.Consume(cs, clothingId, clothingDemand);
-                float consumerFactor = ConsumerDemandRules.LivingStandardFactor(UnityEngine.Mathf.Min(foodFulfill, clothingFulfill), 0.6f);
-                prov.livingStandard *= consumerFactor;
+                ConsumerDemandRules.Consume(cs, medicineId, medDemand);
+                float minFulfill = UnityEngine.Mathf.Min(foodFulfill, UnityEngine.Mathf.Min(clothingFulfill, medFulfill));
+                prov.livingStandard *= ConsumerDemandRules.LivingStandardFactor(minFulfill, 0.6f);
                 if (foodFulfill < 0.8f) foodShort++;
                 if (clothingFulfill < 0.8f) clothingShort++;
+                if (medFulfill < 0.8f) medShort++;
+
+                // BOM 充足→支持（配線）：勢力ごとに人口加重で充足率を集計（後段で SupportDelta→hope）。
+                StarSystem sys = map != null ? map.GetSystem(kv.Key) : null;
+                if (sys != null)
+                {
+                    Faction f = sys.owner;
+                    bomFulfillSum.TryGetValue(f, out float fsum); bomFulfillSum[f] = fsum + minFulfill * pop;
+                    bomPopSum.TryGetValue(f, out float psum); bomPopSum[f] = psum + pop;
+                }
+                // ボトルネック検出（配線）：食品生産が原材料制約なら、どの品目が律速か通知（エッジ・回復で解除）。
+                int bn = BomProductionRules.Bottleneck(foodRecipe, cs, foodDemand, out bool constrained);
+                if (constrained && bomBottleneckSystems.Add(kv.Key) && sys != null)
+                {
+                    var bc = CommodityCatalog.Get(bn);
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"{sys.systemName} で {(bc != null ? bc.name : "原材料")} が不足し生産が律速（ボトルネック）");
+                }
+                else if (!constrained) bomBottleneckSystems.Remove(kv.Key);
+            }
+            // BOM 充足→支持（配線）：勢力ごとの平均充足率→community.hope（必需が満たされぬほど民心↓・SupportDelta は不足ペナルティ）。
+            foreach (var kv in bomFulfillSum)
+            {
+                if (!bomPopSum.TryGetValue(kv.Key, out float psum) || psum <= 0f) continue;
+                FactionState st = StateOf(kv.Key);
+                if (st != null && st.community != null)
+                    st.community.hope = Mathf.Clamp01(st.community.hope + ConsumerDemandRules.SupportDelta(kv.Value / psum, 1f) * 0.02f);
             }
             if (foodShort > 0)
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"食料不足の星系 {foodShort}（穀物・食品の供給不足）");
             if (clothingShort > 0)
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"衣類不足の星系 {clothingShort}（繊維・布の供給不足）");
+            if (medShort > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"医薬品不足の星系 {medShort}（薬草・医薬の供給不足）");
         }
 
         // --- SCM計画（MRP所要量展開・SCM・#2105 read-only 配線） ---

@@ -423,7 +423,10 @@ namespace Ginei
             const float winW = 320f, winH = 210f, titleInset = 30f;
 
             var win = new GameObject("MeterDetailWindow");
-            win.transform.SetParent(hudRoot, false);
+            // メーター本体(windowRoot)は確実にレンダリングできている＝その親が生きた Canvas。
+            // hudRoot が何らかの理由で無効でも Canvas 外に作られないよう、実証済みの親を使う。
+            Transform parent = (windowRoot != null && windowRoot.parent != null) ? windowRoot.parent : hudRoot;
+            win.transform.SetParent(parent, false);
             var rt = win.AddComponent<RectTransform>();
             rt.anchorMin = new Vector2(1f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);

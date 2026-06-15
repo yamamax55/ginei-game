@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -143,6 +144,59 @@ namespace Ginei
             Resolved = false;
         }
 
+        // ===== 複数艦隊での会戦（接敵内容を会戦へ正しく渡す）=====
+        // 回廊で複数の戦略艦隊が交戦したとき、1対1へ畳まず**全艦隊**を会戦へ持ち込むための明細。
+        // 1隊＝1旗艦として Battle シーンに湧かせ、結果は勝者側へ按分して書き戻す。空＝従来の A/B 2隊モデル。
+
+        /// <summary>会戦に持ち込む1艦隊ぶんの明細（戦略艦隊→戦術旗艦の対応）。</summary>
+        public struct HandoffFleet
+        {
+            public Faction faction;
+            public int strategicStrength;  // 戦略兵力（×StrengthScale で baseStrength）
+            public AdmiralData admiral;    // 任意（無ければ臨時提督）
+            public int fleetId;            // 戦略艦隊ID（書き戻し用）
+            public float loyalty;          // 旗幟（#817）基準忠誠
+            public float intrigue;         // 旗幟（#817）調略浸透
+            public float quality;          // 軍の質（C4）戦闘力倍率
+            public bool sideA;             // 陣営A=true / 陣営B=false
+        }
+
+        /// <summary>会戦に持ち込む全艦隊の明細（空＝従来の A/B 2隊モデル）。</summary>
+        public static readonly List<HandoffFleet> fleets = new List<HandoffFleet>();
+
+        /// <summary>複数艦隊モードか（明細が積まれていれば true）。</summary>
+        public static bool IsMultiFleet => fleets.Count > 0;
+
+        /// <summary>
+        /// 複数艦隊の会戦を予約する（接敵内容を会戦へ）。<paramref name="entries"/> の各艦隊を会戦へ湧かせる。
+        /// 代表（A/B の faction/fleetId）は通知・暫定勝者・後方互換のために保持し、戦力は陣営合計を入れる。
+        /// </summary>
+        public static void QueueMulti(List<HandoffFleet> entries, Faction repA, Faction repB,
+            int repFleetIdA, int repFleetIdB, string returnScene)
+        {
+            IsPlanetSiege = false;
+            IsSystemView = false;
+            fleets.Clear();
+            int sa = 0, sb = 0;
+            if (entries != null)
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    fleets.Add(entries[i]);
+                    if (entries[i].sideA) sa += entries[i].strategicStrength;
+                    else sb += entries[i].strategicStrength;
+                }
+            factionA = repA; factionB = repB;
+            strengthA = sa; strengthB = sb;
+            fleetIdA = repFleetIdA; fleetIdB = repFleetIdB;
+            admiralA = admiralB = null;
+            loyaltyA = loyaltyB = 1f;
+            intrigueA = intrigueB = 0f;
+            qualityA = qualityB = 1f;
+            BattleHandoff.returnScene = returnScene;
+            Pending = true;
+            Resolved = false;
+        }
+
         /// <summary>Battleシーン側が勝敗と勝者残存兵力を書き込む。</summary>
         public static void SetResult(bool aWon, int survivors)
         {
@@ -159,6 +213,7 @@ namespace Ginei
             IsSystemView = false;
             siegeResolved = false;
             admiralA = admiralB = null;
+            fleets.Clear();
         }
     }
 }

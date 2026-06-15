@@ -431,10 +431,28 @@ namespace Ginei
             return DescendOnEngagement(a, b);
         }
 
-        /// <summary>交戦中ペア a/b の会戦へ潜行（Battle シーンへ）。旗幟・軍の質を積んで受け渡す。</summary>
+        /// <summary>
+        /// 交戦中ペア a/b の会戦へ潜行（Battle シーンへ）。旗幟・軍の質を積んで受け渡す。
+        /// 同じ回廊で<b>複数艦隊</b>が交戦している場合は全艦隊を集めて会戦へ持ち込む（接敵内容を会戦へ合わせる）。
+        /// </summary>
         private bool DescendOnEngagement(StrategicFleet a, StrategicFleet b)
         {
             if (a == null || b == null) return false;
+
+            // 同一回廊上で交戦中の全艦隊を2陣営に集める。3隊以上なら複数艦隊モードで会戦へ。
+            var sideA = new List<StrategicFleet>();
+            var sideB = new List<StrategicFleet>();
+            if (StrategyRules.GatherEngagementOnCorridor(reg, a.currentSystemId, a.destinationSystemId, sideA, sideB)
+                && (sideA.Count + sideB.Count) > 2)
+            {
+                var entries = new List<BattleHandoff.HandoffFleet>();
+                AddHandoffSide(entries, sideA, true);
+                AddHandoffSide(entries, sideB, false);
+                BattleHandoff.QueueMulti(entries, sideA[0].faction, sideB[0].faction, sideA[0].id, sideB[0].id, "Strategy");
+                SceneManager.LoadScene("Battle");
+                return true;
+            }
+
             BattleHandoff.Queue(a, b, "Strategy");
 
             // 旗幟（#817）：国家状態から基準忠誠/調略の付け入りやすさを積む＝腐った国の艦隊は会戦中に寝返りうる。
@@ -467,6 +485,46 @@ namespace Ginei
 
             SceneManager.LoadScene("Battle");
             return true;
+        }
+
+        /// <summary>
+        /// 複数艦隊モード用：1陣営ぶんの戦略艦隊を会戦の明細（<see cref="BattleHandoff.HandoffFleet"/>）へ変換して積む。
+        /// 旗幟（#817 国家状態の基準忠誠/調略）と軍の質（C4 補給×技術）を1隊ごとに織り込む（単隊潜行と一貫）。
+        /// </summary>
+        private void AddHandoffSide(List<BattleHandoff.HandoffFleet> entries, List<StrategicFleet> side, bool isSideA)
+        {
+            var campaign = StrategySession.Campaign;
+            for (int i = 0; i < side.Count; i++)
+            {
+                StrategicFleet f = side[i];
+                if (f == null) continue;
+
+                float loyalty = 1f, intrigue = 0f;
+                if (campaign != null)
+                {
+                    FactionState fs = CampaignRules.GetState(campaign, f.faction);
+                    if (fs != null)
+                    {
+                        float baseL = FactionLoyaltyRules.BaselineLoyalty(fs);
+                        loyalty = baseL;
+                        intrigue = baseL < 0.5f ? FactionLoyaltyRules.BribeSusceptibility(fs) : 0f;
+                    }
+                }
+                float quality = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(f.supply))
+                                * TechEffectRules.CombatStrengthFactor(TechLevelOf(f.faction));
+
+                entries.Add(new BattleHandoff.HandoffFleet
+                {
+                    faction = f.faction,
+                    strategicStrength = f.strength,
+                    admiral = null,
+                    fleetId = f.id,
+                    loyalty = loyalty,
+                    intrigue = intrigue,
+                    quality = quality,
+                    sideA = isSideA,
+                });
+            }
         }
 
         /// <summary>

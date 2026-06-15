@@ -398,6 +398,15 @@ namespace Ginei
             Faction playerFaction = GameSettings.Instance.playerFaction;
             var fleets = new System.Collections.Generic.List<GameObject>();
 
+            // 複数艦隊モード（接敵内容を会戦へ合わせる）：明細の各艦隊を1旗艦として陣営ごとに縦に並べて湧かせる。
+            if (BattleHandoff.IsMultiFleet)
+            {
+                SpawnHandoffFleets(fleets, playerFaction);
+                OrientFleetsToEnemy(fleets);
+                Debug.Log($"BattleSetup: 戦略の複数艦隊遭遇から実会戦を生成（{BattleHandoff.fleets.Count}隊）。");
+                return;
+            }
+
             var eA = MakeHandoffEntry(BattleHandoff.factionA, BattleHandoff.admiralA, BattleHandoff.strengthA, new Vector2(-6f, 0f));
             var eB = MakeHandoffEntry(BattleHandoff.factionB, BattleHandoff.admiralB, BattleHandoff.strengthB, new Vector2(6f, 0f));
             // 旗幟（#817）：戦略側が国家状態から積んだ基準忠誠/調略浸透を会戦へ（既定 1/0＝従来動作）
@@ -413,6 +422,37 @@ namespace Ginei
 
             OrientFleetsToEnemy(fleets);
             Debug.Log($"BattleSetup: 戦略の遭遇から実会戦を生成（{BattleHandoff.factionA} {BattleHandoff.strengthA} vs {BattleHandoff.factionB} {BattleHandoff.strengthB}）。");
+        }
+
+        /// <summary>
+        /// 複数艦隊の会戦（<see cref="BattleHandoff.IsMultiFleet"/>）：明細の各艦隊を1旗艦として湧かせる。
+        /// 陣営Aは左(x=-7)・陣営Bは右(x=+7)に置き、各陣営内で艦隊数に応じて Y 方向へ等間隔に散らす。
+        /// 旗幟（#817）・軍の質（C4）は1隊ごとに反映（単隊潜行と一貫）。
+        /// </summary>
+        private void SpawnHandoffFleets(System.Collections.Generic.List<GameObject> fleets, Faction playerFaction)
+        {
+            var list = BattleHandoff.fleets;
+            int countA = 0, countB = 0;
+            for (int i = 0; i < list.Count; i++) { if (list[i].sideA) countA++; else countB++; }
+
+            const float sideX = 7f, spreadY = 4f;
+            int ia = 0, ib = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var hf = list[i];
+                int idx, cnt; float x;
+                if (hf.sideA) { idx = ia++; cnt = countA; x = -sideX; }
+                else { idx = ib++; cnt = countB; x = sideX; }
+                float y = (cnt > 1) ? (idx - (cnt - 1) * 0.5f) * spreadY : 0f;
+
+                var e = MakeHandoffEntry(hf.faction, hf.admiral, hf.strategicStrength, new Vector2(x, y));
+                e.loyalty = hf.loyalty; e.intrigue = hf.intrigue;
+                GameObject g = SpawnFleet(e, playerFaction);
+                if (g == null) continue;
+                var fsc = g.GetComponent<FleetStrength>();
+                if (fsc != null) fsc.qualityFactor = hf.quality;
+                fleets.Add(g);
+            }
         }
 
         /// <summary>遭遇の1勢力ぶんのエントリを作る。提督が無ければ戦略兵力から臨時提督を生成。</summary>

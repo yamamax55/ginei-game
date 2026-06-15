@@ -639,6 +639,102 @@ namespace Ginei
         /// <summary>財産売買（#2063/#2070）の決済窓口＝人物財産#2056/国庫#163/企業資本#1022 の解決子を束ねた資金アクセス。</summary>
         public FundsAccess MarketFunds() => new FundsAccess(ResolveCommander, ResolveEnterprise, StateOf);
 
+        /// <summary>担保ローンのデモ金利。</summary>
+        private const float CollateralLoanRate = 0.05f;
+
+        /// <summary>
+        /// 資産担保融資の年次（#186/#2070 配線）：司令が土地を担保に国家から借り入れ（デモは遅延シード1件）、毎年利払いし、
+        /// 担保（土地）の時価が借入を割ると差し押さえ＝担保が国家へ移る。利払い/差し押さえの資金移転は <see cref="MarketFunds"/>/
+        /// <see cref="LandTransactionRules"/>、判定は <see cref="CollateralLoanRules"/> へ委譲＝財産を信用#186 に裏付ける流動化手段。
+        /// </summary>
+        private void RunCollateralLoanTick()
+        {
+            if (commanders == null) return;
+            var cp = CollateralLoanRules.CollateralParams.Default;
+            FundsAccess funds = MarketFunds();
+            if (CollateralLoanRegistry.All.Count == 0) SeedCollateralLoanDemo(cp);
+
+            var all = CollateralLoanRegistry.All;
+            var foreclosed = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < all.Count; i++)
+            {
+                CollateralLoan loan = all[i];
+                if (loan == null) continue;
+                loan.collateralValue = PledgedLandValue(loan);                          // 担保を時価で更新
+                float interest = CollateralLoanRules.AnnualInterest(loan.principal, loan.interestRate);
+                float pay = Mathf.Min(interest, funds.Get(loan.Borrower));
+                if (pay > 0f) { funds.Add(loan.Borrower, -pay); funds.Add(loan.Lender, pay); }
+                if (pay < interest) loan.principal += (interest - pay);                  // 未払い利息は元本へ（複利で膨らむ）
+                if (CollateralLoanRules.IsUnderwater(loan.principal, loan.collateralValue, cp))
+                {
+                    ForecloseLand(loan);                                                 // 担保割れ＝担保を貸し手へ差し押さえ
+                    foreclosed.Add(loan.id);
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"資産担保融資の差し押さえ（担保割れ・借入 {loan.principal:0}）→ 担保は貸し手へ");
+                }
+            }
+            for (int i = 0; i < foreclosed.Count; i++) CollateralLoanRegistry.Remove(foreclosed[i]);
+        }
+
+        /// <summary>担保（借り手の当該星系の土地）の時価合計。</summary>
+        private static float PledgedLandValue(CollateralLoan loan)
+        {
+            if (loan == null || loan.pledgedSystemId < 0) return loan != null ? loan.collateralValue : 0f;
+            var deeds = BorrowerDeeds(loan);
+            float sum = 0f;
+            for (int i = 0; i < deeds.Count; i++)
+                if (deeds[i] != null && deeds[i].systemId == loan.pledgedSystemId) sum += PropertyValuationRules.DeedValue(deeds[i]);
+            return sum;
+        }
+
+        /// <summary>差し押さえ：借り手の担保物件（当該星系の土地）を貸し手へ移す。</summary>
+        private static void ForecloseLand(CollateralLoan loan)
+        {
+            if (loan == null || loan.pledgedSystemId < 0) return;
+            var deeds = BorrowerDeeds(loan);
+            for (int i = 0; i < deeds.Count; i++)
+            {
+                PropertyDeed d = deeds[i];
+                if (d != null && d.systemId == loan.pledgedSystemId && d.share > 0f)
+                    LandTransactionRules.TransferShare(d, loan.Lender, d.share); // 全持分を貸し手へ
+            }
+        }
+
+        private static System.Collections.Generic.List<PropertyDeed> BorrowerDeeds(CollateralLoan loan)
+        {
+            switch (loan.borrowerKind)
+            {
+                case AssetOwnerKind.人物: return PropertyDeedRegistry.OwnedByPerson(loan.borrowerPersonId);
+                case AssetOwnerKind.企業: return PropertyDeedRegistry.OwnedByEnterprise(loan.borrowerEnterpriseId);
+                default: return PropertyDeedRegistry.OwnedByFaction(loan.borrowerFaction);
+            }
+        }
+
+        /// <summary>デモ：土地を持つ司令が国家から担保借入する（借入金は司令の現金へ・国庫から出す）。1件のみ。</summary>
+        private void SeedCollateralLoanDemo(CollateralLoanRules.CollateralParams cp)
+        {
+            var deeds = PropertyDeedRegistry.All;
+            for (int i = 0; i < deeds.Count; i++)
+            {
+                PropertyDeed d = deeds[i];
+                if (d == null || !d.IsPersonOwned || d.share <= 0f) continue;
+                float collateral = PropertyValuationRules.DeedValue(d);
+                if (collateral <= 0f) continue;
+                Person owner = ResolveCommander(d.ownerPersonId);
+                if (owner == null || owner.deathYear != 0) continue;
+                Faction lender = owner.faction;
+                CollateralLoan loan = CollateralLoanRules.Borrow(OwnerRef.Person(d.ownerPersonId), OwnerRef.State(lender),
+                    requestedAmount: collateral, collateralValue: collateral, interestRate: CollateralLoanRate, pledgedSystemId: d.systemId, cp);
+                if (loan == null) continue;
+                FactionState ls = StateOf(lender);
+                owner.wealth += loan.principal;                                  // 借入金を受け取る
+                if (ls != null) ls.treasury = Mathf.Max(0f, ls.treasury - loan.principal); // 国家が貸し出す
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{lender} 資産担保融資（{Short(owner.name)} が土地を担保に {loan.principal:0} 借入）");
+                return;
+            }
+        }
+
+        private static string Short(string n) => string.IsNullOrEmpty(n) ? "司令" : (n.Length > 8 ? n.Substring(0, 8) : n);
+
         /// <summary>ネームドIDから企業を解決（法人所有の配当/地代を企業資本へ流す・観測用）。未生成/不在は null。</summary>
         public Enterprise ResolveEnterprise(int enterpriseId)
         {

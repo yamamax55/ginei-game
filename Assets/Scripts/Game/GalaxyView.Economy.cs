@@ -714,6 +714,9 @@ namespace Ginei
                 if (Mathf.FloorToInt(rs.techLevel) > beforeTech)
                     NotificationCenter.Push(NotificationCategory.建艦, NotificationSeverity.情報, $"{fac} 技術水準が {Mathf.FloorToInt(rs.techLevel)} に到達");
 
+                // 離散技術ツリー（#123-127／#1065 配線）：研究予算×技能の研究力でツリーを1つずつ解禁＝研究の中身を可視化。
+                RunTechTreeTickFor(fac, researchFunding, facSkill);
+
                 // 徴兵・動員（P1 配線）：徴募源(軍属#110)×動員率→練度反映の戦力を FleetPool へ加える。
                 float recruitPool = 0f;
                 for (int i = 0; i < owned.Count; i++) recruitPool += OccupationRules.RecruitablePool(owned[i]);

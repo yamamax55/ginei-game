@@ -120,5 +120,84 @@ namespace Ginei
         /// <summary>惑星の土地が完全所有か＝持分合計が1付近（国家＋個人）。</summary>
         public static bool IsFullyOwned(int systemId, float eps = 1e-3f)
             => Mathf.Abs(PropertyDeedRegistry.TotalShareOnSystem(systemId) - 1f) <= Mathf.Max(0f, eps);
+
+        // ===== 土地分割（ゾーニング）対応＝zoned 権利を全惑星換算で集計（#2019 惑星土地・SystemType を渡す版） =====
+
+        /// <summary>個人所有の全惑星換算持分（zoned 権利は用途比率で按分・<see cref="LandZoningRules.WholePlanetEquivalentShare"/>）。</summary>
+        public static float PersonShare(int systemId, SystemType type)
+        {
+            float sum = 0f;
+            var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
+            for (int i = 0; i < ds.Count; i++)
+                if (ds[i] != null && ds[i].IsPersonOwned) sum += LandZoningRules.WholePlanetEquivalentShare(ds[i], type);
+            return Mathf.Clamp01(sum);
+        }
+
+        /// <summary>企業所有の全惑星換算持分（zoned 対応）。</summary>
+        public static float EnterpriseShare(int systemId, SystemType type)
+        {
+            float sum = 0f;
+            var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
+            for (int i = 0; i < ds.Count; i++)
+                if (ds[i] != null && ds[i].IsEnterpriseOwned) sum += LandZoningRules.WholePlanetEquivalentShare(ds[i], type);
+            return Mathf.Clamp01(sum);
+        }
+
+        /// <summary>私有（個人＋企業）の全惑星換算持分（zoned 対応）。</summary>
+        public static float PrivateShare(int systemId, SystemType type)
+        {
+            float sum = 0f;
+            var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
+            for (int i = 0; i < ds.Count; i++)
+            {
+                PropertyDeed d = ds[i];
+                if (d != null && (d.IsPersonOwned || d.IsEnterpriseOwned)) sum += LandZoningRules.WholePlanetEquivalentShare(d, type);
+            }
+            return Mathf.Clamp01(sum);
+        }
+
+        /// <summary>国家持分＝1−私有（zoned 対応）。</summary>
+        public static float StateShare(int systemId, SystemType type) => Mathf.Clamp01(1f - PrivateShare(systemId, type));
+
+        /// <summary>権利証の評価額を地価へ同期（zoned 権利はゾーン価値＝地価×用途比率、whole は地価そのまま）。</summary>
+        public static void SyncValuations(int systemId, float planetLandValue, SystemType type)
+        {
+            float v = Mathf.Max(0f, planetLandValue);
+            var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
+            for (int i = 0; i < ds.Count; i++)
+            {
+                PropertyDeed d = ds[i];
+                if (d == null) continue;
+                d.baseValue = d.zoned ? LandZoningRules.ZoneValue(v, type, d.landUse) : v;
+            }
+        }
+
+        /// <summary>国家の残余持分を確保（zoned 対応＝私有は全惑星換算で差し引く）。state 権利は whole（惑星全体）で残余を持つ。</summary>
+        public static PropertyDeed EnsureStateDeed(int systemId, Faction faction, float planetLandValue, bool canPrivatize, SystemType type)
+        {
+            if (!canPrivatize) NationalizePrivateDeeds(systemId, faction);
+
+            PropertyDeed state = null;
+            var ds = PropertyDeedRegistry.DeedsOnSystem(systemId);
+            for (int i = 0; i < ds.Count; i++)
+            {
+                PropertyDeed d = ds[i];
+                if (d == null || !d.IsFactionOwned || d.ownerFaction != faction) continue;
+                if (state == null) state = d;
+                else d.share = 0f;
+            }
+            if (state == null)
+            {
+                state = new PropertyDeed(0, systemId, 0f, Mathf.Max(0f, planetLandValue))
+                { ownerKind = AssetOwnerKind.国家, ownerFaction = faction, rentRate = DefaultStateRentRate };
+                PropertyDeedRegistry.Register(state);
+            }
+            state.zoned = false; // 国家の残余は惑星全体（whole）で持つ
+            float priv = canPrivatize ? PrivateShare(systemId, type) : 0f;
+            state.share = Mathf.Clamp01(1f - priv);
+            state.baseValue = Mathf.Max(0f, planetLandValue);
+            if (state.rentRate <= 0f) state.rentRate = DefaultStateRentRate;
+            return state;
+        }
     }
 }

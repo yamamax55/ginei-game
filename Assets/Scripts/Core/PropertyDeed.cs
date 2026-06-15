@@ -18,7 +18,12 @@ namespace Ginei
         public int ownerEnterpriseId;   // ownerKind==企業 のとき有効（#1022 法人が土地を所有・後方互換で既定0）
 
         public float share;         // 持分（0..1）
-        public float baseValue;     // 惑星全体の評価額（share=1 のときの価値）
+
+        // --- 土地分割（地目・#2019 惑星土地のゾーニング・後方互換で既定=全惑星） ---
+        public bool zoned;          // true＝用途ゾーンの権利（landUse 有効）／false＝惑星全体の権利（従来）
+        public LandUseType landUse; // zoned のとき有効＝住宅地/商業地/工業地/農地/鉱山（第N惑星の「鉱山の土地」等）
+
+        public float baseValue;     // 惑星全体の評価額（whole は share=1 の価値／zoned はゾーン価値の基準＝惑星地価）
         public float rentRate;      // 地代率（年）
 
         public PropertyDeed() { }

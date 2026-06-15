@@ -112,10 +112,18 @@ namespace Ginei
                     // 私有企業が国有企業の株式を保有（法人の株式持ち合い）＝企業が株式を所有。
                     FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.株式, state.name)
                     { ownerKind = AssetOwnerKind.企業, ownerEnterpriseId = priv.id, underlyingId = state.id, units = 200f, unitPrice = 10f, incomePerUnit = 0.5f, bookCost = 2000f });
-                    // 私有企業が首都星系に土地を所有（地所は RunPlanetLandTick が地価へ評価同期）。
+                    // 私有企業が首都星系の「住宅地」区画を所有（地目別の権利・#2019 土地分割。評価は RunPlanetLandTick が地価×用途比率へ同期）。
                     int capitalSys = fac == Faction.同盟 ? 1 : 0;
-                    PropertyDeedRegistry.Register(new PropertyDeed(0, capitalSys, 0.1f, 0f)
-                    { ownerKind = AssetOwnerKind.企業, ownerEnterpriseId = priv.id, rentRate = 0.04f });
+                    PropertyDeed firmLand = PropertyDeedRegistry.Register(new PropertyDeed(0, capitalSys, 0.4f, 0f)
+                    { zoned = true, landUse = LandUseType.住宅地, ownerKind = AssetOwnerKind.企業, ownerEnterpriseId = priv.id, rentRate = 0.04f });
+                    // 司令が首都星系の「鉱山」区画を所有（個人の地目別権利）＋私有企業が住宅地の一部を司令へ貸出（リース＝貸出基盤）。
+                    Person firstCmd = commanders != null ? commanders.Find(c => c != null && c.faction == fac && c.deathYear == 0) : null;
+                    if (firstCmd != null)
+                    {
+                        PropertyDeedRegistry.Register(new PropertyDeed(0, capitalSys, 0.3f, 0f)
+                        { zoned = true, landUse = LandUseType.鉱山, ownerKind = AssetOwnerKind.人物, ownerPersonId = firstCmd.id, rentRate = 0.04f });
+                        LandTransactionRules.Lease(firmLand, OwnerRef.Person(firstCmd.id), 0.5f, 0.05f, termYears: 10, startYear: campaignYear);
+                    }
                 }
             }
             // 各司令に少数の株式（配当）と、自勢力の星系のいずれかに地所（地代）。地所は持分を小さく自勢力の星系へ分散

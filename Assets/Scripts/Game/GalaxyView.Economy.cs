@@ -443,10 +443,13 @@ namespace Ginei
                 if (s == null) continue;
                 provinces.TryGetValue(s.id, out var prov);
                 float landValue = prov != null && prov.realEstate != null ? prov.realEstate.landValue : 0f;
-                PlanetLandRules.SyncValuations(s.id, landValue);                    // 権利証の評価を地価に同期
-                bool canPriv = RealEstateRules.CanPrivatizeLand(IdeologyOf(s.owner)); // 共産は国有のみ（RE-1）
-                PlanetLandRules.EnsureStateDeed(s.id, s.owner, landValue, canPriv);  // 国家が残余を所有＝完全所有
+                SystemType type = prov != null ? prov.systemType : SystemType.居住;
+                PlanetLandRules.SyncValuations(s.id, landValue, type);                    // 権利証の評価を地価に同期（zoned はゾーン価値）
+                bool canPriv = RealEstateRules.CanPrivatizeLand(IdeologyOf(s.owner));       // 共産は国有のみ（RE-1）
+                PlanetLandRules.EnsureStateDeed(s.id, s.owner, landValue, canPriv, type);   // 国家が残余を所有＝完全所有（zoned 対応）
             }
+            // 土地賃貸借（貸出基盤・#2019）：満了したリースを年次で整理（暦の年）。
+            LandTransactionRules.ExpireDue(campaignYear);
         }
 
         /// <summary>星系が前線か（敵対勢力に隣接・配線ループ#8）。</summary>

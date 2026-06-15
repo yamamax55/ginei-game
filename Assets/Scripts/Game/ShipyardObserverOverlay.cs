@@ -131,6 +131,20 @@ namespace Ginei
               .Append("　稼働 ").Append(active)
               .Append("　キュー ").Append(totalQueued).Append('\n');
 
+            // 軍産複合体（MCN-4 #1389・CAP-3 #204）：造船利権の政治圧力＝補助金（建艦加速）・調達腐敗・戦争バイアスの源。
+            float micP = GalaxyView.Active != null ? GalaxyView.Active.GetMilitaryIndustrialPressure(fac) : 0f;
+            if (micP > 0f)
+            {
+                bool complex = MilitaryIndustrialRules.IsComplex(micP);
+                sb.Append("  <color=#9fb0c0>軍産複合体</color> 政治圧力 <color=").Append(complex ? "#ff7a6a" : (micP > 0.3f ? "#ffd28a" : "#a0e0a0")).Append('>')
+                  .Append((micP * 100f).ToString("0")).Append("%</color>")
+                  .Append("　補助金 +").Append((MilitaryIndustrialRules.ProductionSubsidy(micP) * 100f).ToString("0")).Append('%')
+                  .Append("　調達腐敗 +").Append((MilitaryIndustrialRules.CorruptionGain(micP) * 100f).ToString("0")).Append('%')
+                  .Append("　戦争バイアス ").Append((MilitaryIndustrialRules.WarBias(micP) * 100f).ToString("0")).Append('%');
+                if (complex) sb.Append("　<color=#ff7a6a>⚠ 複合体成立</color>");
+                sb.Append('\n');
+            }
+
             if (count == 0)
             {
                 sb.Append("  <color=#9aa7b2>（造船所なし）</color>\n");

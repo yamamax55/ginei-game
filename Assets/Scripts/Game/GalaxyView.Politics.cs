@@ -200,7 +200,10 @@ namespace Ginei
                     string a = fa.ToString(), b = fb.ToString();
                     // 国力＝所有惑星の人口合計、思想親和＝デモは異勢力で険悪、国境接触ありとみなす。
                     float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
-                    var factors = new DiplomacyRules.OpinionFactors(-0.5f, 0.2f, true, 0f, false);
+                    // 軍産複合体の戦争バイアス（MCN-4 #1389・CAP-3 #204 配線）：どちらかに複合体が成立すると思想親和をさらに険悪化＝開戦を促し講和を遠ざける。
+                    float warBias = Mathf.Max(MilitaryIndustrialRules.WarBias(GetMilitaryIndustrialPressure(fa)),
+                                              MilitaryIndustrialRules.WarBias(GetMilitaryIndustrialPressure(fb)));
+                    var factors = new DiplomacyRules.OpinionFactors(-0.5f - warBias * 0.3f, 0.2f, true, 0f, false);
                     WarState preWar = WarLedger.Get(a, b);                  // 講和前の戦況（領土移転の勝者判定用）
                     float preScore = preWar != null ? preWar.warScore : 0f;
                     var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);

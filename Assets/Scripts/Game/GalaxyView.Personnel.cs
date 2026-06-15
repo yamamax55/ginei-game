@@ -731,6 +731,9 @@ namespace Ginei
             // 国家・惑星の行政物資消費（STATEDEM-6・#2077 配線）：産出を行政・インフラが消費し、不足で統治が逼迫＝安定度低下。
             RunStateConsumptionTick();
 
+            // 公益事業（電気/ガス/水道）とインフラ普及率（#2021 配線）：供給能力と普及率を年次で進め、停電/断水・生活水準/安定度へ反映。
+            RunUtilityInfrastructureTick();
+
             // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
             if (academies != null && commanders.Count < OfficerRosterCap)
                 for (int i = 0; i < academies.Count; i++)

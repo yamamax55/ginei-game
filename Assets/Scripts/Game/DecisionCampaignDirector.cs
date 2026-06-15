@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using TMPro;
 
@@ -56,10 +57,17 @@ namespace Ginei
         {
             public System.Func<float> value;
             public RectTransform fill;
+            public RectTransform root; // 列全体の矩形（ダブルクリック当たり判定用）
             public TextMeshProUGUI label;
             public string name;
             public float width;
         }
+
+        // メーター直読みダブルクリック（uGUI イベントに依存しない確実な経路）
+        [Tooltip("バーの連続クリックをダブルクリックと見なす最大間隔（秒・実時間）")]
+        public float meterDoubleClickInterval = 0.35f;
+        private float lastMeterClickTime = -999f;
+        private Vector2 lastMeterClickPos;
 
         // ===== 自動生成 =====
 
@@ -113,8 +121,44 @@ namespace Ginei
                 ApplyDrift();
             }
 
+            HandleMeterDoubleClick();
             UpdateHud();
             EvaluateOutcome();
+        }
+
+        /// <summary>
+        /// メーターのバーのダブルクリックを<b>マウス直読み</b>で検出する（uGUI の EventSystem/レイキャストに依存しない）。
+        /// マップ（<see cref="GalaxyView"/>）と同方式＝この経路は確実に動く。バー矩形に入っていれば該当の柱の詳細を開く。
+        /// </summary>
+        private void HandleMeterDoubleClick()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+            if (windowRoot == null || !windowRoot.gameObject.activeSelf) return; // 非表示中は無視
+            if (meterPanel == null || !meterPanel.activeSelf) return;            // 最小化中は無視
+
+            Vector2 pos = mouse.position.ReadValue();
+            float now = Time.unscaledTime;
+            bool isDouble = (now - lastMeterClickTime) <= meterDoubleClickInterval
+                            && (pos - lastMeterClickPos).sqrMagnitude <= 12f * 12f;
+
+            if (!isDouble)
+            {
+                lastMeterClickTime = now;
+                lastMeterClickPos = pos;
+                return;
+            }
+
+            lastMeterClickTime = -999f; // 次の単発から数え直す
+            for (int i = 0; i < bars.Count; i++)
+            {
+                var b = bars[i];
+                if (b.root != null && RectTransformUtility.RectangleContainsScreenPoint(b.root, pos, null))
+                {
+                    ShowDetail(b.name);
+                    break;
+                }
+            }
         }
 
         // ===== 決裁→メーター =====
@@ -338,7 +382,7 @@ namespace Ginei
             fill.offsetMax = Vector2.zero;
             fill.sizeDelta = new Vector2(barWidth, 0f);
 
-            bars.Add(new Bar { value = value, fill = fill, label = label, name = name, width = barWidth });
+            bars.Add(new Bar { value = value, fill = fill, root = (RectTransform)col.transform, label = label, name = name, width = barWidth });
         }
 
         private void UpdateHud()

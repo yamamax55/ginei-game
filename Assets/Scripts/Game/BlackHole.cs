@@ -89,8 +89,10 @@ namespace Ginei
         // 自動配置用スタティック制御
         // ────────────────────────────────────────────────
 
-        /// <summary>false にすると RuntimeInitializeOnLoadMethod による自動配置を無効化できる。</summary>
-        public static bool AutoSpawnEnabled = true;
+        /// <summary>false にすると RuntimeInitializeOnLoadMethod による自動配置を無効化できる。
+        /// 既定 false＝ブラックホールは廃止（会戦に湧かせない）。AI/SiegeArena の回避コードは BlackHole.All が
+        /// 空になるため無害（参照は残すが何も起きない）。復活させるなら true に戻す。</summary>
+        public static bool AutoSpawnEnabled = false;
 
         // ────────────────────────────────────────────────
         // 静的レジストリ（シーン内の全 BlackHole。AI の回避判定が参照する）

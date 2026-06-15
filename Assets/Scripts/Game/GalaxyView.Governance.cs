@@ -139,23 +139,11 @@ namespace Ginei
             // 戦略↔実会戦の往復で世界状態を保持（あれば再利用）
             if (StrategySession.HasState) { map = StrategySession.Map; reg = StrategySession.Reg; return; }
 
-            // 開始は帝国3:同盟3＝50:50（勝利/敗北しきい値70%＝開始時はどちらも未達＝開幕で決着しない）。
-            // 帝国＝右クラスタ{0,2,3}／同盟＝左クラスタ{1,4,5}。中央ドラコ(3)が唯一の前線ハブ。
-            map = new GalaxyMap();
-            map.AddSystem(new StarSystem(0, "アスタ", new Vector2(0f, 3f), Faction.帝国));
-            map.AddSystem(new StarSystem(1, "ベガ", new Vector2(-5f, -3f), Faction.同盟));
-            map.AddSystem(new StarSystem(2, "ケレス", new Vector2(5f, 3f), Faction.帝国));
-            map.AddSystem(new StarSystem(3, "ドラコ", new Vector2(0f, -0.5f), Faction.帝国));
-            map.AddSystem(new StarSystem(4, "エリス", new Vector2(-2.5f, 1f), Faction.同盟));
-            map.AddSystem(new StarSystem(5, "フェニクス", new Vector2(-3.5f, -2.5f), Faction.同盟));
-
-            map.AddCorridor(new Corridor(2, 0, 4f, CorridorType.要衝));
-            map.AddCorridor(new Corridor(0, 3, 5f));
-            map.AddCorridor(new Corridor(3, 1, 4f));  // 前線：帝国ドラコ ⟷ 同盟ベガ
-            map.AddCorridor(new Corridor(3, 4, 3f));  // 前線：帝国ドラコ ⟷ 同盟エリス
-            map.AddCorridor(new Corridor(4, 1, 2f));
-            map.AddCorridor(new Corridor(1, 5, 2f));
-            map.AddCorridor(new Corridor(4, 5, 3f));
+            // 新規戦役ごとに銀河マップを手続き生成して多様化する（#いろんなマップ）。
+            // 不変条件：両勢力の星系数を等しくして約50:50（支配率しきい値70%＝開幕で決着しない）／
+            //           各クラスタを連結／最低1本の前線回廊（敵対端点）。生成結果は StrategySession/セーブに
+            //           保存されるため決定論的再生成は不要（毎回違ってよい）。
+            GenerateGalaxy();
 
             // 帝国星系は惑星（制空権持ち）で防衛＝同盟は停泊だけでは占領できず攻城が要る（#131）。
             // 同盟星系は無防備（planet 無し）＝従来どおり停泊で占領（両方の挙動をデモ）。
@@ -173,23 +161,8 @@ namespace Ginei
                     siegeVariety++;
                 }
 
-            reg = new StrategicFleetRegistry(map);
-            // 梯団編成（デモ）：艦隊 ⊂ 軍団(corpsId) ⊂ 軍集団(armyGroupId)。戦略マップでは軍団を四角で、
-            // 同じ軍集団の軍団が同一星系に集まると外側にもう一回り大きな四角を描いて軍集団を示す。
-            // isCorpsFlagship＝軍団長乗艦（★）。ケレス(2) に帝国第1・第2軍団（ともに帝国第1軍集団）を集結させ、
-            // 「軍団それぞれの枠＋外側に軍集団の枠」を示す。
-            // 帝国第1軍団（帝国第1軍集団）＠ケレス(2)
-            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250, corpsId = 1, corpsName = "帝国第1軍団", isCorpsFlagship = true, armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
-            reg.Add(new StrategicFleet(6, 2, Faction.帝国, 1.1f) { strength = 140, corpsId = 1, corpsName = "帝国第1軍団", armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
-            // 帝国第2軍団（帝国第1軍集団）＠ケレス(2)
-            reg.Add(new StrategicFleet(4, 2, Faction.帝国, 1.3f) { strength = 200, corpsId = 3, corpsName = "帝国第2軍団", isCorpsFlagship = true, armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
-            reg.Add(new StrategicFleet(5, 2, Faction.帝国, 1.2f) { strength = 180, corpsId = 3, corpsName = "帝国第2軍団", armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
-            // 同盟第1軍団（同盟第1軍集団）＠ベガ(1)
-            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300, corpsId = 2, corpsName = "同盟第1軍団", isCorpsFlagship = true, armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
-            reg.Add(new StrategicFleet(8, 1, Faction.同盟, 1.1f) { strength = 140, corpsId = 2, corpsName = "同盟第1軍団", armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
-            // 同盟第2軍団（同盟第1軍集団）＠フェニクス(5)＝別星系のため軍集団の外枠は出ない（集まると出る）
-            reg.Add(new StrategicFleet(7, 5, Faction.同盟, 1.2f) { strength = 180, corpsId = 4, corpsName = "同盟第2軍団", isCorpsFlagship = true, armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
-            reg.Add(new StrategicFleet(3, 5, Faction.同盟, 1.2f) { strength = 150, corpsId = 4, corpsName = "同盟第2軍団", armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
+            // 梯団編成（デモ）：艦隊 ⊂ 軍団(corpsId) ⊂ 軍集団(armyGroupId)。生成マップの後方星系へ配置する。
+            PopulateDemoFleets();
 
             // 難易度の開始戦力傾き（易しい＝自軍強め/敵弱め）。プレイヤー勢力以外を敵として倍率を掛ける（基準は等倍＝普通）。
             CampaignDifficulty diff = GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通;
@@ -201,6 +174,167 @@ namespace Ginei
                     f.strength = Mathf.Max(1, Mathf.RoundToInt(f.strength * (f.faction == pf ? pFac : eFac)));
 
             StrategySession.Set(map, reg);
+        }
+
+        // 戦略マップの星系名プール（手続き生成で重複なく引く）。
+        private static readonly string[] SystemNamePool =
+        {
+            "アスタ","ベガ","ケレス","ドラコ","エリス","フェニクス","オリオン","シリウス",
+            "リゲル","アルタイル","デネブ","アンタレス","ポラリス","カノープス","スピカ","プロキオン",
+            "カペラ","アルデバラン","レグルス","ミラ","ベラトリクス","ハダル","ミザール","アルゴル",
+            "タロス","ニケ","ヘスティア","ネメシス","ガイア","クロノス","セレネ","ヘリオス",
+        };
+
+        /// <summary>
+        /// 新規戦役の銀河マップを手続き生成する（#いろんなマップ）。複数のトポロジ原型（0=二大陣営対峙／
+        /// 1=中央ハブ争奪／2=長い前線）をランダムに選び、星系数(各勢力3〜5)・配置・回廊を毎回変える。
+        /// 不変条件：両勢力の星系数を等しく約50:50（しきい値70%＝開幕で決着しない）、各クラスタを連結、
+        /// 最低1本の前線回廊（敵対端点＝会戦が生起する）。決定論不要（保存されるため毎回違ってよい）。
+        /// </summary>
+        private void GenerateGalaxy()
+        {
+            map = new GalaxyMap();
+            var rng = new System.Random();
+
+            // 名前をシャッフルして重複なく引く。
+            var names = new List<string>(SystemNamePool);
+            for (int i = names.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (names[i], names[j]) = (names[j], names[i]); }
+            int nameIdx = 0;
+            string NextName() => nameIdx < names.Count ? names[nameIdx++] : ("星系" + (++nameIdx));
+
+            float Jit() => (float)(rng.NextDouble() * 2.0 - 1.0);
+            int perSide = 3 + rng.Next(3);   // 各勢力 3〜5 星系（合計6〜10＝終盤ラグ規律：少数に保つ）
+            int archetype = rng.Next(3);     // 0=対峙 / 1=中央ハブ争奪 / 2=長い前線
+
+            var ally = new List<int>();      // 同盟（左）
+            var imp = new List<int>();       // 帝国（右）
+            int id = 0;
+
+            // --- 星系の配置（原型ごとに形を変える） ---
+            if (archetype == 2)
+            {
+                // 長い前線：左右2列に同数を並べ、各行で前線回廊を張る。
+                for (int r = 0; r < perSide; r++)
+                {
+                    float t = perSide == 1 ? 0.5f : (float)r / (perSide - 1);
+                    float y = Mathf.Lerp(-4.5f, 4.5f, t) + Jit() * 0.4f;
+                    map.AddSystem(new StarSystem(id, NextName(), new Vector2(-3.2f + Jit() * 0.6f, y), Faction.同盟)); ally.Add(id++);
+                    map.AddSystem(new StarSystem(id, NextName(), new Vector2(3.2f + Jit() * 0.6f, y), Faction.帝国)); imp.Add(id++);
+                }
+            }
+            else
+            {
+                // 左クラスタ＝同盟／右クラスタ＝帝国（散らす）。
+                for (int i = 0; i < perSide; i++)
+                { map.AddSystem(new StarSystem(id, NextName(), new Vector2(-6f + Jit() * 1.6f, Jit() * 4f), Faction.同盟)); ally.Add(id++); }
+                for (int i = 0; i < perSide; i++)
+                { map.AddSystem(new StarSystem(id, NextName(), new Vector2(6f + Jit() * 1.6f, Jit() * 4f), Faction.帝国)); imp.Add(id++); }
+            }
+
+            // 中央ハブ（archetype 1）：中央に争奪星系を1つ。所有はランダム（僅差は許容＝しきい値70%に届かない）。
+            int hub = -1;
+            if (archetype == 1)
+            {
+                Faction ho = rng.Next(2) == 0 ? Faction.帝国 : Faction.同盟;
+                map.AddSystem(new StarSystem(id, NextName(), new Vector2(Jit() * 0.8f, Jit() * 1.2f), ho));
+                hub = id; (ho == Faction.帝国 ? imp : ally).Add(id++);
+            }
+
+            // 近傍解決（位置が近い候補id。from は除外）。
+            int Nearest(int from, List<int> cand)
+            {
+                StarSystem f = map.GetSystem(from);
+                int best = from; float bd = float.MaxValue;
+                if (f == null) return best;
+                foreach (int c in cand)
+                {
+                    if (c == from) continue;
+                    StarSystem s = map.GetSystem(c);
+                    if (s == null) continue;
+                    float d = Vector2.Distance(f.position, s.position);
+                    if (d < bd) { bd = d; best = c; }
+                }
+                return best;
+            }
+
+            // --- 回廊（連結＋前線） ---
+            var edges = new HashSet<long>();
+            void Link(int a, int b, CorridorType t = CorridorType.通商)
+            {
+                if (a == b) return;
+                long key = Mathf.Min(a, b) * 1000L + Mathf.Max(a, b);
+                if (!edges.Add(key)) return;
+                StarSystem sa = map.GetSystem(a), sb = map.GetSystem(b);
+                float len = sa != null && sb != null ? Mathf.Max(2f, Vector2.Distance(sa.position, sb.position)) : 3f;
+                map.AddCorridor(new Corridor(a, b, len, t));
+            }
+
+            // 各クラスタを連結（鎖＋ランダムな弦を0〜2本＝形に変化）。
+            void Wire(List<int> cluster)
+            {
+                for (int i = 1; i < cluster.Count; i++) Link(cluster[i - 1], cluster[i]);
+                int chords = cluster.Count >= 4 ? 1 + rng.Next(2) : 0;
+                for (int c = 0; c < chords && cluster.Count > 2; c++)
+                    Link(cluster[rng.Next(cluster.Count)], cluster[rng.Next(cluster.Count)], CorridorType.要衝);
+            }
+            Wire(ally); Wire(imp);
+
+            // 前線：敵対クラスタ間を橋渡し（最低1本＝会戦が生起する）。
+            if (archetype == 2)
+            {
+                for (int r = 0; r < perSide; r++) Link(ally[r], imp[r], CorridorType.要衝); // 各行で前線
+            }
+            else if (hub >= 0)
+            {
+                Link(hub, Nearest(hub, ally), CorridorType.要衝); // ハブ＝前線（両側へ）
+                Link(hub, Nearest(hub, imp), CorridorType.要衝);
+                if (rng.Next(2) == 0) { int a = ally[rng.Next(ally.Count)]; Link(a, Nearest(a, imp), CorridorType.要衝); }
+            }
+            else
+            {
+                int bridges = 1 + rng.Next(2); // 対峙：内側どうしを1〜2本
+                for (int b = 0; b < bridges; b++)
+                { int a = ally[rng.Next(ally.Count)]; Link(a, Nearest(a, imp), CorridorType.要衝); }
+            }
+        }
+
+        /// <summary>
+        /// 生成マップ上に両勢力の艦隊（軍団 ⊂ 軍集団）を配置する（デモ）。各勢力の後方星系に2個軍団を置き、
+        /// 軍団は軍団旗艦（★）＋随伴艦隊で構成する。位置は星系idに依存せず生成結果から解決する。
+        /// 帝国は1星系に集結（軍集団の入れ子枠を開幕から見せる）、同盟は別星系に分散して両方の見た目をデモ。
+        /// </summary>
+        private void PopulateDemoFleets()
+        {
+            reg = new StrategicFleetRegistry(map);
+            var rng = new System.Random();
+            int fleetId = 1, corpsId = 1;
+
+            void Deploy(Faction fac, int armyGroupId, bool concentrate)
+            {
+                string fp = fac == Faction.帝国 ? "帝国" : "同盟";
+                string agName = fp + "第1軍集団";
+
+                // この勢力の星系を「後方ほど先」（前線=x≈0 から遠い順）に並べる。
+                var owned = new List<StarSystem>();
+                foreach (var s in map.systems) if (s != null && s.owner == fac) owned.Add(s);
+                if (owned.Count == 0) return;
+                owned.Sort((a, b) => Mathf.Abs(b.position.x).CompareTo(Mathf.Abs(a.position.x)));
+
+                int corpsCount = Mathf.Min(2, owned.Count);
+                for (int c = 0; c < corpsCount; c++)
+                {
+                    StarSystem at = concentrate ? owned[0] : owned[Mathf.Min(c, owned.Count - 1)];
+                    int cid = corpsId++;
+                    string cname = $"{fp}第{c + 1}軍団";
+                    reg.Add(new StrategicFleet(fleetId++, at.id, fac, 1.3f + (float)rng.NextDouble() * 0.3f)
+                    { strength = 200 + rng.Next(120), corpsId = cid, corpsName = cname, isCorpsFlagship = true, armyGroupId = armyGroupId, armyGroupName = agName });
+                    reg.Add(new StrategicFleet(fleetId++, at.id, fac, 1.1f + (float)rng.NextDouble() * 0.2f)
+                    { strength = 130 + rng.Next(80), corpsId = cid, corpsName = cname, armyGroupId = armyGroupId, armyGroupName = agName });
+                }
+            }
+
+            Deploy(Faction.帝国, 1, concentrate: true);
+            Deploy(Faction.同盟, 2, concentrate: false);
         }
 
         // ===== 描画 =====

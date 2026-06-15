@@ -98,6 +98,10 @@
 - 各段の規模＝親規模×(子の指揮容量/親の指揮容量)（`CommandCapacityRules.MaxStrengthForTier`）＝下位ほど小さく具体的に。末端は**直属の上官**が委譲発令（`SovereignMandateRules.IssueDelegated`）＝君主が直接でなく上官が噛み砕いて下す。
 - 接続：新 `MandateCascadeRules`/`CascadeLevel`。指揮容量は `CommandCapacityRules`、主命ライフサイクルは `SovereignMandateRules`（TKO-9）へ委譲。指揮系統チェーンは Game 層が `OrderOfBattle`/`PersonRelationRules` から供給。
 
+#### TKO 尉官〜佐官の道＋階級ピラミッド（少尉任官・定員）
+- 士官学校卒は**少尉(tier1)**から任官（大学校卒=大尉2 fast-track）。少尉→大尉→少佐→大佐→**准将5（艦隊指揮の下限）**を月次評定の**昇進モンタージュ**で駆け上がる。`RankSystem.FullLadderName`/`CareerRankName`（将官フォールバック `DefaultRankName` は不変）＋`MilitaryAcademyRules.CommissionTier`（TKO-12）。
+- さらに**全階級（二等兵〜元帥）を人数でマクロ管理**＝階級ピラミッド（`MilitaryGrade`/`RankDistribution`/`RankDistributionRules`・TKO-13）。個体に降りず階級別頭数だけ持つ（PERF）。理想ピラミッド定員（下広上狭）・定員空き（=昇進枠＝上が詰まれば律速）・将校過多。士官グレードは `ToOfficerTier`(少尉1〜元帥10)で `RankSystem` と接続（並行系を作らない）。「上ほど狭き門」を個人の昇進と裏で結ぶ。
+
 #### TKO 一代記クロニクル（主人公の生涯の編纂）
 - 主人公の生涯イベント（入校・初陣・叙勲＝恩賜の軍刀・昇進・婚姻・武勲・死）を**時系列で一本に編む**個人年代記。列伝#784 を**一人にフォーカスした自伝**として生成。
 - 接続：`NotificationCenter`（イベント源）×列伝#784/殿堂#785×`ChronicleObserverOverlay`。**コード新設は最小**＝主人公イベントの収集と整形のみ（`ProtagonistCareerRules` の出力を束ねる）。
@@ -153,10 +157,12 @@
 | **TKO-9** | #2486 | 君主からの主命（`SovereignMandateRules`・拝命→遂行→達成/失敗→武勲・恩義） | `Person.isSovereign`×`MeritRecordRules`（達成＝任務達成）×`PersonRelationRules`（恩義/遺恨） |
 | **TKO-10** | #2487 | 月次評定（`MonthlyCouncilRules`・主命の決裁/武勲昇進/新主命の発令を毎月束ねる） | `SovereignMandateRules`/`MeritRecordRules`×`CalendarDispatcher` onMonth |
 | **TKO-11** | #2488 | 主命のMBOカスケード（`MandateCascadeRules`・主君の主命を指揮系統で噛み砕き末端のプレイヤーへ） | `CommandCapacityRules.MaxStrengthForTier`×`SovereignMandateRules.IssueDelegated` |
+| **TKO-12** | #2489 | 尉官〜佐官の道（少尉任官＋昇進モンタージュ・准将で実艦隊指揮） | `RankSystem.FullLadderName`/`CareerRankName`＋`MilitaryAcademyRules.CommissionTier` |
+| **TKO-13** | #2490 | 階級ピラミッド／定員（二等兵〜元帥の階級別人数をマクロ管理） | `MilitaryGrade`/`RankDistribution`/`RankDistributionRules`×`RankSystem`（`ToOfficerTier`） |
 
 ### 推奨着手順
 `TKO-1`（起点＝主人公を世界に置く・最も基盤）→ `TKO-2`（武勲→昇進＝立身出世の背骨）→ `TKO-3`（人脈＝人事力学）→ `TKO-9`（主命＝出世の駆動イベント）→ `TKO-11`（主命のMBOカスケード）→ `TKO-10`（月次評定＝ループの心臓）→ `TKO-4`（具申＝一人称の動詞）→ `TKO-6`（一代記＝体験の編纂）→ `TKO-5`（配属希望）→ `TKO-8`（UIシェルで束ねる）→ `TKO-7`（岐路＝自由意志・後段）。
-> **全11子issue 実装済**。Core純ロジック（TKO-1/2/3/5/6/7/9/10/11・EditMode/TestHarness担保）＋Game層配線＝`ProtagonistCareerDirector`（Strategy自動生成・月次ループ＋カスケード＋具申）と執務机UI `ProtagonistDeskOverlay`（Alt+J・TKO-8/4/6）。残務＝TKO-7 の岐路**実行**配線（`CivilWar`/`Diplomacy`/`BattleAllegiance`）と主命達成の会戦結果駆動・上官側の自動裁可。Game層は Unity Play で目視検証要。
+> **全13子issue 実装済**。Core純ロジック（TKO-1/2/3/5/6/7/9/10/11/12/13・EditMode/TestHarness担保）＋Game層配線＝`ProtagonistCareerDirector`（Strategy自動生成・月次ループ＋カスケード＋具申）と執務机UI `ProtagonistDeskOverlay`（Alt+J・TKO-8/4/6）。残務＝TKO-7 の岐路**実行**配線（`CivilWar`/`Diplomacy`/`BattleAllegiance`）と主命達成の会戦結果駆動・上官側の自動裁可。Game層は Unity Play で目視検証要。
 
 > **立身出世ループ（純ロジック）**：士官学校(TKO-1)→任官・配属(TKO-5)→君主が主命を発令(TKO-9)→**指揮系統で噛み砕かれ末端のプレイヤーへ(TKO-11)**→会戦/任務で達成→武勲(TKO-2)＋恩義(TKO-3)→月次評定で昇進確定＆次の主命(TKO-10)→…
 

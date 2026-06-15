@@ -19,6 +19,11 @@ namespace Ginei
         [Range(0f, 1f)] public float mandateSuccessChance = 0.35f;
         [Tooltip("主命が無い月に新たな主命を拝命する確率")]
         [Range(0f, 1f)] public float issueChance = 0.6f;
+        [Tooltip("准将未満（尉官/佐官）の月あたり勤務功績＝昇進モンタージュの速さ")]
+        public float juniorServiceMerit = 14f;
+
+        // 艦隊指揮の下限（准将＝tier5）。これ未満は尉官/佐官＝モンタージュで駆け上がる。
+        private const int FlagRankTier = 5;
 
         // 1月あたりの game-秒（GameDate.DateParams 既定＝60秒/日×30日）。
         private const float SecondsPerMonth = 60f * 30f;
@@ -90,6 +95,11 @@ namespace Ginei
         private void RunCouncil(int month)
         {
             if (Protagonist == null) return;
+            int beforeTier = Protagonist.rankTier;
+
+            // 尉官/佐官時代は日々の勤務で武勲が少しずつ積む（昇進モンタージュ＝准将で実艦隊指揮へ）。
+            if (Protagonist.rankTier < FlagRankTier)
+                MeritRecordRules.Record(Merit, ExploitKind.任務達成, juniorServiceMerit, MeritP);
 
             // 主命の遂行（会戦/任務での達成を簡略にロール＝将来は会戦結果で駆動）。
             if (SovereignMandateRules.IsOpen(ActiveMandate) && Random.value < mandateSuccessChance)
@@ -115,6 +125,14 @@ namespace Ginei
             {
                 ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.昇進, RankName(Protagonist.rankTier));
                 Push(NotificationSeverity.情報, $"［昇進］{Protagonist.name} が {RankName(Protagonist.rankTier)} へ");
+            }
+            // 将官に列す節目（准将＝艦隊指揮の下限）。
+            if (beforeTier < FlagRankTier && Protagonist.rankTier >= FlagRankTier)
+            {
+                ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.昇進,
+                    $"将官に列す（{RankName(Protagonist.rankTier)}・実艦隊指揮）");
+                Push(NotificationSeverity.情報,
+                    $"［将官昇任］{Protagonist.name} が {RankName(Protagonist.rankTier)} に列し、実艦隊の指揮を委ねられる");
             }
 
             // 新たな主命をカスケードで拝命（君主の主命を指揮系統で噛み砕き末端へ）。
@@ -201,8 +219,8 @@ namespace Ginei
         {
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;
-            FactionRanks = gs != null ? gs.playerFactionData : null;
-            if (FactionRanks == null) FactionRanks = BuildDefaultFaction();
+            // 立身出世は尉官〜元帥の完全ラダーで段階昇進させる（playerFactionData は将官のみのことが多く段が飛ぶため）。
+            FactionRanks = BuildCareerLadder();
 
             AdmiralData pa = gs != null ? ContentDatabase.AdmiralByName(gs.selectedAdmiral) : null;
             Protagonist = new Person(ProtagonistId, pa != null ? pa.FullName : "主人公", pf, PersonRole.軍人);
@@ -226,17 +244,13 @@ namespace Ginei
             var academy = new Academy(7, pf, "士官学校", 200, 0.55f);
             var outcome = ProtagonistCareerRules.EnrollWithClass(Protagonist, academy, 60, EnrollYear, 910000, i => Random.value);
             ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.入校, "士官学校へ入校");
-            if (outcome.commissioned)
-            {
-                ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.卒業任官,
-                    $"{MilitaryAcademyRules.DegreeTitle(outcome.degree)}・席次{outcome.hammockNumber}・{RankName(outcome.rankTier)}に任官");
-                Push(NotificationSeverity.情報, $"［任官］{Protagonist.name}＝{RankName(outcome.rankTier)}（席次{outcome.hammockNumber}）");
-            }
-            else
-            {
-                Protagonist.rankTier = 5;
-                ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.卒業任官, "任官（暫定・准将）");
-            }
+            // 任官は少尉から（大学校卒＝大尉 fast-track）。准将までは月次評定のモンタージュで駆け上がる（TKO-12）。
+            int commission = MilitaryAcademyRules.CommissionTier(outcome.degree, outcome.hammockNumber);
+            if (commission <= 0) commission = 1; // 主人公は最低 少尉で任官
+            Protagonist.rankTier = commission;
+            ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.卒業任官,
+                $"{MilitaryAcademyRules.DegreeTitle(outcome.degree)}・席次{outcome.hammockNumber}・{RankName(commission)}に任官");
+            Push(NotificationSeverity.情報, $"［任官］{Protagonist.name}＝{RankName(commission)}（席次{outcome.hammockNumber}）");
 
             // 君主との初期関係（恩義の芽）。
             PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
@@ -280,14 +294,17 @@ namespace Ginei
             return p != null ? p.CharacterName : "上官";
         }
 
-        /// <summary>tier を階級名へ（勢力の階級表→既定ラダー）。</summary>
-        public string RankName(int tier) => RankSystem.ResolveRankNameOrDefault(FactionRanks, tier);
+        /// <summary>tier を階級名へ（勢力の階級表→尉官/佐官を含む完全ラダー＝立身出世版）。</summary>
+        public string RankName(int tier) => RankSystem.CareerRankName(FactionRanks, tier);
 
-        private FactionData BuildDefaultFaction()
+        // 尉官〜元帥の完全ラダー（少尉1〜元帥10）。月次評定が NextRankTier で1段ずつ辿れるよう全段を持つ（TKO-12）。
+        private FactionData BuildCareerLadder()
         {
             var f = ScriptableObject.CreateInstance<FactionData>();
             f.ranks = new List<FactionData.RankEntry>
             {
+                new FactionData.RankEntry(1, "少尉"), new FactionData.RankEntry(2, "大尉"),
+                new FactionData.RankEntry(3, "少佐"), new FactionData.RankEntry(4, "大佐"),
                 new FactionData.RankEntry(5, "准将"), new FactionData.RankEntry(6, "少将"),
                 new FactionData.RankEntry(7, "中将"), new FactionData.RankEntry(8, "大将"),
                 new FactionData.RankEntry(9, "上級大将"), new FactionData.RankEntry(10, "元帥"),

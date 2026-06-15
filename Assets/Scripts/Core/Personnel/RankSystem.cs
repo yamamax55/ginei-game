@@ -144,7 +144,8 @@ namespace Ginei
         public static string CareerRankName(FactionData faction, int tier)
         {
             if (tier <= 0) return string.Empty;
-            string n = ResolveRankName(faction, tier);
+            // 完全一致のみ（ResolveRankName の欠番スナップを使わない＝将官だけの表で尉官を将官名にしないため）。
+            string n = faction != null ? faction.GetRankName(tier) : null;
             return string.IsNullOrEmpty(n) ? FullLadderName(tier) : n;
         }
     }

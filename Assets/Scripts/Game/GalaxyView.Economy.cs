@@ -1083,9 +1083,9 @@ namespace Ginei
         private float TechLevelOf(Faction fac)
             => researchStates.TryGetValue(fac, out var rs) && rs != null ? rs.techLevel : 0f;
 
-        /// <summary>戦略会戦の実効戦力倍率＝補給×技術（×軍の質）。自動解決へ渡し、補給切れ/低技術の艦隊が負けやすくする。</summary>
+        /// <summary>戦略会戦の実効戦力倍率＝補給×技術×練度（×軍の質）。自動解決へ渡し、補給切れ/低技術/新兵の艦隊が負けやすくする。</summary>
         private float CombatFactorOf(StrategicFleet f)
-            => f == null ? 1f : FleetCombatStrengthRules.EffectiveCombatFactor(f.supply, TechLevelOf(f.faction), 1f);
+            => f == null ? 1f : FleetCombatStrengthRules.EffectiveCombatFactor(f.supply, TechLevelOf(f.faction), 1f) * FleetVeterancyFactor(f);
 
         /// <summary>勢力の平均労働技能（所有惑星を人口加重・研究効率の入力）。0..1。</summary>
         private float FactionAvgSkill(Faction fac)

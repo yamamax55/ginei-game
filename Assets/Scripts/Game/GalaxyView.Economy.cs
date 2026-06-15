@@ -639,6 +639,83 @@ namespace Ginei
         /// <summary>財産売買（#2063/#2070）の決済窓口＝人物財産#2056/国庫#163/企業資本#1022 の解決子を束ねた資金アクセス。</summary>
         public FundsAccess MarketFunds() => new FundsAccess(ResolveCommander, ResolveEnterprise, StateOf);
 
+        /// <summary>
+        /// 財産の自動取引（資産市場・#2056 配線）：勢力ごとに司令が財産特性で目標投資比率へ寄せる＝投資型が買い手・浪費型が売り手になり、
+        /// 同勢力内で売買が成立する（投資型が浪費型の持分を買い、現金が移る＝資産分布が創発的に動く）。決定は <see cref="AssetMarketRules"/>、
+        /// 売買/決済は <see cref="AssetTradeRules"/>/<see cref="MarketFunds"/> へ委譲。集約で動かし注文板へ降りない（タイクン化回避）。
+        /// </summary>
+        private void RunAssetMarketTick()
+        {
+            if (commanders == null) return;
+            FundsAccess funds = MarketFunds();
+            int totalTrades = 0;
+            var buyerP = new System.Collections.Generic.List<Person>();
+            var buyerWant = new System.Collections.Generic.List<float>();
+            var sellerP = new System.Collections.Generic.List<Person>();
+            var sellerWant = new System.Collections.Generic.List<float>();
+
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                buyerP.Clear(); buyerWant.Clear(); sellerP.Clear(); sellerWant.Clear();
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null || c.faction != fac || c.deathYear != 0) continue;
+                    float reb = AssetMarketRules.AnnualRebalance(c.financialTrait, c.wealth, InvestedValueOf(c.id));
+                    if (reb > 1f) { buyerP.Add(c); buyerWant.Add(reb); }
+                    else if (reb < -1f) { sellerP.Add(c); sellerWant.Add(-reb); }
+                }
+                int bi = 0, si = 0;
+                while (bi < buyerP.Count && si < sellerP.Count)
+                {
+                    Person seller = sellerP[si];
+                    FinancialHolding sh = LargestTradeableHolding(seller.id);
+                    if (sh == null || sh.units <= 0f || sh.unitPrice <= 0f) { si++; continue; }
+                    float cash = Mathf.Min(buyerWant[bi], sellerWant[si]);
+                    float units = cash / sh.unitPrice;
+                    float price = AssetTradeRules.BuyHolding(sh, OwnerRef.Person(buyerP[bi].id), units, funds, out float moved);
+                    if (moved <= 0f) { bi++; continue; } // 買い手の資金が尽きた等
+                    totalTrades++;
+                    buyerWant[bi] -= price; sellerWant[si] -= price;
+                    if (buyerWant[bi] < 1f) bi++;
+                    if (sellerWant[si] < 1f) si++;
+                }
+            }
+            if (totalTrades > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"資産市場：{totalTrades}件の売買（投資型が買い・浪費型が売り）");
+        }
+
+        /// <summary>人物の投資資産の時価合計（売買対象＝株式/投資信託・#2056 資産市場の入力）。</summary>
+        private static float InvestedValueOf(int personId)
+        {
+            float sum = 0f;
+            var hs = FinancialHoldingRegistry.OwnedByPerson(personId);
+            for (int i = 0; i < hs.Count; i++)
+            {
+                FinancialHolding h = hs[i];
+                if (h != null && (h.instrument == FinancialInstrument.株式 || h.instrument == FinancialInstrument.投資信託))
+                    sum += FinancialAssetRules.MarketValue(h);
+            }
+            return sum;
+        }
+
+        /// <summary>人物の最大の売買可能持分（株式/投資信託・売り手の手放す銘柄）。</summary>
+        private static FinancialHolding LargestTradeableHolding(int personId)
+        {
+            FinancialHolding best = null; float bestVal = 0f;
+            var hs = FinancialHoldingRegistry.OwnedByPerson(personId);
+            for (int i = 0; i < hs.Count; i++)
+            {
+                FinancialHolding h = hs[i];
+                if (h == null || h.units <= 0f) continue;
+                if (h.instrument != FinancialInstrument.株式 && h.instrument != FinancialInstrument.投資信託) continue;
+                float v = FinancialAssetRules.MarketValue(h);
+                if (v > bestVal) { bestVal = v; best = h; }
+            }
+            return best;
+        }
+
         /// <summary>ネームドIDから企業を解決（法人所有の配当/地代を企業資本へ流す・観測用）。未生成/不在は null。</summary>
         public Enterprise ResolveEnterprise(int enterpriseId)
         {

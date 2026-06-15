@@ -237,6 +237,22 @@ namespace Ginei
             }
             else sb.AppendLine("（未統治＝内政データなし）");
 
+            // 不動産・土地（#2019/#2070）：惑星の地価/賃料（不動産基盤）＋土地の所有（国家＝残余／個人＝私有持分）。
+            sb.AppendLine();
+            sb.AppendLine("― 不動産・土地 ―");
+            if (prov != null && prov.realEstate != null)
+            {
+                PlanetRealEstate re = prov.realEstate;
+                int p2r = Mathf.RoundToInt(PlanetRealEstateRules.PriceToRent(re));
+                bool bubble = PlanetRealEstateRules.IsBubble(re, PlanetRealEstateRules.Params.Default);
+                sb.AppendLine($"地価: {Mathf.RoundToInt(re.landValue)}　賃料: {Mathf.RoundToInt(re.rentLevel)}　価格/賃料: {p2r}倍{(bubble ? "　▲バブル" : "")}");
+            }
+            else sb.AppendLine("地価データなし（年次で形成）");
+            int statePct = Mathf.RoundToInt(PlanetLandRules.StateShare(s.id) * 100f);
+            int privPct = Mathf.RoundToInt(PlanetLandRules.PrivateShare(s.id) * 100f);
+            int deedCount = PropertyDeedRegistry.CountDeedsOnSystem(s.id);
+            sb.AppendLine($"土地所有: 国家 {statePct}%　個人 {privPct}%（権利証 {deedCount}枚）");
+
             sb.AppendLine();
             sb.AppendLine("― 惑星防衛 ―");
             Planet p = s.planet;

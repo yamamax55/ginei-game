@@ -430,6 +430,25 @@ namespace Ginei
         }
         private readonly System.Collections.Generic.HashSet<int> realEstateBubbleSpread = new System.Collections.Generic.HashSet<int>();
 
+        /// <summary>
+        /// 惑星の土地＝ネームド財産の所有を1年ぶん更新（#2019/#2070 配線）：各惑星の権利証評価額を不動産基盤の地価へ同期し、
+        /// <b>国家が私有の残り（残余持分）を所有</b>して土地を完全所有させる（国家＋個人＝1）。土地を私有できるかは政体による
+        /// （共産＝国有化・RE-1）。判定は <see cref="PlanetLandRules"/> へ委譲。`SeedFinancialAssets` の後に呼ぶ（権利証が在る前提）。
+        /// </summary>
+        private void RunPlanetLandTick()
+        {
+            if (map == null || provinces == null) return;
+            foreach (var s in map.systems)
+            {
+                if (s == null) continue;
+                provinces.TryGetValue(s.id, out var prov);
+                float landValue = prov != null && prov.realEstate != null ? prov.realEstate.landValue : 0f;
+                PlanetLandRules.SyncValuations(s.id, landValue);                    // 権利証の評価を地価に同期
+                bool canPriv = RealEstateRules.CanPrivatizeLand(IdeologyOf(s.owner)); // 共産は国有のみ（RE-1）
+                PlanetLandRules.EnsureStateDeed(s.id, s.owner, landValue, canPriv);  // 国家が残余を所有＝完全所有
+            }
+        }
+
         /// <summary>星系が前線か（敵対勢力に隣接・配線ループ#8）。</summary>
         private bool IsFrontline(StarSystem sys)
         {

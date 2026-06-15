@@ -101,7 +101,17 @@ namespace Ginei
                 FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.債券, $"{DemoFactions[f]}国債")
                 { ownerKind = AssetOwnerKind.国家, ownerFaction = DemoFactions[f], underlyingId = underlying++, units = 500f, unitPrice = 100f, incomePerUnit = 3f, bookCost = 50000f });
             }
-            // 各司令に少数の株式（配当）と、首都星系（id=0 を仮の本拠）に地所（地代）。
+            // 各司令に少数の株式（配当）と、自勢力の星系のいずれかに地所（地代）。地所は持分を小さく自勢力の星系へ分散
+            // ＝1惑星に私有が集中しすぎず国家が残余（StateShare）を持てる余地を残す（土地評価は RunPlanetLandTick が地価へ同期）。
+            var ownedByFaction = new System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<int>>();
+            if (map != null)
+                foreach (var sys in map.systems)
+                {
+                    if (sys == null) continue;
+                    if (!ownedByFaction.TryGetValue(sys.owner, out var lst)) { lst = new System.Collections.Generic.List<int>(); ownedByFaction[sys.owner] = lst; }
+                    lst.Add(sys.id);
+                }
+            var deedCursor = new System.Collections.Generic.Dictionary<Faction, int>();
             if (commanders != null)
                 for (int i = 0; i < commanders.Count; i++)
                 {
@@ -109,7 +119,15 @@ namespace Ginei
                     if (c == null) continue;
                     FinancialHoldingRegistry.Register(new FinancialHolding(0, FinancialInstrument.投資信託, "銀河ファンド")
                     { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, underlyingId = underlying, units = 50f, unitPrice = 12f, incomePerUnit = 0.4f, bookCost = 600f });
-                    var deed = new PropertyDeed(0, c.faction == Faction.同盟 ? 1 : 0, 0.2f, 3000f)
+                    // 自勢力の所有星系へラウンドロビンで地所を割り当て（無ければ id=0 フォールバック）。
+                    int sysId = c.faction == Faction.同盟 ? 1 : 0;
+                    if (ownedByFaction.TryGetValue(c.faction, out var owned) && owned.Count > 0)
+                    {
+                        deedCursor.TryGetValue(c.faction, out int cur);
+                        sysId = owned[cur % owned.Count];
+                        deedCursor[c.faction] = cur + 1;
+                    }
+                    var deed = new PropertyDeed(0, sysId, 0.05f, 0f) // baseValue は RunPlanetLandTick が地価へ同期
                     { ownerKind = AssetOwnerKind.人物, ownerPersonId = c.id, rentRate = 0.04f };
                     PropertyDeedRegistry.Register(deed);
                 }

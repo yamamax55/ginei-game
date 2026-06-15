@@ -710,14 +710,17 @@ namespace Ginei
 
             // ネームド金融資産・不動産（NFIN-6・#2070 配線）：株式/債券/投資信託の配当・惑星所有権の地代→財産、紙くず化。
             SeedFinancialAssets();                                  // デモ金融/不動産シード（冪等）
+            RunPlanetLandTick();                                    // 惑星の土地＝ネームド財産：評価を地価へ同期＋国家が残余を所有（#2019/#2070）
             // 時価評価(RunFinancialMarkToMarket)は Tick改善P3 で月次へ移設（市場月次と整合・RunMonthlyCampaignTick）。
             MaybeCrashAStock();                                     // 紙くず化デモ（暴落#185）
             NamedFinancialTickRules.TickYear(ResolveCommander);    // 配当/地代→所有者 wealth#2056
-            for (int f = 0; f < DemoFactions.Length; f++)          // 国家の金融/不動産収益（デモはログ）
+            for (int f = 0; f < DemoFactions.Length; f++)          // 国家の金融/不動産（地代）収益→国庫#163
             {
                 float fInc = NamedFinancialTickRules.FactionAnnualIncome(DemoFactions[f]);
-                if (fInc != 0f)
-                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 金融/地代収益 {fInc:0}");
+                if (fInc == 0f) continue;
+                FactionState fs = StateOf(DemoFactions[f]);
+                if (fs != null) fs.treasury += fInc;               // 国有地の地代・国有金融の配当は国庫へ
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{DemoFactions[f]} 金融/地代収益 {fInc:0}");
             }
 
             // 国家・惑星の行政物資消費（STATEDEM-6・#2077 配線）：産出を行政・インフラが消費し、不足で統治が逼迫＝安定度低下。

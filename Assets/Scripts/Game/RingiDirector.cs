@@ -57,7 +57,7 @@ namespace Ginei
 
             // テスト用：F7 で即サンプル建白を1件起こす（決裁フローを Unity で即確認するため）
             if (Keyboard.current != null && Keyboard.current.f7Key.wasPressedThisFrame)
-                TryRaisePetition(forced: true);
+                ForceRaise();
 
             GameClock clock = StrategySession.Clock;
             float gdt = clock != null ? (float)clock.EffectiveDt(Time.unscaledDeltaTime) : Time.deltaTime;
@@ -67,22 +67,28 @@ namespace Ginei
 
             if (pending.Count >= maxConcurrent) return;
             if (Random.value > raiseChance) return;
-            TryRaisePetition(forced: false);
+            TryRaisePetition(forced: false, sampleIndex: -1);
         }
+
+        /// <summary>サンプル建白を1件起こす（同時上限を無視＝F7/スクリプト/テスト用）。決裁デスクへ載った決裁id（&lt;0=官僚機構で死んだ）を返す。
+        /// sampleIndex&lt;0 はランダム、0以上は <see cref="RingiSampleData"/> の指定サンプル。</summary>
+        public int ForceRaise(int sampleIndex = -1) => TryRaisePetition(forced: true, sampleIndex: sampleIndex);
 
         // ----- 建白の起案＋官僚機構の伝播 -----
 
-        /// <summary>サンプル建白を1件起こす。forced=true（F7）は同時上限を無視して必ず試みる（テスト用）。</summary>
-        private void TryRaisePetition(bool forced)
+        /// <summary>サンプル建白を1件起こす。forced=true は同時上限を無視。決裁待ちへ載った決裁id（&lt;0=不発/死亡）を返す。</summary>
+        private int TryRaisePetition(bool forced, int sampleIndex)
         {
             FactionState fs = PlayerState();
-            if (fs == null || RingiSampleData.Count == 0) return;
-            if (!forced && pending.Count >= maxConcurrent) return;
+            if (fs == null || RingiSampleData.Count == 0) return -1;
+            if (!forced && pending.Count >= maxConcurrent) return -1;
 
-            RingiSample sample = RingiSampleData.At(Random.Range(0, RingiSampleData.Count));
+            RingiSample sample = sampleIndex >= 0
+                ? RingiSampleData.At(sampleIndex)
+                : RingiSampleData.At(Random.Range(0, RingiSampleData.Count));
 
             var pet = new Petition(0, sample.title, fs.faction, sample.box, PetitionOrigin.建白, sample.effectKey);
-            if (!RingiPipeline.Submit(Ledger, pet)) return; // 越階受理＋在庫投入
+            if (!RingiPipeline.Submit(Ledger, pet)) return -1; // 越階受理＋在庫投入
 
             // 官僚機構を1階：箱の信認 × 省益摩擦 × 正統性 で生存ロール（大半はここで死ぬ）
             float heed = CredibilityRules.Heed(fs.credibility, sample.box);
@@ -95,7 +101,7 @@ namespace Ginei
                 // 握り潰し（却下）/黙殺＝上に行かず勝手に死ぬ（内生スロットル）
                 NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                     $"［{(step == PetitionStep.握り潰し ? "握り潰し" : "黙殺")}］{sample.title}（官僚機構で止まった）");
-                return;
+                return -1;
             }
 
             // 浮上＝権力者の決裁待ちへ。決裁デスク（右下）へカードを積む
@@ -109,6 +115,7 @@ namespace Ginei
 
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
                 $"［建白］{sample.title} が決裁待ち（右下の決裁デスクへ）");
+            return pd.id;
         }
 
         // ----- 決裁の確定（人 or 自動）→ 執行で世界が動く -----

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -280,31 +281,48 @@ namespace Ginei
             hlg.childControlWidth = true; hlg.childControlHeight = true;
             hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = true;
 
-            AddCommand(cmd.transform, "勢力", () => UnityEngine.Object.FindAnyObjectByType<CampaignObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "財政", () => UnityEngine.Object.FindAnyObjectByType<EconomyObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "軍事", () => UnityEngine.Object.FindAnyObjectByType<MilitaryObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "艦艇", () => UnityEngine.Object.FindAnyObjectByType<FleetObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "人事", () => UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "決裁", () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle());
-            AddCommand(cmd.transform, "法令", () => UnityEngine.Object.FindAnyObjectByType<LawObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "教育", () => UnityEngine.Object.FindAnyObjectByType<EducationObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "外交", () => UnityEngine.Object.FindAnyObjectByType<DiplomacyObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "政治", () => UnityEngine.Object.FindAnyObjectByType<PoliticsObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "兵站", () => UnityEngine.Object.FindAnyObjectByType<LogisticsObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "人口", () => UnityEngine.Object.FindAnyObjectByType<DemographicsObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "労働", () => UnityEngine.Object.FindAnyObjectByType<LaborObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "財政詳", () => UnityEngine.Object.FindAnyObjectByType<FiscalObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "生産", () => UnityEngine.Object.FindAnyObjectByType<ProductionObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "政府", () => UnityEngine.Object.FindAnyObjectByType<GovernmentObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "官僚", () => UnityEngine.Object.FindAnyObjectByType<BureaucracyObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "研究", () => UnityEngine.Object.FindAnyObjectByType<ResearchObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "造船", () => UnityEngine.Object.FindAnyObjectByType<ShipyardObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "人物動", () => UnityEngine.Object.FindAnyObjectByType<PersonnelDynamicsObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "事象", () => UnityEngine.Object.FindAnyObjectByType<ChronicleObserverOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "情報", () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle());
-            AddCommand(cmd.transform, "通知", () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle());
-            AddCommand(cmd.transform, "メーター", () => UnityEngine.Object.FindAnyObjectByType<DecisionCampaignDirector>()?.Toggle());
-            AddCommand(cmd.transform, "ヘルプ", () => UnityEngine.Object.FindAnyObjectByType<HelpOverlay>()?.Toggle());
+            // 上メニューの集約（カテゴリ別ドロップダウン）：25個のボタンを 5カテゴリに畳む。
+            // 各カテゴリを押すと該当オブザーバの小メニューが下に開く（既存ウィンドウ/単一文字ショートカットは不変）。
+            AddCategory(cmd.transform, "内政", new (string, System.Action)[]
+            {
+                ("勢力",   () => UnityEngine.Object.FindAnyObjectByType<CampaignObserverOverlay>()?.Toggle()),
+                ("法令",   () => UnityEngine.Object.FindAnyObjectByType<LawObserverOverlay>()?.Toggle()),
+                ("政府",   () => UnityEngine.Object.FindAnyObjectByType<GovernmentObserverOverlay>()?.Toggle()),
+                ("官僚",   () => UnityEngine.Object.FindAnyObjectByType<BureaucracyObserverOverlay>()?.Toggle()),
+                ("人口",   () => UnityEngine.Object.FindAnyObjectByType<DemographicsObserverOverlay>()?.Toggle()),
+                ("労働",   () => UnityEngine.Object.FindAnyObjectByType<LaborObserverOverlay>()?.Toggle()),
+                ("教育",   () => UnityEngine.Object.FindAnyObjectByType<EducationObserverOverlay>()?.Toggle()),
+                ("事象",   () => UnityEngine.Object.FindAnyObjectByType<ChronicleObserverOverlay>()?.Toggle()),
+            });
+            AddCategory(cmd.transform, "経済", new (string, System.Action)[]
+            {
+                ("財政",   () => UnityEngine.Object.FindAnyObjectByType<EconomyObserverOverlay>()?.Toggle()),
+                ("財政詳", () => UnityEngine.Object.FindAnyObjectByType<FiscalObserverOverlay>()?.Toggle()),
+                ("生産",   () => UnityEngine.Object.FindAnyObjectByType<ProductionObserverOverlay>()?.Toggle()),
+                ("兵站",   () => UnityEngine.Object.FindAnyObjectByType<LogisticsObserverOverlay>()?.Toggle()),
+                ("造船",   () => UnityEngine.Object.FindAnyObjectByType<ShipyardObserverOverlay>()?.Toggle()),
+                ("研究",   () => UnityEngine.Object.FindAnyObjectByType<ResearchObserverOverlay>()?.Toggle()),
+            });
+            AddCategory(cmd.transform, "軍事", new (string, System.Action)[]
+            {
+                ("軍事",   () => UnityEngine.Object.FindAnyObjectByType<MilitaryObserverOverlay>()?.Toggle()),
+                ("艦艇",   () => UnityEngine.Object.FindAnyObjectByType<FleetObserverOverlay>()?.Toggle()),
+                ("人物動", () => UnityEngine.Object.FindAnyObjectByType<PersonnelDynamicsObserverOverlay>()?.Toggle()),
+            });
+            AddCategory(cmd.transform, "政治", new (string, System.Action)[]
+            {
+                ("政治",   () => UnityEngine.Object.FindAnyObjectByType<PoliticsObserverOverlay>()?.Toggle()),
+                ("外交",   () => UnityEngine.Object.FindAnyObjectByType<DiplomacyObserverOverlay>()?.Toggle()),
+                ("人事",   () => UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>()?.Toggle()),
+            });
+            AddCategory(cmd.transform, "システム", new (string, System.Action)[]
+            {
+                ("決裁",     () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle()),
+                ("メーター", () => UnityEngine.Object.FindAnyObjectByType<DecisionCampaignDirector>()?.Toggle()),
+                ("情報",     () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle()),
+                ("通知",     () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle()),
+                ("ヘルプ",   () => UnityEngine.Object.FindAnyObjectByType<HelpOverlay>()?.Toggle()),
+            });
 
             var rule = AddBar(bar.transform, "Rule", new Vector2(0f, 0f), new Vector2(1f, 0f),
                 new Color(accentColor.r, accentColor.g, accentColor.b, 0.6f));
@@ -508,9 +526,86 @@ namespace Ginei
 
         // ===== 部品 =====
 
-        private void AddCommand(Transform parent, string label, System.Action onClick)
+        /// <summary>開いているカテゴリのドロップダウン群（排他開閉用）。</summary>
+        private readonly List<GameObject> dropdowns = new List<GameObject>();
+
+        /// <summary>すべてのカテゴリ・ドロップダウンを閉じる（別カテゴリを開く前・項目選択後に呼ぶ）。</summary>
+        private void CloseAllDropdowns()
         {
-            var go = new GameObject("Cmd_" + label);
+            for (int i = 0; i < dropdowns.Count; i++)
+                if (dropdowns[i] != null) dropdowns[i].SetActive(false);
+        }
+
+        /// <summary>
+        /// カテゴリボタン＋ぶら下がるドロップダウンを作る（上メニュー集約）。ボタンを押すと自分の小メニューを
+        /// 開閉し（他は閉じる）、項目を選ぶと該当オブザーバを Toggle して閉じる。ドロップダウンは独立 Canvas
+        /// （overrideSorting）で最前面・ボタン直下に自動追従。既存オブザーバ窓・単一文字ショートカットは不変。
+        /// </summary>
+        private void AddCategory(Transform parent, string label, (string label, System.Action action)[] items)
+        {
+            var go = new GameObject("Cat_" + label);
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            img.color = Color.white;
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            var cb = btn.colors;
+            cb.normalColor = buttonColor;
+            cb.highlightedColor = new Color(0.27f, 0.45f, 0.68f, 1f);
+            cb.pressedColor = new Color(0.20f, 0.36f, 0.58f, 1f);
+            cb.selectedColor = buttonColor;
+            cb.fadeDuration = 0.05f;
+            btn.colors = cb;
+            var le = go.AddComponent<LayoutElement>();
+            le.minWidth = 108f; le.preferredWidth = 108f; le.flexibleWidth = 0f;
+
+            var t = AddText(go.transform, label + " ▾", 16f, new Color(0.92f, 0.95f, 1f), TextAlignmentOptions.Center);
+            SetAnchors(t.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            // ドロップダウン本体（ボタンの左下隅にぶら下げ・独立 Canvas で最前面・初期は閉）
+            const float itemH = 30f, ddWidth = 138f;
+            var dd = new GameObject("Dropdown_" + label).AddComponent<RectTransform>();
+            dd.SetParent(go.transform, false);
+            dd.anchorMin = new Vector2(0f, 0f); dd.anchorMax = new Vector2(0f, 0f);
+            dd.pivot = new Vector2(0f, 1f);
+            dd.anchoredPosition = new Vector2(0f, -2f);
+            dd.sizeDelta = new Vector2(ddWidth, itemH * items.Length + 4f);
+            var ddCanvas = dd.gameObject.AddComponent<Canvas>();
+            ddCanvas.overrideSorting = true; ddCanvas.sortingOrder = 870;
+            dd.gameObject.AddComponent<GraphicRaycaster>();
+            var ddBg = dd.gameObject.AddComponent<Image>();
+            ddBg.color = new Color(menuBarColor.r, menuBarColor.g, menuBarColor.b, 0.98f);
+
+            var list = new GameObject("Items").AddComponent<RectTransform>();
+            list.SetParent(dd, false);
+            SetAnchors(list, Vector2.zero, Vector2.one, new Vector2(2f, 2f), new Vector2(-2f, -2f));
+            var vlg = list.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 2f; vlg.padding = new RectOffset(0, 0, 0, 0);
+            vlg.childControlWidth = true; vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                System.Action act = items[i].action; // クロージャ捕捉
+                AddDropdownItem(list, items[i].label, () => { CloseAllDropdowns(); act?.Invoke(); });
+            }
+
+            dd.gameObject.SetActive(false);
+            dropdowns.Add(dd.gameObject);
+
+            GameObject ddGo = dd.gameObject;
+            btn.onClick.AddListener(() =>
+            {
+                bool willOpen = !ddGo.activeSelf;
+                CloseAllDropdowns();
+                ddGo.SetActive(willOpen);
+            });
+        }
+
+        /// <summary>ドロップダウン1項目（左寄せの小ボタン）。</summary>
+        private void AddDropdownItem(Transform parent, string label, System.Action onClick)
+        {
+            var go = new GameObject("Item_" + label);
             go.transform.SetParent(parent, false);
             var img = go.AddComponent<Image>();
             img.color = Color.white;
@@ -525,10 +620,10 @@ namespace Ginei
             btn.colors = cb;
             btn.onClick.AddListener(() => onClick());
             var le = go.AddComponent<LayoutElement>();
-            le.minWidth = 92f; le.preferredWidth = 92f; le.flexibleWidth = 0f;
+            le.minHeight = 28f; le.preferredHeight = 28f;
 
-            var t = AddText(go.transform, label, 16f, new Color(0.92f, 0.95f, 1f), TextAlignmentOptions.Center);
-            SetAnchors(t.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var t = AddText(go.transform, label, 15f, new Color(0.92f, 0.95f, 1f), TextAlignmentOptions.Left);
+            SetAnchors(t.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-6f, 0f));
         }
 
         private static Image AddBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Color color)

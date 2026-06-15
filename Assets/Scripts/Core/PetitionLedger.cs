@@ -95,6 +95,21 @@ namespace Ginei
             return list;
         }
 
+        /// <summary>指定の人物（上司）が決裁すべき陳情を集める（その人物の受信トレイ＝組織内稟議）。
+        /// 決裁待ちかつ addresseeId が一致するもの。＝「自分のところに来た稟議」（<see cref="PersonRingiRules"/>）。</summary>
+        public List<Petition> AwaitingDecisionFor(int addresseeId)
+        {
+            var list = new List<Petition>();
+            if (addresseeId == 0) return list;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var p = items[i];
+                if (p != null && p.status == PetitionStatus.決裁待ち && p.addresseeId == addresseeId)
+                    list.Add(p);
+            }
+            return list;
+        }
+
         /// <summary>指定勢力の陳情を集める。</summary>
         public List<Petition> ByFaction(Faction faction)
         {

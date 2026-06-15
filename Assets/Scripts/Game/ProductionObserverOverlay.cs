@@ -232,6 +232,21 @@ namespace Ginei
                       .Append("　配当利回り ").Append((yld * 100f).ToString("0.0")).Append("%\n");
                 }
             }
+
+            // --- 商社＝総合商社（FRM-5 #1027 配線・仲介/裁定/与信/権益で稼ぐ独立エージェント・フェザーン #160） ---
+            TradingHouse th = gv.GetTradingHouse(fac);
+            if (th != null)
+            {
+                string ccol = th.capital < 0f ? "#ff7a6a" : "#a0e0a0";
+                sb.Append("  <color=#9fb0c0>商社</color> ").Append(th.name)
+                  .Append("　自己資本 <color=").Append(ccol).Append('>').Append(th.capital.ToString("#,0")).Append("</color>")
+                  .Append("　在庫 ").Append(th.inventory.ToString("#,0"))
+                  .Append("　与信 ").Append(th.tradeCredit.ToString("#,0"))
+                  .Append("　権益 ").Append(th.resourceStakes.ToString("#,0"))
+                  .Append("　事業投資 ").Append(th.businessStakes.ToString("#,0"));
+                if (th.capital < 0f) sb.Append("　<color=#ff7a6a>⚠ 破綻</color>");
+                sb.Append('\n');
+            }
         }
 
         /// <summary>セクター（産業）が売る市場財（観測表示用・GalaxyView の対応と一致させる）。</summary>

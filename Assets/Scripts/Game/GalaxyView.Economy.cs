@@ -254,6 +254,41 @@ namespace Ginei
                         $"{s.faction} 軍産複合体が成立（政治圧力 {(int)(micP * 100)}%）＝構造的な戦争バイアス・調達腐敗");
                 else if (!micComplex) micComplexFactions.Remove(s.faction);
 
+                // 商社＝総合商社（FRM-5 #1027 配線）：生産でも金融でもなく、調達と販売を仲介し・自己勘定で裁定し・与信と在庫/為替リスクを負い・川上に事業投資する。
+                // フェザーン #160＝両陣営に売る商社国家の原型。口銭＋与信収益＋権益/事業投資リターン−焦げ付き−在庫評価損＝利益を法人税ぶん国庫へ。
+                // 数式は TradingHouseRules へ委譲（接続のみ）・勢力単位の集約（個社経営へ降りない＝タイクン化回避）。
+                if (!tradingHouses.TryGetValue(s.faction, out var th) || th == null)
+                {
+                    th = new TradingHouse($"{s.faction}商社", capital: Mathf.Max(0f, economy) * TradeHouseCapitalRatio, faction: s.faction);
+                    tradingHouses[s.faction] = th;
+                }
+                float tradeValue = Mathf.Max(0f, economy) * TradeHouseTradeRatio;          // 取引額（市場#179/交易#94 の活動 proxy）
+                th.inventory = tradeValue * TradeHouseInventoryRatio;                       // 在庫（価格/為替リスクを負う）
+                th.tradeCredit = tradeValue * TradeHouseCreditRatio;                        // 与信（トレードファイナンス）
+                th.resourceStakes = Mathf.Max(0f, th.capital) * TradeHouseResourceStakeRatio; // 資源権益への出資（#178）
+                th.businessStakes = Mathf.Max(0f, th.capital) * TradeHouseBusinessStakeRatio; // 川上事業投資（#1022）
+                // 在庫の価格ショック：金融危機で評価損、平時は物価変動（インフレ）を価格変化率 proxy に（capital を破壊的更新）。
+                float priceChange = nowCrisis ? -0.15f : (s.currency != null ? Mathf.Clamp(s.currency.inflationRate, -0.1f, 0.1f) : 0f);
+                TradingHouseRules.ApplyPriceShock(th, priceChange);
+                // 利益＝口銭＋与信収益＋権益/事業投資リターン−取引先焦げ付き。
+                float thCommission = TradingHouseRules.Commission(tradeValue, th.commissionRate);
+                float thTradeFin = TradingHouseRules.TradeFinanceIncome(th.tradeCredit, TradingHouseRules.DefaultTradeCreditSpread);
+                float thStakeRet = TradingHouseRules.ResourceStakeReturn(th.resourceStakes, TradingHouseRules.DefaultStakeReturnRate)
+                                 + TradingHouseRules.BusinessStakeReturn(th.businessStakes, TradingHouseRules.DefaultStakeReturnRate);
+                float thDefaultRate = nowCrisis ? TradeHouseCrisisDefaultRate : TradeHousePeaceDefaultRate;
+                float thLoss = TradingHouseRules.CounterpartyLoss(th.tradeCredit, thDefaultRate);
+                float thProfit = thCommission + thTradeFin + thStakeRet - thLoss;
+                th.capital += thProfit;                                                     // 自己資本に蓄積
+                if (thProfit > 0f) s.treasury += thProfit * CorporateTaxRate;               // 法人税ぶん国庫へ（商社が財政を潤す）
+                // 資源権益→備蓄供給（#178）：確保した供給を勢力の資源備蓄へ納入（備蓄が既生成のときのみ＝順序安全）。
+                if (stateStockpiles.TryGetValue(s.faction, out var thStock) && thStock != null)
+                    TradingHouseRules.DeliverSecuredSupply(thStock, ResourceType.物資, th.resourceStakes, TradeHouseSupplyPerStake, 1f);
+                // 通知（Tier2・エッジ検出）：商社の自己資本が尽きる＝破綻（在庫評価損・焦げ付きがクッションを食い潰す）。
+                bool thInsolvent = th.capital < 0f;
+                if (thInsolvent && tradingHouseInsolvent.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 商社が破綻（在庫評価損・取引先焦げ付きで自己資本が枯渇）");
+                else if (!thInsolvent && th.capital > Mathf.Max(0f, economy) * TradeHouseCapitalRatio * 0.2f) tradingHouseInsolvent.Remove(s.faction);
+
                 // 通知（Tier0・エッジ検出）：国庫枯渇＝予算執行が回らない危機（戦費/制裁/債務で国庫が干上がる）。
                 bool empty = s.treasury < economy * 0.02f;
                 if (empty && treasuryEmpty.Add(s.faction))
@@ -386,6 +421,16 @@ namespace Ginei
         private const float BankNplLossGivenDefault = 0.5f;// 不良債権のデフォルト時損失率
         private const float BankPeaceNplRate = 0.02f;      // 平時の不良債権率（貸出比）
         private const float BankCrisisNplRate = 0.15f;     // 金融危機時の不良債権率（貸出比）
+        // 商社＝総合商社（FRM-5 #1027）の調整値（少量で創発＝タイクン化回避）。
+        private const float TradeHouseCapitalRatio = 0.2f;    // 自己資本＝経済規模×これ
+        private const float TradeHouseTradeRatio = 0.4f;      // 取引額＝経済規模×これ（口銭の素・市場#179/交易#94 proxy）
+        private const float TradeHouseInventoryRatio = 0.3f;  // 在庫＝取引額×これ（価格/為替リスクを負う）
+        private const float TradeHouseCreditRatio = 0.2f;     // 与信＝取引額×これ（トレードファイナンス）
+        private const float TradeHouseResourceStakeRatio = 0.3f; // 資源権益への出資＝自己資本×これ（#178）
+        private const float TradeHouseBusinessStakeRatio = 0.2f; // 川上事業投資＝自己資本×これ（#1022）
+        private const float TradeHousePeaceDefaultRate = 0.02f;  // 平時の取引先デフォルト率
+        private const float TradeHouseCrisisDefaultRate = 0.10f; // 金融危機時の取引先デフォルト率
+        private const float TradeHouseSupplyPerStake = 0.0005f;  // 資源権益が確保する単位あたり供給（#178）
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
@@ -522,6 +567,9 @@ namespace Ginei
         // 軍産複合体（MCN-4 #1389・CAP-3 #204）：造船利権の政治圧力（0..1）。年次 RunFiscalYearTick が更新し、建艦補助金/調達腐敗/戦争バイアスへ波及。
         private readonly System.Collections.Generic.Dictionary<Faction, float> micPressure
             = new System.Collections.Generic.Dictionary<Faction, float>();
+        // 商社＝総合商社（FRM-5 #1027）：勢力ごとの独立商社。年次 RunFiscalYearTick が口銭/与信/権益/在庫評価損を回し利益→国庫・破綻通知。
+        private readonly System.Collections.Generic.Dictionary<Faction, TradingHouse> tradingHouses
+            = new System.Collections.Generic.Dictionary<Faction, TradingHouse>();
         private readonly System.Collections.Generic.Dictionary<Faction, ResearchState> researchStates
             = new System.Collections.Generic.Dictionary<Faction, ResearchState>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> lastRecruits
@@ -536,6 +584,7 @@ namespace Ginei
         private readonly System.Collections.Generic.HashSet<Faction> bankRunFactions = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> bankInsolventFactions = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> micComplexFactions = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> tradingHouseInsolvent = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBoom = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBust = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
@@ -587,6 +636,9 @@ namespace Ginei
         /// <summary>勢力に軍産複合体が成立しているか（政治圧力が閾値以上＝構造的戦争バイアス）。観測層専用＝read-only。</summary>
         public bool IsMilitaryIndustrialComplex(Faction faction)
             => MilitaryIndustrialRules.IsComplex(GetMilitaryIndustrialPressure(faction));
+        /// <summary>勢力の商社（総合商社＝自己資本/在庫/与信/権益・FRM-5 #1027）。観測層専用＝read-only。</summary>
+        public TradingHouse GetTradingHouse(Faction faction)
+            => tradingHouses.TryGetValue(faction, out var th) ? th : null;
 
         /// <summary>勢力の造船所数（軍産複合体のロビー圧力の入力＝軍需の規模）。</summary>
         private int ShipyardCountOf(Faction faction)

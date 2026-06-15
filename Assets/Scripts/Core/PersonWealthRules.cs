@@ -30,15 +30,20 @@ namespace Ginei
             => Mathf.Max(0f, invested) * returnRate;
 
         /// <summary>
-        /// 1年後の財産＝max(0, 財産 + 貯金額 + 投資額×(1+リターン率))。
+        /// 1期間後の財産＝max(0, 財産 + 貯金額 + 投資額×(1+リターン率))。期間（年/月）非依存＝可処分とリターン率を
+        /// その期間に合わせて渡せば年次でも月次でも使える（俸給の月払い#2056 配線）。
         /// 貯金型は堅実に増え、投資型は好況で急増・暴落で毀損、浪費型はほぼ増えない（浪費分は財産に残らない）。
         /// </summary>
-        public static float WealthAfterYear(float wealth, float disposable, FinancialTrait t, float investReturnRate)
+        public static float WealthAfter(float wealth, float disposable, FinancialTrait t, float investReturnRate)
         {
             float saved = Saved(disposable, t);
             float invested = Invested(disposable, t);
             float gain = saved + invested * (1f + investReturnRate);
             return Mathf.Max(0f, wealth + gain);
         }
+
+        /// <summary>1年後の財産（<see cref="WealthAfter"/> の年次別名・後方互換）。</summary>
+        public static float WealthAfterYear(float wealth, float disposable, FinancialTrait t, float investReturnRate)
+            => WealthAfter(wealth, disposable, t, investReturnRate);
     }
 }

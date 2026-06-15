@@ -94,5 +94,24 @@ namespace Ginei.Tests
             // null 安全
             Assert.DoesNotThrow(() => PersonFinanceTickRules.TickYear(null, 100f, 0.1f));
         }
+
+        // --- 俸給の月払い（#2056 月払い）：投資のない貯金型なら12ヶ月の月払いは年次1回と一致する ---
+        [Test]
+        public void TickMonth_TwelveMonths_MatchesOneYear_ForSaver()
+        {
+            // 貯金型は投資率0＝リターンが絡まないため、月割り（÷12）の合計は年次一括と厳密一致。
+            var yearly = new Person { rankTier = 0, financialTrait = FinancialTrait.貯金, wealth = 0f };
+            var monthly = new Person { rankTier = 0, financialTrait = FinancialTrait.貯金, wealth = 0f };
+
+            PersonFinanceTickRules.TickYear(yearly, 240f, 0.0f, 120f);
+            for (int m = 0; m < 12; m++)
+                PersonFinanceTickRules.TickMonth(monthly, 240f / 12f, 0.0f, 120f);
+
+            Assert.AreEqual(yearly.wealth, monthly.wealth, 1e-2f);
+            Assert.Greater(monthly.wealth, 0f);
+
+            // null 安全
+            Assert.DoesNotThrow(() => PersonFinanceTickRules.TickMonth(null, 10f, 0.01f));
+        }
     }
 }

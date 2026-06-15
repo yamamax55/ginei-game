@@ -489,6 +489,7 @@ namespace Ginei
         {
             RunMarketTick();                       // 毎月：市場/企業/株式/交易
             RunFinancialMarkToMarket();            // P3：保有金融資産を毎月 時価評価（月次市場に追従）
+            RunMonthlyPersonFinanceTick();         // 人物の俸給は月払い（#2056）：月俸→消費→特性配分→財産
 
             int m = monthCounter % 12;
             if (monthCounter % 3 == 0) RunDiplomacyTick();   // P2：外交は四半期（宣戦/講和/賠償/制裁/諜報）

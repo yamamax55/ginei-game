@@ -435,6 +435,7 @@ namespace Ginei
             SetupPersonnel();
             SetupShipyard();
             SeedDemoMilitary(); // 艦艇/軍事観測層を満たす初期軍備（艦隊台帳・編制ツリー・指揮班）を勢力ごとにシード
+            SeedGovernment();   // 政府観測層を満たす初期政府（要職＝司令長官・省庁＝二官八省と配属）を勢力ごとにシード（#158）
         }
 
         /// <summary>

@@ -112,6 +112,10 @@ namespace Ginei
                         hopeDelta += (RedistributionRules.ClassSupportDelta(FiscalClass.貧困層, prog)
                                     + RedistributionRules.ClassSupportDelta(FiscalClass.富裕層, prog)) * 0.02f;
                     }
+                    // 物価高→民心（配線ループ#1）：高インフレは生活を圧迫し民心を削る（デフレは無害＝0クランプ）。
+                    if (s.currency != null) hopeDelta -= Mathf.Clamp(s.currency.inflationRate, 0f, 1f) * 0.1f;
+                    // 富裕層の繁栄→民心（配線ループ#4）：司令クラスの富（人物財産#2056）が厚いほど景気感で微増（bounded）。
+                    hopeDelta += Mathf.Clamp(EliteWealthOf(s.faction) / 100000f, 0f, 1f) * 0.02f;
                     s.community.hope = Mathf.Clamp01(s.community.hope + hopeDelta);
                 }
 
@@ -216,6 +220,13 @@ namespace Ginei
                     // 占領→同化（P0 配線・占領ループの出口）：文化結束が高いほど未統合の占領地が早く同化する（integration↑）。
                     if (prov.integration < 1f && cultureStates.TryGetValue(sys.owner, out var cult) && cult != null)
                         prov.integration = Mathf.Clamp01(prov.integration + CultureSynthesisTickRules.AssimilationRate(cult, prov.integration));
+                    // 飢餓→人口（配線ループ#2）：必需不足が深刻な惑星は餓死/流出で人口が減る（bounded）。
+                    if (prov.foodShortage > 0.3f)
+                        prov.population = Mathf.Max(0f, prov.population * (1f - prov.foodShortage * 0.02f));
+                    // 物価高→生活水準（配線ループ#6）：高インフレは実質購買力を削り生活水準を下げる。
+                    var ist = StateOf(sys.owner);
+                    if (ist != null && ist.currency != null)
+                        prov.livingStandard = Mathf.Clamp01(prov.livingStandard - Mathf.Clamp(ist.currency.inflationRate, 0f, 1f) * 0.05f);
                 }
         }
 
@@ -251,6 +262,7 @@ namespace Ginei
         private const float DemandSupplies = 0.012f, DemandFuel = 0.005f, DemandAmmo = 0.002f, DemandLuxury = 0.006f;
         // P0 交易の輸送コスト（基準価格単位・これ未満の価格差は裁定が起きない）／P1 平時の動員率。
         private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f, WartimeMobilizationRate = 0.3f;
+        private const float TariffRate = 0.1f; // 交易の関税率（取引フローの何割が国庫へ・配線ループ#3）
         private const float WarPopulationDrain = 0.01f; // 交戦中の年次人口減（総力戦のコスト・P3）
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
@@ -294,6 +306,16 @@ namespace Ginei
             for (int i = 0; i < camp.states.Count; i++)
                 if (camp.states[i] != null && camp.states[i].faction == fac) return camp.states[i];
             return null;
+        }
+
+        /// <summary>勢力の司令クラスの富の合計（人物財産#2056・配線ループ#4 の景気感入力）。</summary>
+        private float EliteWealthOf(Faction fac)
+        {
+            if (commanders == null) return 0f;
+            float sum = 0f;
+            for (int i = 0; i < commanders.Count; i++)
+                if (commanders[i] != null && commanders[i].faction == fac) sum += commanders[i].wealth;
+            return sum;
         }
 
         /// <summary>勢力通貨の物価水準（インフレ）。未設定は1.0＝物価→市場の名目スケール。</summary>
@@ -570,8 +592,19 @@ namespace Ginei
                     if (!markets.TryGetValue(DemoFactions[a], out var ma) || ma == null) continue;
                     if (!markets.TryGetValue(DemoFactions[b], out var mb) || mb == null) continue;
                     int n = Mathf.Min(ma.Length, mb.Length);
+                    FactionState sa = StateOf(DemoFactions[a]), sb = StateOf(DemoFactions[b]);
                     for (int g = 0; g < n; g++)
+                    {
+                        // 交易→関税収入（配線ループ#3）：取引量に関税を課し双方の国庫へ＝交易が財政を潤す（取引前の裁定フローで課税）。
+                        float flow = InterregionalTradeRules.TradeFlow(ma[g], mb[g], TradeTransportCost);
                         InterregionalTradeRules.TickPair(ma[g], mb[g], TradeTransportCost, MonthDt);
+                        if (flow > 0f)
+                        {
+                            float tariff = flow * MonthDt * TariffRate;
+                            if (sa != null) sa.treasury += tariff;
+                            if (sb != null) sb.treasury += tariff;
+                        }
+                    }
                 }
         }
 

@@ -251,7 +251,12 @@ namespace Ginei
                 for (int w = 0; w < wars.Count; w++)
                 {
                     WarState ws = wars[w];
-                    if (ws == null || Mathf.Abs(ws.warScore) < 0.2f) continue; // 拮抗は賠償なし
+                    if (ws == null) continue;
+                    // 戦争の財政コスト（配線ループ#5）：損害が大きいほど双方の国庫が消耗する＝戦争は高くつく（全戦争・bounded）。
+                    float warCost = Mathf.Clamp01(ws.casualties) * 0.02f;
+                    if (System.Enum.TryParse(ws.factionA, out Faction caf)) { var sc = StateOf(caf); if (sc != null) sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); }
+                    if (System.Enum.TryParse(ws.factionB, out Faction cbf)) { var sc = StateOf(cbf); if (sc != null) sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); }
+                    if (Mathf.Abs(ws.warScore) < 0.2f) continue; // 拮抗は賠償なし（戦費は上で課済み）
                     bool aWinning = ws.warScore > 0f;
                     if (!System.Enum.TryParse(aWinning ? ws.factionA : ws.factionB, out Faction wf)) continue;
                     if (!System.Enum.TryParse(aWinning ? ws.factionB : ws.factionA, out Faction lf)) continue;

@@ -718,6 +718,56 @@ namespace Ginei
         /// <summary>財産売買（#2063/#2070）の決済窓口＝人物財産#2056/国庫#163/企業資本#1022 の解決子を束ねた資金アクセス。</summary>
         public FundsAccess MarketFunds() => new FundsAccess(ResolveCommander, ResolveEnterprise, StateOf);
 
+        /// <summary>富裕税の控除を平均純資産の何倍に置くか（平均超過に累進課税＝格差#917 を縮める）。</summary>
+        private const float WealthTaxExemptionFactor = 1.5f;
+
+        /// <summary>
+        /// 財産税の年次徴収（#163/#917 配線）：勢力ごとに司令の<b>固定資産税</b>（土地＋ネームド資産の評価）＋<b>富裕税</b>
+        /// （純資産が勢力平均の <see cref="WealthTaxExemptionFactor"/> 倍を超えるぶんに累進）を徴収し国庫へ。税額は <see cref="AssetTaxRules"/>、
+        /// 純資産/評価は <see cref="NetWorthRules"/> へ委譲。現金の範囲で徴収（不足は取り切らない）。資産→税→国庫の環＝富の偏りを縮める。
+        /// </summary>
+        private void RunAssetTaxTick()
+        {
+            if (commanders == null) return;
+            var p = AssetTaxRules.AssetTaxParams.Default;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                FactionState fs = StateOf(fac);
+                if (fs == null) continue;
+
+                // 富裕税の控除＝勢力内の生存司令の平均純資産×係数（平均以上に累進課税）。
+                float sumNet = 0f; int n = 0;
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null || c.faction != fac || c.deathYear != 0) continue;
+                    sumNet += NetWorthRules.NetWorth(OwnerRef.Person(c.id), c.wealth);
+                    n++;
+                }
+                if (n == 0) continue;
+                float exemption = (sumNet / n) * WealthTaxExemptionFactor;
+
+                float collected = 0f;
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null || c.faction != fac || c.deathYear != 0) continue;
+                    OwnerRef pr = OwnerRef.Person(c.id);
+                    float assessed = NetWorthRules.LandValue(pr) + NetWorthRules.NamedAssetValue(pr); // 固定資産＝土地＋ネームド資産
+                    float net = NetWorthRules.NetWorth(pr, c.wealth);
+                    float tax = AssetTaxRules.AnnualWealthAndPropertyTax(assessed, net, exemption, p);
+                    tax = Mathf.Min(tax, Mathf.Max(0f, c.wealth)); // 現金の範囲で徴収
+                    if (tax > 0f) { c.wealth -= tax; collected += tax; }
+                }
+                if (collected > 0f)
+                {
+                    fs.treasury += collected;
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{fac} 財産税 {collected:0}（固定資産税＋富裕税）→国庫");
+                }
+            }
+        }
+
         /// <summary>担保ローンのデモ金利。</summary>
         private const float CollateralLoanRate = 0.05f;
 

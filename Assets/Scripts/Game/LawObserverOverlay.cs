@@ -338,7 +338,9 @@ namespace Ginei
             bar.transform.SetParent(parent, false);
             bar.AddComponent<RectTransform>();
             LayoutElement le = bar.AddComponent<LayoutElement>();
-            le.minHeight = 30f; le.preferredHeight = 30f;
+            // flexibleHeight=0 を明示＝HorizontalLayoutGroup(childForceExpandHeight) が親へ報告する
+            // flexibleHeight を LayoutElement(優先度高)で打ち消し、タブ帯がスクロール本文と高さを取り合わない。
+            le.minHeight = 32f; le.preferredHeight = 32f; le.flexibleHeight = 0f;
             HorizontalLayoutGroup h = bar.AddComponent<HorizontalLayoutGroup>();
             h.spacing = 4f;
             h.childControlWidth = true; h.childForceExpandWidth = true;

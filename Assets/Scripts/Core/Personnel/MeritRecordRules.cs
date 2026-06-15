@@ -57,9 +57,10 @@ namespace Ginei
                 this.saturationPoints = Mathf.Max(1f, saturationPoints);
             }
 
-            /// <summary>既定＝撃沈1/旗艦撃破10/防衛8/任務5/建白4・50点ごとに1段昇進・200点で実力飽和。</summary>
+            /// <summary>既定＝撃沈1/旗艦撃破10/防衛8/任務1/建白4・50点ごとに1段昇進・200点で実力飽和。
+            /// 任務達成は重み1＝magnitude がそのまま武勲点（主命の重要度＝<see cref="SovereignMandateRules.MeritMagnitudeFor"/> を直接点に）。</summary>
             public static MeritRecordParams Default
-                => new MeritRecordParams(1f, 10f, 8f, 5f, 4f, 50f, 200f);
+                => new MeritRecordParams(1f, 10f, 8f, 1f, 4f, 50f, 200f);
         }
 
         /// <summary>功績種別の基準重み（<paramref name="prm"/>）。</summary>

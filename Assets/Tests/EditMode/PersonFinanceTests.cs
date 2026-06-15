@@ -95,18 +95,18 @@ namespace Ginei.Tests
             Assert.DoesNotThrow(() => PersonFinanceTickRules.TickYear(null, 100f, 0.1f));
         }
 
-        // --- 俸給の月払い（#2056 月払い）：12ヶ月ぶんの月払いは年次1回と整合する ---
+        // --- 俸給の月払い（#2056 月払い）：投資のない貯金型なら12ヶ月の月払いは年次1回と一致する ---
         [Test]
-        public void TickMonth_TwelveMonths_MatchesOneYear()
+        public void TickMonth_TwelveMonths_MatchesOneYear_ForSaver()
         {
-            var yearly = new Person { rankTier = 0, financialTrait = FinancialTrait.投資, wealth = 0f };
-            var monthly = new Person { rankTier = 0, financialTrait = FinancialTrait.投資, wealth = 0f };
+            // 貯金型は投資率0＝リターンが絡まないため、月割り（÷12）の合計は年次一括と厳密一致。
+            var yearly = new Person { rankTier = 0, financialTrait = FinancialTrait.貯金, wealth = 0f };
+            var monthly = new Person { rankTier = 0, financialTrait = FinancialTrait.貯金, wealth = 0f };
 
-            PersonFinanceTickRules.TickYear(yearly, 240f, 0.12f, 120f);
+            PersonFinanceTickRules.TickYear(yearly, 240f, 0.0f, 120f);
             for (int m = 0; m < 12; m++)
-                PersonFinanceTickRules.TickMonth(monthly, 240f / 12f, 0.12f / 12f, 120f);
+                PersonFinanceTickRules.TickMonth(monthly, 240f / 12f, 0.0f, 120f);
 
-            // リターンは期間ぶんの投資額にのみ掛かる（既存財産に複利しない）＝月割り合計は年次と一致。
             Assert.AreEqual(yearly.wealth, monthly.wealth, 1e-2f);
             Assert.Greater(monthly.wealth, 0f);
 

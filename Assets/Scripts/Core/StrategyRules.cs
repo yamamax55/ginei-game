@@ -206,6 +206,106 @@ namespace Ginei
             return true;
         }
 
+        // ===== 星系上（惑星上）での接敵＝fleet-vs-fleet（回廊の星系版）=====
+
+        /// <summary>
+        /// 同一星系に停泊中の敵対艦隊を「交戦中（engaged）」にする＝<b>惑星上などで接敵したら会戦が起きる</b>
+        /// （回廊の <see cref="BeginEngagements"/> の星系版）。両者とも停泊中（!IsOnCorridor）で同じ星系・敵対の
+        /// ペアを engaged にする。新たに固着させたペア数を返す。停泊艦隊どうしは位置接触判定を要さない（同星系＝接触）。
+        /// </summary>
+        public static int BeginSystemEngagements(StrategicFleetRegistry reg)
+        {
+            int n = 0;
+            if (reg == null || reg.fleets == null) return 0;
+            var fleets = reg.fleets;
+            for (int i = 0; i < fleets.Count; i++)
+            {
+                StrategicFleet a = fleets[i];
+                if (a == null || a.IsOnCorridor) continue;
+                for (int j = i + 1; j < fleets.Count; j++)
+                {
+                    StrategicFleet b = fleets[j];
+                    if (b == null || b.IsOnCorridor) continue;
+                    if (a.currentSystemId != b.currentSystemId) continue;
+                    if (!FactionRelations.IsHostile(null, a.faction, null, b.faction)) continue;
+                    if (!a.engaged || !b.engaged) n++;
+                    a.engaged = true; b.engaged = true;
+                }
+            }
+            return n;
+        }
+
+        /// <summary>指定星系で交戦中の停泊艦隊を2陣営へ集める（惑星上の会戦・潜行先の特定）。敵対判定で分割。</summary>
+        public static bool GatherEngagementAtSystem(StrategicFleetRegistry reg, int systemId,
+            List<StrategicFleet> sideA, List<StrategicFleet> sideB)
+        {
+            if (sideA == null || sideB == null) return false;
+            sideA.Clear(); sideB.Clear();
+            if (reg == null || reg.fleets == null) return false;
+            StrategicFleet anchor = null;
+            foreach (var f in reg.fleets)
+            {
+                if (f == null || f.IsOnCorridor || !f.engaged) continue;
+                if (f.currentSystemId != systemId) continue;
+                if (anchor == null) anchor = f;
+                if (FactionRelations.IsHostile(null, anchor.faction, null, f.faction)) sideB.Add(f);
+                else sideA.Add(f);
+            }
+            return sideA.Count > 0 && sideB.Count > 0;
+        }
+
+        /// <summary>
+        /// 星系上の交戦（停泊艦隊どうし）を陣営合計戦力で自動解決する（回廊の <see cref="ResolveEncounters"/> の星系版）。
+        /// 勝者側は生存兵力を原戦力比で按分して残し（固着解除）、敗者側は除去する。解決した星系数を返す。
+        /// </summary>
+        public static int ResolveSystemEncounters(StrategicFleetRegistry reg, IList<EncounterOutcome> outcomes,
+            System.Func<StrategicFleet, float> factorOf = null)
+        {
+            if (reg == null || reg.fleets == null) return 0;
+            int count = 0;
+
+            var systems = new List<int>();
+            foreach (var f in reg.fleets)
+                if (f != null && f.engaged && !f.IsOnCorridor && !systems.Contains(f.currentSystemId))
+                    systems.Add(f.currentSystemId);
+
+            var sideA = new List<StrategicFleet>();
+            var sideB = new List<StrategicFleet>();
+            for (int s = 0; s < systems.Count; s++)
+            {
+                if (!GatherEngagementAtSystem(reg, systems[s], sideA, sideB)) continue;
+
+                int aSum = 0, bSum = 0; float aFac = 0f, bFac = 0f;
+                for (int i = 0; i < sideA.Count; i++) { aSum += sideA[i].strength; aFac += factorOf != null ? factorOf(sideA[i]) : 1f; }
+                for (int i = 0; i < sideB.Count; i++) { bSum += sideB[i].strength; bFac += factorOf != null ? factorOf(sideB[i]) : 1f; }
+                aFac = sideA.Count > 0 ? aFac / sideA.Count : 1f;
+                bFac = sideB.Count > 0 ? bFac / sideB.Count : 1f;
+
+                CorridorBattleResult r = ResolveCorridorBattle(aSum, bSum, aFac, bFac);
+                bool aWon = r.attackerWon;
+                var winners = aWon ? sideA : sideB;
+                var losers = aWon ? sideB : sideA;
+                int winnerTotal = (aWon ? aSum : bSum);
+                if (winnerTotal <= 0) winnerTotal = 1;
+                int survivor = Mathf.Max(1, r.survivorStrength);
+
+                Faction winFaction = winners.Count > 0 ? winners[0].faction : Faction.同盟;
+                Faction loseFaction = losers.Count > 0 ? losers[0].faction : Faction.帝国;
+
+                for (int i = 0; i < losers.Count; i++) reg.Remove(losers[i]);
+                for (int i = 0; i < winners.Count; i++)
+                {
+                    StrategicFleet w = winners[i];
+                    w.strength = Mathf.Max(1, Mathf.RoundToInt(survivor * (w.strength / (float)winnerTotal)));
+                    w.engaged = false;
+                }
+                if (outcomes != null)
+                    outcomes.Add(new EncounterOutcome(systems[s], systems[s], winFaction, loseFaction, survivor));
+                count++;
+            }
+            return count;
+        }
+
         /// <summary>
         /// 回廊が前線（FTL不可）か。両端の星系を所有する勢力が敵対していれば true。
         /// 自勢力↔敵対勢力をつなぐ回廊はワープで通り抜けられず、回廊内で会戦になる（C-3 で起動予定）。

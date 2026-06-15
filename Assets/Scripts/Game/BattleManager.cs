@@ -344,7 +344,10 @@ namespace Ginei
         private void ResolveScenarioAndVip()
         {
             activeScenario = ScenarioData.ActiveScenario;
-            if (activeScenario == null)
+            // 戦略マップからの実会戦（潜行・複数艦隊・攻城など Handoff 経由）は**創発的な艦隊戦**なので、
+            // 直前に遊んだ単発シナリオの勝利条件（旗艦撃破/護衛/時間防衛 等）を引き継がない＝殲滅で判定する。
+            // 以前は scenarioName に残った別シナリオを Resolve してしまい、対象VIPが居らず**会戦が即決着**していた。
+            if (activeScenario == null && !BattleHandoff.Pending)
             {
                 activeScenario = ScenarioData.Resolve(GameSettings.Instance.scenarioName);
             }

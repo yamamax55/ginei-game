@@ -161,9 +161,9 @@ namespace Ginei
                     }
                     else if (leftPressIsDouble)
                     {
-                        // ダブルクリック（ドラッグなし）＝潜行＞攻城突入＞システムビュー（短絡＝先に成立した1つだけ）
+                        // ダブルクリック（ドラッグなし）＝回廊潜行＞星系上の艦隊戦＞攻城突入＞システムビュー（短絡＝先に成立した1つだけ）
                         Vector2 w = WorldMouse();
-                        bool _ = TryDescend(w) || TryDescendPlanet(w) || TryEnterSystem(w);
+                        bool _ = TryDescend(w) || TryDescendSystemBattle(w) || TryDescendPlanet(w) || TryEnterSystem(w);
                         lastClickTime = -1f; // 3連クリックで連鎖しないようリセット
                     }
                     else
@@ -525,6 +525,39 @@ namespace Ginei
                     sideA = isSideA,
                 });
             }
+        }
+
+        /// <summary>
+        /// クリック位置の星系で停泊艦隊どうしが交戦中（惑星上などで接敵＝fleet-vs-fleet）なら、その会戦へ潜行する。
+        /// 攻城突入より優先＝防衛艦隊が在席する惑星では、まず艦隊戦で守備を破ってから攻城に入る。
+        /// </summary>
+        private bool TryDescendSystemBattle(Vector2 w)
+        {
+            if (reg == null) return false;
+            int sysId = NearestSystemDist(w, out float d);
+            if (sysId < 0 || d > systemClickRadius) return false;
+            return DescendSystemBattleBySystem(sysId);
+        }
+
+        /// <summary>
+        /// 指定星系で停泊艦隊どうしが交戦中なら、その会戦（fleet-vs-fleet）へ潜行する（接敵通知のダブルクリックからも呼ぶ）。
+        /// 交戦が無ければ false。戦略シーン以外では何もしない（stale 起動の保険）。
+        /// </summary>
+        public bool DescendSystemBattleBySystem(int systemId)
+        {
+            if (reg == null) return false;
+            if (SceneManager.GetActiveScene().name != "Strategy") return false;
+
+            var sideA = new List<StrategicFleet>();
+            var sideB = new List<StrategicFleet>();
+            if (!StrategyRules.GatherEngagementAtSystem(reg, systemId, sideA, sideB)) return false;
+
+            var entries = new List<BattleHandoff.HandoffFleet>();
+            AddHandoffSide(entries, sideA, true);
+            AddHandoffSide(entries, sideB, false);
+            BattleHandoff.QueueMulti(entries, sideA[0].faction, sideB[0].faction, sideA[0].id, sideB[0].id, "Strategy");
+            SceneManager.LoadScene("Battle");
+            return true;
         }
 
         /// <summary>

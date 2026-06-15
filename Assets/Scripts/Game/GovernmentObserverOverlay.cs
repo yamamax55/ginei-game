@@ -106,15 +106,12 @@ namespace Ginei
             sb.Append('\n').Append("<color=#e7e0b0>◤ ").Append(s.faction).Append("</color>\n");
 
             // 首班（与党党首）
-            if (s.politics != null && s.politics.parties != null)
-            {
-                int premierId = PartyRules.Premier(s.politics.parties);
-                if (premierId >= 0)
-                {
-                    string name = FindPersonName(gv, premierId);
-                    sb.Append("  <color=#9fb0c0>首班</color> ＝ ").Append(name).Append('\n');
-                }
-            }
+            int premierId = (s.politics != null && s.politics.parties != null)
+                ? PartyRules.Premier(s.politics.parties) : -1;
+            if (premierId >= 0)
+                sb.Append("  <color=#9fb0c0>首班</color> ＝ ").Append(FindPersonName(gv, premierId)).Append('\n');
+            else
+                sb.Append("  <color=#9fb0c0>首班</color> ＝ <color=#9aa7b2>（未組閣・政党結成待ち）</color>\n");
 
             // 要職任命
             var apps = GovernmentRegistry.Appointments;

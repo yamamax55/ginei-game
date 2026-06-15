@@ -91,6 +91,17 @@ namespace Ginei
 
         private static Faction EnemyOf(Faction f) => f == Faction.帝国 ? Faction.同盟 : Faction.帝国;
 
+        /// <summary>
+        /// 戦役開始時の初期政府編成（政府オブザーバ Alt+G を開幕から実データで満たす）：要職（宇宙艦隊司令長官）を任命し、
+        /// 省庁（二官八省）を編成して文民を配属する。<b>従来は最初の年境界（年次ティック）まで「要職の任命なし／省庁 未配線」</b>
+        /// だったのを、開幕に前倒しする。宰相/総督/首班は位階の叙位・政党結成が要るため年次の銓衡（<see cref="RunCivilAppointmentTick"/> 等）で
+        /// 追って埋まる。いずれも冪等（年次ティックと二重編成しない・通知を撒かない静かなシード）。</summary>
+        private void SeedGovernment()
+        {
+            SeedCommandOffices();      // 要職＝司令長官を最先任へ任命（GovernmentRegistry を初期化して任命・静か）
+            RunMinistryStaffingTick(); // 二官八省を編成し文民を能力順で配属（位階ゲートなし・静か）
+        }
+
         /// <summary>要職をシード（冪等）：勢力ごとに「宇宙艦隊司令長官」を1つ作り、最先任の現役へ任命。</summary>
         private void SeedCommandOffices()
         {

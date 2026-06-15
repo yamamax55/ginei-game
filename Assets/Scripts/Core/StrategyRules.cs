@@ -143,6 +143,70 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 指定回廊（星系 sysA–sysB のエッジ）上で交戦中の<b>全</b>艦隊を2陣営に分けて集める（複数艦隊の会戦・
+        /// 接敵内容を会戦へ正しく渡す）。最初に見つかった艦隊を陣営Aの基準とし、それと敵対する艦隊を陣営Bへ、
+        /// 非敵対（味方）を陣営Aへ振り分ける。両陣営に1隊以上いれば true。敵対判定は <see cref="FactionRelations"/>。
+        /// </summary>
+        public static bool GatherEngagementOnCorridor(StrategicFleetRegistry reg, int sysA, int sysB,
+            List<StrategicFleet> sideA, List<StrategicFleet> sideB)
+        {
+            if (sideA == null || sideB == null) return false;
+            sideA.Clear(); sideB.Clear();
+            if (reg == null || reg.fleets == null) return false;
+            int min = Mathf.Min(sysA, sysB), max = Mathf.Max(sysA, sysB);
+
+            StrategicFleet anchor = null;
+            foreach (var f in reg.fleets)
+            {
+                if (f == null || !f.engaged) continue;
+                int fMin = Mathf.Min(f.currentSystemId, f.destinationSystemId);
+                int fMax = Mathf.Max(f.currentSystemId, f.destinationSystemId);
+                if (fMin != min || fMax != max) continue;
+                if (anchor == null) anchor = f;
+                if (FactionRelations.IsHostile(null, anchor.faction, null, f.faction)) sideB.Add(f);
+                else sideA.Add(f);
+            }
+            return sideA.Count > 0 && sideB.Count > 0;
+        }
+
+        /// <summary>
+        /// 複数艦隊の会戦（<see cref="BattleHandoff.IsMultiFleet"/>）の結果を戦略レジストリへ反映する。
+        /// 勝者側の各艦隊は<b>生存兵力を原戦力比で按分</b>して残し（交戦固着を解除）、敗者側は盤面から除去する。
+        /// 反映したら true（Handoff は消す）。
+        /// </summary>
+        public static bool ApplyMultiHandoffResult(StrategicFleetRegistry reg)
+        {
+            if (reg == null) return false;
+            bool aWon = BattleHandoff.sideAWon;
+            int survivor = Mathf.Max(1, BattleHandoff.survivorStrength);
+            var entries = BattleHandoff.fleets;
+
+            int winnerTotal = 0;
+            for (int i = 0; i < entries.Count; i++)
+                if (entries[i].sideA == aWon) winnerTotal += Mathf.Max(0, entries[i].strategicStrength);
+            if (winnerTotal <= 0) winnerTotal = 1;
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                var hf = entries[i];
+                StrategicFleet sf = reg.GetFleet(hf.fleetId);
+                if (sf == null) continue;
+                if (hf.sideA == aWon)
+                {
+                    int share = Mathf.Max(1, Mathf.RoundToInt(survivor * (Mathf.Max(0, hf.strategicStrength) / (float)winnerTotal)));
+                    sf.strength = share;
+                    sf.engaged = false;
+                }
+                else
+                {
+                    reg.Remove(sf);
+                }
+            }
+            BattleHandoff.Clear();
+            return true;
+        }
+
+        /// <summary>
         /// 回廊が前線（FTL不可）か。両端の星系を所有する勢力が敵対していれば true。
         /// 自勢力↔敵対勢力をつなぐ回廊はワープで通り抜けられず、回廊内で会戦になる（C-3 で起動予定）。
         /// 敵対判定は FactionRelations 経由（所有者の enum 比較＝後方互換）。
@@ -353,6 +417,7 @@ namespace Ginei
         public static bool ApplyHandoffResult(StrategicFleetRegistry reg)
         {
             if (reg == null || !BattleHandoff.Pending || !BattleHandoff.Resolved) return false;
+            if (BattleHandoff.IsMultiFleet) return ApplyMultiHandoffResult(reg); // 複数艦隊の会戦は按分で反映
             StrategicFleet a = reg.GetFleet(BattleHandoff.fleetIdA);
             StrategicFleet b = reg.GetFleet(BattleHandoff.fleetIdB);
             var r = new CorridorBattleResult(BattleHandoff.sideAWon, BattleHandoff.survivorStrength);

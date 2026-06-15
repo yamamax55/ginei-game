@@ -146,7 +146,9 @@ namespace Ginei
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
         // 軍団長乗艦マーカー（艦隊ごとの★ラベル・既定オフ）と、軍団隷下を囲う四角のプール、重なり回避オフセット（fleet id→offset）。
         private readonly Dictionary<StrategicFleet, TextMesh> fleetCorpsMarks = new Dictionary<StrategicFleet, TextMesh>();
+        private readonly Dictionary<StrategicFleet, TextMesh> fleetNumLabels = new Dictionary<StrategicFleet, TextMesh>(); // 艦隊番号ラベル（艦隊の上）
         private readonly List<LineRenderer> corpsBoxLines = new List<LineRenderer>();
+        private readonly List<TextMesh> corpsBoxLabels = new List<TextMesh>(); // 軍団名ラベル（枠の上・第N軍団）
         private readonly Dictionary<int, Vector2> fleetClusterOffsets = new Dictionary<int, Vector2>();
         private TextMesh banner;
         private TextMesh helpLine;

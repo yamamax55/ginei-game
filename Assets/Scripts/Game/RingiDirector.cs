@@ -81,7 +81,7 @@ namespace Ginei
 
             // 官僚機構を1階：箱の信認 × 省益摩擦 × 正統性 で生存ロール（大半はここで死ぬ）
             float heed = CredibilityRules.Heed(fs.credibility, BoxKind.政治家);
-            float friction = Random.Range(0.2f, 0.7f);          // 省益/現状維持の抵抗
+            float friction = MinistryFriction(fs.faction, DomainOf(effectKey)); // 所管省庁の省益＝縦割り抵抗（#158 配線）
             float legitimacy = FactionLoyaltyRules.BaselineLoyalty(fs);
             var step = RingiPipeline.Propagate(pet, heed, friction, legitimacy, Random.value);
 
@@ -130,6 +130,26 @@ namespace Ginei
             float applied = RingiPipeline.ExecuteAndApply(e.pet, StrategySession.Campaign, e.friction);
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                 $"［執行］{e.pet.title}：実効 {applied * 100f:0}%（官僚に骨抜きされた）");
+        }
+
+        /// <summary>稟議の効果分野→所管 <see cref="OfficeDomain"/>（税は財政＝大蔵省の省益が抵抗する）。</summary>
+        private static OfficeDomain DomainOf(string effectKey)
+        {
+            if (!string.IsNullOrEmpty(effectKey) && effectKey.StartsWith("tax.")) return OfficeDomain.財政;
+            return OfficeDomain.内政;
+        }
+
+        /// <summary>所管省庁の省益から伝播/執行の摩擦を引く（#158 配線）。省庁ツリーが無ければ既定 0.4 へフォールバック。</summary>
+        private static float MinistryFriction(Faction faction, OfficeDomain domain)
+        {
+            const float fallback = 0.4f;
+            var gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
+            if (gv == null) return fallback;
+            var ministries = gv.MinistriesOf(faction);
+            if (ministries == null || ministries.Count == 0) return fallback;
+            // 該当分野の省庁が無ければ（省益0）＝抵抗なしと区別するため fallback
+            float f = MinistryRules.DomainFriction(ministries, domain);
+            return f > 0f ? f : fallback;
         }
 
         private static FactionState PlayerState()

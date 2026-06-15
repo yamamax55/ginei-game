@@ -106,5 +106,19 @@ namespace Ginei.Tests
             float friction = MinistryRules.SectionalismFriction(g, new List<int> { 1, 3 });
             Assert.AreEqual(0.6f, friction, 1e-4f); // 横断政策への平均抵抗
         }
+
+        [Test]
+        public void DomainFriction_AveragesMatchingDomainOnly()
+        {
+            var g = Gov(); // 内政×2(id1,2) / 財政×1(id3)
+            MinistryRules.Get(g, 1).institutionalInterest = 0.7f;
+            MinistryRules.Get(g, 2).institutionalInterest = 0.3f;
+            MinistryRules.Get(g, 3).institutionalInterest = 0.9f;
+
+            Assert.AreEqual(0.5f, MinistryRules.DomainFriction(g, OfficeDomain.内政), 1e-4f); // (0.7+0.3)/2
+            Assert.AreEqual(0.9f, MinistryRules.DomainFriction(g, OfficeDomain.財政), 1e-4f); // 大蔵省だけ
+            Assert.AreEqual(0f, MinistryRules.DomainFriction(g, OfficeDomain.外交), 1e-4f);   // 該当省庁なし
+            Assert.AreEqual(0f, MinistryRules.DomainFriction(null, OfficeDomain.財政), 1e-4f);
+        }
     }
 }

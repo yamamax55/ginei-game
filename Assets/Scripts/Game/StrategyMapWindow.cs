@@ -534,6 +534,7 @@ namespace Ginei
             ("システム", new (string, System.Action)[]
             {
                 ("決裁",     () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle()),
+                ("稟議",     () => UnityEngine.Object.FindAnyObjectByType<RingiObserverOverlay>()?.Toggle()),
                 ("メーター", () => UnityEngine.Object.FindAnyObjectByType<DecisionCampaignDirector>()?.Toggle()),
                 ("情報",     () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle()),
                 ("通知",     () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle()),

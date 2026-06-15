@@ -37,6 +37,7 @@ namespace Ginei
         研究観測切替,
         財産観測切替,
         軍動態観測切替,
+        稟議観測切替,
         // 会戦
         ポーズ,
         倍速等速,
@@ -131,6 +132,7 @@ namespace Ginei
             new InputBinding(GameAction.研究観測切替,     Key.R,         InputContext.共通, alt: true),
             new InputBinding(GameAction.財産観測切替,     Key.W,         InputContext.共通, alt: true),
             new InputBinding(GameAction.軍動態観測切替,   Key.V,         InputContext.共通, alt: true),
+            new InputBinding(GameAction.稟議観測切替,     Key.I,         InputContext.共通, alt: true),
             new InputBinding(GameAction.ポーズ,         Key.Space,     InputContext.会戦),
             new InputBinding(GameAction.倍速等速,       Key.Digit1,    InputContext.会戦),
             new InputBinding(GameAction.倍速2倍,        Key.Digit2,    InputContext.会戦),
@@ -297,6 +299,7 @@ namespace Ginei
             { GameAction.イベント観測切替, "イベントオブザーバを開く / 閉じる（内政イベントの提示中/保留/発火回数）" },
             { GameAction.官僚機構観測切替, "官僚機構オブザーバを開く / 閉じる（省庁ツリー 省⊃庁/局・配属官僚・行政効率・省益）" },
             { GameAction.研究観測切替,     "研究ツリーオブザーバを開く / 閉じる（軍事/生産/情報/社会の技術依存ツリー・習得/研究中/解禁可能）" },
+            { GameAction.稟議観測切替,     "稟議オブザーバを開く / 閉じる（進行中の稟議の起案者・決裁者・状態・出自）" },
             { GameAction.ポーズ,         "ポーズ / 再開" },
             { GameAction.倍速等速,       "等速（×1）" },
             { GameAction.倍速2倍,        "倍速（×2）" },

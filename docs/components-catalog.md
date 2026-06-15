@@ -79,6 +79,7 @@
 | `ChronicleObserverOverlay` | イベントオブザーバ（観測オーバーレイ・**事象ヒーロー表示**・#116）。**Alt+D**（上メニュー「事象」）。`GalaxyView.PolicyEngine`（`EventEngine`）の提示中イベント/保留件数を映す。`DisclosureLedger`（#495）は未配線（観測対象なしと明示）。**観測専用**。詳細は「観測層」節。 |
 | `WealthObserverOverlay` | 財産オブザーバ（観測オーバーレイ・**財産ヒーロー表示**・#2056/#2063/#2070）。**Alt+W**。勢力・人物・企業の**純資産**（現金＋ネームド資産＋金融持分＋土地）を所有者別に集約（`NetWorthRules`＝横断集計）。国庫/国有資産・民間総資産・純資産上位の司令（内訳＋財産特性）・企業（資本＋保有資産）。配当/地代#2070→財産・資産市場#2056 で動く富の分布を映す。**観測専用**。詳細は「観測層」節。 |
 | `MilitaryDynamicsObserverOverlay` | 軍動態オブザーバ（観測オーバーレイ・**軍動態ヒーロー表示**・#練度/#2049/#2020）。**Alt+V**。勢力ごとに艦隊の練度（`VeterancyRules`）・軍需補給（`SupplyReadinessOf`・備蓄消費#2049）・兵器産業（`WeaponsRules`・FleetPool#148へ戦力供給）を集約。軍の年次Tickの帰結を映す。**観測専用**。詳細は「観測層」節。 |
+| `RingiObserverOverlay` | 稟議オブザーバ（観測オーバーレイ・**稟議ヒーロー表示**・MEYASU #1296）。**Alt+I**（上メニュー「稟議」）。税の稟議（`RingiDirector.Ledger`）と編制の稟議（`FleetRingiDirector.Ledger`）の両 `PetitionLedger` を集約し、進行中の `Petition` を**起案者（drafterId）→ 決裁者（addresseeId）の対応**で一覧（状態`WorkflowRules`/出自`PetitionOrigin`/箱`BoxKind`/中継者/経由数/歪曲）。人物 id は `GalaxyView` の指揮官/文民ロスターで名前解決、箱宛て（id=0）はその箱を決裁者として表示（プレイヤーの越階回路）。決裁の Kanban 管理（K=`DecisionBoardPanel`）に対し「誰が起案し誰が裁可するか」の見取り図に特化。**観測専用**。詳細は「観測層」節。 |
 
 ### 戦略レイヤー（Phase C／純ロジックは test-first）
 > 銀河グラフ（星系＝ノード／回廊＝エッジ）上を戦略艦隊が時限ワープで移動し、敵対勢力に挟まれた回廊（前線）では亜光速で侵入→接触で実会戦（Battle シーン）に移行する。**敵対判定は `FactionRelations`、艦在庫は `StrategicFleetRegistry`、戦闘ロジックは `StrategyRules`（static）が唯一の窓口**。非 MonoBehaviour の純データ/純ロジックは EditMode テストで担保（`Assets/Tests/EditMode`）。

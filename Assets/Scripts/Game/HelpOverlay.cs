@@ -521,6 +521,9 @@ namespace Ginei
                 case GameAction.イベント観測切替:
                 case GameAction.官僚機構観測切替:
                 case GameAction.研究観測切替:
+                case GameAction.財産観測切替:
+                case GameAction.軍動態観測切替:
+                case GameAction.稟議観測切替:
                 case GameAction.決裁ボード切替:
                 case GameAction.人物名鑑切替: return "観測オーバーレイ";
                 case GameAction.ポーズ:

@@ -150,21 +150,15 @@ namespace Ginei
             }
 
             lastMeterClickTime = -999f; // 次の単発から数え直す
-            bool hit = false;
             for (int i = 0; i < bars.Count; i++)
             {
                 var b = bars[i];
                 if (b.root != null && RectTransformUtility.RectangleContainsScreenPoint(b.root, pos, null))
                 {
-                    // 【診断】どの段階まで来ているかを左下フィードに出す（切り分け用・後で除去）。
-                    NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報, $"メーター詳細：{b.name} を表示");
                     ShowDetail(b.name);
-                    hit = true;
                     break;
                 }
             }
-            if (!hit)
-                NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意, "メーター：ダブルクリック検出（バー外）");
         }
 
         // ===== 決裁→メーター =====
@@ -426,35 +420,37 @@ namespace Ginei
 
         private void BuildDetailWindow()
         {
+            const float winW = 320f, winH = 210f, titleInset = 30f;
+
             var win = new GameObject("MeterDetailWindow");
             win.transform.SetParent(hudRoot, false);
             var rt = win.AddComponent<RectTransform>();
             rt.anchorMin = new Vector2(1f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(1f, 1f);
-            rt.anchoredPosition = new Vector2(-16f, -210f); // メーターウィンドウの下（ドラッグ移動可）
+            rt.sizeDelta = new Vector2(winW, winH);            // 固定サイズ＝レイアウト依存をなくし確実に表示
+            rt.anchoredPosition = new Vector2(-16f, -206f);    // メーターウィンドウの直下（右上）
             var bg = win.AddComponent<Image>();
-            bg.color = new Color(0.06f, 0.08f, 0.12f, 0.95f);
-            var vlg = win.AddComponent<VerticalLayoutGroup>();
-            vlg.childControlWidth = true; vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
-            var fit = win.AddComponent<ContentSizeFitter>();
-            fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            bg.color = new Color(0.06f, 0.08f, 0.12f, 0.97f);
 
+            // 本文＝枠いっぱい（タイトルバーぶん上を空ける）。VLG/ContentSizeFitter を使わず固定矩形で配置。
             var bodyGo = new GameObject("Body");
             bodyGo.transform.SetParent(win.transform, false);
             detailBody = bodyGo.AddComponent<TextMeshProUGUI>();
             detailBody.fontSize = 15f;
             detailBody.color = new Color(0.85f, 0.9f, 0.95f);
             detailBody.richText = true;
-            detailBody.margin = new Vector4(12f, 10f, 12f, 12f);
+            detailBody.overflowMode = TextOverflowModes.Overflow;
+            detailBody.alignment = TextAlignmentOptions.TopLeft;
             if (jpFont != null) detailBody.font = jpFont;
-            var ble = bodyGo.AddComponent<LayoutElement>();
-            ble.preferredWidth = 320f;
+            var bodyRT = detailBody.rectTransform;
+            bodyRT.anchorMin = new Vector2(0f, 0f);
+            bodyRT.anchorMax = new Vector2(1f, 1f);
+            bodyRT.offsetMin = new Vector2(12f, 10f);          // 左・下の余白
+            bodyRT.offsetMax = new Vector2(-12f, -titleInset); // 右・上（タイトルバーぶん）
 
-            // タイトルバー（ドラッグ移動・×で隠す）。VLG 枠なので Layout 版を使う。
-            WindowChrome.AddTitleBarLayout(rt, "メーター詳細", () => detailWindow.SetActive(false));
+            // タイトルバー（ドラッグ移動・×で隠す）。固定サイズ枠なのでアンカー版を使う。
+            WindowChrome.AddTitleBarAnchored(rt, "メーター詳細", () => detailWindow.SetActive(false));
 
             detailWindow = win;
         }

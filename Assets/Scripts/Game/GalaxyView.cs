@@ -369,7 +369,13 @@ namespace Ginei
             StrategyRules.TickSieges(map, reg, dt, new SiegeParams(siegeSuppressRate, siegeInvadeRate, siegeDefenseRegen));
 
             occupyTimer += dt;
-            if (occupyTimer >= 0.4f) { StrategyRules.ResolveAllOccupations(map, reg); occupyTimer = 0f; }
+            if (occupyTimer >= 0.4f)
+            {
+                StrategyRules.ResolveAllOccupations(map, reg); // 無防備星系は停泊で占領
+                occupyTimer = 0f;
+                // 盤面の所有が動いたら即・制覇判定（占領も攻城#131 の捕獲も拾う＝全星系支配で年境界を待たず勝利イベント）。
+                RunCampaignVictoryCheck();
+            }
 
             // 内政（#109）：所有変化で不安定化→時間で統合・安定。情報パネル(#759)が読む。
             TickGovernance(dt);
@@ -403,9 +409,8 @@ namespace Ginei
             if (objectiveAnnounced) return;
             objectiveAnnounced = true;
             Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
-            int pct = Mathf.RoundToInt(ActiveVictoryParams().dominationFraction * 100f);
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
-                $"【目標】{player} で銀河の {pct}% を支配せよ（敵を全制圧でも勝利／全星系を失えば敗北）");
+                $"【目標】{player} で銀河の全星系（惑星）を占領せよ＝制覇勝利（全星系を失えば敗北）");
             NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
                 "操作：星系を右クリックで進軍 → 前線で接触 → 交戦中の回廊をダブルクリックで潜行（会戦へ）。Space/1-3=速度、H=ヘルプ。");
         }

@@ -144,9 +144,18 @@ namespace Ginei
             // 保持していた場合は解除して前進を再開する。
             if (IsOnCorridor)
             {
+                // 飛び石禁止：到達予定の星系が自勢力の所有でなければ、そこで止まって占領する（先へは進まない）。
+                StarSystem destSys = map.GetSystem(destinationSystemId);
+                if (destSys == null || destSys.owner != faction)
+                {
+                    route = new List<int>();
+                    holdFraction = 1f; // 保持解除＝到達予定星系まで前進し、そこで止まる
+                    return true;
+                }
                 List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId);
                 if (p.Count == 0) return false; // 到達不能
-                route = (p.Count > 1) ? p.GetRange(1, p.Count - 1) : new List<int>();
+                int stop = FirstUnownedIndex(map, p); // 自勢力領を抜けて最初の非所有星系で止まる
+                route = (stop >= 1) ? p.GetRange(1, stop) : new List<int>();
                 holdFraction = 1f; // 保持解除＝目的地まで前進再開
                 return true;
             }
@@ -155,9 +164,26 @@ namespace Ginei
             List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId);
             if (path == null || path.Count < 2) return false; // 到達不能
 
+            // 飛び石禁止＝必ず占領してから移動：自勢力の所有星系は通り抜けられるが、経路上の最初の非所有星系で
+            // 止まる（その星系へ入って占領する）。占領後に改めて命令すれば先へ進める（星系を1つずつ取る）。
+            int stopIdx = FirstUnownedIndex(map, path);
             int firstHop = path[1];
-            route = (path.Count > 2) ? path.GetRange(2, path.Count - 2) : new List<int>();
+            route = (stopIdx >= 2) ? path.GetRange(2, stopIdx - 1) : new List<int>();
             return BeginWarp(map, firstHop);
+        }
+
+        /// <summary>
+        /// 飛び石移動の禁止＝<paramref name="path"/>(path[0]=起点) を歩き、<b>自勢力 owner でない最初の星系の index</b>
+        /// を返す（その星系へ入って占領するため、そこで経路を打ち切る）。全て自勢力所有なら末尾 index＝目的地まで進める。
+        /// </summary>
+        private int FirstUnownedIndex(GalaxyMap map, List<int> path)
+        {
+            for (int i = 1; i < path.Count; i++)
+            {
+                StarSystem s = map.GetSystem(path[i]);
+                if (s == null || s.owner != faction) return i;
+            }
+            return path.Count - 1;
         }
 
         /// <summary>

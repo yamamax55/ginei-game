@@ -11,14 +11,17 @@ namespace Ginei
     /// </summary>
     public static class CampaignDifficultyRules
     {
-        /// <summary>難易度ごとの勝敗しきい値。普通は <see cref="CampaignVictoryRules.CampaignVictoryParams.Default"/>（0.7/0.7）。</summary>
+        /// <summary>
+        /// 難易度ごとの勝敗しきい値。**制覇勝利は難易度を問わず「すべての星系（惑星）を占領」＝dominationFraction=1.0（全制圧）**。
+        /// 難易度は敵制覇（敗北）しきい値 rivalDominationFraction と開始戦力で差をつける（勝利条件は据え置き全制圧）。
+        /// </summary>
         public static CampaignVictoryRules.CampaignVictoryParams VictoryParams(CampaignDifficulty d)
         {
             switch (d)
             {
-                case CampaignDifficulty.易しい: return new CampaignVictoryRules.CampaignVictoryParams(0.6f, 0.8f);
-                case CampaignDifficulty.難しい: return new CampaignVictoryRules.CampaignVictoryParams(0.8f, 0.6f);
-                default: return CampaignVictoryRules.CampaignVictoryParams.Default; // 0.7 / 0.7
+                case CampaignDifficulty.易しい: return new CampaignVictoryRules.CampaignVictoryParams(1.0f, 0.8f);
+                case CampaignDifficulty.難しい: return new CampaignVictoryRules.CampaignVictoryParams(1.0f, 0.6f);
+                default: return new CampaignVictoryRules.CampaignVictoryParams(1.0f, 0.7f);
             }
         }
 
@@ -49,9 +52,9 @@ namespace Ginei
         {
             switch (d)
             {
-                case CampaignDifficulty.易しい: return "自軍強め・敵弱め／支配60%で勝利";
-                case CampaignDifficulty.難しい: return "自軍弱め・敵強め／支配80%で勝利";
-                default: return "互角／支配70%で勝利";
+                case CampaignDifficulty.易しい: return "自軍強め・敵弱め／全星系を占領で勝利";
+                case CampaignDifficulty.難しい: return "自軍弱め・敵強め／全星系を占領で勝利";
+                default: return "互角／全星系を占領で勝利";
             }
         }
     }

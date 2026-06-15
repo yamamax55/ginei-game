@@ -156,7 +156,7 @@
 
 ### 推奨着手順
 `TKO-1`（起点＝主人公を世界に置く・最も基盤）→ `TKO-2`（武勲→昇進＝立身出世の背骨）→ `TKO-3`（人脈＝人事力学）→ `TKO-9`（主命＝出世の駆動イベント）→ `TKO-11`（主命のMBOカスケード）→ `TKO-10`（月次評定＝ループの心臓）→ `TKO-4`（具申＝一人称の動詞）→ `TKO-6`（一代記＝体験の編纂）→ `TKO-5`（配属希望）→ `TKO-8`（UIシェルで束ねる）→ `TKO-7`（岐路＝自由意志・後段）。
-> 純ロジック backbone の実装済み：**TKO-1/2/3/5/9/10/11**（Core・test-first）。Game層配線（TKO-4/6/8・指揮系統チェーンの供給）・後段（TKO-7）は残務。
+> **全11子issue 実装済**。Core純ロジック（TKO-1/2/3/5/6/7/9/10/11・EditMode/TestHarness担保）＋Game層配線＝`ProtagonistCareerDirector`（Strategy自動生成・月次ループ＋カスケード＋具申）と執務机UI `ProtagonistDeskOverlay`（Alt+J・TKO-8/4/6）。残務＝TKO-7 の岐路**実行**配線（`CivilWar`/`Diplomacy`/`BattleAllegiance`）と主命達成の会戦結果駆動・上官側の自動裁可。Game層は Unity Play で目視検証要。
 
 > **立身出世ループ（純ロジック）**：士官学校(TKO-1)→任官・配属(TKO-5)→君主が主命を発令(TKO-9)→**指揮系統で噛み砕かれ末端のプレイヤーへ(TKO-11)**→会戦/任務で達成→武勲(TKO-2)＋恩義(TKO-3)→月次評定で昇進確定＆次の主命(TKO-10)→…
 

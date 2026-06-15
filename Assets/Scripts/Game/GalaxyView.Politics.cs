@@ -91,7 +91,7 @@ namespace Ginei
 
                 // (1) 政変（C1 Tier A）：統制が弱いとクーデター/革命が発火し、成功で政体が転換する。
                 CoupContext ctx = PoliticalUpheavalRules.ContextOf(s);
-                UpheavalResult up = PoliticalUpheavalRules.ResolveUpheaval(s.governmentForm, ctx, UnityEngine.Random.value);
+                UpheavalResult up = PoliticalUpheavalRules.ResolveUpheaval(s.governmentForm, ctx, DetRoll(campaignYear, NextRollSeed()));
                 if (up.attempted)
                 {
                     if (s.regime != null) s.regime.legitimacy = up.newLegitimacy; // 事後正統性（成功/粛清/内戦）

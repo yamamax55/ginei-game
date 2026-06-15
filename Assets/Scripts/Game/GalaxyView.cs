@@ -451,11 +451,42 @@ namespace Ginei
             RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
         }
 
-        /// <summary>月次の経済Tick（Tick順見直し）：市場価格・企業・株式・交易を月次で回す（日次=重い/年次=粗い の中間＝滑らか＋年次の市場読み手の1年ラグ解消）。</summary>
+        private int monthCounter; // 月次の通し番号（四半期/年次の月割り分散に使う・Tick改善P1/P2）
+
+        /// <summary>
+        /// 月次の経済/社会Tick（Tick改善 P1-P4）：市場（毎月）に加え、外交を四半期（P2 応答性）、重い生産連鎖を
+        /// 月割り stagger（P1 年次スパイク分散・各年1回）、人物財産の時価評価を毎月（P3 市場整合）で回す。
+        /// </summary>
         private void RunMonthlyCampaignTick()
         {
-            RunMarketTick();
+            RunMarketTick();                       // 毎月：市場/企業/株式/交易
+            RunFinancialMarkToMarket();            // P3：保有金融資産を毎月 時価評価（月次市場に追従）
+
+            int m = monthCounter % 12;
+            if (monthCounter % 3 == 0) RunDiplomacyTick();   // P2：外交は四半期（宣戦/講和/賠償/制裁/諜報）
+            if (m == 2)  RunSupplyChainTick();               // P1：重い生産連鎖を月割りで分散（各年1回・dt不変）
+            if (m == 6)  RunBomConsumerTick();
+            if (m == 10) RunScmPlanTick();
+            monthCounter++;
         }
+
+        /// <summary>
+        /// 決定論 roll（2種子のハッシュ→[0,1)）。Tick の乱数依存（UnityEngine.Random）を排し、
+        /// 同じセーブから同じ歴史が再生されるよう担保する（規律＝決定論）。年×id 等を種子に使う。
+        /// </summary>
+        internal static float DetRoll(int a, int b)
+        {
+            unchecked
+            {
+                uint h = (uint)a * 2654435761u + (uint)b * 40503u + 0x9E3779B9u;
+                h ^= h >> 13; h *= 0x85EBCA6Bu; h ^= h >> 16;
+                return (h & 0xFFFFFFu) / (float)0x1000000;
+            }
+        }
+
+        private int rollSeq; // 決定論 roll 列の進行カウンタ（年内の連続呼び出しに一意な種子を与える）
+        /// <summary>次の決定論 roll 種子（連番）。乱数 roll を置き換える `_ => DetRoll(campaignYear, NextRollSeed())` 用。</summary>
+        private int NextRollSeed() => unchecked(rollSeq++);
 
         // 軍の補給を1日ぶん（MILSUP-6・#2049 配線）：補給源（自勢力領）から切れた前線艦隊は補給が枯れて損耗する。
         // 現在/出発星系が自勢力領なら補給線が通る＝補給。敵に後背を取られる/前線で孤立すると干上がる（兵糧攻め）。

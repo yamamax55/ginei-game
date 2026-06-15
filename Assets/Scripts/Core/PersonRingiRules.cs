@@ -54,12 +54,15 @@ namespace Ginei
 
         /// <summary>
         /// 宛先の上司が決裁する（承認/却下）＝<see cref="WorkflowRules.Decide"/> へ委譲。資格（宛先本人・任に就ける・決裁待ち）が
-        /// 無ければ何もせず false。＝「自分のところに来た稟議を決裁できる」。
+        /// 無ければ何もせず false。＝「自分のところに来た稟議を決裁できる」。決裁が確定したら
+        /// <see cref="PersonDecisionLedger"/> へ記録する＝人物詳細画面が「その人物が決裁した内容」を最新20件まで残す。
         /// </summary>
         public static bool Adjudicate(ICharacter decider, Petition pet, bool approve)
         {
             if (!CanAdjudicate(decider, pet)) return false;
-            return WorkflowRules.Decide(pet, approve);
+            if (!WorkflowRules.Decide(pet, approve)) return false;
+            PersonDecisionLedger.Record(decider.Id, pet, approve);
+            return true;
         }
     }
 }

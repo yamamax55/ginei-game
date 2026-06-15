@@ -24,6 +24,9 @@ namespace Ginei
         [Tooltip("一覧に出す最大人数（超過分は『他N名』と表示）")]
         public int maxPersons = 40;
 
+        [Tooltip("人物ごとに出す決裁履歴の最大行数（保持上限は PersonDecisionLedger.Capacity=20）")]
+        public int maxDecisionLines = 20;
+
         public Color accentColor = new Color(1f, 0.84f, 0.36f, 1f);
 
         private static readonly string[] TabLabels = { "指導者", "軍人", "文民" };
@@ -129,6 +132,7 @@ namespace Ginei
             string col = ruler ? "#ffd54a" : "#bfe9c0";
             sb.Append($"\n<color={col}>◆ [{label}] {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
+            AppendDecisions(sb, p.id);
         }
 
         // ----- 軍人（提督 AdmiralData ＋ 戦略の武官ロスター Person） -----
@@ -170,6 +174,7 @@ namespace Ginei
             string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
             sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　<color=#8aa0b0>{p.serviceStatus}</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 攻撃 {p.attack} ／ 防御 {p.defense} ／ 機動 {p.mobility} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
+            AppendDecisions(sb, p.id);
         }
 
         private void AppendAdmiral(StringBuilder sb, AdmiralData a)
@@ -227,6 +232,27 @@ namespace Ginei
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}　<color=#9aa7b3>研究 {p.research} ／ 技術 {p.engineering}</color>\n");
             else
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}\n");
+            AppendDecisions(sb, p.id);
+        }
+
+        /// <summary>その人物が決裁した内容を新しい順に出す（最新 <see cref="PersonDecisionLedger.Capacity"/>=20 件を保持）。
+        /// 履歴が無ければ何も出さない。観測専用＝状態は変えない。</summary>
+        private void AppendDecisions(StringBuilder sb, int personId)
+        {
+            int n = PersonDecisionLedger.Count(personId);
+            if (n <= 0) return;
+            var hist = PersonDecisionLedger.Recent(personId);
+            sb.Append($"  <color=#8aa0b0>決裁履歴（最新 {n} 件）:</color>");
+            int show = Mathf.Min(hist.Count, maxDecisionLines);
+            for (int i = 0; i < show; i++)
+            {
+                var r = hist[i];
+                string mark = r.approved ? "<color=#bfe9c0>承認</color>" : "<color=#e6a0a0>却下</color>";
+                string title = string.IsNullOrEmpty(r.title) ? "（無題）" : r.title;
+                sb.Append($"\n    {mark} {title}");
+            }
+            if (hist.Count > show) sb.Append($"\n    <color=#8aa0b0>…他 {hist.Count - show} 件</color>");
+            sb.Append('\n');
         }
 
         // ===== UI =====

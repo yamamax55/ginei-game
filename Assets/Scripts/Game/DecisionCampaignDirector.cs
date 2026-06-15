@@ -307,9 +307,10 @@ namespace Ginei
             var cle = col.AddComponent<LayoutElement>();
             cle.preferredWidth = barWidth;
 
-            // 透明な背景＝レイキャスト面（ラベルの隙間も拾う）＋ダブルクリックで関連数値ウィンドウを開く。
+            // ほぼ透明な背景＝レイキャスト面（ラベルの隙間も拾う）＋ダブルクリックで関連数値ウィンドウを開く。
+            // 完全な alpha=0 はカリングで拾われない環境があるため極僅かに不透明にする。
             var colBg = col.AddComponent<Image>();
-            colBg.color = new Color(0f, 0f, 0f, 0f);
+            colBg.color = new Color(0f, 0f, 0f, 1f / 255f);
             colBg.raycastTarget = true;
             string pillarName = name;
             col.AddComponent<MeterBarClick>().onDoubleClick = () => ShowDetail(pillarName);

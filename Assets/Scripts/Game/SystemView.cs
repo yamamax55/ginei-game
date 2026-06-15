@@ -429,6 +429,12 @@ namespace Ginei
 
         private void UpdateAggregate()
         {
+            if (aggregateLabel != null) aggregateLabel.text = BuildAggregateText();
+        }
+
+        /// <summary>星系の集約サマリ文字列（#767 集約）。aggregateLabel と情報タブ（<see cref="BuildInfoDump"/>）で共用。</summary>
+        private string BuildAggregateText()
+        {
             var provinces = new List<Province>(planets.Count);
             foreach (var e in planets) provinces.Add(e.province);
             SystemGovernance g = GovernanceRules.AggregateSystem(provinces);
@@ -457,12 +463,29 @@ namespace Ginei
                 ? "\n希少資源/秒　" + string.Join(" / ", stratParts)
                 : "\n希少資源：なし（偏在＝この星系には鉱床なし）";
 
-            aggregateLabel.text = $"星系全体（{g.planetCount}惑星の集約）" +
+            return $"星系全体（{g.planetCount}惑星の集約）" +
                 $"　安定度 {Mathf.RoundToInt(g.weightedStability)}%" +
                 $"　人口 {Mathf.RoundToInt(g.totalPopulation)}" +
                 $"　支配思想 {g.dominantIdeology}{unrest}\n" +
                 $"資源産出/秒　物資 {sup:0.#} / 弾薬 {amm:0.#} / 燃料 {fue:0.#}" +
                 stratLine;
+        }
+
+        /// <summary>
+        /// 情報タブ用（#星系図情報タブ）：一番上に星系サマリ、その下に各惑星の内政を順に並べた1つの文字列を返す。
+        /// `SystemMapWindow` の「情報」タブが表示に使う（観測・read-only）。
+        /// </summary>
+        public string BuildInfoDump()
+        {
+            var sb = new System.Text.StringBuilder(1024);
+            sb.Append("◆ ").Append(systemName).Append('\n');
+            sb.Append(BuildAggregateText());
+            for (int i = 0; i < planets.Count; i++)
+            {
+                sb.Append("\n\n──────────────\n");
+                sb.Append(FormatPlanetInfo(planets[i]));
+            }
+            return sb.ToString();
         }
 
         private void BuildOrbitRing(float radius, int index)

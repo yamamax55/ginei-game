@@ -63,6 +63,15 @@ namespace Ginei
             return result;
         }
 
+        /// <summary>企業が保有する持分を列挙（#1022 法人の株式持ち合い＝持株会社/財閥）。</summary>
+        public static List<FinancialHolding> OwnedByEnterprise(int enterpriseId)
+        {
+            var result = new List<FinancialHolding>();
+            for (int i = 0; i < holdings.Count; i++)
+                if (holdings[i].IsEnterpriseOwned && holdings[i].ownerEnterpriseId == enterpriseId) result.Add(holdings[i]);
+            return result;
+        }
+
         /// <summary>商品種別で列挙。</summary>
         public static List<FinancialHolding> HoldingsOfInstrument(FinancialInstrument instrument)
         {

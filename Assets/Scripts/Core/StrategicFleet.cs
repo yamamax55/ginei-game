@@ -29,6 +29,22 @@ namespace Ginei
         public int destinationSystemId;   // 移動中の目的地
 
         /// <summary>
+        /// 所属軍団のグループID（-1＝軍団に属さない＝独立艦隊・既定）。同じ <see cref="corpsId"/> の戦略艦隊どうしを
+        /// 「同一軍団の隷下」として扱う（戦略マップで四角に囲って可視化する）。会戦層の編制ツリー（<see cref="OrderOfBattle"/>）
+        /// とは別＝戦略盤面の駒のグルーピング。-1 のままなら従来動作（後方互換）。
+        /// </summary>
+        public int corpsId = -1;
+
+        /// <summary>軍団名（表示用・空＝なし）。</summary>
+        public string corpsName;
+
+        /// <summary>この艦隊に軍団長が乗艦しているか＝軍団旗艦（CSG・打撃群指揮官モデル）。戦略マップで識別表示する。</summary>
+        public bool isCorpsFlagship;
+
+        /// <summary>軍団に属するか（<see cref="corpsId"/> が有効）。</summary>
+        public bool HasCorps => corpsId >= 0;
+
+        /// <summary>
         /// 交戦中（回廊で敵対艦隊と接触し戦闘に固着）か。true の間は Tick で前進しない
         /// ＝回廊上に「交戦中の回廊」として留まり、プレイヤーが潜行（ダブルクリック）するか
         /// 自動解決されるまで動かない（C-2 二層遷移 #586）。決着で解除される。

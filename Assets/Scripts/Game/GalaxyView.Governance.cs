@@ -174,15 +174,17 @@ namespace Ginei
                 }
 
             reg = new StrategicFleetRegistry(map);
-            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250 });
-            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300 });
+            // 軍団編成（デモ）：corpsId が同じ艦隊は同一軍団の隷下＝戦略マップで四角に囲う。isCorpsFlagship＝軍団長乗艦（★）。
+            // 帝国第1軍団＝ケレス(2) に旗艦1＋予備6、同盟第1軍団＝ベガ(1) に旗艦2＋予備8（同一星系＝囲みと重なり回避が見える）。
+            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250, corpsId = 1, corpsName = "帝国第1軍団", isCorpsFlagship = true });
+            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300, corpsId = 2, corpsName = "同盟第1軍団", isCorpsFlagship = true });
             reg.Add(new StrategicFleet(3, 4, Faction.同盟, 1.2f) { strength = 150 });
             reg.Add(new StrategicFleet(4, 3, Faction.帝国, 1.3f) { strength = 200 }); // ドラコ防衛・前線で衝突用
             // 初期配置の充実：各勢力の本拠星系に駐留艦隊を増やす（盤面を賑やかに・前線へ動かす駒を増やす）。
             reg.Add(new StrategicFleet(5, 0, Faction.帝国, 1.2f) { strength = 180 }); // アスタ駐留
-            reg.Add(new StrategicFleet(6, 2, Faction.帝国, 1.1f) { strength = 140 }); // ケレス予備
+            reg.Add(new StrategicFleet(6, 2, Faction.帝国, 1.1f) { strength = 140, corpsId = 1, corpsName = "帝国第1軍団" }); // ケレス予備＝帝国第1軍団 隷下
             reg.Add(new StrategicFleet(7, 5, Faction.同盟, 1.2f) { strength = 180 }); // フェニクス駐留
-            reg.Add(new StrategicFleet(8, 1, Faction.同盟, 1.1f) { strength = 140 }); // ベガ予備
+            reg.Add(new StrategicFleet(8, 1, Faction.同盟, 1.1f) { strength = 140, corpsId = 2, corpsName = "同盟第1軍団" }); // ベガ予備＝同盟第1軍団 隷下
 
             // 難易度の開始戦力傾き（易しい＝自軍強め/敵弱め）。プレイヤー勢力以外を敵として倍率を掛ける（基準は等倍＝普通）。
             CampaignDifficulty diff = GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通;

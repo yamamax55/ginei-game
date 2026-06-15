@@ -79,6 +79,12 @@ namespace Ginei
                 var eta = MakeLabel(go.transform, "", new Vector3(0f, 0.9f, 0f), 0.7f).GetComponent<TextMesh>();
                 eta.color = selectColor;
                 fleetEta[f] = eta;
+
+                // 軍団長乗艦マーカー（★・軍団旗艦のみ表示。Refresh で可視化）。
+                var corpsMark = MakeLabel(go.transform, "★", new Vector3(0f, -0.95f, 0f), 0.85f).GetComponent<TextMesh>();
+                corpsMark.color = corpsFlagshipColor;
+                corpsMark.gameObject.SetActive(false);
+                fleetCorpsMarks[f] = corpsMark;
             }
 
             banner = MakeLabel(transform, "", new Vector3(0f, 7.3f, 0f), 1.0f).GetComponent<TextMesh>();
@@ -125,6 +131,7 @@ namespace Ginei
         private void Refresh()
         {
             UpdatePolicyLine(); // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示
+            UpdateFleetClusterOffsets(); // 同一星系の艦隊の重なり回避オフセットを先に計算（FleetWorldPos が参照）
             // 回廊色：交戦中は戦闘色で点滅、前線（両端が敵対所有＝FTL不可）は赤、要衝は金、その他は通常
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
             for (int i = 0; i < corridorLines.Count && i < map.corridors.Count; i++)
@@ -145,7 +152,7 @@ namespace Ginei
                 foreach (var f in gone)
                 {
                     if (fleetMarks[f] != null) Destroy(fleetMarks[f].transform.parent.gameObject);
-                    fleetMarks.Remove(f); fleetRings.Remove(f); fleetEta.Remove(f); selectedFleets.Remove(f);
+                    fleetMarks.Remove(f); fleetRings.Remove(f); fleetEta.Remove(f); fleetCorpsMarks.Remove(f); selectedFleets.Remove(f);
                 }
 
             foreach (var kv in systemDots)
@@ -189,8 +196,12 @@ namespace Ginei
                 if (fleetRings.TryGetValue(f, out var ring)) ring.enabled = selectedFleets.Contains(f);
                 if (fleetEta.TryGetValue(f, out var eta))
                     eta.text = f.engaged ? "◆交戦" : (f.IsMoving ? $"ETA {f.Eta:F1}" : (f.IsOnCorridor ? "保持" : $"{f.strength}"));
+                // 軍団長乗艦（軍団旗艦）は★マーカーを表示
+                if (fleetCorpsMarks.TryGetValue(f, out var cm) && cm != null)
+                    cm.gameObject.SetActive(f.isCorpsFlagship);
             }
 
+            UpdateCorpsBoxes();   // 軍団隷下の艦隊を四角で囲う
             DrawSelectedRoutes();
             UpdateBanner();
         }
@@ -324,10 +335,104 @@ namespace Ginei
         {
             StarSystem cur = map.GetSystem(f.currentSystemId);
             if (cur == null) return Vector2.zero;
-            if (!f.IsOnCorridor) return cur.position; // 停泊中は星系。回廊上（前進・保持）は補間
+            // 停泊中は星系の位置（＋同一星系の重なり回避オフセット）。回廊上（前進・保持）は補間。
+            if (!f.IsOnCorridor)
+                return cur.position + (fleetClusterOffsets.TryGetValue(f.id, out var off) ? off : Vector2.zero);
             StarSystem dst = map.GetSystem(f.destinationSystemId);
             if (dst == null) return cur.position;
             return Vector2.Lerp(cur.position, dst.position, f.Progress);
+        }
+
+        /// <summary>
+        /// 同一星系に停泊する複数艦隊を散らして重ならないようにするオフセットを計算する（fleet id→offset）。
+        /// 星系ごとに停泊艦隊を id 昇順で輪状に配置（1隻なら無オフセット）。回廊上の艦隊は対象外。
+        /// </summary>
+        private void UpdateFleetClusterOffsets()
+        {
+            fleetClusterOffsets.Clear();
+            if (reg == null) return;
+
+            // 星系ごとに停泊艦隊を集める。
+            var bySystem = new Dictionary<int, List<StrategicFleet>>();
+            foreach (var f in reg.fleets)
+            {
+                if (f == null || f.IsOnCorridor) continue; // 停泊中のみ（回廊上は経路で散る）
+                if (!bySystem.TryGetValue(f.currentSystemId, out var list))
+                    bySystem[f.currentSystemId] = list = new List<StrategicFleet>();
+                list.Add(f);
+            }
+
+            foreach (var kv in bySystem)
+            {
+                var list = kv.Value;
+                if (list.Count <= 1) continue; // 1隻なら散らさない
+                list.Sort((a, b) => a.id.CompareTo(b.id)); // 決定論（毎フレ同じ並び）
+                // 隻数に応じて半径を少し広げ、輪状に等間隔配置（開始角を固定）。
+                float radius = fleetClusterSpread * (1f + 0.12f * (list.Count - 2));
+                for (int i = 0; i < list.Count; i++)
+                {
+                    float ang = Mathf.PI * 2f * i / list.Count + Mathf.PI * 0.5f;
+                    fleetClusterOffsets[list[i].id] = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * radius;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 軍団（同じ <see cref="StrategicFleet.corpsId"/>）の隷下艦隊が同一星系に停泊しているとき、その一群を四角で囲う。
+        /// 軍団＝隷下のまとまりを一目で分かるようにする（#戦略マップ艦隊表示）。回廊上の艦隊は対象外。
+        /// </summary>
+        private void UpdateCorpsBoxes()
+        {
+            // (corpsId, systemId) ごとに停泊中の隷下艦隊位置を集約。
+            var groups = new Dictionary<(int, int), List<Vector2>>();
+            if (reg != null)
+                foreach (var f in reg.fleets)
+                {
+                    if (f == null || !f.HasCorps || f.IsOnCorridor) continue;
+                    var key = (f.corpsId, f.currentSystemId);
+                    if (!groups.TryGetValue(key, out var pts)) groups[key] = pts = new List<Vector2>();
+                    pts.Add(FleetWorldPos(f));
+                }
+
+            int bi = 0;
+            foreach (var kv in groups)
+            {
+                var pts = kv.Value;
+                if (pts.Count == 0) continue;
+                // 隷下艦隊群の外接矩形＋余白。
+                float minX = float.PositiveInfinity, minY = float.PositiveInfinity;
+                float maxX = float.NegativeInfinity, maxY = float.NegativeInfinity;
+                for (int i = 0; i < pts.Count; i++)
+                {
+                    minX = Mathf.Min(minX, pts[i].x); maxX = Mathf.Max(maxX, pts[i].x);
+                    minY = Mathf.Min(minY, pts[i].y); maxY = Mathf.Max(maxY, pts[i].y);
+                }
+                float pad = corpsBoxPadding;
+                var bl = new Vector3(minX - pad, minY - pad, 0f);
+                var br = new Vector3(maxX + pad, minY - pad, 0f);
+                var tr = new Vector3(maxX + pad, maxY + pad, 0f);
+                var tl = new Vector3(minX - pad, maxY + pad, 0f);
+
+                LineRenderer lr = GetCorpsBoxLine(bi++);
+                lr.positionCount = 5;
+                lr.SetPositions(new[] { bl, br, tr, tl, bl });
+                lr.startColor = lr.endColor = corpsBoxColor;
+                lr.enabled = true;
+            }
+            for (; bi < corpsBoxLines.Count; bi++) corpsBoxLines[bi].enabled = false;
+        }
+
+        private LineRenderer GetCorpsBoxLine(int i)
+        {
+            while (corpsBoxLines.Count <= i)
+            {
+                var lr = NewLine("CorpsBox", 1);
+                lr.startWidth = lr.endWidth = 0.05f;
+                lr.loop = false;
+                lr.startColor = lr.endColor = corpsBoxColor;
+                corpsBoxLines.Add(lr);
+            }
+            return corpsBoxLines[i];
         }
 
         private Color OwnerColor(Faction f) => (f == Faction.帝国) ? empireColor : allianceColor;

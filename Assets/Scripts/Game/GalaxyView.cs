@@ -28,6 +28,16 @@ namespace Ginei
         public Color frontlineColor = new Color(0.9f, 0.25f, 0.2f, 0.95f); // 前線（FTL不可）
         public Color selectColor = new Color(1f, 0.95f, 0.4f);
 
+        [Header("艦隊表示（重なり回避・軍団）")]
+        [Tooltip("同一星系に複数の艦隊がいるとき、艦隊アイコンを散らして重ならないようにする半径（ワールド）")]
+        public float fleetClusterSpread = 0.55f;
+        [Tooltip("軍団隷下の艦隊を囲う四角の色")]
+        public Color corpsBoxColor = new Color(0.95f, 0.82f, 0.4f, 0.85f);
+        [Tooltip("軍団隷下の四角と艦隊アイコンの余白（ワールド）")]
+        public float corpsBoxPadding = 0.45f;
+        [Tooltip("軍団長乗艦マーカー（★）の色")]
+        public Color corpsFlagshipColor = new Color(1f, 0.86f, 0.3f);
+
         [Header("時間")]
         public float galaxySpeed = 1f;
 
@@ -132,6 +142,10 @@ namespace Ginei
         private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetRings = new Dictionary<StrategicFleet, SpriteRenderer>();
         private readonly Dictionary<StrategicFleet, TextMesh> fleetEta = new Dictionary<StrategicFleet, TextMesh>();
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();
+        // 軍団長乗艦マーカー（艦隊ごとの★ラベル・既定オフ）と、軍団隷下を囲う四角のプール、重なり回避オフセット（fleet id→offset）。
+        private readonly Dictionary<StrategicFleet, TextMesh> fleetCorpsMarks = new Dictionary<StrategicFleet, TextMesh>();
+        private readonly List<LineRenderer> corpsBoxLines = new List<LineRenderer>();
+        private readonly Dictionary<int, Vector2> fleetClusterOffsets = new Dictionary<int, Vector2>();
         private TextMesh banner;
         private TextMesh helpLine;
         private TextMesh policyLine;                 // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示

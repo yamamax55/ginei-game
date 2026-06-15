@@ -185,6 +185,20 @@ namespace Ginei
                 }
                 else crisisOutputFactor[s.faction] = 1f;
 
+                // 通知（Tier0・エッジ検出）：国庫枯渇＝予算執行が回らない危機（戦費/制裁/債務で国庫が干上がる）。
+                bool empty = s.treasury < economy * 0.02f;
+                if (empty && treasuryEmpty.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 国庫が枯渇（残 {s.treasury:0}）＝財政破綻の瀬戸際");
+                else if (!empty && s.treasury > economy * 0.05f) treasuryEmpty.Remove(s.faction);
+                // 通知（Tier2・エッジ検出）：国債利回りの急騰＝デフォルト懸念（借入コスト爆発）。
+                if (s.sovereignBond != null)
+                {
+                    bool bondHot = BondMarketRules.CurrentYield(s.sovereignBond) > 0.12f;
+                    if (bondHot && bondCrisis.Add(s.faction))
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{s.faction} 国債利回りが急騰（{(BondMarketRules.CurrentYield(s.sovereignBond) * 100):0.0}%）＝デフォルト懸念");
+                    else if (!bondHot && BondMarketRules.CurrentYield(s.sovereignBond) < 0.08f) bondCrisis.Remove(s.faction);
+                }
+
                 // 諜報（P1 配線）：軍事予算の一部を諜報へ→能力育成（可視度/工作の素・観測）。
                 if (!intelStates.TryGetValue(s.faction, out var intel) || intel == null) { intel = new IntelState(); intelStates[s.faction] = intel; }
                 float intelFunding = s.budget != null ? BudgetRules.Get(s.budget, BudgetCategory.軍事) * 0.1f : 0f;
@@ -237,6 +251,14 @@ namespace Ginei
                     // 崩壊→難民流出（配線ループ#9）：安定度が地に落ちた星系は住民が逃散して人口が減る（bounded）。
                     if (prov.stability < 20f)
                         prov.population = Mathf.Max(0f, prov.population * (1f - 0.01f));
+
+                    // 通知（Tier0・エッジ検出）：飢饉の発生／星系崩壊。閾値クロス時のみ通知し回復で解除＝洪水回避。
+                    if (prov.foodShortage > 0.4f && famineSystems.Add(sys.id))
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{sys.systemName}（{sys.owner}）で飢饉が発生（必需充足 {(int)((1f - prov.foodShortage) * 100)}%）");
+                    else if (prov.foodShortage < 0.2f) famineSystems.Remove(sys.id);
+                    if (prov.stability < 20f && collapsedSystems.Add(sys.id))
+                        NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{sys.systemName}（{sys.owner}）が統治崩壊＝難民流出（安定度 {(int)prov.stability}）");
+                    else if (prov.stability > 30f) collapsedSystems.Remove(sys.id);
                 }
         }
 
@@ -422,6 +444,13 @@ namespace Ginei
             = new System.Collections.Generic.Dictionary<Faction, float>();
         private readonly System.Collections.Generic.Dictionary<Faction, bool> financialCrisis
             = new System.Collections.Generic.Dictionary<Faction, bool>();
+        // 通知のエッジ検出（閾値クロス時のみ通知し回復で解除＝洪水回避）。
+        private readonly System.Collections.Generic.HashSet<int> famineSystems = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<int> collapsedSystems = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<Faction> treasuryEmpty = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> bondCrisis = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> marketBoom = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> marketBust = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
             = new System.Collections.Generic.Dictionary<Faction, float>();
         private readonly System.Collections.Generic.Dictionary<Faction, IntelState> intelStates
@@ -605,6 +634,13 @@ namespace Ginei
                     StockMarketRules.Tick(l.stock, sp, MonthDt);
                     if (fstate != null) fstate.treasury += Mathf.Max(0f, l.stock.dividend) * Mathf.Max(0f, l.shares) * DividendTaxRate * MonthDt;
                 }
+
+                // 通知（Tier2・エッジ検出）：株式市場の暴騰/暴落（市場心理の極端）。回復で解除＝洪水回避。
+                float senti = StockMarketSystemRules.MarketSentiment(mkt);
+                if (senti > 0.7f && marketBoom.Add(fac)) NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{fac} 株式市場が活況（市場心理 {(int)(senti * 100)}%）");
+                else if (senti < 0.6f) marketBoom.Remove(fac);
+                if (senti < 0.3f && marketBust.Add(fac)) NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告, $"{fac} 株式市場が暴落（市場心理 {(int)(senti * 100)}%）");
+                else if (senti > 0.4f) marketBust.Remove(fac);
             }
 
             // 交易（月次）：勢力間で同一財の価格差を裁定で縮める（輸送コスト律速）。

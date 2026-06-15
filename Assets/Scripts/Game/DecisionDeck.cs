@@ -49,6 +49,15 @@ namespace Ginei
             Queue.Enqueue(d);
         }
 
+        /// <summary>決裁が確定したとき（人が裁可 or AI が自動解決）に発火する（DESK-6 合流フック）。引数＝決裁・採択した選択肢index。
+        /// 効果の実適用（effectKey→世界）は購読側が担う＝稟議は <see cref="RingiDirector"/> がここで執行する。</summary>
+        public static event System.Action<PendingDecision, int> Resolved;
+
+        private static void RaiseResolved(PendingDecision d, int choiceIndex)
+        {
+            if (d != null) Resolved?.Invoke(d, choiceIndex);
+        }
+
         private RectTransform container;
         private GameObject dragHandle;
         private TMP_FontAsset jpFont;
@@ -122,6 +131,7 @@ namespace Ginei
                 var d = resolved[i];
                 NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
                     $"［自動処理］{d.title} → {ChoiceLabel(d, d.chosenIndex)}");
+                RaiseResolved(d, d.chosenIndex); // DESK-6：自動解決でも効果を世界へ（購読側が適用）
             }
             // 解決済みは捨てず保持（決裁ボードの履歴用）。上限超過は Enqueue→TrimToCapacity が掃く
 
@@ -376,8 +386,8 @@ namespace Ginei
             Queue.Resolve(d, choiceIndex);
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                 $"［裁可］{d.title} → {ChoiceLabel(d, choiceIndex)}");
+            RaiseResolved(d, choiceIndex); // DESK-6：効果を世界へ（購読側＝RingiDirector が effectKey を適用）
             // 決裁済みは決裁ボードの「決裁済」列に残す（有界保持＝TrimToCapacity）
-            // effectKey→世界 の実適用は DESK-6（イベント/目安箱の合流）で。
         }
 
         private static string ChoiceLabel(PendingDecision d, int idx)

@@ -90,5 +90,23 @@ namespace Ginei.Tests
             f.BeginWarp(m, 1);
             Assert.IsFalse(f.BeginWarp(m, 1)); // 既に移動中は不可
         }
+
+        [Test]
+        public void Corps_DefaultsToNone_BackwardCompatible()
+        {
+            var f = new StrategicFleet(0, 0);
+            Assert.AreEqual(-1, f.corpsId);
+            Assert.IsFalse(f.HasCorps);
+            Assert.IsFalse(f.isCorpsFlagship);
+        }
+
+        [Test]
+        public void Corps_WhenAssigned_HasCorpsTrue()
+        {
+            var f = new StrategicFleet(1, 0) { corpsId = 3, corpsName = "第1軍団", isCorpsFlagship = true };
+            Assert.IsTrue(f.HasCorps);
+            Assert.AreEqual(3, f.corpsId);
+            Assert.IsTrue(f.isCorpsFlagship);
+        }
     }
 }

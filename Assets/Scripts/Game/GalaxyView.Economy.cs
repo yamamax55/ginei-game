@@ -105,6 +105,13 @@ namespace Ginei
                     float welfareBonus = BudgetRules.WelfareHopeBonus(s.budget, revenueRate * 0.15f); // ±0.3
                     float health = economy > 0f ? FiscalRules.FiscalHealthFactor(s.fiscal, economy, p) : 1f;
                     float hopeDelta = welfareBonus * 0.1f - (1f - health) * 0.05f;
+                    // 所得税の累進→民心（P2 税体系・RedistributionRules 集約）：累進的なほど再分配で貧困層支持↑（純和を小さく加点）。
+                    if (s.taxStructure != null)
+                    {
+                        float prog = RedistributionRules.Progressivity(s.taxStructure);
+                        hopeDelta += (RedistributionRules.ClassSupportDelta(FiscalClass.貧困層, prog)
+                                    + RedistributionRules.ClassSupportDelta(FiscalClass.富裕層, prog)) * 0.02f;
+                    }
                     s.community.hope = Mathf.Clamp01(s.community.hope + hopeDelta);
                 }
 
@@ -356,6 +363,7 @@ namespace Ginei
             = new System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Listing>>();
         private const float StockPayoutRatio = 0.3f; // 配当性向（EPS の何割を配当に回すか）
         private const float DividendTaxRate = 0.2f;  // 配当税率（配当総額の何割が国庫へ・P0 株式ループの出口）
+        private const float CorporateTaxRate = 0.25f; // 法人税率（私有企業利潤の何割が国庫へ・P2 税体系）
 
         /// <summary>勢力の上場銘柄一覧（株価/配当/心理・#185）。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
         public System.Collections.Generic.IReadOnlyList<Listing> GetListings(Faction faction)
@@ -554,8 +562,9 @@ namespace Ginei
                     float laborSupply = SectorLaborPool(owned, firm.sector) * 0.1f; // 採用余地（供給の一部）
                     firm.productivity = TechEffectRules.ProductivityFactor(TechLevelOf(fac)); // P2：技術→生産性（研究が経済を工業化＝戦闘とは別チャネル＝二重計上なし）
                     float profit = EnterpriseRules.Tick(firm, price, laborSupply, 1f);
-                    if (firm.ownership == Ownership.国有 && profit > 0f && fstate != null)
-                        fstate.treasury += profit * 0.5f; // 国有企業利潤の一部を国庫へ
+                    // 法人税（P2 税体系の集約）：国有は利潤全額が国庫へ／私有は法人税率ぶんが国庫へ（配当税は株式ブロックで別途）。
+                    if (profit > 0f && fstate != null)
+                        fstate.treasury += profit * (firm.ownership == Ownership.国有 ? 1f : CorporateTaxRate);
                 }
 
                 // 株式会社・株式市場（#185 配線）：私有企業を上場し、利潤→1株あたり収益/配当→株価を市場で収束させる。

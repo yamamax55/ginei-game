@@ -13,7 +13,8 @@ namespace Ginei
     {
         [Header("攻撃設定")]
         public int damage = 100;
-        public float fireInterval = 1.0f;
+        [Tooltip("発砲間隔（秒）。大きいほどDPSが下がり会戦が長引く＝決着までの時間の主軸（#会戦改善）")]
+        public float fireInterval = 1.2f;
         [Tooltip("側背面攻撃時の最大ダメージ倍率 (真後ろで最大)")]
         public float flankMultiplier = 2.0f;
         [Tooltip("武器種（#2256）：長距離砲は対旗艦↑/対配下艦↓、対小型は対配下艦↑/対旗艦↓、点防御は両方控えめ")]

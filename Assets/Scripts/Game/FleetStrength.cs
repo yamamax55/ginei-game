@@ -144,7 +144,7 @@ namespace Ginei
         [Header("旗艦の堅牢さ・撃墜（島津の捨てがまり）")]
         [Tooltip("旗艦は固い：旗艦本体への被ダメージ軽減率（0=従来／0.3で30%カット）。配下艦の楯と併せ容易に撃墜されないようにする。実効値パターン＝基準ダメージ非破壊")]
         [Range(0f, 0.9f)]
-        public float flagshipDamageReduction = 0.3f;
+        public float flagshipDamageReduction = 0.4f;
 
         [Tooltip("捨てがまり判定：この距離内に敵がいれば『追われている』とみなす（敵が追ってきている時だけ殿＝捨てがまりが発動）")]
         public float pursuitDetectRange = 12f;

@@ -29,7 +29,7 @@ namespace Ginei
         public float combatMoraleFloor = 0.2f;
 
         [Tooltip("1回の被弾で減る士気の上限（最大士気に対する割合）＝一撃で即敗走させない #会戦改善")]
-        public float maxSingleHitMoraleFraction = 0.1f;
+        public float maxSingleHitMoraleFraction = 0.08f;
 
         // #2263 名誉→士気の底上げ（勲章の名誉点スケール・上限）。
         private const float PrestigeMoraleScale = 250f;     // 名誉点÷これ＝士気倍率の加算（50点で+20%）

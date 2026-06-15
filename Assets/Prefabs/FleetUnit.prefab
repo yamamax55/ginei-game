@@ -308,7 +308,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.FleetWeapon
   damage: 100
-  fireInterval: 1
+  fireInterval: 1.2
   flankMultiplier: 2
   missileAmmo: 10
   missileDamageMultiplier: 3
@@ -338,6 +338,7 @@ MonoBehaviour:
   factionData: {fileID: 0}
   flashDuration: 0.1
   retreatDistance: 50
+  flagshipDamageReduction: 0.4
   preferredFormationDamageReduction: 0.15
 --- !u!114 &5379558326343095513
 MonoBehaviour:

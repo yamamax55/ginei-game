@@ -201,6 +201,8 @@ namespace Ginei
                     // 国力＝所有惑星の人口合計、思想親和＝デモは異勢力で険悪、国境接触ありとみなす。
                     float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
                     var factors = new DiplomacyRules.OpinionFactors(-0.5f, 0.2f, true, 0f, false);
+                    WarState preWar = WarLedger.Get(a, b);                  // 講和前の戦況（領土移転の勝者判定用）
+                    float preScore = preWar != null ? preWar.warScore : 0f;
                     var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);
 
                     // 外交アクションAI（P1 配線）：険悪×国力優位なら制裁＝相手の国庫を bounded に削る（効果額は DiplomaticEffectRules 委譲）。
@@ -225,9 +227,17 @@ namespace Ginei
                     {
                         case DiplomacyEvent.宣戦布告:
                             NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.警告, $"{a} が {b} に宣戦布告");
+                            DeclareAlliedWar(state, fa, fb); // P1：宣戦側の同盟国も標的へ参戦（共同戦）
                             break;
                         case DiplomacyEvent.講和:
                             NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} と {b} が講和");
+                            // P1：決定的な戦況での講和は勝者が敗者の国境星系を1つ併合（敗者複数星系のみ＝滅亡させない）。
+                            if (Mathf.Abs(preScore) >= 0.3f)
+                            {
+                                Faction winner = preScore > 0f ? fa : fb, loser = preScore > 0f ? fb : fa;
+                                if (TransferBorderSystem(winner, loser))
+                                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.情報, $"{winner} が講和で {loser} の星系を割譲させた");
+                            }
                             break;
                         case DiplomacyEvent.同盟締結:
                             NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.情報, $"{a} と {b} が同盟締結");
@@ -315,6 +325,50 @@ namespace Ginei
                     }
                 }
             }
+        }
+
+        /// <summary>同盟→共同参戦（P1）：宣戦布告した側の同盟国も標的へ宣戦する（プレイヤー絡み・既交戦は除く）。</summary>
+        private void DeclareAlliedWar(DiplomacyState state, Faction declarer, Faction target)
+        {
+            if (state == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            var dpar = DiplomacyRules.DiplomacyParams.Default;
+            for (int k = 0; k < DemoFactions.Length; k++)
+            {
+                Faction ally = DemoFactions[k];
+                if (ally == declarer || ally == target || ally == player) continue;
+                if (state.Status(declarer.ToString(), ally.ToString()) == DiplomacyState.DiplomaticStatus.同盟
+                    && state.Status(ally.ToString(), target.ToString()) != DiplomacyState.DiplomaticStatus.交戦)
+                {
+                    DiplomacyRules.DeclareWar(state, ally.ToString(), target.ToString(), dpar);
+                    NotificationCenter.Push(NotificationCategory.外交, NotificationSeverity.警告, $"{ally} が同盟に従い {target} へ参戦");
+                }
+            }
+        }
+
+        /// <summary>講和の領土移転（P1）：勝者が敗者の国境星系を1つ併合する。敗者が複数星系を持つ場合のみ（滅亡させない）。成功で true。</summary>
+        private bool TransferBorderSystem(Faction winner, Faction loser)
+        {
+            if (map == null) return false;
+            int loserCount = 0;
+            foreach (var s in map.systems) if (s != null && s.owner == loser) loserCount++;
+            if (loserCount <= 1) return false; // 最後の1星系は割譲しない
+            foreach (var s in map.systems)
+            {
+                if (s == null || s.owner != loser) continue;
+                var nb = map.Neighbors(s.id);
+                for (int n = 0; n < nb.Count; n++)
+                {
+                    var ns = map.GetSystem(nb[n]);
+                    if (ns != null && ns.owner == winner) // 勝者領に隣接する敗者星系を割譲
+                    {
+                        s.owner = winner;
+                        if (provinces != null && provinces.TryGetValue(s.id, out var pv) && pv != null) GovernanceRules.OnOccupied(pv);
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /// <summary>諜報工作の決定論 roll（年×攻撃側×標的のハッシュ→[0,1)）。乱数なし＝セーブ往復で再現。</summary>

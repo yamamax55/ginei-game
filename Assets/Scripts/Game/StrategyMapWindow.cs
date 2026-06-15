@@ -52,7 +52,6 @@ namespace Ginei
         private RectTransform edgeLeft, edgeRight, edgeBottom;
         private RectTransform resizeGripRT;
         private TextMeshProUGUI clockLabel;
-        private TextMeshProUGUI statsLabel;
 
         // 最小化（タイトルバーだけ残してマップ表示を畳む）
         private bool minimized;
@@ -111,7 +110,6 @@ namespace Ginei
                 clockLabel.text = text;
                 clockLabel.color = color;
             }
-            UpdateStatsLabel();
 
             // 目標（勝利進捗＋次の一手）は間引いて更新（毎フレーム再計算しない＝終盤ラグ規律）。
             objectiveTimer += Time.unscaledDeltaTime;
@@ -266,9 +264,7 @@ namespace Ginei
             title.fontStyle = FontStyles.Bold;
             SetAnchors(title.rectTransform, new Vector2(0f, 0f), new Vector2(0.20f, 1f), new Vector2(20f, 0f), new Vector2(-8f, 0f));
 
-            statsLabel = AddText(top, "", 16f, new Color(0.85f, 0.9f, 0.7f), TextAlignmentOptions.Center);
-            SetAnchors(statsLabel.rectTransform, new Vector2(0.18f, 0f), new Vector2(0.74f, 1f), Vector2.zero, Vector2.zero);
-
+            // 税率/国庫/民心/安定度の常時表示は廃止（じゃまなので削除）。出所は「勢力」(G)／「財政」(E) パネル。
             clockLabel = AddText(top, "", 16f, new Color(0.95f, 0.92f, 0.7f), TextAlignmentOptions.Right);
             SetAnchors(clockLabel.rectTransform, new Vector2(0.74f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-20f, 0f));
 
@@ -305,6 +301,7 @@ namespace Ginei
             AddCommand(cmd.transform, "事象", () => UnityEngine.Object.FindAnyObjectByType<ChronicleObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "情報", () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle());
             AddCommand(cmd.transform, "通知", () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "メーター", () => UnityEngine.Object.FindAnyObjectByType<DecisionCampaignDirector>()?.Toggle());
             AddCommand(cmd.transform, "ヘルプ", () => UnityEngine.Object.FindAnyObjectByType<HelpOverlay>()?.Toggle());
 
             var rule = AddBar(bar.transform, "Rule", new Vector2(0f, 0f), new Vector2(1f, 0f),
@@ -401,20 +398,6 @@ namespace Ginei
             var img = go.AddComponent<Image>();
             img.color = color; img.raycastTarget = false;
             return rt;
-        }
-
-        private void UpdateStatsLabel()
-        {
-            if (statsLabel == null) return;
-            CampaignState campaign = StrategySession.Campaign;
-            if (campaign == null) { statsLabel.text = ""; return; }
-            Faction pf = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
-            FactionState s = CampaignRules.GetState(campaign, pf);
-            if (s == null) { statsLabel.text = ""; return; }
-            float hope = s.community != null ? s.community.hope : 0f;
-            float stab = CampaignRules.EffectiveStability(campaign, pf);
-            statsLabel.text = $"税率 {s.taxRate * 100f:0}%　国庫 {s.treasury:0}　民心 {hope * 100f:0}%　安定度 {stab * 100f:0}%";
-            statsLabel.color = hope < 0.2f ? new Color(1f, 0.55f, 0.45f) : new Color(0.85f, 0.9f, 0.7f);
         }
 
         // ===== 目標（勝利進捗＋次の一手）＝B：目的可視化 =====

@@ -17,59 +17,73 @@ MonoBehaviour:
   objectiveFaction: 1
   timeLimit: 180
   targetAdmiral: {fileID: 0}
+  battlefieldRadius: 20
+  objectivePoint: {x: 0, y: 0}
+  objectiveRadius: 5
+  holdDuration: 30
   fleets:
   - admiral: {fileID: 11400000, guid: 71e064fff3767d34c9e931f68b3acb56, type: 2}
     faction: 0
     factionData: {fileID: 0}
     spawnPosition: {x: 6, y: 2}
     formation: 0
+    baseStrength: 0
     fleetNumber: 1
     fleetName: 
     corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
     armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
     loyalty: 1
     intrigue: 0
+    reinforcementDelay: 0
   - admiral: {fileID: 11400000, guid: 136878f6588e9ee4085478918fe1b5a0, type: 2}
     faction: 0
     factionData: {fileID: 0}
     spawnPosition: {x: 6, y: -2}
     formation: 3
+    baseStrength: 0
     fleetNumber: 3
     fleetName: 
     corps: "\u5E1D\u56FD\u4E3B\u529B\u8ECD\u56E3"
     armyGroup: "\u30ED\u30FC\u30A8\u30F3\u30B0\u30E9\u30E0\u8ECD\u96C6\u56E3"
     loyalty: 1
     intrigue: 0
+    reinforcementDelay: 0
   - admiral: {fileID: 11400000, guid: 35cea87aa862d0b4abbd3594c09d5a84, type: 2}
     faction: 1
     factionData: {fileID: 0}
     spawnPosition: {x: -6, y: 0}
     formation: 1
+    baseStrength: 0
     fleetNumber: 13
     fleetName: 
     corps: "\u540C\u76DF\u4E3B\u529B\u8ECD\u56E3"
     armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"
     loyalty: 1
     intrigue: 0
+    reinforcementDelay: 0
   - admiral: {fileID: 11400000, guid: 99a1c1e8b15deab419bd2270b6d5d613, type: 2}
     faction: 1
     factionData: {fileID: 0}
     spawnPosition: {x: -6, y: 4}
     formation: 3
+    baseStrength: 0
     fleetNumber: 14
     fleetName: 
     corps: "\u540C\u76DF\u4E3B\u529B\u8ECD\u56E3"
     armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"
     loyalty: 0.25
     intrigue: 0.7
+    reinforcementDelay: 0
   - admiral: {fileID: 11400000, guid: 40838d660a31f044d8679734d4aa8e42, type: 2}
     faction: 1
     factionData: {fileID: 0}
     spawnPosition: {x: -6, y: -4}
     formation: 4
+    baseStrength: 0
     fleetNumber: 10
     fleetName: 
     corps: "\u540C\u76DF\u4E3B\u529B\u8ECD\u56E3"
     armyGroup: "\u81EA\u7531\u60D1\u661F\u540C\u76DF\u8ECD"
     loyalty: 0.45
     intrigue: 0.2
+    reinforcementDelay: 0

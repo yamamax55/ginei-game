@@ -41,6 +41,20 @@ namespace Ginei
                 "収奪に偏った統治を改め、民を政に与らせよ、との諫言が国王箱へ。包摂は安定の礎だが既得権益が抵抗する。"),
             new RingiSample("治安の強化", "order.tighten", BoxKind.国王,
                 "辺境の騒擾を鎮めよ、との建白が国王箱へ。秩序は保たれるが力による抑圧は民心を蝕む。"),
+
+            // ----- 軍事・外交（決裁ゲーム MVP・戦略レイヤーへ効く） -----
+            new RingiSample("全軍動員令", "mil.mobilize", BoxKind.国王,
+                "参謀本部が総動員を上申。軍は厚みを増すが、国庫は軍費に削られ、徴兵に民は倦む。"),
+            new RingiSample("前線への大攻勢", "mil.offensive", BoxKind.国王,
+                "好機なり、と前線司令部が一大攻勢を具申。決まれば版図は広がるが、戦力を磨り減らし戦費も嵩む。"),
+            new RingiSample("防衛線の強化", "mil.defend", BoxKind.地方,
+                "要衝の守りを固めよ、との建白。前線は安定し統制は保たれるが、築城と駐留に費用がかかる。"),
+            new RingiSample("敵国との講和", "diplo.ceasefire", BoxKind.政治家,
+                "長きにわたる戦に疲れた民から、停戦を求める声。和せば民心は和らぐが、得た版図の一部は手放すことになる。"),
+            new RingiSample("綱紀粛正（粛清）", "purge", BoxKind.国王,
+                "中央に不穏分子あり、と密偵が報告。粛清すれば統制は固まるが、恐怖は民心を凍らせる。"),
+            new RingiSample("大恩赦", "amnesty", BoxKind.政治家,
+                "新帝の即位に際し恩赦を、との奏上。民心は大きく上向くが、罪を許すことは中央の統制を緩める。"),
         };
 
         public static int Count => All.Count;

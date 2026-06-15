@@ -306,6 +306,13 @@ namespace Ginei
                         foreach (var sys in map.systems)
                             if (sys != null && sys.owner == s.faction && provinces.TryGetValue(sys.id, out var prov) && prov != null)
                                 prov.stability = Mathf.Max(0f, prov.stability - 10f);
+                    // 政体転換（P0 配線・継承ループの出口）：正統性が地に落ちた内乱では強権が台頭しうる（移行可能な政体のみ）。
+                    if (legitimacy < 0.25f && GovernmentFormRules.CanTransition(s.governmentForm, GovernmentForm.指導者独裁))
+                    {
+                        s.governmentForm = GovernmentForm.指導者独裁;
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                            $"{s.faction} 内乱の混乱に乗じ強権体制（指導者独裁）が成立");
+                    }
                 }
             }
         }

@@ -206,6 +206,9 @@ namespace Ginei
                     // 文化結束→安定度（P3・±bounded）。
                     if (cultureStabilityMod.TryGetValue(sys.owner, out float csm))
                         prov.stability = Mathf.Clamp(prov.stability + csm, 0f, 100f);
+                    // 占領→同化（P0 配線・占領ループの出口）：文化結束が高いほど未統合の占領地が早く同化する（integration↑）。
+                    if (prov.integration < 1f && cultureStates.TryGetValue(sys.owner, out var cult) && cult != null)
+                        prov.integration = Mathf.Clamp01(prov.integration + CultureSynthesisTickRules.AssimilationRate(cult, prov.integration));
                 }
         }
 
@@ -351,6 +354,7 @@ namespace Ginei
         private readonly System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Listing>> listings
             = new System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Listing>>();
         private const float StockPayoutRatio = 0.3f; // 配当性向（EPS の何割を配当に回すか）
+        private const float DividendTaxRate = 0.2f;  // 配当税率（配当総額の何割が国庫へ・P0 株式ループの出口）
 
         /// <summary>勢力の上場銘柄一覧（株価/配当/心理・#185）。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
         public System.Collections.Generic.IReadOnlyList<Listing> GetListings(Faction faction)
@@ -567,6 +571,8 @@ namespace Ginei
                     float lprice = lm != null ? lm.price : 1f;
                     StockMarketSystemRules.SyncEarnings(l, lprice, StockPayoutRatio); // 利潤→EPS/配当
                     StockMarketRules.Tick(l.stock, sp, 1f);                           // 株価を適正へ収束
+                    // 配当→国庫（P0 配線・株式ループの出口）：私有企業の配当総額に配当税を課して国庫へ。
+                    if (fstate != null) fstate.treasury += Mathf.Max(0f, l.stock.dividend) * Mathf.Max(0f, l.shares) * DividendTaxRate;
                 }
 
                 // 研究（P1 配線）：研究予算×平均労働技能で技術水準を進める（教育→技能→技術）。

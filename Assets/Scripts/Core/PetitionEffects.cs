@@ -15,6 +15,12 @@ namespace Ginei
     {
         /// <summary>満額執行での税率変更幅（pt）。実際の変更は ×magnitude。</summary>
         public const float TaxStepFull = 0.1f;
+        /// <summary>満額執行での民心（希望）変更幅。</summary>
+        public const float HopeStepFull = 0.15f;
+        /// <summary>満額執行での包摂度変更幅。</summary>
+        public const float InclusivenessStepFull = 0.1f;
+        /// <summary>満額執行での抑圧（秩序）変更幅。</summary>
+        public const float RepressionStepFull = 0.15f;
 
         private static readonly Dictionary<string, Action<FactionState, float>> registry = BuildDefaults();
 
@@ -25,6 +31,12 @@ namespace Ginei
             d["tax.cut"] = (fs, mag) => fs.taxRate = Mathf.Clamp01(fs.taxRate - TaxStepFull * Mathf.Clamp01(mag));
             // 増税：税率を上げる
             d["tax.hike"] = (fs, mag) => fs.taxRate = Mathf.Clamp01(fs.taxRate + TaxStepFull * Mathf.Clamp01(mag));
+            // 社会保障の拡充：民心（希望）を上げる
+            d["welfare.up"] = (fs, mag) => { if (fs.community != null) fs.community.hope = Mathf.Clamp01(fs.community.hope + HopeStepFull * Mathf.Clamp01(mag)); };
+            // 専制の緩和：包摂度を上げる（収奪0↔包摂1）
+            d["reform.inclusive"] = (fs, mag) => fs.inclusiveness = Mathf.Clamp01(fs.inclusiveness + InclusivenessStepFull * Mathf.Clamp01(mag));
+            // 治安の強化：抑圧（秩序ルート）を上げる
+            d["order.tighten"] = (fs, mag) => { if (fs.community != null) fs.community.repression = Mathf.Clamp01(fs.community.repression + RepressionStepFull * Mathf.Clamp01(mag)); };
             return d;
         }
 

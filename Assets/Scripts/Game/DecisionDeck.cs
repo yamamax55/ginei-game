@@ -382,12 +382,24 @@ namespace Ginei
 
         private void ResolveDecision(PendingDecision d, int choiceIndex)
         {
-            if (d == null) return;
+            if (d != null) Resolve(d.id, choiceIndex);
+        }
+
+        /// <summary>決裁を id で確定する単一窓口（ボタン/スクリプト/テスト共通）。Queue で解決し DESK-6 の <see cref="Resolved"/> を発火。
+        /// 効果の実適用は購読側（<see cref="RingiDirector"/>）が担う。見つからなければ false。</summary>
+        public static bool Resolve(int decisionId, int choiceIndex)
+        {
+            if (Queue == null) return false;
+            PendingDecision d = null;
+            for (int i = 0; i < Queue.items.Count; i++)
+                if (Queue.items[i] != null && Queue.items[i].id == decisionId) { d = Queue.items[i]; break; }
+            if (d == null) return false;
             Queue.Resolve(d, choiceIndex);
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                 $"［裁可］{d.title} → {ChoiceLabel(d, choiceIndex)}");
             RaiseResolved(d, choiceIndex); // DESK-6：効果を世界へ（購読側＝RingiDirector が effectKey を適用）
             // 決裁済みは決裁ボードの「決裁済」列に残す（有界保持＝TrimToCapacity）
+            return true;
         }
 
         private static string ChoiceLabel(PendingDecision d, int idx)

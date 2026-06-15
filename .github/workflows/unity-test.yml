@@ -1,6 +1,6 @@
 name: unity-test
 
-# 実 Unity（GameCI headless）でプロジェクト全体をコンパイルし EditMode テストを回す。
+# 実 Unity（GameCI headless）でプロジェクト全体をコンパイルし EditMode/PlayMode テストを回す（testMode: all）。
 # 価値：dotnet TestHarness では検証できない Game 層（MonoBehaviour/UI＝PlaytestRunner 等）の
 #       コンパイル＋Unity Test Framework 検証がここで効く。
 #
@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   test:
-    name: EditMode (real Unity)
+    name: EditMode+PlayMode (real Unity)
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -67,7 +67,7 @@ jobs:
           restore-keys: |
             Library-
 
-      - name: Run EditMode tests
+      - name: Run EditMode+PlayMode tests
         if: steps.guard.outputs.ok == 'true'
         uses: game-ci/unity-test-runner@v4
         env:
@@ -76,7 +76,7 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
-          testMode: editmode
+          testMode: all
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload test results

@@ -1,0 +1,25 @@
+{
+    "name": "Ginei.Tests.PlayMode",
+    "rootNamespace": "Ginei.Tests",
+    "references": [
+        "Ginei.Core",
+        "Ginei.Data",
+        "Ginei.Game",
+        "Unity.InputSystem",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

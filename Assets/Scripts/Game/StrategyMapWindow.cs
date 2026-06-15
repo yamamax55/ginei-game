@@ -296,6 +296,7 @@ namespace Ginei
             AddCommand(cmd.transform, "財政詳", () => UnityEngine.Object.FindAnyObjectByType<FiscalObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "生産", () => UnityEngine.Object.FindAnyObjectByType<ProductionObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "政府", () => UnityEngine.Object.FindAnyObjectByType<GovernmentObserverOverlay>()?.Toggle());
+            AddCommand(cmd.transform, "官僚", () => UnityEngine.Object.FindAnyObjectByType<BureaucracyObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "造船", () => UnityEngine.Object.FindAnyObjectByType<ShipyardObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "人物動", () => UnityEngine.Object.FindAnyObjectByType<PersonnelDynamicsObserverOverlay>()?.Toggle());
             AddCommand(cmd.transform, "事象", () => UnityEngine.Object.FindAnyObjectByType<ChronicleObserverOverlay>()?.Toggle());

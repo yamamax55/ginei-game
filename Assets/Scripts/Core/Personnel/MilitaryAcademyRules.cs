@@ -61,6 +61,19 @@ namespace Ginei
             => degree == MilitaryDegree.士官学校卒 || degree == MilitaryDegree.大学校卒;
 
         /// <summary>
+        /// 士官学校卒の<b>初任階級 tier</b>（立身出世の起点・TKO-12 #2489）。士官学校卒＝<b>少尉(1)</b>、大学校卒（参謀・恩賜の軍刀組）＝
+        /// <b>大尉(2)</b> から（fast-track）。任官しない（退校/幼年学校卒）は 0。准将(5＝艦隊指揮の下限)以降は武勲・年功で昇る
+        /// （<see cref="RankSystem.FullLadderName"/> の尉官/佐官ラダーを月次評定で段階昇進）。<paramref name="hammockNumber"/> は将来の
+        /// 微調整用（首席の上乗せ等）に受けるが現状は学歴のみで決める。
+        /// </summary>
+        public static int CommissionTier(MilitaryDegree degree, int hammockNumber)
+        {
+            if (degree == MilitaryDegree.大学校卒) return 2;   // 大尉から（参謀街道）
+            if (degree == MilitaryDegree.士官学校卒) return 1; // 少尉
+            return 0; // 未任官（退校/幼年学校卒）
+        }
+
+        /// <summary>
         /// 候補生を軍才順に多段で篩う：到達した最高学歴を <see cref="Person.militaryDegree"/> に刻む。任官者（士官学校卒以上）には
         /// <see cref="Person.hammockNumber"/>（首席=1）と等級（大学校卒は <see cref="WarCollegeTierBonus"/> 上乗せ）を与える。破壊的更新。
         /// </summary>

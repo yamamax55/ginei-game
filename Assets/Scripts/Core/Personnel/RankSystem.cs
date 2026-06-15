@@ -119,5 +119,33 @@ namespace Ginei
             string n = ResolveRankName(faction, tier);
             return string.IsNullOrEmpty(n) ? DefaultRankName(tier) : n;
         }
+
+        /// <summary>
+        /// 立身出世の<b>完全ラダー</b>名（TKO-12 #2489）。尉官/佐官（少尉1/大尉2/少佐3/大佐4）＋将官（5-10＝<see cref="DefaultRankName"/>）。
+        /// 軍人立志伝の昇進路（少尉→准将→元帥）の表示用。<b>将官専用フォールバック <see cref="DefaultRankName"/> は不変</b>
+        /// （5未満は空のまま＝既存テスト保持）＝ここは尉官/佐官を足した別窓口。範囲外（≤0/&gt;10）は空文字。
+        /// </summary>
+        public static string FullLadderName(int tier)
+        {
+            switch (tier)
+            {
+                case 1: return "少尉";
+                case 2: return "大尉";
+                case 3: return "少佐";
+                case 4: return "大佐";
+                default: return DefaultRankName(tier); // 5准将〜10元帥（将官）
+            }
+        }
+
+        /// <summary>
+        /// キャリア表示用の階級名解決＝勢力の階級表（<see cref="ResolveRankName"/>）→<see cref="FullLadderName"/>（尉官/佐官含む）フォールバック。
+        /// <see cref="ResolveRankNameOrDefault"/>（将官のみフォールバック）の立身出世版。tier≤0 は空文字。
+        /// </summary>
+        public static string CareerRankName(FactionData faction, int tier)
+        {
+            if (tier <= 0) return string.Empty;
+            string n = ResolveRankName(faction, tier);
+            return string.IsNullOrEmpty(n) ? FullLadderName(tier) : n;
+        }
     }
 }

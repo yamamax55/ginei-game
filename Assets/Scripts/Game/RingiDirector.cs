@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 namespace Ginei
@@ -54,6 +55,10 @@ namespace Ginei
         {
             if (StrategySession.Campaign == null) return; // 戦役が走っていなければ何もしない
 
+            // テスト用：F7 で即サンプル建白を1件起こす（決裁フローを Unity で即確認するため）
+            if (Keyboard.current != null && Keyboard.current.f7Key.wasPressedThisFrame)
+                TryRaisePetition(forced: true);
+
             GameClock clock = StrategySession.Clock;
             float gdt = clock != null ? (float)clock.EffectiveDt(Time.unscaledDeltaTime) : Time.deltaTime;
             accum += gdt;
@@ -62,26 +67,26 @@ namespace Ginei
 
             if (pending.Count >= maxConcurrent) return;
             if (Random.value > raiseChance) return;
-            TryRaisePetition();
+            TryRaisePetition(forced: false);
         }
 
         // ----- 建白の起案＋官僚機構の伝播 -----
 
-        private void TryRaisePetition()
+        /// <summary>サンプル建白を1件起こす。forced=true（F7）は同時上限を無視して必ず試みる（テスト用）。</summary>
+        private void TryRaisePetition(bool forced)
         {
             FactionState fs = PlayerState();
-            if (fs == null) return;
+            if (fs == null || RingiSampleData.Count == 0) return;
+            if (!forced && pending.Count >= maxConcurrent) return;
 
-            bool cut = Random.value < 0.5f;
-            string effectKey = cut ? "tax.cut" : "tax.hike";
-            string title = cut ? "減税の建白" : "増税の建白";
+            RingiSample sample = RingiSampleData.At(Random.Range(0, RingiSampleData.Count));
 
-            var pet = new Petition(0, title, fs.faction, BoxKind.政治家, PetitionOrigin.建白, effectKey);
+            var pet = new Petition(0, sample.title, fs.faction, sample.box, PetitionOrigin.建白, sample.effectKey);
             if (!RingiPipeline.Submit(Ledger, pet)) return; // 越階受理＋在庫投入
 
             // 官僚機構を1階：箱の信認 × 省益摩擦 × 正統性 で生存ロール（大半はここで死ぬ）
-            float heed = CredibilityRules.Heed(fs.credibility, BoxKind.政治家);
-            float friction = MinistryFriction(fs.faction, DomainOf(effectKey)); // 所管省庁の省益＝縦割り抵抗（#158 配線）
+            float heed = CredibilityRules.Heed(fs.credibility, sample.box);
+            float friction = MinistryFriction(fs.faction, DomainOf(sample.effectKey)); // 所管省庁の省益＝縦割り抵抗（#158 配線）
             float legitimacy = FactionLoyaltyRules.BaselineLoyalty(fs);
             var step = RingiPipeline.Propagate(pet, heed, friction, legitimacy, Random.value);
 
@@ -89,24 +94,21 @@ namespace Ginei
             {
                 // 握り潰し（却下）/黙殺＝上に行かず勝手に死ぬ（内生スロットル）
                 NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
-                    $"［{(step == PetitionStep.握り潰し ? "握り潰し" : "黙殺")}］{title}（官僚機構で止まった）");
+                    $"［{(step == PetitionStep.握り潰し ? "握り潰し" : "黙殺")}］{sample.title}（官僚機構で止まった）");
                 return;
             }
 
             // 浮上＝権力者の決裁待ちへ。決裁デスク（右下）へカードを積む
             RingiPipeline.SendToDecision(pet);
-            var pd = new PendingDecision(nextDecisionId++, $"{title}（政治家箱）", DecisionSeverity.通常,
-                DecisionSource.建白結果, pet.effectKey, defaultChoiceIndex: 1,
-                body: cut
-                    ? "重税に民が苦しんでいると政治家箱へ建白が上がった。減税すれば民心は和らぐが歳入は細る。財務官僚は難色。"
-                    : "国庫の窮迫を受け、政治家箱へ増税の建白が上がった。歳入は潤うが民の不満は高まる。");
+            var pd = new PendingDecision(nextDecisionId++, $"{sample.title}（{sample.box}箱）", DecisionSeverity.通常,
+                DecisionSource.建白結果, pet.effectKey, defaultChoiceIndex: 1, body: sample.body);
             pd.choices.Add("裁可する");
             pd.choices.Add("見送る（現状維持）");
             DecisionDeck.Enqueue(pd);
             pending[pd.id] = new Pending { pet = pet, friction = friction };
 
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
-                $"［建白］{title} が決裁待ち（右下の決裁デスクへ）");
+                $"［建白］{sample.title} が決裁待ち（右下の決裁デスクへ）");
         }
 
         // ----- 決裁の確定（人 or 自動）→ 執行で世界が動く -----

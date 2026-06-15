@@ -345,7 +345,9 @@ namespace Ginei
 
         /// <summary>
         /// 同一星系に停泊する複数艦隊を散らして重ならないようにするオフセットを計算する（fleet id→offset）。
-        /// 星系ごとに停泊艦隊を id 昇順で輪状に配置（1隻なら無オフセット）。回廊上の艦隊は対象外。
+        /// <b>軍団ごとにまとめて配置</b>＝同じ <see cref="StrategicFleet.corpsId"/> の艦隊は近くに小さくまとめ（軍団の四角が
+        /// タイトに囲える）、軍団どうし・無所属艦隊はサブクラスタとして星系の周りに離して並べる。回廊上の艦隊は対象外。
+        /// 軍団内は <see cref="fleetClusterSpread"/>（メンバ中心間距離）、サブクラスタ間は <see cref="fleetGroupSpread"/>。
         /// </summary>
         private void UpdateFleetClusterOffsets()
         {
@@ -367,13 +369,55 @@ namespace Ginei
                 var list = kv.Value;
                 if (list.Count <= 1) continue; // 1隻なら散らさない
                 list.Sort((a, b) => a.id.CompareTo(b.id)); // 決定論（毎フレ同じ並び）
-                // 隻数に応じて半径を少し広げ、輪状に等間隔配置（開始角を固定）。
-                float radius = fleetClusterSpread * (1f + 0.12f * (list.Count - 2));
-                for (int i = 0; i < list.Count; i++)
+
+                // サブクラスタへ分割：同じ軍団(corpsId)は1グループ、無所属は各艦隊が単独グループ。
+                var corpsGroups = new Dictionary<int, List<StrategicFleet>>();
+                var groups = new List<List<StrategicFleet>>();
+                foreach (var f in list)
                 {
-                    float ang = Mathf.PI * 2f * i / list.Count + Mathf.PI * 0.5f;
-                    fleetClusterOffsets[list[i].id] = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * radius;
+                    if (f.HasCorps)
+                    {
+                        if (!corpsGroups.TryGetValue(f.corpsId, out var g))
+                        {
+                            corpsGroups[f.corpsId] = g = new List<StrategicFleet>();
+                            groups.Add(g); // 初出順＝決定論（list は id 昇順）
+                        }
+                        g.Add(f);
+                    }
+                    else groups.Add(new List<StrategicFleet> { f }); // 無所属は単独グループ
                 }
+
+                int gc = groups.Count;
+                if (gc == 1)
+                {
+                    // グループが1つ＝そのまま星系中心にまとめて配置。
+                    LayoutRing(groups[0], Vector2.zero, fleetClusterSpread);
+                }
+                else
+                {
+                    // 複数グループ：各グループの中心を星系の周りに離して並べ、中で軍団メンバをまとめる。
+                    float groupRadius = fleetGroupSpread / (2f * Mathf.Sin(Mathf.PI / gc));
+                    for (int gi = 0; gi < gc; gi++)
+                    {
+                        float ang = Mathf.PI * 2f * gi / gc + Mathf.PI * 0.5f;
+                        Vector2 center = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * groupRadius;
+                        LayoutRing(groups[gi], center, fleetClusterSpread);
+                    }
+                }
+            }
+        }
+
+        /// <summary>1サブクラスタ（軍団 or 単独艦隊）を center を中心に小さくまとめて配置する。</summary>
+        private void LayoutRing(List<StrategicFleet> group, Vector2 center, float spread)
+        {
+            int m = group.Count;
+            if (m == 1) { fleetClusterOffsets[group[0].id] = center; return; }
+            // メンバ中心間が spread 以上になる小さな輪（弦長 2r*sin(π/m)=spread）。
+            float r = spread / (2f * Mathf.Sin(Mathf.PI / m));
+            for (int i = 0; i < m; i++)
+            {
+                float ang = Mathf.PI * 2f * i / m + Mathf.PI * 0.5f;
+                fleetClusterOffsets[group[i].id] = center + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * r;
             }
         }
 
@@ -427,7 +471,7 @@ namespace Ginei
             while (corpsBoxLines.Count <= i)
             {
                 var lr = NewLine("CorpsBox", 1);
-                lr.startWidth = lr.endWidth = 0.05f;
+                lr.startWidth = lr.endWidth = 0.025f; // 薄め
                 lr.loop = false;
                 lr.startColor = lr.endColor = corpsBoxColor;
                 corpsBoxLines.Add(lr);

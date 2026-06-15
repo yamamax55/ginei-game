@@ -29,12 +29,14 @@ namespace Ginei
         public Color selectColor = new Color(1f, 0.95f, 0.4f);
 
         [Header("艦隊表示（重なり回避・軍団）")]
-        [Tooltip("同一星系に複数の艦隊がいるとき、艦隊アイコンを散らして重ならないようにする半径（ワールド）")]
-        public float fleetClusterSpread = 0.55f;
-        [Tooltip("軍団隷下の艦隊を囲う四角の色")]
-        public Color corpsBoxColor = new Color(0.95f, 0.82f, 0.4f, 0.85f);
+        [Tooltip("同一星系で艦隊アイコンを散らすときの、軍団内メンバ（or 同一サブクラスタ）の中心間距離（ワールド）。離れすぎないよう小さめ")]
+        public float fleetClusterSpread = 0.95f;
+        [Tooltip("同一星系での軍団どうし・無所属艦隊（サブクラスタ）の中心間距離（ワールド）。軍団のまとまりを分けるため広め")]
+        public float fleetGroupSpread = 2.0f;
+        [Tooltip("軍団隷下の艦隊を囲う四角の色（薄め＝盤面を邪魔しない）")]
+        public Color corpsBoxColor = new Color(0.95f, 0.85f, 0.5f, 0.4f);
         [Tooltip("軍団隷下の四角と艦隊アイコンの余白（ワールド）")]
-        public float corpsBoxPadding = 0.45f;
+        public float corpsBoxPadding = 0.35f;
         [Tooltip("軍団長乗艦マーカー（★）の色")]
         public Color corpsFlagshipColor = new Color(1f, 0.86f, 0.3f);
 

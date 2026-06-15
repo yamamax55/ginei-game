@@ -90,6 +90,26 @@ namespace Ginei
             }
         }
 
+        /// <summary>士官 tier（少尉1〜元帥10）に対応する <see cref="MilitaryGrade"/>（<see cref="ToOfficerTier"/> の逆）。
+        /// 範囲外は安全側（&lt;1＝准尉／&gt;10＝元帥）。昇進の定員ゲート（その階級に空きがあるか）で使う。</summary>
+        public static MilitaryGrade GradeForOfficerTier(int tier)
+        {
+            switch (tier)
+            {
+                case 1: return MilitaryGrade.少尉;
+                case 2: return MilitaryGrade.大尉;
+                case 3: return MilitaryGrade.少佐;
+                case 4: return MilitaryGrade.大佐;
+                case 5: return MilitaryGrade.准将;
+                case 6: return MilitaryGrade.少将;
+                case 7: return MilitaryGrade.中将;
+                case 8: return MilitaryGrade.大将;
+                case 9: return MilitaryGrade.上級大将;
+                case 10: return MilitaryGrade.元帥;
+                default: return tier < 1 ? MilitaryGrade.准尉 : MilitaryGrade.元帥;
+            }
+        }
+
         // ===== 集計 =====
 
         public static int TotalForce(RankDistribution d)

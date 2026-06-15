@@ -69,7 +69,7 @@ namespace Ginei
             Person protagonist, MeritRecord merit, FactionData faction,
             SovereignMandate active, Person sovereign, int currentMonth, int newMandateId, Func<float> roll,
             MeritRecordRules.MeritRecordParams meritPrm, SovereignMandateRules.MandateParams mandatePrm,
-            CouncilParams councilPrm, PersonRelationGraph relations = null)
+            CouncilParams councilPrm, PersonRelationGraph relations = null, Func<int, bool> canPromoteTo = null)
         {
             if (protagonist == null)
                 return new CouncilOutcome(false, false, false, 0, false, null);
@@ -84,12 +84,17 @@ namespace Ginei
             }
 
             // (2) 保留中の武勲昇進を最大 maxPromotionsPerCouncil 段だけ確定（ペース制御）。
+            //     canPromoteTo（任意）＝その階級に定員空きがあるか＝「上ほど狭き門」のゲート（空きなしは武勲据え置きで保留）。
             bool promoted = false;
             int tier = protagonist.rankTier;
             for (int i = 0; i < councilPrm.maxPromotionsPerCouncil; i++)
             {
-                if (!MeritRecordRules.TryApplyPromotion(faction, tier, merit, meritPrm, out int next)) break;
-                tier = next;
+                if (!MeritRecordRules.HasPendingPromotion(merit, meritPrm)) break;
+                int next = RankSystem.NextRankTier(faction, tier);
+                if (next == tier) break; // 最高位
+                if (canPromoteTo != null && !canPromoteTo(next)) break; // 定員空きなし＝昇進保留
+                if (!MeritRecordRules.TryApplyPromotion(faction, tier, merit, meritPrm, out int applied)) break;
+                tier = applied;
                 promoted = true;
             }
             protagonist.rankTier = tier;

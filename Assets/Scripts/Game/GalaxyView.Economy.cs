@@ -105,6 +105,13 @@ namespace Ginei
                     float welfareBonus = BudgetRules.WelfareHopeBonus(s.budget, revenueRate * 0.15f); // ±0.3
                     float health = economy > 0f ? FiscalRules.FiscalHealthFactor(s.fiscal, economy, p) : 1f;
                     float hopeDelta = welfareBonus * 0.1f - (1f - health) * 0.05f;
+                    // 所得税の累進→民心（P2 税体系・RedistributionRules 集約）：累進的なほど再分配で貧困層支持↑（純和を小さく加点）。
+                    if (s.taxStructure != null)
+                    {
+                        float prog = RedistributionRules.Progressivity(s.taxStructure);
+                        hopeDelta += (RedistributionRules.ClassSupportDelta(FiscalClass.貧困層, prog)
+                                    + RedistributionRules.ClassSupportDelta(FiscalClass.富裕層, prog)) * 0.02f;
+                    }
                     s.community.hope = Mathf.Clamp01(s.community.hope + hopeDelta);
                 }
 
@@ -206,6 +213,9 @@ namespace Ginei
                     // 文化結束→安定度（P3・±bounded）。
                     if (cultureStabilityMod.TryGetValue(sys.owner, out float csm))
                         prov.stability = Mathf.Clamp(prov.stability + csm, 0f, 100f);
+                    // 占領→同化（P0 配線・占領ループの出口）：文化結束が高いほど未統合の占領地が早く同化する（integration↑）。
+                    if (prov.integration < 1f && cultureStates.TryGetValue(sys.owner, out var cult) && cult != null)
+                        prov.integration = Mathf.Clamp01(prov.integration + CultureSynthesisTickRules.AssimilationRate(cult, prov.integration));
                 }
         }
 
@@ -241,6 +251,7 @@ namespace Ginei
         private const float DemandSupplies = 0.012f, DemandFuel = 0.005f, DemandAmmo = 0.002f, DemandLuxury = 0.006f;
         // P0 交易の輸送コスト（基準価格単位・これ未満の価格差は裁定が起きない）／P1 平時の動員率。
         private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f, WartimeMobilizationRate = 0.3f;
+        private const float WarPopulationDrain = 0.01f; // 交戦中の年次人口減（総力戦のコスト・P3）
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
@@ -351,6 +362,8 @@ namespace Ginei
         private readonly System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Listing>> listings
             = new System.Collections.Generic.Dictionary<Faction, System.Collections.Generic.List<Listing>>();
         private const float StockPayoutRatio = 0.3f; // 配当性向（EPS の何割を配当に回すか）
+        private const float DividendTaxRate = 0.2f;  // 配当税率（配当総額の何割が国庫へ・P0 株式ループの出口）
+        private const float CorporateTaxRate = 0.25f; // 法人税率（私有企業利潤の何割が国庫へ・P2 税体系）
 
         /// <summary>勢力の上場銘柄一覧（株価/配当/心理・#185）。観測層（生産・流通オブザーバ）専用＝read-only。</summary>
         public System.Collections.Generic.IReadOnlyList<Listing> GetListings(Faction faction)
@@ -463,6 +476,105 @@ namespace Ginei
         public System.Collections.Generic.IReadOnlyList<Shipyard> Shipyards => shipyards;
 
         /// <summary>国家ごとに所有惑星から産出→行政・インフラが消費→不足で統治逼迫＝安定度低下（STATEDEM-6）。</summary>
+        private const float MonthDt = 1f / 12f; // 月次Tickの年比 dt（年次総量を保ちつつ滑らかに・Tick順#P3）
+
+        /// <summary>
+        /// 市場経済の月次Tick（Tick順見直し #P0/P1/P2/P3）：市場価格→企業→株式→交易を**月次**で依存順に回す。
+        /// 年次より高頻度＝市場が常に新鮮で、年次の通貨 marketPressure・人物財産時価・配当の読み手が前年値を見る1年ラグを解消（P0）。
+        /// 価格は dt=1/12 で滑らかに収束（P3 階段状ジャンプ解消）／法人税・配当税は月次ぶん（×MonthDt）で国庫へ＝cadence 平準化（P2）。
+        /// 行政消費(#2077)・研究・徴兵・人口は年次の <see cref="RunStateConsumptionTick"/> に残す（責務分割 P1）。
+        /// </summary>
+        private void RunMarketTick()
+        {
+            if (map == null || provinces == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var owned = new System.Collections.Generic.List<Province>();
+                int systemCount = 0;
+                foreach (var s in map.systems)
+                {
+                    if (s == null || s.owner != fac) continue;
+                    systemCount++;
+                    if (provinces.TryGetValue(s.id, out var prov) && prov != null) owned.Add(prov);
+                }
+                if (systemCount == 0) continue;
+                FactionState fstate = StateOf(fac);
+
+                // 市場：供給=産出率合計／需要=人口比例。物価で名目基準価格をスケール。月次で均衡へ滑らかに収束。
+                float supSupplies = 0f, supFuel = 0f, supAmmo = 0f, popTotal = 0f;
+                for (int i = 0; i < owned.Count; i++)
+                {
+                    supSupplies += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.物資);
+                    supFuel     += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.燃料);
+                    supAmmo     += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.弾薬);
+                    popTotal    += owned[i].population;
+                }
+                float supLuxury = supSupplies * 0.15f;
+                if (!markets.TryGetValue(fac, out var mk) || mk == null)
+                {
+                    mk = new Market[]
+                    {
+                        new Market(GoodType.物資,   supSupplies, popTotal * DemandSupplies, MarketGoods[0].basePrice),
+                        new Market(GoodType.燃料,   supFuel,     popTotal * DemandFuel,     MarketGoods[1].basePrice),
+                        new Market(GoodType.弾薬,   supAmmo,     popTotal * DemandAmmo,     MarketGoods[2].basePrice),
+                        new Market(GoodType.奢侈品, supLuxury,   popTotal * DemandLuxury,   MarketGoods[3].basePrice),
+                    };
+                    markets[fac] = mk;
+                }
+                mk[0].supply = supSupplies; mk[0].demand = popTotal * DemandSupplies;
+                mk[1].supply = supFuel;     mk[1].demand = popTotal * DemandFuel;
+                mk[2].supply = supAmmo;     mk[2].demand = popTotal * DemandAmmo;
+                mk[3].supply = supLuxury;   mk[3].demand = popTotal * DemandLuxury;
+                float priceLevel = PriceLevelOf(fac);
+                for (int g = 0; g < mk.Length; g++)
+                {
+                    var scaledGood = new Good(MarketGoods[g].goodType, MarketGoods[g].basePrice * priceLevel);
+                    MarketRules.Tick(mk[g], scaledGood, MarketRules.MarketParams.Default, MonthDt);
+                }
+
+                // 企業：市場価格で生産・利潤→資本蓄積（dt=月）。法人税は月次ぶん（×MonthDt）国庫へ。
+                if (!enterprises.TryGetValue(fac, out var firms) || firms == null) { firms = SeedEnterprises(fac); enterprises[fac] = firms; }
+                for (int e = 0; e < firms.Count; e++)
+                {
+                    Enterprise firm = firms[e];
+                    if (firm == null) continue;
+                    Market gm = mk[(int)GoodForSector(firm.sector)];
+                    float price = gm != null ? gm.price : 1f;
+                    float laborSupply = SectorLaborPool(owned, firm.sector) * 0.1f;
+                    firm.productivity = TechEffectRules.ProductivityFactor(TechLevelOf(fac));
+                    float profit = EnterpriseRules.Tick(firm, price, laborSupply, MonthDt);
+                    if (profit > 0f && fstate != null)
+                        fstate.treasury += profit * (firm.ownership == Ownership.国有 ? 1f : CorporateTaxRate) * MonthDt;
+                }
+
+                // 株式：利潤→EPS/配当→株価（月次収束）。配当税は月次ぶん（×MonthDt）国庫へ。
+                if (!listings.TryGetValue(fac, out var mkt) || mkt == null) { mkt = SeedListings(firms); listings[fac] = mkt; }
+                var sp = StockMarketRules.StockParams.Default;
+                for (int i = 0; i < mkt.Count; i++)
+                {
+                    Listing l = mkt[i];
+                    if (l == null || l.enterprise == null || l.stock == null) continue;
+                    Market lm = mk[(int)GoodForSector(l.enterprise.sector)];
+                    float lprice = lm != null ? lm.price : 1f;
+                    StockMarketSystemRules.SyncEarnings(l, lprice, StockPayoutRatio);
+                    StockMarketRules.Tick(l.stock, sp, MonthDt);
+                    if (fstate != null) fstate.treasury += Mathf.Max(0f, l.stock.dividend) * Mathf.Max(0f, l.shares) * DividendTaxRate * MonthDt;
+                }
+            }
+
+            // 交易（月次）：勢力間で同一財の価格差を裁定で縮める（輸送コスト律速）。
+            for (int a = 0; a < DemoFactions.Length; a++)
+                for (int b = a + 1; b < DemoFactions.Length; b++)
+                {
+                    if (!markets.TryGetValue(DemoFactions[a], out var ma) || ma == null) continue;
+                    if (!markets.TryGetValue(DemoFactions[b], out var mb) || mb == null) continue;
+                    int n = Mathf.Min(ma.Length, mb.Length);
+                    for (int g = 0; g < n; g++)
+                        InterregionalTradeRules.TickPair(ma[g], mb[g], TradeTransportCost, MonthDt);
+                }
+        }
+
         private void RunStateConsumptionTick()
         {
             if (map == null || provinces == null) return;
@@ -498,76 +610,8 @@ namespace Ginei
                 for (int i = 0; i < owned.Count; i++)
                     StrategicResourceRules.ProduceFromProvince(rare, owned[i], 1f);
 
-                // 市場（M-1 #179 配線）：供給＝産出率の合計／需要＝人口比例。価格を均衡へ収束させる＝
-                // 供給>需要で下落・需要>供給で高騰（少量で創発）。経済(財政E)・生活水準と独立の価格レイヤー。
-                float supSupplies = 0f, supFuel = 0f, supAmmo = 0f, popTotal = 0f;
-                for (int i = 0; i < owned.Count; i++)
-                {
-                    supSupplies += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.物資);
-                    supFuel     += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.燃料);
-                    supAmmo     += ResourceProductionRules.ProvinceRate(owned[i], ResourceType.弾薬);
-                    popTotal    += owned[i].population;
-                }
-                float supLuxury = supSupplies * 0.15f; // 余剰物資が奢侈品へ回る proxy
-                if (!markets.TryGetValue(fac, out var mk) || mk == null)
-                {
-                    mk = new Market[]
-                    {
-                        new Market(GoodType.物資,   supSupplies, popTotal * DemandSupplies, MarketGoods[0].basePrice),
-                        new Market(GoodType.燃料,   supFuel,     popTotal * DemandFuel,     MarketGoods[1].basePrice),
-                        new Market(GoodType.弾薬,   supAmmo,     popTotal * DemandAmmo,     MarketGoods[2].basePrice),
-                        new Market(GoodType.奢侈品, supLuxury,   popTotal * DemandLuxury,   MarketGoods[3].basePrice),
-                    };
-                    markets[fac] = mk;
-                }
-                mk[0].supply = supSupplies; mk[0].demand = popTotal * DemandSupplies;
-                mk[1].supply = supFuel;     mk[1].demand = popTotal * DemandFuel;
-                mk[2].supply = supAmmo;     mk[2].demand = popTotal * DemandAmmo;
-                mk[3].supply = supLuxury;   mk[3].demand = popTotal * DemandLuxury;
-                // 物価→市場（#179↔物価）：通貨のインフレ（priceLevel）で名目の基準価格が上がる＝市場価格に物価が乗る。
-                float priceLevel = PriceLevelOf(fac);
-                for (int g = 0; g < mk.Length; g++)
-                {
-                    var scaledGood = new Good(MarketGoods[g].goodType, MarketGoods[g].basePrice * priceLevel);
-                    MarketRules.Tick(mk[g], scaledGood, MarketRules.MarketParams.Default, 1f);
-                }
-
-                // 企業（#1022 配線）：セクター別の企業が市場価格で生産・利潤→資本蓄積、POP工員供給を上限に雇用調整。
-                // 国有企業の利潤は国庫へ（私有は民間に残り観測のみ）。市場価格（直上で更新）を読む＝企業↔市場が連動。
-                if (!enterprises.TryGetValue(fac, out var firms) || firms == null)
-                {
-                    firms = SeedEnterprises(fac);
-                    enterprises[fac] = firms;
-                }
+                // 市場/企業/株式/交易は月次 RunMarketTick へ分離（Tick順見直し P0/P1）。ここは研究の予算参照用に国家状態だけ解決。
                 FactionState fstate = StateOf(fac);
-                for (int e = 0; e < firms.Count; e++)
-                {
-                    Enterprise firm = firms[e];
-                    if (firm == null) continue;
-                    Market gm = mk[(int)GoodForSector(firm.sector)];
-                    float price = gm != null ? gm.price : 1f;
-                    float laborSupply = SectorLaborPool(owned, firm.sector) * 0.1f; // 採用余地（供給の一部）
-                    float profit = EnterpriseRules.Tick(firm, price, laborSupply, 1f);
-                    if (firm.ownership == Ownership.国有 && profit > 0f && fstate != null)
-                        fstate.treasury += profit * 0.5f; // 国有企業利潤の一部を国庫へ
-                }
-
-                // 株式会社・株式市場（#185 配線）：私有企業を上場し、利潤→1株あたり収益/配当→株価を市場で収束させる。
-                if (!listings.TryGetValue(fac, out var mkt) || mkt == null)
-                {
-                    mkt = SeedListings(firms);
-                    listings[fac] = mkt;
-                }
-                var sp = StockMarketRules.StockParams.Default;
-                for (int i = 0; i < mkt.Count; i++)
-                {
-                    Listing l = mkt[i];
-                    if (l == null || l.enterprise == null || l.stock == null) continue;
-                    Market lm = mk[(int)GoodForSector(l.enterprise.sector)];
-                    float lprice = lm != null ? lm.price : 1f;
-                    StockMarketSystemRules.SyncEarnings(l, lprice, StockPayoutRatio); // 利潤→EPS/配当
-                    StockMarketRules.Tick(l.stock, sp, 1f);                           // 株価を適正へ収束
-                }
 
                 // 研究（P1 配線）：研究予算×平均労働技能で技術水準を進める（教育→技能→技術）。
                 if (!researchStates.TryGetValue(fac, out var rs) || rs == null) { rs = new ResearchState(); researchStates[fac] = rs; }
@@ -585,6 +629,14 @@ namespace Ginei
                 float trained = RecruitmentProgramRules.TrainedStrength(recruits, quality);
                 lastRecruits[fac] = trained;
                 if (trained >= 1f) FleetPool.Add(fac, (int)trained);
+
+                // 動員→人口の代償（P3 配線）：交戦中は徴兵・戦災で生産年齢人口が削られる＝総力戦のコスト（bounded・1%/年）。
+                if (IsAtWar(fac))
+                    for (int i = 0; i < owned.Count; i++)
+                    {
+                        owned[i].population = Mathf.Max(0f, owned[i].population * (1f - WarPopulationDrain));
+                        if (owned[i].demographics != null) owned[i].demographics.working = Mathf.Max(0f, owned[i].demographics.working * (1f - WarPopulationDrain));
+                    }
 
                 // 行政・インフラ・公共サービスの物資消費＝総需要を国庫から引く。
                 var result = StateConsumptionTickRules.TickState(owned, systemCount, stock);
@@ -612,17 +664,7 @@ namespace Ginei
                             $"{fac} 工業が{pr.binding}不足で減産（稼働 {(int)(pr.utilization * 100)}%）");
                 }
             }
-
-            // 交易（P0 配線）：勢力間で同一財の市場価格差を裁定で縮める（輸送コスト律速）。市場↔交易が連動。
-            for (int a = 0; a < DemoFactions.Length; a++)
-                for (int b = a + 1; b < DemoFactions.Length; b++)
-                {
-                    if (!markets.TryGetValue(DemoFactions[a], out var ma) || ma == null) continue;
-                    if (!markets.TryGetValue(DemoFactions[b], out var mb) || mb == null) continue;
-                    int n = Mathf.Min(ma.Length, mb.Length);
-                    for (int g = 0; g < n; g++)
-                        InterregionalTradeRules.TickPair(ma[g], mb[g], TradeTransportCost, 1f);
-                }
+            // 交易は月次 RunMarketTick へ分離（Tick順見直し）。
         }
 
         // --- 代表生産チェーン（森林→木材→建材→住宅・VCHAIN・#2091 デモ配線） ---

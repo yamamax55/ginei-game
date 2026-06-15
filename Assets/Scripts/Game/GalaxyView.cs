@@ -350,7 +350,7 @@ namespace Ginei
             // 財政（S5）＋支持低下イベント（S6）は日境界、人物の加齢/老衰（LIFE-2）は年境界で進める（TIME-6 #952）。
             // いずれも暦駆動＝倍速で暦比一定・ポーズで停止。日次→年次の順に独立発火（CalendarDispatcher）。
             if (clock != null && policyCalendar != null)
-                policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyCampaignTick, onYear: RunAnnualLifecycleTick);
+                policyCalendar.Advance(clock.ElapsedSeconds, onDay: RunDailyCampaignTick, onMonth: RunMonthlyCampaignTick, onYear: RunAnnualLifecycleTick);
 
 
             HandleMouse();
@@ -449,6 +449,12 @@ namespace Ginei
             TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
             RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
+        }
+
+        /// <summary>月次の経済Tick（Tick順見直し）：市場価格・企業・株式・交易を月次で回す（日次=重い/年次=粗い の中間＝滑らか＋年次の市場読み手の1年ラグ解消）。</summary>
+        private void RunMonthlyCampaignTick()
+        {
+            RunMarketTick();
         }
 
         // 軍の補給を1日ぶん（MILSUP-6・#2049 配線）：補給源（自勢力領）から切れた前線艦隊は補給が枯れて損耗する。

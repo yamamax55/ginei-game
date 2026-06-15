@@ -49,6 +49,10 @@ namespace Ginei
         /// （セーブ非対象・null=未設定＝復元時は名前を決定論で再割当）。</summary>
         public CurrencyState currency;
 
+        /// <summary>税の階級別負担＝所得税の累進構造（#163・<see cref="RedistributionRules"/>）。累進ほど貧困層支持↑富裕層↓・階級対立↑。
+        /// budget/fiscal/currency と同じく在席のセッション状態（セーブ非対象・既定は緩い累進）。</summary>
+        public TaxStructure taxStructure = new TaxStructure();
+
         /// <summary>国債＝債務の市場証書（#161/#185）。<see cref="SovereignBondRules"/> が年次で額面を <see cref="fiscal"/>.debt に同期し
         /// 財政健全度→信用リスク・市場金利→価格を動かす（財政悪化→価格↓利回り↑）。在席のセッション状態（セーブ非対象・null=未設定）。</summary>
         public Bond sovereignBond;

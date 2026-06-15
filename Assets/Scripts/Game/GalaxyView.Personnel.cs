@@ -696,7 +696,11 @@ namespace Ginei
                 if (c == null || c.deathYear != 0) continue;
                 c.financialTrait = (FinancialTrait)(System.Math.Abs(c.id) % 3); // 0貯金/1投資/2浪費
                 float salary = 50f + c.rankTier * 50f; // 俸給 proxy（階級#14 比例・WAGE#1969）
-                float ret = 0.05f + (c.financialTrait == FinancialTrait.投資 ? (UnityEngine.Random.value - 0.5f) * 0.6f : 0f); // 投資は±変動
+                // P3：人物財産↔市場。投資型の利回りは自勢力の株式市場心理に連動（好況で増・暴落で毀損・決定論＝乱数廃止）。
+                float marketMood = 0f;
+                var lst = GetListings(c.faction);
+                if (lst != null && lst.Count > 0) marketMood = StockMarketSystemRules.MarketSentiment(lst) - 0.5f; // -0.5..+0.5
+                float ret = 0.05f + (c.financialTrait == FinancialTrait.投資 ? marketMood * 0.6f : 0f); // 投資は市場連動の±
                 PersonFinanceTickRules.TickYear(c, salary, ret);
             }
 
@@ -712,6 +716,7 @@ namespace Ginei
 
             // ネームド金融資産・不動産（NFIN-6・#2070 配線）：株式/債券/投資信託の配当・惑星所有権の地代→財産、紙くず化。
             SeedFinancialAssets();                                  // デモ金融/不動産シード（冪等）
+            RunFinancialMarkToMarket();                            // P2：保有持分を実際の#185株式市場/国債価格に時価評価（市場連動）
             MaybeCrashAStock();                                     // 紙くず化デモ（暴落#185）
             NamedFinancialTickRules.TickYear(ResolveCommander);    // 配当/地代→所有者 wealth#2056
             for (int f = 0; f < DemoFactions.Length; f++)          // 国家の金融/不動産収益（デモはログ）
@@ -755,6 +760,35 @@ namespace Ginei
 
             // 省庁の配属（官僚制基盤・二官八省）：文民を省庁へ配属し、その行政が内政（中央監督）に効く。
             RunMinistryStaffingTick();
+        }
+
+        /// <summary>P2：保有金融持分を実際の市場へ時価評価（market drift）＝人物財産が #185 株式市場/国債価格に連動する（暴落で毀損・好況で増）。</summary>
+        private void RunFinancialMarkToMarket()
+        {
+            var holdings = FinancialHoldingRegistry.All;
+            for (int i = 0; i < holdings.Count; i++)
+            {
+                FinancialHolding h = holdings[i];
+                if (h == null) continue;
+                Faction fac = h.ownerFaction;
+                if (h.ownerKind == AssetOwnerKind.人物) { Person p = ResolveCommander(h.ownerPersonId); if (p != null) fac = p.faction; }
+                float stockFactor = 1f + (StockSentimentOf(fac) - 0.5f) * 0.3f; // 市場心理で±15%/年ドリフト
+                float bondPrice = 1f;
+                FactionState st = StateOf(fac);
+                if (st != null && st.sovereignBond != null) bondPrice = st.sovereignBond.price;
+                float bondFactor = 1f + (bondPrice - 1f) * 0.1f;                // 国債価格でドリフト
+                float factor = h.instrument == FinancialInstrument.株式 ? stockFactor
+                             : h.instrument == FinancialInstrument.債券 ? bondFactor
+                             : 0.6f * stockFactor + 0.4f * bondFactor;          // 投資信託はブレンド
+                FinancialAssetRules.MarkToMarket(h, Mathf.Max(0f, h.unitPrice * factor), h.incomePerUnit);
+            }
+        }
+
+        /// <summary>勢力の株式市場心理（0..1・銘柄なし=中立0.5）。人物財産の時価ドリフトに使う。</summary>
+        private float StockSentimentOf(Faction fac)
+        {
+            var lst = GetListings(fac);
+            return (lst != null && lst.Count > 0) ? StockMarketSystemRules.MarketSentiment(lst) : 0.5f;
         }
 
         /// <summary>

@@ -185,6 +185,50 @@ namespace Ginei
                 }
                 else crisisOutputFactor[s.faction] = 1f;
 
+                // 商業銀行（CAP-2 #186・BANK #1976 配線）：部分準備銀行制の信用創造と取り付け/債務超過。
+                // 預金は経済規模（家計の貯蓄）に連動、準備率は中央銀行の法定準備率（引き締めで乗数が下がる）、
+                // 貸出は信用創造。不良債権は金融危機で焦げ付き、信認は健全さで上下＝取り付け/債務超過を創発させる。
+                // 数式は BankRules（CAP-2/BANK-1〜5）へ委譲し二重実装しない。基準フィールドは非破壊（実効値）。
+                if (!banks.TryGetValue(s.faction, out var bank) || bank == null)
+                {
+                    bank = new Bank(deposits: Mathf.Max(0f, economy) * BankDepositRatio, loans: 0f);
+                    banks[s.faction] = bank;
+                }
+                var bp = BankRules.BankParams.Default;
+                // 準備率＝中央銀行の法定準備率（金融政策が信用乗数を動かす）。
+                bank.reserveRatio = Mathf.Clamp(cb.reserveRequirement, bp.minReserveRatio, 1f);
+                // 預金は経済規模（家計の貯蓄）へ年次で滑らかに収束。
+                bank.deposits = Mathf.Lerp(bank.deposits, Mathf.Max(0f, economy) * BankDepositRatio, 0.3f);
+                bank.reserves = bank.deposits * bank.reserveRatio;                      // 準備金＝預金×準備率
+                // 貸出（信用創造）＝預金×貸出性向。信用創造の上限（マネー乗数）を超えない。
+                bank.loans = Mathf.Min(bank.deposits * BankLoanToDeposit,
+                    BankRules.CreditCreation(bank.deposits, bank.reserveRatio, bp));
+                // 不良債権：金融危機で焦げ付きが増え、平時は償却で減る（貸出比）。
+                float nplRate = nowCrisis ? BankCrisisNplRate : BankPeaceNplRate;
+                bank.nonPerformingLoans = Mathf.Lerp(bank.nonPerformingLoans, bank.loans * nplRate, 0.4f);
+                // 国債等の保有（自己資本のクッション）から不良債権ぶんを評価減＝危機が続くと自己資本が痩せて債務超過へ。
+                bank.securities = Mathf.Max(0f, bank.deposits * BankSecuritiesRatio - bank.nonPerformingLoans);
+                // 信認：危機/債務超過で崩れ、健全なら回復（取り付けは信認の関数）。
+                float confDelta = nowCrisis ? -0.2f : (BankRules.IsInsolventBySheet(bank) ? -0.15f : 0.1f);
+                bank.confidence = Mathf.Clamp01(bank.confidence + confDelta);
+                // 銀行利益（純金利収益−不良債権損失）→法人税ぶん国庫へ＝健全な金融が財政を潤す。逆鞘/焦げ付きは無税。
+                float loanRate = cb.policyRate + BankLoanSpread;
+                float depositRate = Mathf.Max(0f, cb.policyRate - BankDepositSpread);
+                float bankProfit = BankRules.BankProfit(bank, loanRate, depositRate, BankNplLossGivenDefault);
+                if (bankProfit > 0f) s.treasury += bankProfit * CorporateTaxRate;
+                // 通知（Tier2・エッジ検出）：取り付けの懸念／債務超過。回復で解除＝洪水回避。
+                float runRisk = BankRules.BankRunRisk(bank.reserveRatio, bank.confidence, bp);
+                bool bankRun = runRisk > 0.6f;
+                if (bankRun && bankRunFactions.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{s.faction} 銀行取り付けの懸念（信認 {(int)(bank.confidence * 100)}%・流動性 {(int)(BankRules.LiquidityRatio(bank) * 100)}%）");
+                else if (!bankRun && bank.confidence > 0.7f) bankRunFactions.Remove(s.faction);
+                bool insolvent = BankRules.IsInsolventBySheet(bank);
+                if (insolvent && bankInsolventFactions.Add(s.faction))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.警告,
+                        $"{s.faction} 銀行が債務超過（自己資本 {BankRules.Equity(bank):0}・不良債権 {bank.nonPerformingLoans:0}）＝信用収縮");
+                else if (!insolvent) bankInsolventFactions.Remove(s.faction);
+
                 // 通知（Tier0・エッジ検出）：国庫枯渇＝予算執行が回らない危機（戦費/制裁/債務で国庫が干上がる）。
                 bool empty = s.treasury < economy * 0.02f;
                 if (empty && treasuryEmpty.Add(s.faction))
@@ -308,6 +352,15 @@ namespace Ginei
         private const float TradeTransportCost = 0.2f, PeacetimeMobilizationRate = 0.05f, WartimeMobilizationRate = 0.3f;
         private const float TariffRate = 0.1f; // 交易の関税率（取引フローの何割が国庫へ・配線ループ#3）
         private const float WarPopulationDrain = 0.01f; // 交戦中の年次人口減（総力戦のコスト・P3）
+        // 商業銀行（CAP-2 #186・BANK #1976）の調整値（少量で創発＝タイクン化回避）。
+        private const float BankDepositRatio = 0.5f;       // 預金＝経済規模×これ（家計の貯蓄）
+        private const float BankLoanToDeposit = 0.8f;      // 貸出性向（預金の何割を貸し出すか）
+        private const float BankSecuritiesRatio = 0.2f;    // 国債等の保有＝預金×これ（自己資本のクッション）
+        private const float BankLoanSpread = 0.03f;        // 貸出金利＝政策金利＋これ
+        private const float BankDepositSpread = 0.01f;     // 預金金利＝政策金利−これ（0で下限）
+        private const float BankNplLossGivenDefault = 0.5f;// 不良債権のデフォルト時損失率
+        private const float BankPeaceNplRate = 0.02f;      // 平時の不良債権率（貸出比）
+        private const float BankCrisisNplRate = 0.15f;     // 金融危機時の不良債権率（貸出比）
 
         /// <summary>戦略マップの現行インスタンス（観測層が国庫＝資源備蓄を read-only で読む弱参照。Strategy 以外では null）。</summary>
         public static GalaxyView Active { get; private set; }
@@ -438,6 +491,9 @@ namespace Ginei
         // --- 中央銀行（P0・#中銀）／研究（P1・#技術）：勢力ごとの在席状態。年次 Tick で進む。 ---
         private readonly System.Collections.Generic.Dictionary<Faction, CentralBank> centralBanks
             = new System.Collections.Generic.Dictionary<Faction, CentralBank>();
+        // 商業銀行（CAP-2 #186・BANK #1976）：勢力ごとの部分準備銀行。年次 RunFiscalYearTick が信用創造・取り付け・債務超過を回す。
+        private readonly System.Collections.Generic.Dictionary<Faction, Bank> banks
+            = new System.Collections.Generic.Dictionary<Faction, Bank>();
         private readonly System.Collections.Generic.Dictionary<Faction, ResearchState> researchStates
             = new System.Collections.Generic.Dictionary<Faction, ResearchState>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> lastRecruits
@@ -449,6 +505,8 @@ namespace Ginei
         private readonly System.Collections.Generic.HashSet<int> collapsedSystems = new System.Collections.Generic.HashSet<int>();
         private readonly System.Collections.Generic.HashSet<Faction> treasuryEmpty = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> bondCrisis = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> bankRunFactions = new System.Collections.Generic.HashSet<Faction>();
+        private readonly System.Collections.Generic.HashSet<Faction> bankInsolventFactions = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBoom = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.HashSet<Faction> marketBust = new System.Collections.Generic.HashSet<Faction>();
         private readonly System.Collections.Generic.Dictionary<Faction, float> crisisOutputFactor
@@ -491,6 +549,9 @@ namespace Ginei
         /// <summary>勢力の中央銀行（政策金利/通貨供給/物価目標）。観測層専用＝read-only。</summary>
         public CentralBank GetCentralBank(Faction faction)
             => centralBanks.TryGetValue(faction, out var cb) ? cb : null;
+        /// <summary>勢力の商業銀行（預金/貸出/準備率/信認＝信用創造・取り付け・CAP-2 #186）。観測層専用＝read-only。</summary>
+        public Bank GetBank(Faction faction)
+            => banks.TryGetValue(faction, out var bk) ? bk : null;
         /// <summary>勢力の研究状態（技術水準/進捗）。観測層専用＝read-only。</summary>
         public ResearchState GetResearch(Faction faction)
             => researchStates.TryGetValue(faction, out var rs) ? rs : null;

@@ -60,7 +60,7 @@
 > CLAUDE.md 既知の重複・将来整理対象／経済はBOMに寄せ集約・背景化。**ここを個別配線するとタイクン化＝終盤ラグ**。観測（J/E オーバーレイ）で見えれば十分。
 
 - **東証33業種＋サブ業種 archetype（#2016-2025）**：`ChemicalRules`/`SteelRules`/`AutoRules`/`SemiconductorRules`/`ShippingRules`/`RetailRules`/`MiningRules`… 計100+。
-- **金融市場の銘柄系（#185/#161/#1939…）**：`StockMarketRules`/`BondMarketRules`/`BankRules`/`FuturesMarketRules`/`MonetaryPolicyRules`/`FinancialCrisisRules`… ＝**集約（国庫/債務#163）に留め、個別銘柄シミュは観測どまり**が設計意図。
+- **金融市場の銘柄系（#185/#161/#1939…）**：`StockMarketRules`/`BondMarketRules`/`FuturesMarketRules`/`MonetaryPolicyRules`/`FinancialCrisisRules`… ＝**集約（国庫/債務#163）に留め、個別銘柄シミュは観測どまり**が設計意図。`BankRules`（CAP-2 #186・BANK #1976）は**勢力単位の集約で配線済み**（`GalaxyView.RunFiscalYearTick`＝信用創造・不良債権・取り付け/債務超過＋銀行利益→国庫・観測＝`FiscalObserverOverlay`）＝個別行シミュには降りない。
 - **メディア/小売/不動産/サービス/宇宙派生（#2025）**：`FilmStudioRules`/`RealEstateRules`/`HotelRules`/`SpaceRailwayRules`… フレーバー。
 - **世界観・遠未来**：`DisclosureLedger`（秘史開示・要演出UI）・儀礼/婚姻/三密 等。
 

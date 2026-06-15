@@ -73,6 +73,13 @@ namespace Ginei
         private Camera viewCam;
         private SystemView systemView;
         private TextMeshProUGUI titleCap;
+        // タブ（マップ／情報）：情報タブは星系サマリ＋各惑星の内政を縦に一覧表示する。
+        private bool showInfo;
+        private float infoRefreshTimer;
+        private Image tabMapBg, tabInfoBg;
+        private GameObject infoPanel;          // 情報タブのスクロール本体
+        private TextMeshProUGUI infoText;
+        private const float TabBarHeight = 28f;
 
         /// <summary>指定星系の恒星系マップ窓を開く（必要なら生成）。</summary>
         public static void Show(int systemId, string systemName, Faction owner)
@@ -126,15 +133,20 @@ namespace Ginei
             vlg.childControlHeight = true; vlg.childForceExpandHeight = false;
 
             BuildTitleBar(win.transform, winRT);
+            BuildTabBar(win.transform);
+
+            float bodyHeight = windowSize.y - 30f - TabBarHeight; // タイトルバー(30)＋タブ(28)を除いた残り
 
             // マップ領域（RawImage＝RenderTexture を映す。固定高でRTと同アスペクト）
             GameObject mapGo = new GameObject("Map", typeof(RectTransform));
             mapGo.transform.SetParent(win.transform, false);
             mapRT = mapGo.GetComponent<RectTransform>();
             LayoutElement le = mapGo.AddComponent<LayoutElement>();
-            le.preferredHeight = windowSize.y - 30f; // タイトルバー(30)を除いた残り
+            le.preferredHeight = bodyHeight;
             mapImage = mapGo.AddComponent<RawImage>();
             mapImage.color = Color.white;
+
+            BuildInfoPanel(win.transform, bodyHeight);
 
             root.SetActive(false);
 
@@ -171,6 +183,97 @@ namespace Ginei
             cbtn.onClick.AddListener(Close);
             TextMeshProUGUI glyph = CreateText(cb.transform, "×", 18f, Color.white, TextAlignmentOptions.Center);
             StretchFull(glyph.rectTransform);
+        }
+
+        // ===== タブ（マップ／情報） =====
+
+        private void BuildTabBar(Transform parent)
+        {
+            GameObject bar = new GameObject("TabBar", typeof(RectTransform));
+            bar.transform.SetParent(parent, false);
+            Image bg = bar.AddComponent<Image>();
+            bg.color = new Color(0.08f, 0.10f, 0.16f, 1f);
+            LayoutElement le = bar.AddComponent<LayoutElement>();
+            le.minHeight = TabBarHeight; le.preferredHeight = TabBarHeight;
+            HorizontalLayoutGroup h = bar.AddComponent<HorizontalLayoutGroup>();
+            h.padding = new RectOffset(4, 4, 3, 3);
+            h.spacing = 4f;
+            h.childControlWidth = true; h.childForceExpandWidth = true;
+            h.childControlHeight = true; h.childForceExpandHeight = true;
+
+            tabMapBg = MakeTab(bar.transform, "マップ", () => SetTab(false));
+            tabInfoBg = MakeTab(bar.transform, "情報（星系・惑星）", () => SetTab(true));
+        }
+
+        private Image MakeTab(Transform parent, string label, UnityEngine.Events.UnityAction onClick)
+        {
+            GameObject go = new GameObject("Tab", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.13f, 0.18f, 0.26f, 1f);
+            Button b = go.AddComponent<Button>();
+            b.transition = UnityEngine.UI.Selectable.Transition.None;
+            b.onClick.AddListener(onClick);
+            TextMeshProUGUI t = CreateText(go.transform, label, 14f, new Color(0.9f, 0.92f, 0.96f), TextAlignmentOptions.Center);
+            StretchFull(t.rectTransform);
+            return img;
+        }
+
+        private void BuildInfoPanel(Transform parent, float bodyHeight)
+        {
+            GameObject scrollObj = new GameObject("InfoScroll", typeof(RectTransform));
+            scrollObj.transform.SetParent(parent, false);
+            infoPanel = scrollObj;
+            LayoutElement le = scrollObj.AddComponent<LayoutElement>();
+            le.preferredHeight = bodyHeight;
+            Image sbg = scrollObj.AddComponent<Image>();
+            sbg.color = new Color(0.03f, 0.04f, 0.07f, 1f);
+
+            ScrollRect sr = scrollObj.AddComponent<ScrollRect>();
+            sr.horizontal = false; sr.vertical = true; sr.scrollSensitivity = 28f;
+
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform));
+            viewport.transform.SetParent(scrollObj.transform, false);
+            RectTransform vrt = viewport.GetComponent<RectTransform>();
+            vrt.anchorMin = Vector2.zero; vrt.anchorMax = Vector2.one; vrt.sizeDelta = Vector2.zero; vrt.anchoredPosition = Vector2.zero;
+            viewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+            viewport.AddComponent<RectMask2D>();
+            sr.viewport = vrt;
+
+            GameObject content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(viewport.transform, false);
+            RectTransform crt = content.GetComponent<RectTransform>();
+            crt.anchorMin = new Vector2(0f, 1f); crt.anchorMax = new Vector2(1f, 1f);
+            crt.pivot = new Vector2(0.5f, 1f); crt.anchoredPosition = Vector2.zero; crt.sizeDelta = Vector2.zero;
+            VerticalLayoutGroup cvlg = content.AddComponent<VerticalLayoutGroup>();
+            cvlg.padding = new RectOffset(12, 12, 10, 10);
+            cvlg.childControlWidth = true; cvlg.childForceExpandWidth = true;
+            cvlg.childControlHeight = true; cvlg.childForceExpandHeight = false;
+            ContentSizeFitter csf = content.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            sr.content = crt;
+
+            infoText = CreateText(content.transform, "", 15f, new Color(0.9f, 0.93f, 0.97f), TextAlignmentOptions.TopLeft);
+            infoText.raycastTarget = false;
+
+            scrollObj.SetActive(false); // 既定はマップタブ
+        }
+
+        /// <summary>タブを切り替える（false=マップ／true=情報）。情報タブはマップを隠して星系・惑星の一覧を出す。</summary>
+        private void SetTab(bool info)
+        {
+            showInfo = info;
+            if (mapRT != null) mapRT.gameObject.SetActive(!info);
+            if (infoPanel != null) infoPanel.SetActive(info);
+            if (tabMapBg != null) tabMapBg.color = info ? new Color(0.13f, 0.18f, 0.26f, 1f) : new Color(0.22f, 0.30f, 0.42f, 1f);
+            if (tabInfoBg != null) tabInfoBg.color = info ? new Color(0.22f, 0.30f, 0.42f, 1f) : new Color(0.13f, 0.18f, 0.26f, 1f);
+            if (info) RefreshInfo();
+        }
+
+        /// <summary>情報タブの本文（星系サマリ＋各惑星）を最新化する。</summary>
+        private void RefreshInfo()
+        {
+            if (infoText != null && systemView != null) infoText.text = systemView.BuildInfoDump();
         }
 
         // ===== 開閉 =====
@@ -216,6 +319,7 @@ namespace Ginei
 
             isOpen = true;
             if (root != null) root.SetActive(true);
+            SetTab(false); // 開くたびにマップタブから（情報は systemView 再生成後に最新化）
         }
 
         /// <summary>窓を閉じて描画資源を解放する。</summary>
@@ -244,6 +348,14 @@ namespace Ginei
             if (!isOpen) return;
             // Esc は UIWindowStack 経由（GalaxyView）で「手前から閉じる」＝自前で読まない。
             if (Mouse.current == null || viewCam == null || mapRT == null) return;
+
+            // 情報タブ表示中はマップ操作（ズーム/パン/惑星選択）を止め、本文だけ定期更新する。
+            if (showInfo)
+            {
+                infoRefreshTimer -= Time.unscaledDeltaTime;
+                if (infoRefreshTimer <= 0f) { RefreshInfo(); infoRefreshTimer = 0.5f; }
+                return;
+            }
 
             bool overMap = TryCursorWorld(out Vector3 cursorWorld);
 

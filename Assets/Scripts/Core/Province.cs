@@ -88,6 +88,12 @@ namespace Ginei
         /// </summary>
         public PlanetRealEstate realEstate = null;
 
+        /// <summary>
+        /// インフラ普及率（#2021 公益事業の惑星層・0..1・既定0.5）。電気/ガス/水道が住民にどれだけ行き渡るか。
+        /// 公益事業の供給余力＋安定度から目標へ年々収束し、生活水準#181/生産性#93/安定度#109 を底上げ。解決は <see cref="InfrastructureRules"/>。
+        /// </summary>
+        public float infrastructure = 0.5f;
+
         public Province() { }
 
         public Province(int systemId, string nativeIdeology, float population = 100f)

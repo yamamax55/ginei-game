@@ -303,9 +303,14 @@ namespace Ginei
                    FormatPlanetDemographics(p) +
                    FormatPlanetOccupation(p) +
                    FormatPlanetConsumption(p) +
+                   FormatPlanetInfrastructure(p) +
                    FormatPlanetRealEstate(p) +
                    FormatPlanetStrategic(p);
         }
+
+        // インフラ普及率（#2021 惑星層）：電気/ガス/水道がどれだけ住民に行き渡るか（0..100%）。
+        private static string FormatPlanetInfrastructure(Province p)
+            => $"\nインフラ普及率 {Mathf.RoundToInt(Mathf.Clamp01(p.infrastructure) * 100f)}%";
 
         // 惑星の不動産基盤（#2019 惑星層）：地価・賃料・価格/賃料倍率（バブル）。素地（人口/安定度/生活水準/類型）から導出。
         private static string FormatPlanetRealEstate(Province p)

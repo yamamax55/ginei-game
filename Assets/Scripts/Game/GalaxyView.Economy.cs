@@ -452,6 +452,85 @@ namespace Ginei
             LandTransactionRules.ExpireDue(campaignYear);
         }
 
+        // --- 公益事業（電気/ガス/水道・#2021）とインフラ普及率（惑星層）の配線 ---
+        private readonly System.Collections.Generic.Dictionary<Faction, Utility[]> utilities
+            = new System.Collections.Generic.Dictionary<Faction, Utility[]>();
+        private static readonly UtilityType[] UtilityTypes = { UtilityType.電気, UtilityType.ガス, UtilityType.水道 };
+        private const float UtilityReserveMargin = 1.1f;   // 供給能力＝接続需要×これ（予備率）
+        private const float UtilityInvestSpeed = 0.25f;    // 能力が需要へ追いつく速さ（設備投資のラグ）
+        private const float InfraLivingMin = 0.85f;        // インフラ未整備でも生活水準は min まで（緩やか）
+        private const float InfraStabilityScale = 4f;      // 普及率→安定度の±スケール
+        private readonly System.Collections.Generic.HashSet<Faction> utilityBlackout = new System.Collections.Generic.HashSet<Faction>();
+
+        /// <summary>勢力の公益事業（電気/ガス/水道・#2021）。観測層専用＝read-only。</summary>
+        public System.Collections.Generic.IReadOnlyList<Utility> GetUtilities(Faction faction)
+            => utilities.TryGetValue(faction, out var u) ? u : null;
+
+        /// <summary>公益事業の1人あたり需要（電気が最大・水道・ガスの順）。</summary>
+        private static float PerCapitaUtilityDemand(UtilityType t)
+        {
+            switch (t) { case UtilityType.電気: return 0.012f; case UtilityType.水道: return 0.008f; default: return 0.005f; }
+        }
+
+        /// <summary>
+        /// 公益事業とインフラ普及率の年次（#2021 配線）：勢力ごとに電気/ガス/水道の接続需要（人口×普及率）に供給能力を投資で追従させ、
+        /// 能力不足は停電/断水（安定度を蝕む）。各惑星のインフラ普及率を供給余力＋安定度から目標へ収束させ、生活水準#181/安定度#109 を底上げ。
+        /// 数式は <see cref="UtilityRules"/>/<see cref="InfrastructureRules"/> へ委譲。惑星×集約（個別配電網へ降りない＝タイクン化回避）。
+        /// </summary>
+        private void RunUtilityInfrastructureTick()
+        {
+            if (map == null || provinces == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var owned = new System.Collections.Generic.List<Province>();
+                foreach (var s in map.systems)
+                    if (s != null && s.owner == fac && provinces.TryGetValue(s.id, out var pv) && pv != null) owned.Add(pv);
+                if (owned.Count == 0) continue;
+
+                if (!utilities.TryGetValue(fac, out var us) || us == null)
+                {
+                    us = new Utility[UtilityTypes.Length];
+                    for (int t = 0; t < UtilityTypes.Length; t++)
+                        us[t] = new Utility($"{fac}{UtilityTypes[t]}", UtilityTypes[t], faction: fac);
+                    utilities[fac] = us;
+                }
+
+                // 種別ごとに接続需要を集計し、供給能力を投資で追従。最弱の供給余力を全体余力とする。
+                float overallAdequacy = 2f;
+                bool blackout = false;
+                for (int t = 0; t < UtilityTypes.Length; t++)
+                {
+                    float perCap = PerCapitaUtilityDemand(UtilityTypes[t]);
+                    float demand = 0f;
+                    for (int i = 0; i < owned.Count; i++)
+                        demand += InfrastructureRules.ConnectedDemand(owned[i].population, perCap, owned[i].infrastructure);
+                    Utility u = us[t];
+                    u.demand = demand;
+                    float targetCap = demand * UtilityReserveMargin;
+                    if (u.capacity <= 0f) u.capacity = targetCap;                  // 初期は需要を満たす能力からスタート
+                    else u.capacity += (targetCap - u.capacity) * UtilityInvestSpeed; // 投資で需要へ追従（ラグ）
+                    u.rateBase = UtilityRules.RateBaseAfterInvestment(u.rateBase, Mathf.Max(0f, targetCap - u.capacity)); // 規制資産は設備投資の累積
+                    overallAdequacy = Mathf.Min(overallAdequacy, InfrastructureRules.CapacityAdequacy(u.capacity, demand));
+                    if (UtilityRules.IsBlackout(demand, u.capacity)) blackout = true;
+                }
+                // 停電/断水の通知（エッジ検出・回復で解除）。
+                if (blackout && utilityBlackout.Add(fac))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"{fac} 停電/断水（公益事業の供給能力不足）＝安定度低下");
+                else if (!blackout) utilityBlackout.Remove(fac);
+
+                // 各惑星のインフラ普及率を目標へ収束＋生活水準#181/安定度#109 へ反映。
+                for (int i = 0; i < owned.Count; i++)
+                {
+                    Province pv = owned[i];
+                    float target = InfrastructureRules.PenetrationTarget(overallAdequacy, pv.stability / 100f);
+                    pv.infrastructure = InfrastructureRules.TickPenetration(pv.infrastructure, target, InfrastructureRules.DefaultPenetrationSpeed);
+                    pv.livingStandard = Mathf.Clamp01(pv.livingStandard * InfrastructureRules.LivingStandardFactor(pv.infrastructure, InfraLivingMin));
+                    pv.stability = Mathf.Clamp(pv.stability + InfrastructureRules.StabilityBonus(pv.infrastructure, InfraStabilityScale), 0f, 100f);
+                }
+            }
+        }
+
         /// <summary>星系が前線か（敵対勢力に隣接・配線ループ#8）。</summary>
         private bool IsFrontline(StarSystem sys)
         {

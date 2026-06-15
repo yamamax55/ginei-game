@@ -82,6 +82,12 @@ namespace Ginei
         /// <summary>住民の文化・民族（#194・null=未配線=後方互換）。`CultureTickRules` が年次で進める。</summary>
         public Culture culture = null;
 
+        /// <summary>
+        /// 惑星の不動産基盤（#2019 惑星層・null=未形成=後方互換）。地価・賃料・地価指数（バブル）の土台。
+        /// 解決は <see cref="PlanetRealEstateRules"/> が年次で進める（素地＝人口/安定度/生活水準/類型から導出）。
+        /// </summary>
+        public PlanetRealEstate realEstate = null;
+
         public Province() { }
 
         public Province(int systemId, string nativeIdeology, float population = 100f)

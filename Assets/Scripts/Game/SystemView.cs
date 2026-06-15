@@ -303,7 +303,19 @@ namespace Ginei
                    FormatPlanetDemographics(p) +
                    FormatPlanetOccupation(p) +
                    FormatPlanetConsumption(p) +
+                   FormatPlanetRealEstate(p) +
                    FormatPlanetStrategic(p);
+        }
+
+        // 惑星の不動産基盤（#2019 惑星層）：地価・賃料・価格/賃料倍率（バブル）。素地（人口/安定度/生活水準/類型）から導出。
+        private static string FormatPlanetRealEstate(Province p)
+        {
+            var rp = PlanetRealEstateRules.Params.Default;
+            PlanetRealEstate re = PlanetRealEstateRules.Ensure(p, rp);
+            if (re == null) return "";
+            int p2r = Mathf.RoundToInt(PlanetRealEstateRules.PriceToRent(re));
+            bool bubble = PlanetRealEstateRules.IsBubble(re, rp);
+            return $"\n地価 {Mathf.RoundToInt(re.landValue)}・賃料 {Mathf.RoundToInt(re.rentLevel)}・価格賃料 {p2r}倍" + (bubble ? "・▲バブル" : "");
         }
 
         // POP の要求物資・生活水準（#2042）：充足から導く生活水準＋飢餓（必需不足）。

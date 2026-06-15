@@ -35,6 +35,7 @@ namespace Ginei
         イベント観測切替,
         官僚機構観測切替,
         研究観測切替,
+        財産観測切替,
         // 会戦
         ポーズ,
         倍速等速,
@@ -127,6 +128,7 @@ namespace Ginei
             new InputBinding(GameAction.イベント観測切替, Key.D,         InputContext.共通, alt: true),
             new InputBinding(GameAction.官僚機構観測切替, Key.K,         InputContext.共通, alt: true),
             new InputBinding(GameAction.研究観測切替,     Key.R,         InputContext.共通, alt: true),
+            new InputBinding(GameAction.財産観測切替,     Key.W,         InputContext.共通, alt: true),
             new InputBinding(GameAction.ポーズ,         Key.Space,     InputContext.会戦),
             new InputBinding(GameAction.倍速等速,       Key.Digit1,    InputContext.会戦),
             new InputBinding(GameAction.倍速2倍,        Key.Digit2,    InputContext.会戦),
@@ -288,6 +290,7 @@ namespace Ginei
             { GameAction.政府観測切替,   "政府オブザーバを開く / 閉じる（要職任命・省庁ツリー・首班・文民統制）" },
             { GameAction.造船観測切替,   "造船オブザーバを開く / 閉じる（造船所・建艦キュー・進捗・完成見込み）" },
             { GameAction.人物動態観測切替, "人物動態オブザーバを開く / 閉じる（年齢/死亡・捕虜・在野・職分）" },
+            { GameAction.財産観測切替,   "財産オブザーバを開く / 閉じる（純資産・現金/ネームド資産/金融持分/土地・所有者別）" },
             { GameAction.イベント観測切替, "イベントオブザーバを開く / 閉じる（内政イベントの提示中/保留/発火回数）" },
             { GameAction.官僚機構観測切替, "官僚機構オブザーバを開く / 閉じる（省庁ツリー 省⊃庁/局・配属官僚・行政効率・省益）" },
             { GameAction.研究観測切替,     "研究ツリーオブザーバを開く / 閉じる（軍事/生産/情報/社会の技術依存ツリー・習得/研究中/解禁可能）" },

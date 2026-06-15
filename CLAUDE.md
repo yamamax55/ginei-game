@@ -175,6 +175,7 @@
 | `ShipyardObserverOverlay` | 造船オブザーバ（観測オーバーレイ・**造船ヒーロー表示**・#884）。**Alt+B**（上メニュー「造船」）。勢力ごとに造船所数/稼働/キュー総数＋稼働中の建艦オーダー（`BuildOrder` 艦種/役割・進捗・残）を `GalaxyView.Shipyards` から集約＋**軍産複合体（`MilitaryIndustrialRules`＝造船利権の政治圧力/補助金/調達腐敗/戦争バイアス・MCN-4 #1389/CAP-3 #204）**。建艦パイプラインの可視化（完成は艦艇プール B へ就役）。**観測専用**。詳細は「観測層」節。 |
 | `PersonnelDynamicsObserverOverlay` | 人物動態オブザーバ（観測オーバーレイ・**人物動態ヒーロー表示**・LIFE #151-154）。**Alt+L**（上メニュー「人物動」）。勢力ごとに `CommanderRoster`＋`CivilianRoster` を集計し 存命/死亡/捕虜/行方不明（`CaptiveStatus`）/在野・平均年齢（`LifecycleRules.Age`・`GalaxyView.CampaignYear`）・職分内訳（`PersonVocationRules.VocationOf`）。P の時系列・処遇版。**観測専用**。詳細は「観測層」節。 |
 | `ChronicleObserverOverlay` | イベントオブザーバ（観測オーバーレイ・**事象ヒーロー表示**・#116）。**Alt+D**（上メニュー「事象」）。`GalaxyView.PolicyEngine`（`EventEngine`）の提示中イベント/保留件数を映す。`DisclosureLedger`（#495）は未配線（観測対象なしと明示）。**観測専用**。詳細は「観測層」節。 |
+| `WealthObserverOverlay` | 財産オブザーバ（観測オーバーレイ・**財産ヒーロー表示**・#2056/#2063/#2070）。**Alt+W**。勢力・人物・企業の**純資産**（現金＋ネームド資産＋金融持分＋土地）を所有者別に集約（`NetWorthRules`＝横断集計）。国庫/国有資産・民間総資産・純資産上位の司令（内訳＋財産特性）・企業（資本＋保有資産）。配当/地代#2070→財産・資産市場#2056 で動く富の分布を映す。**観測専用**。詳細は「観測層」節。 |
 
 ### 戦略レイヤー（Phase C／純ロジックは test-first）
 > 銀河グラフ（星系＝ノード／回廊＝エッジ）上を戦略艦隊が時限ワープで移動し、敵対勢力に挟まれた回廊（前線）では亜光速で侵入→接触で実会戦（Battle シーン）に移行する。**敵対判定は `FactionRelations`、艦在庫は `StrategicFleetRegistry`、戦闘ロジックは `StrategyRules`（static）が唯一の窓口**。非 MonoBehaviour の純データ/純ロジックは EditMode テストで担保（`Assets/Tests/EditMode`）。
@@ -322,7 +323,7 @@
 
 ## 観測層（デバッグ可視化・Core生成に自動追従）
 > Core の純ロジック（社会・政治シミュ層 等）が盤面で何を計算しているかを**眺める窓**＝第1層「観測化」。操作はさせない（read-only）。狙いは「Core は増えるが何も見えない」乖離を構造的に潰すこと＝**生成と観測を歩調させる**。
-- 窓口は21（G/J/M/N/E/L/U/B＋外交Y/政治O/兵站Q/人口Z/労働X＋財政Alt+F/生産Alt+P/政府Alt+G/造船Alt+B/人物動態Alt+L/イベントAlt+D/官僚Alt+K/研究Alt+R。ほか 決裁K・人物P。単一文字キーは A〜Z 使い切ったため第2弾は Alt＋文字＝上メニューからも開ける。いずれも Strategy/Battle に自動生成・**状態は一切変えない**）：
+- 窓口は22（G/J/M/N/E/L/U/B＋外交Y/政治O/兵站Q/人口Z/労働X＋財政Alt+F/生産Alt+P/政府Alt+G/造船Alt+B/人物動態Alt+L/イベントAlt+D/官僚Alt+K/研究Alt+R/財産Alt+W。ほか 決裁K・人物P。単一文字キーは A〜Z 使い切ったため第2弾は Alt＋文字＝上メニューからも開ける。いずれも Strategy/Battle に自動生成・**状態は一切変えない**）：
   - `CampaignObserverOverlay`（**G**）＝国家状態の手仕上げヒーロー表示（`StrategySession.Campaign` の `FactionState` を意味づけして見せる）。
   - `CoreStateInspector`（**J**）＝**登録ルートをリフレクションで全ダンプする汎用版**。既定ルート＝`StrategySession.Campaign`/`Provinces`/`Clock`＋軍系 static ストア（`FleetPool`/`FleetRoster`/`OrderOfBattle`）＋`NotificationCenter.All`。
   - `MilitaryObserverOverlay`（**M**）＝軍の手仕上げヒーロー表示。勢力ごとに `FleetPool`（保有総艦艇）／`OrderOfBattle`（編制ツリー＝司令の階級ゲート可視化）／`FleetRoster`（艦隊台帳＝指揮班・兵力）＋`CommandStaffRules` の実効能力を集約（#146/#147/#148/#885）。
@@ -344,6 +345,7 @@
   - `ShipyardObserverOverlay`（**Alt+B**・上メニュー「造船」）＝造船のヒーロー表示（#884）。勢力ごとに造船所数/稼働数/キュー総数＋稼働中の建艦オーダー（`BuildOrder` 艦種/役割・進捗バー・残）を `GalaxyView.Shipyards` から集約。完成は艦艇プール（B）へ就役＝建艦パイプラインの可視化。**軍産複合体（`MilitaryIndustrialRules`・MCN-4 #1389/CAP-3 #204）**＝造船利権（造船所数×軍事省益#158）の政治圧力→建艦補助金（建艦加速）・調達腐敗（国庫漏れ）・戦争バイアス（外交好戦化＝`RunDiplomacyTick`）・平和の倒錯（複合体は平時に民心翳る #204）も表示。`GalaxyView.RunFiscalYearTick`（年次）が圧力を更新。
   - `PersonnelDynamicsObserverOverlay`（**Alt+L**・上メニュー「人物動」）＝人物動態のヒーロー表示（LIFE #151-154）。勢力ごとに `GalaxyView.CommanderRoster`＋`CivilianRoster` を集計し 存命/死亡（`Person.IsDeceased`）/捕虜/行方不明（`CaptiveStatus`）/在野（`isFreeAgent`）・平均年齢（`LifecycleRules.Age`）・職分内訳（`PersonVocationRules.VocationOf`）。P（能力スナップショット）の時系列・処遇版。
   - `ChronicleObserverOverlay`（**Alt+D**・上メニュー「事象」）＝イベントのヒーロー表示（#116）。`GalaxyView.PolicyEngine`（`EventEngine`）の提示中イベント/保留件数を映す。開示エンジン（`DisclosureLedger`・#495）は現在未配線（観測対象なしと明示）。
+  - `WealthObserverOverlay`（**Alt+W**・財産）＝財産のヒーロー表示（#2056/#2063/#2070）。勢力・人物・企業の**純資産**（現金＋ネームド資産＋金融持分＋土地）を所有者別に集約＝`NetWorthRules`（横断集計＝`NamedAssetValue`/`HoldingsValue`/`LandValue`/`AssetValue`/`NetWorth`）。国庫/国有資産、民間総資産、純資産上位の司令（現金/金融/土地/資産の内訳＋財産特性[貯金/投資/浪費]）、企業（資本＋保有資産）。配当/地代#2070→財産・資産市場#2056 の売買で動く**富の分布**を映す＝生成した財産状態の観測窓。**観測専用**。
 - **汎用インスペクタは再帰ダンプ**＝既存ルートから**到達できる state は自動で表示される**。新しい Core 型を既存ルート配下（`CampaignState`/`FactionState`/`Province` 等）にぶら下げたら **Register 不要**（再帰で勝手に出る）。
 - **★規約（新しい Core state を実装したら）**：以下は Game 層 `CoreStateInspector.cs` への追記のみ＝**Core 純ロジックは read-only のまま**。自動コード化ルーチンも Core state 型を生やすたびにこの2点を同時に行う。
   1. **独立した新ルート**（既存ルートから到達できない static 保管庫等）を作ったときだけ、`CoreStateInspector.Register("ラベル", () => 対象)` を1行足す。既存ルート配下なら不要。

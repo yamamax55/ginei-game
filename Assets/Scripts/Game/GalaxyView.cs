@@ -19,7 +19,8 @@ namespace Ginei
     public partial class GalaxyView : MonoBehaviour
     {
         [Header("見た目")]
-        public float systemScale = 0.8f;
+        [Tooltip("星系（惑星）の円のサイズ。ラベル位置も追従する")]
+        public float systemScale = 1.2f;
         public float fleetScale = 0.4f;
         public Color empireColor = new Color(0.85f, 0.3f, 0.25f);
         public Color allianceColor = new Color(0.3f, 0.5f, 0.9f);
@@ -124,6 +125,7 @@ namespace Ginei
         private TextMesh battleTooltipText;
         private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
         private Vector2 lastClickWorld;
+        private bool leftPressIsDouble;    // 今回の左押下がダブルクリックの2打目か（押下時に判定＝ダブルクリック＋ドラッグで矩形選択）
         private SpriteRenderer backdrop;    // 背景星雲（galaxy_backdrop・視野追従）
         private bool leftDragging;          // 左ドラッグ中（クリック判定は離した時＝誤選択防止。星系は動かさない）
         private Vector2 leftPressScreen;    // 左押下時のスクリーン座標（ドラッグ判定の起点）

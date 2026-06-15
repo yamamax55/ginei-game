@@ -127,26 +127,53 @@ namespace Ginei
                 midPanning = false;
             }
 
-            // 左ボタン：ドラッグで艦隊の矩形選択（マーキー）／小さく押して離せばクリック（選択/ダブルクリック）。
-            // 確定は「離した時」＝ドラッグと単クリックが競合しない。押し始めが UI 上なら一切マップに渡さない。
-            // ※マップのスクロールは中ボタンドラッグ・WASD/矢印・画面端で（左ドラッグは選択に充てる）。
+            // 左ボタン：①単独ドラッグ＝マップスクロール ②ダブルクリック＋ドラッグ＝艦隊の矩形選択（マーキー）
+            // ③小さく押して離す＝単クリック選択 ④ダブルクリック（ドラッグなし）＝潜行/突入/閲覧。
+            // 確定は「離した時」＝各操作が競合しない。押し始めが UI 上なら一切マップに渡さない。
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
                 leftPressScreen = Mouse.current.position.ReadValue();
                 leftDragging = false;
                 leftPressOverUI = PointerOverUI();
+                // この押下がダブルクリックの2打目か（直前の単クリックから時間内＆近接）＝ドラッグで矩形選択に入る。
+                leftPressIsDouble = (Time.realtimeSinceStartup - lastClickTime <= doubleClickWindow)
+                                    && Vector2.Distance(WorldMouse(), lastClickWorld) <= 0.6f;
             }
             else if (Mouse.current.leftButton.isPressed && !leftPressOverUI)
             {
                 Vector2 cur = Mouse.current.position.ReadValue();
                 if (!leftDragging && Vector2.Distance(cur, leftPressScreen) > dragThresholdPixels)
                     leftDragging = true;
-                if (leftDragging) UpdateMarquee(cur); // 矩形選択の枠を更新（スクロールしない）
+                if (leftDragging)
+                {
+                    if (leftPressIsDouble) UpdateMarquee(cur);   // ダブルクリック＋ドラッグ＝矩形選択（スクロールしない）
+                    else ScrollViewByMouseDelta();               // 単独ドラッグ＝マップスクロール（復活）
+                }
             }
             else if (Mouse.current.leftButton.wasReleasedThisFrame)
             {
-                if (!leftPressOverUI && leftDragging) DoMarqueeSelect(Mouse.current.position.ReadValue()); // 矩形内の艦隊を選択
-                else if (!leftPressOverUI && !leftDragging) DoLeftClick(WorldMouse());                    // ドラッグでなければクリック確定
+                if (!leftPressOverUI)
+                {
+                    if (leftDragging)
+                    {
+                        if (leftPressIsDouble) DoMarqueeSelect(Mouse.current.position.ReadValue()); // 矩形内の艦隊を選択
+                        // 単独ドラッグはスクロール済み＝クリック扱いしない
+                    }
+                    else if (leftPressIsDouble)
+                    {
+                        // ダブルクリック（ドラッグなし）＝潜行＞攻城突入＞システムビュー（短絡＝先に成立した1つだけ）
+                        Vector2 w = WorldMouse();
+                        bool _ = TryDescend(w) || TryDescendPlanet(w) || TryEnterSystem(w);
+                        lastClickTime = -1f; // 3連クリックで連鎖しないようリセット
+                    }
+                    else
+                    {
+                        // 単クリック＝選択（次のダブルクリック判定のため時刻/位置を記録）。
+                        Vector2 w = WorldMouse();
+                        SelectAtClick(w);
+                        lastClickTime = Time.realtimeSinceStartup; lastClickWorld = w;
+                    }
+                }
                 leftDragging = false;
                 ClearMarquee();
             }
@@ -184,15 +211,9 @@ namespace Ginei
             }
         }
 
-        /// <summary>左クリック確定（離した時に呼ぶ＝ドラッグと非競合）。ダブルクリックで潜行/突入/閲覧、単クリックで選択。</summary>
-        private void DoLeftClick(Vector2 w)
+        /// <summary>単クリックの選択処理（最寄り艦隊を選択／空クリックで解除・Shiftで追加トグル）。ダブルクリック判定は呼び出し側。</summary>
+        private void SelectAtClick(Vector2 w)
         {
-            // ダブルクリック判定（実時間・近接）→ 交戦回廊への潜行＞攻城突入＞平時の星系をシステムビューで閲覧
-            float now = Time.realtimeSinceStartup;
-            bool dbl = (now - lastClickTime <= doubleClickWindow) && Vector2.Distance(w, lastClickWorld) <= 0.6f;
-            lastClickTime = now; lastClickWorld = w;
-            if (dbl && (TryDescend(w) || TryDescendPlanet(w) || TryEnterSystem(w))) return;
-
             bool additive = ShiftHeld();
             StrategicFleet nf = NearestFleet(w, 0.7f);
             if (nf != null)

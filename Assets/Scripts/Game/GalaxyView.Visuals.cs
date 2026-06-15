@@ -97,7 +97,7 @@ namespace Ginei
             // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示（バナー直下）
             policyLine = MakeLabel(transform, "", new Vector3(0f, 6.6f, 0f), 0.7f).GetComponent<TextMesh>();
             policyLine.color = new Color(0.85f, 0.9f, 0.7f);
-            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 左ドラッグ:矩形選択 / 中ドラッグ・WASD:スクロール / 回廊ダブルクリック:潜行 / 星系ダブルクリック:システムビュー / 右ク:進軍 / I:星系情報 / +/-・1・2・3:速度 / Space:停止",
+            helpLine = MakeLabel(transform, "左ク:選択(Shift追加) / 左ドラッグ:スクロール / ダブルクリック＋ドラッグ:矩形選択 / 回廊ダブルクリック:潜行 / 星系ダブルクリック:システムビュー / 右ク:進軍 / I:星系情報 / +/-・1・2・3:速度 / Space:停止",
                 new Vector3(0f, -7.4f, 0f), 0.7f).GetComponent<TextMesh>();
             helpLine.color = new Color(0.7f, 0.7f, 0.8f);
         }

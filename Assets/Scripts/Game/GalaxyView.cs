@@ -124,6 +124,7 @@ namespace Ginei
         private TextMesh battleTooltipText;
         private float lastClickTime = -1f; // ダブルクリック判定用（実時間）
         private Vector2 lastClickWorld;
+        private bool leftPressIsDouble;    // 今回の左押下がダブルクリックの2打目か（押下時に判定＝ダブルクリック＋ドラッグで矩形選択）
         private SpriteRenderer backdrop;    // 背景星雲（galaxy_backdrop・視野追従）
         private bool leftDragging;          // 左ドラッグ中（クリック判定は離した時＝誤選択防止。星系は動かさない）
         private Vector2 leftPressScreen;    // 左押下時のスクリーン座標（ドラッグ判定の起点）

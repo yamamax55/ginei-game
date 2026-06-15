@@ -636,6 +636,9 @@ namespace Ginei
         /// <summary>企業のネームドID（勢力×セクターで決定論・株式 underlyingId/法人所有の参照キー）。</summary>
         private static int EnterpriseId(Faction fac, int sectorIndex) => 1000 + (int)fac * 10 + sectorIndex;
 
+        /// <summary>財産売買（#2063/#2070）の決済窓口＝人物財産#2056/国庫#163/企業資本#1022 の解決子を束ねた資金アクセス。</summary>
+        public FundsAccess MarketFunds() => new FundsAccess(ResolveCommander, ResolveEnterprise, StateOf);
+
         /// <summary>ネームドIDから企業を解決（法人所有の配当/地代を企業資本へ流す・観測用）。未生成/不在は null。</summary>
         public Enterprise ResolveEnterprise(int enterpriseId)
         {

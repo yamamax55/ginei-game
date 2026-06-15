@@ -24,6 +24,11 @@ namespace Ginei
         public static OwnerRef State(Faction f) => new OwnerRef(AssetOwnerKind.国家, faction: f);
         public static OwnerRef Enterprise(int id) => new OwnerRef(AssetOwnerKind.企業, enterpriseId: id);
 
+        /// <summary>権利証/資産/金融持分の所有者を OwnerRef として読む。</summary>
+        public static OwnerRef FromDeed(PropertyDeed d) => d == null ? default : new OwnerRef(d.ownerKind, d.ownerPersonId, d.ownerFaction, d.ownerEnterpriseId);
+        public static OwnerRef FromAsset(NamedAsset a) => a == null ? default : new OwnerRef(a.ownerKind, a.ownerPersonId, a.ownerFaction, a.ownerEnterpriseId);
+        public static OwnerRef FromHolding(FinancialHolding h) => h == null ? default : new OwnerRef(h.ownerKind, h.ownerPersonId, h.ownerFaction, h.ownerEnterpriseId);
+
         /// <summary>所有者キー（"P:id"／"F:faction"／"E:id"）。</summary>
         public string Key =>
             kind == AssetOwnerKind.人物 ? $"P:{personId}" :
@@ -41,6 +46,18 @@ namespace Ginei
             }
         }
 
+        /// <summary>ネームド資産/金融持分がこの所有者のものか。</summary>
+        public bool Owns(NamedAsset a)
+        {
+            if (a == null || a.ownerKind != kind) return false;
+            switch (kind) { case AssetOwnerKind.人物: return a.ownerPersonId == personId; case AssetOwnerKind.企業: return a.ownerEnterpriseId == enterpriseId; default: return a.ownerFaction == faction; }
+        }
+        public bool Owns(FinancialHolding h)
+        {
+            if (h == null || h.ownerKind != kind) return false;
+            switch (kind) { case AssetOwnerKind.人物: return h.ownerPersonId == personId; case AssetOwnerKind.企業: return h.ownerEnterpriseId == enterpriseId; default: return h.ownerFaction == faction; }
+        }
+
         /// <summary>権利証へ所有者を書き込む。</summary>
         public void ApplyTo(PropertyDeed d)
         {
@@ -49,6 +66,20 @@ namespace Ginei
             d.ownerPersonId = personId;
             d.ownerFaction = faction;
             d.ownerEnterpriseId = enterpriseId;
+        }
+
+        /// <summary>ネームド資産へ所有者を書き込む。</summary>
+        public void ApplyTo(NamedAsset a)
+        {
+            if (a == null) return;
+            a.ownerKind = kind; a.ownerPersonId = personId; a.ownerFaction = faction; a.ownerEnterpriseId = enterpriseId;
+        }
+
+        /// <summary>金融持分へ所有者を書き込む。</summary>
+        public void ApplyTo(FinancialHolding h)
+        {
+            if (h == null) return;
+            h.ownerKind = kind; h.ownerPersonId = personId; h.ownerFaction = faction; h.ownerEnterpriseId = enterpriseId;
         }
     }
 }

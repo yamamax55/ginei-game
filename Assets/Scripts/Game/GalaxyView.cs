@@ -129,6 +129,9 @@ namespace Ginei
         private Vector2 leftPressScreen;    // 左押下時のスクリーン座標（ドラッグ判定の起点）
         private bool midPanning;            // 中ボタンドラッグでスクロール中
         private bool leftPressOverUI;       // 左押下が UI 上で始まったか（その間マップを動かさない）
+        private LineRenderer marqueeLine;   // 矩形選択の枠（左ドラッグ中のみ表示）
+        [Tooltip("矩形選択（左ドラッグ）の枠の色")]
+        public Color marqueeColor = new Color(0.4f, 1f, 0.55f, 0.9f);
         private bool midPressOverUI;        // 中押下が UI 上で始まったか
         private float zoomTarget;           // ホイールズームの目標 orthographicSize（滑らかに追従）
         private bool zoomInit;              // zoomTarget 初期化済みか

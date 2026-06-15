@@ -600,6 +600,11 @@ namespace Ginei
             // 財政の年（#161-163 配線）：予算編成→形式財政（債務/利払い）で予算と執行の1年を閉じる。
             RunFiscalYearTick();
 
+            // 軍の年（練度#練度／軍需兵站#2049／兵器産業#2020）：歴戦の艦隊が育ち、備蓄から軍需を消費し（払底で干上がる）、兵器メーカーが戦力を供給。
+            RunVeterancyTick();
+            RunMilitarySupplyConsumptionTick();
+            RunWeaponsIndustryTick();
+
             // 惑星の不動産基盤（#2019 惑星層）：各惑星の地価/賃料/地価指数（バブル）を素地から進める（金融危機で崩壊）。
             RunPlanetRealEstateTick();
 

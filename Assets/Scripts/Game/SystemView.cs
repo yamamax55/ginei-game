@@ -73,7 +73,8 @@ namespace Ginei
             public float angle;        // 現在の公転角(rad)
             public float angularSpeed; // 公転角速度(rad/s・ケプラー則で外側ほど小)
             public Transform planetTf; // 惑星GameObject（位置を動かす）
-            public Transform labelTf;  // 「第N惑星」ラベル（惑星に追従）
+            public Transform labelTf;  // 惑星名ラベル（惑星に追従）
+            public string planetName;  // 惑星の固有名（日本神話ベース・MythicPlanetNames）
             public Province province;  // 惑星単位の内政（単一の真実・#767）
         }
 
@@ -293,7 +294,7 @@ namespace Ginei
             Province p = e.province;
             int output = Mathf.RoundToInt(GovernanceRules.OutputFactor(p) * 100f);
             string unrest = GovernanceRules.IsUnrest(p) ? "　▲反乱リスク" : "";
-            return $"第{Ordinal(e.index + 1)}惑星\n" +
+            return $"{e.planetName}（第{Ordinal(e.index + 1)}惑星）\n" +
                    $"住民思想: {p.nativeIdeology}\n" +
                    $"人口: {Mathf.RoundToInt(p.population)}\n" +
                    $"安定度: {Mathf.RoundToInt(p.stability)}%{unrest}\n" +
@@ -303,9 +304,14 @@ namespace Ginei
                    FormatPlanetDemographics(p) +
                    FormatPlanetOccupation(p) +
                    FormatPlanetConsumption(p) +
+                   FormatPlanetInfrastructure(p) +
                    FormatPlanetRealEstate(p) +
                    FormatPlanetStrategic(p);
         }
+
+        // インフラ普及率（#2021 惑星層）：電気/ガス/水道がどれだけ住民に行き渡るか（0..100%）。
+        private static string FormatPlanetInfrastructure(Province p)
+            => $"\nインフラ普及率 {Mathf.RoundToInt(Mathf.Clamp01(p.infrastructure) * 100f)}%";
 
         // 惑星の不動産基盤（#2019 惑星層）：地価・賃料・価格/賃料倍率（バブル）。素地（人口/安定度/生活水準/類型）から導出。
         private static string FormatPlanetRealEstate(Province p)
@@ -428,6 +434,12 @@ namespace Ginei
 
         private void UpdateAggregate()
         {
+            if (aggregateLabel != null) aggregateLabel.text = BuildAggregateText();
+        }
+
+        /// <summary>星系の集約サマリ文字列（#767 集約）。aggregateLabel と情報タブ（<see cref="BuildInfoDump"/>）で共用。</summary>
+        private string BuildAggregateText()
+        {
             var provinces = new List<Province>(planets.Count);
             foreach (var e in planets) provinces.Add(e.province);
             SystemGovernance g = GovernanceRules.AggregateSystem(provinces);
@@ -456,12 +468,29 @@ namespace Ginei
                 ? "\n希少資源/秒　" + string.Join(" / ", stratParts)
                 : "\n希少資源：なし（偏在＝この星系には鉱床なし）";
 
-            aggregateLabel.text = $"星系全体（{g.planetCount}惑星の集約）" +
+            return $"星系全体（{g.planetCount}惑星の集約）" +
                 $"　安定度 {Mathf.RoundToInt(g.weightedStability)}%" +
                 $"　人口 {Mathf.RoundToInt(g.totalPopulation)}" +
                 $"　支配思想 {g.dominantIdeology}{unrest}\n" +
                 $"資源産出/秒　物資 {sup:0.#} / 弾薬 {amm:0.#} / 燃料 {fue:0.#}" +
                 stratLine;
+        }
+
+        /// <summary>
+        /// 情報タブ用（#星系図情報タブ）：一番上に星系サマリ、その下に各惑星の内政を順に並べた1つの文字列を返す。
+        /// `SystemMapWindow` の「情報」タブが表示に使う（観測・read-only）。
+        /// </summary>
+        public string BuildInfoDump()
+        {
+            var sb = new System.Text.StringBuilder(1024);
+            sb.Append("◆ ").Append(systemName).Append('\n');
+            sb.Append(BuildAggregateText());
+            for (int i = 0; i < planets.Count; i++)
+            {
+                sb.Append("\n\n──────────────\n");
+                sb.Append(FormatPlanetInfo(planets[i]));
+            }
+            return sb.ToString();
         }
 
         private void BuildOrbitRing(float radius, int index)
@@ -502,12 +531,13 @@ namespace Ginei
                 ? planetColors[index % planetColors.Length] : Color.white;
             sr.sortingOrder = -42;
 
-            // 「第N惑星」ラベル（惑星のスケールに引きずられないよう root の子にする）
+            // 惑星名ラベル（日本神話ベースの固有名・惑星のスケールに引きずられないよう root の子にする）
+            string planetName = MythicPlanetNames.For(systemId, index);
             var labelGo = new GameObject($"Planet{index + 1}Label");
             labelGo.transform.SetParent(transform, false);
             labelGo.transform.localPosition = pos + new Vector3(0f, planetScale * 0.9f + 0.3f, 0f);
             var tm = labelGo.AddComponent<TextMesh>();
-            tm.text = $"第{Ordinal(index + 1)}惑星";
+            tm.text = planetName;
             tm.font = FontProvider.JapaneseFont;
             tm.fontSize = 36; tm.characterSize = 0.1f;
             tm.anchor = TextAnchor.LowerCenter; tm.alignment = TextAlignment.Center;
@@ -520,7 +550,7 @@ namespace Ginei
             planets.Add(new PlanetEntry
             {
                 index = index, pos = pos, radius = radius, angle = angle, angularSpeed = omega,
-                planetTf = go.transform, labelTf = labelGo.transform,
+                planetTf = go.transform, labelTf = labelGo.transform, planetName = planetName,
                 province = GeneratePlanetProvince(index)
             });
         }

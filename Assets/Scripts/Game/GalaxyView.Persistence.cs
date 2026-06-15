@@ -74,6 +74,7 @@ namespace Ginei
             FinancialHoldingRegistry.Clear();
             PropertyDeedRegistry.Clear();
             LandLeaseRegistry.Clear(); // 土地賃貸借（貸出基盤#2019）も戦役固有
+            CollateralLoanRegistry.Clear(); // 資産担保融資（#186）も戦役固有
         }
 
         /// <summary>

@@ -452,6 +452,85 @@ namespace Ginei
             LandTransactionRules.ExpireDue(campaignYear);
         }
 
+        // --- 公益事業（電気/ガス/水道・#2021）とインフラ普及率（惑星層）の配線 ---
+        private readonly System.Collections.Generic.Dictionary<Faction, Utility[]> utilities
+            = new System.Collections.Generic.Dictionary<Faction, Utility[]>();
+        private static readonly UtilityType[] UtilityTypes = { UtilityType.電気, UtilityType.ガス, UtilityType.水道 };
+        private const float UtilityReserveMargin = 1.1f;   // 供給能力＝接続需要×これ（予備率）
+        private const float UtilityInvestSpeed = 0.25f;    // 能力が需要へ追いつく速さ（設備投資のラグ）
+        private const float InfraLivingMin = 0.85f;        // インフラ未整備でも生活水準は min まで（緩やか）
+        private const float InfraStabilityScale = 4f;      // 普及率→安定度の±スケール
+        private readonly System.Collections.Generic.HashSet<Faction> utilityBlackout = new System.Collections.Generic.HashSet<Faction>();
+
+        /// <summary>勢力の公益事業（電気/ガス/水道・#2021）。観測層専用＝read-only。</summary>
+        public System.Collections.Generic.IReadOnlyList<Utility> GetUtilities(Faction faction)
+            => utilities.TryGetValue(faction, out var u) ? u : null;
+
+        /// <summary>公益事業の1人あたり需要（電気が最大・水道・ガスの順）。</summary>
+        private static float PerCapitaUtilityDemand(UtilityType t)
+        {
+            switch (t) { case UtilityType.電気: return 0.012f; case UtilityType.水道: return 0.008f; default: return 0.005f; }
+        }
+
+        /// <summary>
+        /// 公益事業とインフラ普及率の年次（#2021 配線）：勢力ごとに電気/ガス/水道の接続需要（人口×普及率）に供給能力を投資で追従させ、
+        /// 能力不足は停電/断水（安定度を蝕む）。各惑星のインフラ普及率を供給余力＋安定度から目標へ収束させ、生活水準#181/安定度#109 を底上げ。
+        /// 数式は <see cref="UtilityRules"/>/<see cref="InfrastructureRules"/> へ委譲。惑星×集約（個別配電網へ降りない＝タイクン化回避）。
+        /// </summary>
+        private void RunUtilityInfrastructureTick()
+        {
+            if (map == null || provinces == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                var owned = new System.Collections.Generic.List<Province>();
+                foreach (var s in map.systems)
+                    if (s != null && s.owner == fac && provinces.TryGetValue(s.id, out var pv) && pv != null) owned.Add(pv);
+                if (owned.Count == 0) continue;
+
+                if (!utilities.TryGetValue(fac, out var us) || us == null)
+                {
+                    us = new Utility[UtilityTypes.Length];
+                    for (int t = 0; t < UtilityTypes.Length; t++)
+                        us[t] = new Utility($"{fac}{UtilityTypes[t]}", UtilityTypes[t], faction: fac);
+                    utilities[fac] = us;
+                }
+
+                // 種別ごとに接続需要を集計し、供給能力を投資で追従。最弱の供給余力を全体余力とする。
+                float overallAdequacy = 2f;
+                bool blackout = false;
+                for (int t = 0; t < UtilityTypes.Length; t++)
+                {
+                    float perCap = PerCapitaUtilityDemand(UtilityTypes[t]);
+                    float demand = 0f;
+                    for (int i = 0; i < owned.Count; i++)
+                        demand += InfrastructureRules.ConnectedDemand(owned[i].population, perCap, owned[i].infrastructure);
+                    Utility u = us[t];
+                    u.demand = demand;
+                    float targetCap = demand * UtilityReserveMargin;
+                    if (u.capacity <= 0f) u.capacity = targetCap;                  // 初期は需要を満たす能力からスタート
+                    else u.capacity += (targetCap - u.capacity) * UtilityInvestSpeed; // 投資で需要へ追従（ラグ）
+                    u.rateBase = UtilityRules.RateBaseAfterInvestment(u.rateBase, Mathf.Max(0f, targetCap - u.capacity)); // 規制資産は設備投資の累積
+                    overallAdequacy = Mathf.Min(overallAdequacy, InfrastructureRules.CapacityAdequacy(u.capacity, demand));
+                    if (UtilityRules.IsBlackout(demand, u.capacity)) blackout = true;
+                }
+                // 停電/断水の通知（エッジ検出・回復で解除）。
+                if (blackout && utilityBlackout.Add(fac))
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"{fac} 停電/断水（公益事業の供給能力不足）＝安定度低下");
+                else if (!blackout) utilityBlackout.Remove(fac);
+
+                // 各惑星のインフラ普及率を目標へ収束＋生活水準#181/安定度#109 へ反映。
+                for (int i = 0; i < owned.Count; i++)
+                {
+                    Province pv = owned[i];
+                    float target = InfrastructureRules.PenetrationTarget(overallAdequacy, pv.stability / 100f);
+                    pv.infrastructure = InfrastructureRules.TickPenetration(pv.infrastructure, target, InfrastructureRules.DefaultPenetrationSpeed);
+                    pv.livingStandard = Mathf.Clamp01(pv.livingStandard * InfrastructureRules.LivingStandardFactor(pv.infrastructure, InfraLivingMin));
+                    pv.stability = Mathf.Clamp(pv.stability + InfrastructureRules.StabilityBonus(pv.infrastructure, InfraStabilityScale), 0f, 100f);
+                }
+            }
+        }
+
         /// <summary>星系が前線か（敵対勢力に隣接・配線ループ#8）。</summary>
         private bool IsFrontline(StarSystem sys)
         {
@@ -687,6 +766,179 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{fac} 財産税 {collected:0}（固定資産税＋富裕税）→国庫");
                 }
             }
+        }
+
+        /// <summary>担保ローンのデモ金利。</summary>
+        private const float CollateralLoanRate = 0.05f;
+
+        /// <summary>
+        /// 資産担保融資の年次（#186/#2070 配線）：司令が土地を担保に国家から借り入れ（デモは遅延シード1件）、毎年利払いし、
+        /// 担保（土地）の時価が借入を割ると差し押さえ＝担保が国家へ移る。利払い/差し押さえの資金移転は <see cref="MarketFunds"/>/
+        /// <see cref="LandTransactionRules"/>、判定は <see cref="CollateralLoanRules"/> へ委譲＝財産を信用#186 に裏付ける流動化手段。
+        /// </summary>
+        private void RunCollateralLoanTick()
+        {
+            if (commanders == null) return;
+            var cp = CollateralLoanRules.CollateralParams.Default;
+            FundsAccess funds = MarketFunds();
+            if (CollateralLoanRegistry.All.Count == 0) SeedCollateralLoanDemo(cp);
+
+            var all = CollateralLoanRegistry.All;
+            var foreclosed = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < all.Count; i++)
+            {
+                CollateralLoan loan = all[i];
+                if (loan == null) continue;
+                loan.collateralValue = PledgedLandValue(loan);                          // 担保を時価で更新
+                float interest = CollateralLoanRules.AnnualInterest(loan.principal, loan.interestRate);
+                float pay = Mathf.Min(interest, funds.Get(loan.Borrower));
+                if (pay > 0f) { funds.Add(loan.Borrower, -pay); funds.Add(loan.Lender, pay); }
+                if (pay < interest) loan.principal += (interest - pay);                  // 未払い利息は元本へ（複利で膨らむ）
+                if (CollateralLoanRules.IsUnderwater(loan.principal, loan.collateralValue, cp))
+                {
+                    ForecloseLand(loan);                                                 // 担保割れ＝担保を貸し手へ差し押さえ
+                    foreclosed.Add(loan.id);
+                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"資産担保融資の差し押さえ（担保割れ・借入 {loan.principal:0}）→ 担保は貸し手へ");
+                }
+            }
+            for (int i = 0; i < foreclosed.Count; i++) CollateralLoanRegistry.Remove(foreclosed[i]);
+        }
+
+        /// <summary>担保（借り手の当該星系の土地）の時価合計。</summary>
+        private static float PledgedLandValue(CollateralLoan loan)
+        {
+            if (loan == null || loan.pledgedSystemId < 0) return loan != null ? loan.collateralValue : 0f;
+            var deeds = BorrowerDeeds(loan);
+            float sum = 0f;
+            for (int i = 0; i < deeds.Count; i++)
+                if (deeds[i] != null && deeds[i].systemId == loan.pledgedSystemId) sum += PropertyValuationRules.DeedValue(deeds[i]);
+            return sum;
+        }
+
+        /// <summary>差し押さえ：借り手の担保物件（当該星系の土地）を貸し手へ移す。</summary>
+        private static void ForecloseLand(CollateralLoan loan)
+        {
+            if (loan == null || loan.pledgedSystemId < 0) return;
+            var deeds = BorrowerDeeds(loan);
+            for (int i = 0; i < deeds.Count; i++)
+            {
+                PropertyDeed d = deeds[i];
+                if (d != null && d.systemId == loan.pledgedSystemId && d.share > 0f)
+                    LandTransactionRules.TransferShare(d, loan.Lender, d.share); // 全持分を貸し手へ
+            }
+        }
+
+        private static System.Collections.Generic.List<PropertyDeed> BorrowerDeeds(CollateralLoan loan)
+        {
+            switch (loan.borrowerKind)
+            {
+                case AssetOwnerKind.人物: return PropertyDeedRegistry.OwnedByPerson(loan.borrowerPersonId);
+                case AssetOwnerKind.企業: return PropertyDeedRegistry.OwnedByEnterprise(loan.borrowerEnterpriseId);
+                default: return PropertyDeedRegistry.OwnedByFaction(loan.borrowerFaction);
+            }
+        }
+
+        /// <summary>デモ：土地を持つ司令が国家から担保借入する（借入金は司令の現金へ・国庫から出す）。1件のみ。</summary>
+        private void SeedCollateralLoanDemo(CollateralLoanRules.CollateralParams cp)
+        {
+            var deeds = PropertyDeedRegistry.All;
+            for (int i = 0; i < deeds.Count; i++)
+            {
+                PropertyDeed d = deeds[i];
+                if (d == null || !d.IsPersonOwned || d.share <= 0f) continue;
+                float collateral = PropertyValuationRules.DeedValue(d);
+                if (collateral <= 0f) continue;
+                Person owner = ResolveCommander(d.ownerPersonId);
+                if (owner == null || owner.deathYear != 0) continue;
+                Faction lender = owner.faction;
+                CollateralLoan loan = CollateralLoanRules.Borrow(OwnerRef.Person(d.ownerPersonId), OwnerRef.State(lender),
+                    requestedAmount: collateral, collateralValue: collateral, interestRate: CollateralLoanRate, pledgedSystemId: d.systemId, cp);
+                if (loan == null) continue;
+                FactionState ls = StateOf(lender);
+                owner.wealth += loan.principal;                                  // 借入金を受け取る
+                if (ls != null) ls.treasury = Mathf.Max(0f, ls.treasury - loan.principal); // 国家が貸し出す
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"{lender} 資産担保融資（{Short(owner.name)} が土地を担保に {loan.principal:0} 借入）");
+                return;
+            }
+        }
+
+        private static string Short(string n) => string.IsNullOrEmpty(n) ? "司令" : (n.Length > 8 ? n.Substring(0, 8) : n);
+
+        /// <summary>
+        /// 財産の自動取引（資産市場・#2056 配線）：勢力ごとに司令が財産特性で目標投資比率へ寄せる＝投資型が買い手・浪費型が売り手になり、
+        /// 同勢力内で売買が成立する（投資型が浪費型の持分を買い、現金が移る＝資産分布が創発的に動く）。決定は <see cref="AssetMarketRules"/>、
+        /// 売買/決済は <see cref="AssetTradeRules"/>/<see cref="MarketFunds"/> へ委譲。集約で動かし注文板へ降りない（タイクン化回避）。
+        /// </summary>
+        private void RunAssetMarketTick()
+        {
+            if (commanders == null) return;
+            FundsAccess funds = MarketFunds();
+            int totalTrades = 0;
+            var buyerP = new System.Collections.Generic.List<Person>();
+            var buyerWant = new System.Collections.Generic.List<float>();
+            var sellerP = new System.Collections.Generic.List<Person>();
+            var sellerWant = new System.Collections.Generic.List<float>();
+
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                buyerP.Clear(); buyerWant.Clear(); sellerP.Clear(); sellerWant.Clear();
+                for (int i = 0; i < commanders.Count; i++)
+                {
+                    Person c = commanders[i];
+                    if (c == null || c.faction != fac || c.deathYear != 0) continue;
+                    float reb = AssetMarketRules.AnnualRebalance(c.financialTrait, c.wealth, InvestedValueOf(c.id));
+                    if (reb > 1f) { buyerP.Add(c); buyerWant.Add(reb); }
+                    else if (reb < -1f) { sellerP.Add(c); sellerWant.Add(-reb); }
+                }
+                int bi = 0, si = 0;
+                while (bi < buyerP.Count && si < sellerP.Count)
+                {
+                    Person seller = sellerP[si];
+                    FinancialHolding sh = LargestTradeableHolding(seller.id);
+                    if (sh == null || sh.units <= 0f || sh.unitPrice <= 0f) { si++; continue; }
+                    float cash = Mathf.Min(buyerWant[bi], sellerWant[si]);
+                    float units = cash / sh.unitPrice;
+                    float price = AssetTradeRules.BuyHolding(sh, OwnerRef.Person(buyerP[bi].id), units, funds, out float moved);
+                    if (moved <= 0f) { bi++; continue; } // 買い手の資金が尽きた等
+                    totalTrades++;
+                    buyerWant[bi] -= price; sellerWant[si] -= price;
+                    if (buyerWant[bi] < 1f) bi++;
+                    if (sellerWant[si] < 1f) si++;
+                }
+            }
+            if (totalTrades > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"資産市場：{totalTrades}件の売買（投資型が買い・浪費型が売り）");
+        }
+
+        /// <summary>人物の投資資産の時価合計（売買対象＝株式/投資信託・#2056 資産市場の入力）。</summary>
+        private static float InvestedValueOf(int personId)
+        {
+            float sum = 0f;
+            var hs = FinancialHoldingRegistry.OwnedByPerson(personId);
+            for (int i = 0; i < hs.Count; i++)
+            {
+                FinancialHolding h = hs[i];
+                if (h != null && (h.instrument == FinancialInstrument.株式 || h.instrument == FinancialInstrument.投資信託))
+                    sum += FinancialAssetRules.MarketValue(h);
+            }
+            return sum;
+        }
+
+        /// <summary>人物の最大の売買可能持分（株式/投資信託・売り手の手放す銘柄）。</summary>
+        private static FinancialHolding LargestTradeableHolding(int personId)
+        {
+            FinancialHolding best = null; float bestVal = 0f;
+            var hs = FinancialHoldingRegistry.OwnedByPerson(personId);
+            for (int i = 0; i < hs.Count; i++)
+            {
+                FinancialHolding h = hs[i];
+                if (h == null || h.units <= 0f) continue;
+                if (h.instrument != FinancialInstrument.株式 && h.instrument != FinancialInstrument.投資信託) continue;
+                float v = FinancialAssetRules.MarketValue(h);
+                if (v > bestVal) { bestVal = v; best = h; }
+            }
+            return best;
         }
 
         /// <summary>ネームドIDから企業を解決（法人所有の配当/地代を企業資本へ流す・観測用）。未生成/不在は null。</summary>

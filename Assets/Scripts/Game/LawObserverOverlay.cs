@@ -54,6 +54,11 @@ namespace Ginei
         private TextMeshProUGUI bodyLabel;
         private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
 
+        // タブ（概況／憲法／法律／政令）。概況＝法の支配・治安の数値、他＝法令カタログの条文一覧。
+        private enum LawTab { 概況, 憲法, 法律, 政令 }
+        private LawTab activeTab = LawTab.概況;
+        private readonly System.Collections.Generic.Dictionary<LawTab, Image> tabBgs = new System.Collections.Generic.Dictionary<LawTab, Image>();
+
         // ===== 自動生成エントリーポイント（HelpOverlay と同型） =====
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -92,8 +97,15 @@ namespace Ginei
                 Toggle();
 
             if (panel != null && panel.activeSelf && bodyLabel != null)
-                bodyLabel.text = BuildDump();
+                bodyLabel.text = activeTab == LawTab.概況 ? BuildDump() : BuildLawList(ToCategory(activeTab));
         }
+
+        private static LawCategory ToCategory(LawTab t) => t switch
+        {
+            LawTab.憲法 => LawCategory.憲法,
+            LawTab.法律 => LawCategory.法律,
+            _ => LawCategory.政令,
+        };
 
         // ===== 公開API =====
 
@@ -130,6 +142,53 @@ namespace Ginei
 
             sb.Append("\n<color=#6f8a9a>※ 権力制約が低いと「法治どまり」＝法はあるが権力を縛らない。法の支配なき取締りは抑圧化し正統性を蝕む。</color>");
             return sb.ToString();
+        }
+
+        /// <summary>憲法／法律／政令タブ：勢力ごとに、その政体に適用される法令（共通＋固有）を一覧する（<see cref="LawCatalog"/>）。</summary>
+        private string BuildLawList(LawCategory category)
+        {
+            var sb = new StringBuilder(2048);
+            sb.Append("<b>法令オブザーバ ― ").Append(category).Append("</b>　(L で閉じる)\n");
+            sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
+
+            CampaignState c = StrategySession.Campaign;
+            if (c == null || c.states == null || c.states.Count == 0)
+            {
+                // 戦役が無くても法令カタログ自体は見せる（民主/専制の両体系）。
+                AppendLawSection(sb, "民主政体（自由惑星同盟 型）", category, "民主");
+                AppendLawSection(sb, "専制政体（銀河帝国 型）", category, "専制");
+                sb.Append("\n<color=#6f8a9a>※ 戦役（GalaxyView）起動中は勢力ごとに表示されます。</color>");
+                return sb.ToString();
+            }
+
+            for (int i = 0; i < c.states.Count; i++)
+            {
+                FactionState s = c.states[i];
+                if (s == null) continue;
+                string ideology = s.faction == Faction.同盟 ? "民主" : "専制";
+                AppendLawSection(sb, s.faction.ToString(), category, ideology);
+            }
+
+            sb.Append("\n<color=#6f8a9a>※ 憲法＞法律＞政令 の効力順。共通法はどの政体にも適用され、固有法は政体（民主/専制）で異なる。</color>");
+            return sb.ToString();
+        }
+
+        private void AppendLawSection(StringBuilder sb, string header, LawCategory category, string ideology)
+        {
+            sb.Append('\n').Append("<color=#e7e0b0>◤ ").Append(header).Append("</color>\n");
+            var list = LawCatalog.For(category, ideology);
+            if (list.Count == 0)
+            {
+                sb.Append("  <color=#9aa7b2>（該当する法令なし）</color>\n");
+                return;
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                LawArticle a = list[i];
+                string tag = a.IsCommon ? "<color=#7f8a96>[共通]</color> " : "";
+                sb.Append("  ").Append(tag).Append("<color=#cfe0f0>").Append(a.title).Append("</color>　")
+                  .Append("<color=#9aa7b2>").Append(a.summary).Append("</color>\n");
+            }
         }
 
         private void AppendFaction(StringBuilder sb, Faction fac)
@@ -269,7 +328,68 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             WindowChrome.AddTitleBarLayout(frameRT, "法令", () => SetVisible(false));
+            BuildTabBar(frame.transform);
             BuildScrollBody(frame.transform);
+        }
+
+        private void BuildTabBar(Transform parent)
+        {
+            GameObject bar = new GameObject("TabBar");
+            bar.transform.SetParent(parent, false);
+            bar.AddComponent<RectTransform>();
+            LayoutElement le = bar.AddComponent<LayoutElement>();
+            // flexibleHeight=0 を明示＝HorizontalLayoutGroup(childForceExpandHeight) が親へ報告する
+            // flexibleHeight を LayoutElement(優先度高)で打ち消し、タブ帯がスクロール本文と高さを取り合わない。
+            le.minHeight = 32f; le.preferredHeight = 32f; le.flexibleHeight = 0f;
+            HorizontalLayoutGroup h = bar.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 4f;
+            h.childControlWidth = true; h.childForceExpandWidth = true;
+            h.childControlHeight = true; h.childForceExpandHeight = true;
+
+            tabBgs.Clear();
+            MakeTab(bar.transform, "概況", LawTab.概況);
+            MakeTab(bar.transform, "憲法", LawTab.憲法);
+            MakeTab(bar.transform, "法律", LawTab.法律);
+            MakeTab(bar.transform, "政令", LawTab.政令);
+            UpdateTabVisuals();
+        }
+
+        private void MakeTab(Transform parent, string label, LawTab tab)
+        {
+            GameObject go = new GameObject("Tab_" + tab);
+            go.transform.SetParent(parent, false);
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.13f, 0.18f, 0.26f, 1f);
+            Button b = go.AddComponent<Button>();
+            b.transition = UnityEngine.UI.Selectable.Transition.None;
+            b.onClick.AddListener(() => SetTab(tab));
+
+            GameObject txt = new GameObject("Label");
+            txt.transform.SetParent(go.transform, false);
+            RectTransform trt = txt.AddComponent<RectTransform>();
+            trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one; trt.sizeDelta = Vector2.zero; trt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI t = txt.AddComponent<TextMeshProUGUI>();
+            t.text = label; t.fontSize = 17f; t.alignment = TextAlignmentOptions.Center;
+            t.color = new Color(0.9f, 0.92f, 0.96f); t.raycastTarget = false;
+            ApplyJapaneseFont(t);
+
+            tabBgs[tab] = img;
+        }
+
+        private void SetTab(LawTab tab)
+        {
+            activeTab = tab;
+            UpdateTabVisuals();
+            if (bodyLabel != null)
+                bodyLabel.text = tab == LawTab.概況 ? BuildDump() : BuildLawList(ToCategory(tab));
+        }
+
+        private void UpdateTabVisuals()
+        {
+            foreach (var kv in tabBgs)
+                kv.Value.color = kv.Key == activeTab
+                    ? new Color(0.22f, 0.30f, 0.42f, 1f)
+                    : new Color(0.13f, 0.18f, 0.26f, 1f);
         }
 
         private void BuildScrollBody(Transform parent)

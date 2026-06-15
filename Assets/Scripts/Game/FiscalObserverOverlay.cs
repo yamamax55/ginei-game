@@ -187,6 +187,27 @@ namespace Ginei
                   .Append("　<color=#9fb0c0>徴兵/年</color> ").Append(gvv.GetLastRecruits(s.faction).ToString("#,0"));
                 if (gvv.IsFinancialCrisis(s.faction)) sb.Append("　<color=#ff7a6a>⚠ 金融危機</color>");
                 sb.Append('\n');
+
+                // 商業銀行（CAP-2 #186・BANK #1976 配線）：信用創造・自己資本比率・流動性・信認＝取り付け/債務超過。
+                Bank bank = gvv.GetBank(s.faction);
+                if (bank != null)
+                {
+                    var bp = BankRules.BankParams.Default;
+                    float car = BankRules.CapitalAdequacyRatio(bank, BankRules.DefaultLoanRiskWeight, BankRules.DefaultSecuritiesRiskWeight);
+                    float liq = BankRules.LiquidityRatio(bank);
+                    bool insolvent = BankRules.IsInsolventBySheet(bank);
+                    sb.Append("  <color=#9fb0c0>銀行</color> 預金 ").Append(bank.deposits.ToString("#,0"))
+                      .Append("　貸出 ").Append(bank.loans.ToString("#,0"))
+                      .Append("　準備率 ").Append((bank.reserveRatio * 100f).ToString("0")).Append('%')
+                      .Append("　自己資本比率 <color=").Append(car < BankRules.MinCapitalRatio ? "#ffd28a" : "#a0e0a0").Append('>')
+                      .Append((car * 100f).ToString("0")).Append("%</color>")
+                      .Append("　信認 <color=").Append(bank.confidence < 0.5f ? "#ff7a6a" : (bank.confidence < 0.8f ? "#ffd28a" : "#a0e0a0")).Append('>')
+                      .Append((bank.confidence * 100f).ToString("0")).Append("%</color>\n");
+                    if (insolvent)
+                        sb.Append("  <color=#ff7a6a>⚠ 銀行が債務超過（不良債権で自己資本が毀損）</color>\n");
+                    else if (BankRules.BankRunRisk(bank.reserveRatio, bank.confidence, bp) > 0.6f)
+                        sb.Append("  <color=#ffd28a>⚠ 取り付けの懸念（信認低下・流動性 ").Append((liq * 100f).ToString("0")).Append("%）</color>\n");
+                }
             }
 
             if (debtSpiral)

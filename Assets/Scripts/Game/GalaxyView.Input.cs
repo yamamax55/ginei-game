@@ -456,26 +456,15 @@ namespace Ginei
             BattleHandoff.Queue(a, b, "Strategy");
 
             // 旗幟（#817）：国家状態から基準忠誠/調略の付け入りやすさを積む＝腐った国の艦隊は会戦中に寝返りうる。
+            // ただし旗幟が揺らぐのは「国家が実質崩壊」したときだけ（HandoffLoyalty）＝通常の会戦が寝返り/静観で
+            // 一瞬で終わるのを防ぐ（時間圧縮で国家状態が劣化しても常用では発火しない）。
             var campaign = StrategySession.Campaign;
             if (campaign != null)
             {
                 FactionState sa = CampaignRules.GetState(campaign, a.faction);
                 FactionState sb = CampaignRules.GetState(campaign, b.faction);
-                // intrigue（調略済み度）＝「既に敵に付け入られている度合い」。弱った国（基準忠誠<0.5）だけが
-                // 事前浸透を抱える。健全〜中庸の国は intrigue=0 で素直に戦う＝全艦が静観して膠着するのを防ぐ
-                // （以前は susceptibility をそのまま入れ、loyalty<0.75 の艦隊が全て静観して両軍膠着していた）。
-                if (sa != null)
-                {
-                    float baseA = FactionLoyaltyRules.BaselineLoyalty(sa);
-                    BattleHandoff.loyaltyA = baseA;
-                    BattleHandoff.intrigueA = baseA < 0.5f ? FactionLoyaltyRules.BribeSusceptibility(sa) : 0f;
-                }
-                if (sb != null)
-                {
-                    float baseB = FactionLoyaltyRules.BaselineLoyalty(sb);
-                    BattleHandoff.loyaltyB = baseB;
-                    BattleHandoff.intrigueB = baseB < 0.5f ? FactionLoyaltyRules.BribeSusceptibility(sb) : 0f;
-                }
+                if (sa != null) HandoffLoyalty(sa, out BattleHandoff.loyaltyA, out BattleHandoff.intrigueA);
+                if (sb != null) HandoffLoyalty(sb, out BattleHandoff.loyaltyB, out BattleHandoff.intrigueB);
             }
 
             // 軍の質（C4）：降下する艦隊の補給（弾薬即応）を戦闘力倍率へ＝干上がった艦隊は会戦で弱い。
@@ -503,12 +492,7 @@ namespace Ginei
                 if (campaign != null)
                 {
                     FactionState fs = CampaignRules.GetState(campaign, f.faction);
-                    if (fs != null)
-                    {
-                        float baseL = FactionLoyaltyRules.BaselineLoyalty(fs);
-                        loyalty = baseL;
-                        intrigue = baseL < 0.5f ? FactionLoyaltyRules.BribeSusceptibility(fs) : 0f;
-                    }
+                    if (fs != null) HandoffLoyalty(fs, out loyalty, out intrigue);
                 }
                 float quality = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(f.supply))
                                 * TechEffectRules.CombatStrengthFactor(TechLevelOf(f.faction));
@@ -524,6 +508,31 @@ namespace Ginei
                     quality = quality,
                     sideA = isSideA,
                 });
+            }
+        }
+
+        /// <summary>会戦で旗幟（寝返り/静観）が揺らぐ国家崩壊のしきい値（基準忠誠＝正統性/結束/希望の平均）。
+        /// これ以上に健全なら艦隊は素直に戦う＝旗幟は実質崩壊時のみの演出（常用での暴発＝会戦の即終了を防ぐ）。</summary>
+        private const float CollapseLoyaltyThreshold = 0.3f;
+
+        /// <summary>
+        /// 国家状態から会戦へ渡す旗幟（基準忠誠/調略浸透）を導く。<b>国家が実質崩壊（基準忠誠が極端に低い）</b>
+        /// したときだけ寝返り/静観が起こり、通常〜やや不安定な国は素直に戦う（loyalty=1/intrigue=0＝旗幟ドーマント）。
+        /// 暦の時間圧縮で国家状態が劣化しても、会戦が寝返り/静観で「一瞬」で終わらないようにする
+        /// （#817 関ヶ原型の意図＝腐敗で戦う前に決まる は保ちつつ、常用での暴発を抑える）。
+        /// </summary>
+        private static void HandoffLoyalty(FactionState s, out float loyalty, out float intrigue)
+        {
+            float baseL = FactionLoyaltyRules.BaselineLoyalty(s);
+            if (baseL < CollapseLoyaltyThreshold)
+            {
+                loyalty = baseL;
+                intrigue = FactionLoyaltyRules.BribeSusceptibility(s);
+            }
+            else
+            {
+                loyalty = 1f;   // 崩壊未満は確実に戦う＝旗幟は揺らがない（純忠誠 > fightThreshold）
+                intrigue = 0f;
             }
         }
 

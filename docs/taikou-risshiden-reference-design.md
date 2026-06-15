@@ -85,6 +85,14 @@
 - 主人公が**配属先を希望**（前線/参謀/後方）でき、人事（`SchoolPostingRules`/`OfficeRules`）が階級・席次・人脈で**内示**する。希望が通るかは関係グラフ（TKO-3）と功績（TKO-2）次第。
 - 接続：`FleetRoster`/`SchoolPostingRules`/`OfficeRules`×TKO-2/TKO-3。新 `AssignmentRequestRules`（希望→内示の純ロジック）。
 
+#### TKO 君主からの主命（拝命→遂行→達成/失敗）★★★
+- 君主（`Person.isSovereign`）が主人公（臣下）へ**主命**（出陣/防衛/占領/鎮圧/巡察/練兵）を期限つきで下す。期限内の達成で**武勲**（TKO-2）と**恩義/引き立て**（TKO-3）、失敗で**遺恨**。太閤立志伝V/信長の野望の「主命」＝立身出世の駆動イベント。期限は通算月（int）で持ち暦内部に依存しない。
+- 接続：新 `SovereignMandateRules`/`SovereignMandate`/`MandateKind`/`MandateStatus`。武勲は `MeritRecordRules`（達成＝`ExploitKind.任務達成`）、人脈は `PersonRelationRules`（恩義/親愛/遺恨）へ委譲。**並行系を作らない**。
+
+#### TKO 月次評定（立身出世ループを毎月束ねる）
+- 暦の**月境界**で評定を開き、(1)期限超過の主命を失敗確定 (2)保留中の武勲昇進を最大 N 段だけ確定（ペース制御） (3)未決の主命が無ければ確率で新主命を発令、を一括処理する。太閤立志伝Vの「定期的に主君に評価され命を受ける」リズム。
+- 接続：新 `MonthlyCouncilRules`/`CouncilOutcome`（オーケストレータ＝数式を持たず委譲）。`SovereignMandateRules`/`MeritRecordRules` へ委譲。`CalendarDispatcher` の onMonth フックで Game 層（`GalaxyView`）が `Hold` を呼ぶ。考課（`MeritEvaluationRules`＝文官/位階の九等評定）とは別軸。
+
 #### TKO 一代記クロニクル（主人公の生涯の編纂）
 - 主人公の生涯イベント（入校・初陣・叙勲＝恩賜の軍刀・昇進・婚姻・武勲・死）を**時系列で一本に編む**個人年代記。列伝#784 を**一人にフォーカスした自伝**として生成。
 - 接続：`NotificationCenter`（イベント源）×列伝#784/殿堂#785×`ChronicleObserverOverlay`。**コード新設は最小**＝主人公イベントの収集と整形のみ（`ProtagonistCareerRules` の出力を束ねる）。
@@ -137,9 +145,12 @@
 | **TKO-6** | #2483 | 一代記クロニクル（主人公の生涯イベントを時系列編纂） | `NotificationCenter`×列伝#784/殿堂#785×`ChronicleObserverOverlay`。収集/整形のみ |
 | **TKO-7** | #2484 | 岐路＝下野・亡命・独立（主人公個人の選択・後段） | `BattleAllegianceRules`×`CivilWarRules`×`DiplomacyRules`×`LoyaltyRules` |
 | **TKO-8** | #2485 | 一人称UIシェル（主人公の執務机の視点・既存オブザーバを主人公フィルタで束ねる） | `RingiObserverOverlay`/`PersonObserverOverlay`/`MilitaryObserverOverlay`＋WindowChrome/UIWindowStack |
+| **TKO-9** | #2486 | 君主からの主命（`SovereignMandateRules`・拝命→遂行→達成/失敗→武勲・恩義） | `Person.isSovereign`×`MeritRecordRules`（達成＝任務達成）×`PersonRelationRules`（恩義/遺恨） |
+| **TKO-10** | #2487 | 月次評定（`MonthlyCouncilRules`・主命の決裁/武勲昇進/新主命の発令を毎月束ねる） | `SovereignMandateRules`/`MeritRecordRules`×`CalendarDispatcher` onMonth |
 
 ### 推奨着手順
-`TKO-1`（起点＝主人公を世界に置く・最も基盤）→ `TKO-2`（武勲→昇進＝立身出世の背骨）→ `TKO-3`（人脈＝人事力学）→ `TKO-4`（具申＝一人称の動詞）→ `TKO-6`（一代記＝体験の編纂）→ `TKO-5`（配属希望）→ `TKO-8`（UIシェルで束ねる）→ `TKO-7`（岐路＝自由意志・後段）。
+`TKO-1`（起点＝主人公を世界に置く・最も基盤）→ `TKO-2`（武勲→昇進＝立身出世の背骨）→ `TKO-3`（人脈＝人事力学）→ `TKO-9`（主命＝出世の駆動イベント）→ `TKO-10`（月次評定＝ループの心臓）→ `TKO-4`（具申＝一人称の動詞）→ `TKO-6`（一代記＝体験の編纂）→ `TKO-5`（配属希望）→ `TKO-8`（UIシェルで束ねる）→ `TKO-7`（岐路＝自由意志・後段）。
+> 純ロジック backbone の実装済み：**TKO-1/2/3/5/9/10**（Core・test-first）。Game層配線（TKO-4/6/8）・後段（TKO-7）は残務。
 
 > いずれも既存のマクロ人材シム（学校/席次/学閥/階級/稟議/会戦）を**後退させず接続**する additive 設計。
 > 世界シムは自走したまま、その上に**「一人の軍人を生きる」薄い一人称層**を載せる＝銀英伝＝人物駆動の核心を強化する。

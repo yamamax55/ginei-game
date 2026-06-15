@@ -37,6 +37,8 @@ namespace Ginei
         public Color corpsBoxColor = new Color(0.95f, 0.85f, 0.5f, 0.4f);
         [Tooltip("軍団隷下の四角と艦隊アイコンの余白（ワールド）")]
         public float corpsBoxPadding = 0.35f;
+        [Tooltip("軍集団の外枠の色（軍団が集結したとき軍団枠の外側に描く）")]
+        public Color armyBoxColor = new Color(0.7f, 0.85f, 1f, 0.5f);
         [Tooltip("軍団長乗艦マーカー（★）の色")]
         public Color corpsFlagshipColor = new Color(1f, 0.86f, 0.3f);
 
@@ -148,7 +150,9 @@ namespace Ginei
         private readonly Dictionary<StrategicFleet, TextMesh> fleetCorpsMarks = new Dictionary<StrategicFleet, TextMesh>();
         private readonly Dictionary<StrategicFleet, TextMesh> fleetNumLabels = new Dictionary<StrategicFleet, TextMesh>(); // 艦隊番号ラベル（艦隊の上）
         private readonly List<LineRenderer> corpsBoxLines = new List<LineRenderer>();
-        private readonly List<TextMesh> corpsBoxLabels = new List<TextMesh>(); // 軍団名ラベル（枠の上・第N軍団）
+        private readonly List<TextMesh> corpsBoxLabels = new List<TextMesh>(); // 軍団名ラベル（枠の中・第N軍団）
+        private readonly List<LineRenderer> armyBoxLines = new List<LineRenderer>();  // 軍集団の外枠（軍団が集結したとき）
+        private readonly List<TextMesh> armyBoxLabels = new List<TextMesh>();        // 軍集団名ラベル（第N軍集団）
         private readonly Dictionary<int, Vector2> fleetClusterOffsets = new Dictionary<int, Vector2>();
         private TextMesh banner;
         private TextMesh helpLine;

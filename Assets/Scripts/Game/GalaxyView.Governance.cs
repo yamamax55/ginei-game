@@ -174,21 +174,22 @@ namespace Ginei
                 }
 
             reg = new StrategicFleetRegistry(map);
-            // 軍団編成（デモ）：corpsId が同じ艦隊は同一軍団の隷下＝戦略マップで軍団ごとに別々の四角で囲う。
-            // isCorpsFlagship＝軍団長乗艦（★）。軍団の数は固定でなく、勢力に複数あってよい（各軍団＝専用枠）。
-            // ケレス(2) には帝国第1・第2軍団を同居させ「同一星系でも軍団ごとに別枠」を示す。
-            // 帝国第1軍団 ＠ケレス(2)
-            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250, corpsId = 1, corpsName = "帝国第1軍団", isCorpsFlagship = true });
-            reg.Add(new StrategicFleet(6, 2, Faction.帝国, 1.1f) { strength = 140, corpsId = 1, corpsName = "帝国第1軍団" });
-            // 帝国第2軍団 ＠ケレス(2)（第1軍団と同居＝別枠になることを示す）
-            reg.Add(new StrategicFleet(4, 2, Faction.帝国, 1.3f) { strength = 200, corpsId = 3, corpsName = "帝国第2軍団", isCorpsFlagship = true });
-            reg.Add(new StrategicFleet(5, 2, Faction.帝国, 1.2f) { strength = 180, corpsId = 3, corpsName = "帝国第2軍団" });
-            // 同盟第1軍団 ＠ベガ(1)
-            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300, corpsId = 2, corpsName = "同盟第1軍団", isCorpsFlagship = true });
-            reg.Add(new StrategicFleet(8, 1, Faction.同盟, 1.1f) { strength = 140, corpsId = 2, corpsName = "同盟第1軍団" });
-            // 同盟第2軍団 ＠フェニクス(5)
-            reg.Add(new StrategicFleet(7, 5, Faction.同盟, 1.2f) { strength = 180, corpsId = 4, corpsName = "同盟第2軍団", isCorpsFlagship = true });
-            reg.Add(new StrategicFleet(3, 5, Faction.同盟, 1.2f) { strength = 150, corpsId = 4, corpsName = "同盟第2軍団" });
+            // 梯団編成（デモ）：艦隊 ⊂ 軍団(corpsId) ⊂ 軍集団(armyGroupId)。戦略マップでは軍団を四角で、
+            // 同じ軍集団の軍団が同一星系に集まると外側にもう一回り大きな四角を描いて軍集団を示す。
+            // isCorpsFlagship＝軍団長乗艦（★）。ケレス(2) に帝国第1・第2軍団（ともに帝国第1軍集団）を集結させ、
+            // 「軍団それぞれの枠＋外側に軍集団の枠」を示す。
+            // 帝国第1軍団（帝国第1軍集団）＠ケレス(2)
+            reg.Add(new StrategicFleet(1, 2, Faction.帝国, 1.5f) { strength = 250, corpsId = 1, corpsName = "帝国第1軍団", isCorpsFlagship = true, armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
+            reg.Add(new StrategicFleet(6, 2, Faction.帝国, 1.1f) { strength = 140, corpsId = 1, corpsName = "帝国第1軍団", armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
+            // 帝国第2軍団（帝国第1軍集団）＠ケレス(2)
+            reg.Add(new StrategicFleet(4, 2, Faction.帝国, 1.3f) { strength = 200, corpsId = 3, corpsName = "帝国第2軍団", isCorpsFlagship = true, armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
+            reg.Add(new StrategicFleet(5, 2, Faction.帝国, 1.2f) { strength = 180, corpsId = 3, corpsName = "帝国第2軍団", armyGroupId = 1, armyGroupName = "帝国第1軍集団" });
+            // 同盟第1軍団（同盟第1軍集団）＠ベガ(1)
+            reg.Add(new StrategicFleet(2, 1, Faction.同盟, 1.5f) { strength = 300, corpsId = 2, corpsName = "同盟第1軍団", isCorpsFlagship = true, armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
+            reg.Add(new StrategicFleet(8, 1, Faction.同盟, 1.1f) { strength = 140, corpsId = 2, corpsName = "同盟第1軍団", armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
+            // 同盟第2軍団（同盟第1軍集団）＠フェニクス(5)＝別星系のため軍集団の外枠は出ない（集まると出る）
+            reg.Add(new StrategicFleet(7, 5, Faction.同盟, 1.2f) { strength = 180, corpsId = 4, corpsName = "同盟第2軍団", isCorpsFlagship = true, armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
+            reg.Add(new StrategicFleet(3, 5, Faction.同盟, 1.2f) { strength = 150, corpsId = 4, corpsName = "同盟第2軍団", armyGroupId = 2, armyGroupName = "同盟第1軍集団" });
 
             // 難易度の開始戦力傾き（易しい＝自軍強め/敵弱め）。プレイヤー勢力以外を敵として倍率を掛ける（基準は等倍＝普通）。
             CampaignDifficulty diff = GameSettings.Instance != null ? GameSettings.Instance.campaignDifficulty : CampaignDifficulty.普通;

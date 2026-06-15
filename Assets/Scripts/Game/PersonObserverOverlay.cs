@@ -103,18 +103,28 @@ namespace Ginei
 
         // ----- 指導者（君主/元首・政治家） -----
 
+        /// <summary>表示に使う文民ロスター＝戦役のロスターがあればそれ、無ければサンプル（<see cref="PersonSampleData"/>）。</summary>
+        private static IReadOnlyList<Person> EffectiveCivilians(GalaxyView gv, out bool usingSample)
+        {
+            if (gv != null && gv.CivilianRoster != null && gv.CivilianRoster.Count > 0)
+            {
+                usingSample = false;
+                return gv.CivilianRoster;
+            }
+            usingSample = true;
+            return PersonSampleData.AllCivilian();
+        }
+
         private void BuildLeaders(StringBuilder sb)
         {
             var gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
-            if (gv == null || gv.CivilianRoster == null)
-            {
-                sb.Append("\n<color=#ffcc66>指導者データは戦略マップ（GalaxyView）でのみ表示されます。</color>");
-                return;
-            }
+            var roster = EffectiveCivilians(gv, out bool usingSample);
+            if (usingSample) sb.Append("\n<color=#8aa0b0>（サンプル表示：戦役を始めると実データになります）</color>\n");
+
             int shown = 0, total = 0;
-            for (int i = 0; i < gv.CivilianRoster.Count; i++)
+            for (int i = 0; i < roster.Count; i++)
             {
-                Person p = gv.CivilianRoster[i];
+                Person p = roster[i];
                 if (p == null) continue;
                 var v = PersonVocationRules.VocationOf(p);
                 if (v != PersonVocation.君主 && v != PersonVocation.政治家) continue;
@@ -197,18 +207,21 @@ namespace Ginei
         private void BuildCivilians(StringBuilder sb)
         {
             var gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
-            if (gv == null || gv.CivilianRoster == null)
+            var roster = EffectiveCivilians(gv, out bool usingSample);
+            if (usingSample)
             {
-                sb.Append("\n<color=#ffcc66>文民データは戦略マップ（GalaxyView）でのみ表示されます。</color>");
-                return;
+                sb.Append("\n<color=#8aa0b0>（サンプル表示：戦役を始めると実データになります）</color>\n");
             }
-            float authority = gv.Court != null ? gv.Court.authority : 0f;
-            sb.Append($"<color=#8aa0b0>朝廷の権威 {authority:0.00}（{RitsuryoFormalizationRules.PhaseOf(authority)}）＝官位の実権はこの権威で減衰</color>\n");
+            else
+            {
+                float authority = gv.Court != null ? gv.Court.authority : 0f;
+                sb.Append($"<color=#8aa0b0>朝廷の権威 {authority:0.00}（{RitsuryoFormalizationRules.PhaseOf(authority)}）＝官位の実権はこの権威で減衰</color>\n");
+            }
 
             int shown = 0, total = 0;
-            for (int i = 0; i < gv.CivilianRoster.Count; i++)
+            for (int i = 0; i < roster.Count; i++)
             {
-                Person p = gv.CivilianRoster[i];
+                Person p = roster[i];
                 if (p == null) continue;
                 var v = PersonVocationRules.VocationOf(p);
                 if (v == PersonVocation.君主 || v == PersonVocation.政治家) continue; // 指導者タブへ

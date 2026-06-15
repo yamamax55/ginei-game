@@ -45,6 +45,19 @@ namespace Ginei
         public bool HasCorps => corpsId >= 0;
 
         /// <summary>
+        /// 所属軍集団のグループID（-1＝軍集団に属さない・既定）。軍団（<see cref="corpsId"/>）の上位梯団＝同じ
+        /// <see cref="armyGroupId"/> の軍団どうしを「同一軍集団」として扱う。複数の軍団が同一星系に集まったとき、
+        /// 戦略マップで軍団の四角の外側にさらに大きな四角を描いて軍集団を示す。-1 のままなら従来動作（後方互換）。
+        /// </summary>
+        public int armyGroupId = -1;
+
+        /// <summary>軍集団名（表示用・空＝なし）。</summary>
+        public string armyGroupName;
+
+        /// <summary>軍集団に属するか（<see cref="armyGroupId"/> が有効）。</summary>
+        public bool HasArmyGroup => armyGroupId >= 0;
+
+        /// <summary>
         /// 交戦中（回廊で敵対艦隊と接触し戦闘に固着）か。true の間は Tick で前進しない
         /// ＝回廊上に「交戦中の回廊」として留まり、プレイヤーが潜行（ダブルクリック）するか
         /// 自動解決されるまで動かない（C-2 二層遷移 #586）。決着で解除される。

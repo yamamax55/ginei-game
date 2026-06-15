@@ -75,9 +75,10 @@ namespace Ginei
                 ring.enabled = false;
                 fleetRings[f] = ring;
 
-                // 艦隊番号ラベル（艦隊の上＝どの艦隊か一目で分かるように）。番号は不変ゆえここで一度だけ設定。
-                var num = MakeLabel(go.transform, $"第{f.id}艦隊", new Vector3(0f, 1.75f, 0f), 0.6f).GetComponent<TextMesh>();
-                num.color = new Color(0.8f, 0.95f, 1f);
+                // 艦隊番号ラベル（艦隊画像の中＝重ねて表示。番号は不変ゆえここで一度だけ設定）。
+                var num = MakeLabel(go.transform, $"第{f.id}艦隊", new Vector3(0f, 0f, 0f), 0.5f).GetComponent<TextMesh>();
+                num.color = new Color(1f, 1f, 0.85f); // 画像の上で読めるよう明るく
+                num.GetComponent<MeshRenderer>().sortingOrder = 7; // 艦隊スプライト(4)・他ラベル(6)より前面
                 fleetNumLabels[f] = num;
 
                 // ETA ラベル（移動中のみ表示）
@@ -206,7 +207,7 @@ namespace Ginei
                     cm.gameObject.SetActive(f.isCorpsFlagship);
             }
 
-            UpdateCorpsBoxes();   // 軍団隷下の艦隊を四角で囲う
+            UpdateEchelonBoxes();   // 軍団＝四角／軍団が集結した軍集団＝外側の四角で囲う
             DrawSelectedRoutes();
             UpdateBanner();
         }
@@ -428,87 +429,127 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 軍団（同じ <see cref="StrategicFleet.corpsId"/>）の隷下艦隊が同一星系に停泊しているとき、その一群を四角で囲う。
-        /// 軍団＝隷下のまとまりを一目で分かるようにする（#戦略マップ艦隊表示）。回廊上の艦隊は対象外。
+        /// 梯団の入れ子の四角を描く（#戦略マップ艦隊表示）。内枠＝軍団（同じ <see cref="StrategicFleet.corpsId"/>）、
+        /// 外枠＝軍集団（同じ <see cref="StrategicFleet.armyGroupId"/> の軍団が同一星系に2個以上集結したとき）。
+        /// 枠の内側上部に梯団名（第N軍団／第N軍集団）を文字表示。回廊上の艦隊は対象外。
         /// </summary>
-        private void UpdateCorpsBoxes()
+        private void UpdateEchelonBoxes()
         {
-            // (corpsId, systemId) ごとに停泊中の隷下艦隊を集約（軍団名も拾う）。
-            var groups = new Dictionary<(int, int), List<StrategicFleet>>();
+            // ===== 外枠：軍集団（同じ armyGroupId が同一星系に「軍団2個以上」集結したとき） =====
+            // (armyGroupId, systemId) ごとに停泊中の艦隊を集約。
+            var armyGroups = new Dictionary<(int, int), List<StrategicFleet>>();
+            if (reg != null)
+                foreach (var f in reg.fleets)
+                {
+                    if (f == null || !f.HasArmyGroup || !f.HasCorps || f.IsOnCorridor) continue;
+                    var key = (f.armyGroupId, f.currentSystemId);
+                    if (!armyGroups.TryGetValue(key, out var list)) armyGroups[key] = list = new List<StrategicFleet>();
+                    list.Add(f);
+                }
+
+            int ai = 0;
+            foreach (var kv in armyGroups)
+            {
+                var list = kv.Value;
+                // 軍団が2個以上集まったときだけ外枠を出す（「軍団が集まったら」）。
+                var corpsSeen = new HashSet<int>();
+                for (int i = 0; i < list.Count; i++) corpsSeen.Add(list[i].corpsId);
+                if (corpsSeen.Count < 2) continue;
+
+                string name = null;
+                for (int i = 0; i < list.Count && string.IsNullOrEmpty(name); i++) name = list[i].armyGroupName;
+                if (string.IsNullOrEmpty(name)) name = $"第{kv.Key.Item1}軍集団";
+
+                // 外枠は軍団枠の外側に回り込むよう余白を大きめに。
+                DrawEchelonBox(armyBoxLines, armyBoxLabels, ai, list,
+                    sidePad: 0.95f, topPad: 1.7f, botPad: 0.95f,
+                    color: armyBoxColor, width: 0.04f, label: name, labelCharSize: 0.6f);
+                ai++;
+            }
+            for (int j = ai; j < armyBoxLines.Count; j++) armyBoxLines[j].enabled = false;
+            for (int j = ai; j < armyBoxLabels.Count; j++) armyBoxLabels[j].gameObject.SetActive(false);
+
+            // ===== 内枠：軍団（同じ corpsId が同一星系） =====
+            var corpsGroups = new Dictionary<(int, int), List<StrategicFleet>>();
             if (reg != null)
                 foreach (var f in reg.fleets)
                 {
                     if (f == null || !f.HasCorps || f.IsOnCorridor) continue;
                     var key = (f.corpsId, f.currentSystemId);
-                    if (!groups.TryGetValue(key, out var list)) groups[key] = list = new List<StrategicFleet>();
+                    if (!corpsGroups.TryGetValue(key, out var list)) corpsGroups[key] = list = new List<StrategicFleet>();
                     list.Add(f);
                 }
 
             int bi = 0;
-            foreach (var kv in groups)
+            foreach (var kv in corpsGroups)
             {
                 var list = kv.Value;
                 if (list.Count == 0) continue;
-                // 隷下艦隊群の外接矩形＋余白。
-                float minX = float.PositiveInfinity, minY = float.PositiveInfinity;
-                float maxX = float.NegativeInfinity, maxY = float.NegativeInfinity;
-                string corpsName = null;
-                for (int i = 0; i < list.Count; i++)
-                {
-                    Vector2 p = FleetWorldPos(list[i]);
-                    minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x);
-                    minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
-                    if (string.IsNullOrEmpty(corpsName) && !string.IsNullOrEmpty(list[i].corpsName)) corpsName = list[i].corpsName;
-                }
-                if (string.IsNullOrEmpty(corpsName)) corpsName = $"第{kv.Key.Item1}軍団";
+                string name = null;
+                for (int i = 0; i < list.Count && string.IsNullOrEmpty(name); i++) name = list[i].corpsName;
+                if (string.IsNullOrEmpty(name)) name = $"第{kv.Key.Item1}軍団";
 
-                float pad = corpsBoxPadding;
-                var bl = new Vector3(minX - pad, minY - pad, 0f);
-                var br = new Vector3(maxX + pad, minY - pad, 0f);
-                var tr = new Vector3(maxX + pad, maxY + pad, 0f);
-                var tl = new Vector3(minX - pad, maxY + pad, 0f);
-
-                LineRenderer lr = GetCorpsBoxLine(bi);
-                lr.positionCount = 5;
-                lr.SetPositions(new[] { bl, br, tr, tl, bl });
-                lr.startColor = lr.endColor = corpsBoxColor;
-                lr.enabled = true;
-
-                // 軍団名ラベル（枠の左上の上＝第何軍団か文字で出す）。
-                TextMesh lbl = GetCorpsBoxLabel(bi);
-                lbl.text = corpsName;
-                lbl.transform.localPosition = new Vector3((minX + maxX) * 0.5f, maxY + pad + 0.6f, 0f);
-                lbl.gameObject.SetActive(true);
-
+                DrawEchelonBox(corpsBoxLines, corpsBoxLabels, bi, list,
+                    sidePad: corpsBoxPadding, topPad: 1.0f, botPad: 0.55f,
+                    color: corpsBoxColor, width: 0.025f, label: name, labelCharSize: 0.5f);
                 bi++;
             }
             for (int j = bi; j < corpsBoxLines.Count; j++) corpsBoxLines[j].enabled = false;
             for (int j = bi; j < corpsBoxLabels.Count; j++) corpsBoxLabels[j].gameObject.SetActive(false);
         }
 
-        private LineRenderer GetCorpsBoxLine(int i)
+        /// <summary>艦隊群の外接矩形に四角を描き、枠の内側上部に梯団名ラベルを置く（軍団/軍集団 共通）。</summary>
+        private void DrawEchelonBox(List<LineRenderer> linePool, List<TextMesh> labelPool, int idx,
+            List<StrategicFleet> fleets, float sidePad, float topPad, float botPad,
+            Color color, float width, string label, float labelCharSize)
         {
-            while (corpsBoxLines.Count <= i)
+            float minX = float.PositiveInfinity, minY = float.PositiveInfinity;
+            float maxX = float.NegativeInfinity, maxY = float.NegativeInfinity;
+            for (int i = 0; i < fleets.Count; i++)
             {
-                var lr = NewLine("CorpsBox", 1);
-                lr.startWidth = lr.endWidth = 0.025f; // 薄め
-                lr.loop = false;
-                lr.startColor = lr.endColor = corpsBoxColor;
-                corpsBoxLines.Add(lr);
+                Vector2 p = FleetWorldPos(fleets[i]);
+                minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x);
+                minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
             }
-            return corpsBoxLines[i];
+            var bl = new Vector3(minX - sidePad, minY - botPad, 0f);
+            var br = new Vector3(maxX + sidePad, minY - botPad, 0f);
+            var tr = new Vector3(maxX + sidePad, maxY + topPad, 0f);
+            var tl = new Vector3(minX - sidePad, maxY + topPad, 0f);
+
+            LineRenderer lr = GetPooledBox(linePool, idx, width);
+            lr.positionCount = 5;
+            lr.SetPositions(new[] { bl, br, tr, tl, bl });
+            lr.startColor = lr.endColor = color;
+            lr.enabled = true;
+
+            TextMesh lbl = GetPooledLabel(labelPool, idx, labelCharSize);
+            lbl.text = label;
+            lbl.color = new Color(color.r, color.g, color.b, 1f); // 枠と同系色・読めるよう不透明
+            lbl.transform.localPosition = new Vector3((minX + maxX) * 0.5f, maxY + topPad - 0.32f, 0f); // 枠の内側上部
+            lbl.gameObject.SetActive(true);
         }
 
-        private TextMesh GetCorpsBoxLabel(int i)
+        private LineRenderer GetPooledBox(List<LineRenderer> pool, int i, float width)
         {
-            while (corpsBoxLabels.Count <= i)
+            while (pool.Count <= i)
             {
-                // 軍団名は枠と同系色だが読めるよう不透明に。盤面ルート直下＝ワールド座標で配置。
-                var tm = MakeLabel(transform, "", Vector3.zero, 0.5f).GetComponent<TextMesh>();
-                tm.color = new Color(corpsBoxColor.r, corpsBoxColor.g, corpsBoxColor.b, 1f);
-                corpsBoxLabels.Add(tm);
+                var lr = NewLine("EchelonBox", 1);
+                lr.loop = false;
+                pool.Add(lr);
             }
-            return corpsBoxLabels[i];
+            pool[i].startWidth = pool[i].endWidth = width;
+            return pool[i];
+        }
+
+        private TextMesh GetPooledLabel(List<TextMesh> pool, int i, float charSize)
+        {
+            while (pool.Count <= i)
+            {
+                // 盤面ルート直下＝ワールド座標で配置。
+                var tm = MakeLabel(transform, "", Vector3.zero, charSize).GetComponent<TextMesh>();
+                pool.Add(tm);
+            }
+            return pool[i];
         }
 
         private Color OwnerColor(Faction f) => (f == Faction.帝国) ? empireColor : allianceColor;

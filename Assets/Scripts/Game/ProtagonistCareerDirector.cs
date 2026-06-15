@@ -112,8 +112,11 @@ namespace Ginei
             }
 
             // 評定：期限超過の主命を失敗確定＋保留武勲昇進を1段確定（発令はしない）。
+            // 昇進は階級ピラミッドの定員空きで律速（上ほど狭き門・TKO-13）。ピラミッド未配備なら律速しない。
+            var pyr = RankPyramidDirector.Instance;
+            System.Func<int, bool> gate = pyr != null ? (System.Func<int, bool>)(t => pyr.CanPromote(pf, t)) : null;
             var outcome = MonthlyCouncilRules.Hold(Protagonist, Merit, FactionRanks, ActiveMandate, Sovereign,
-                month, nextMandateId, () => Random.value, MeritP, MandateP, CouncilNoIssue, Relations);
+                month, nextMandateId, () => Random.value, MeritP, MandateP, CouncilNoIssue, Relations, gate);
 
             if (ActiveMandate != null && ActiveMandate.status == MandateStatus.失敗)
             {

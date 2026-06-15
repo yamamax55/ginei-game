@@ -119,6 +119,9 @@ namespace Ginei
                 sb.Append('\n');
             }
 
+            // 階級ピラミッド（自勢力）＝定員が昇進を律速（上ほど狭き門）
+            AppendPyramid(sb, d, me);
+
             // 人脈（君主との縁）
             sb.Append("\n<color=#e7e0b0>◤ 人脈（君主との縁）</color>\n");
             if (d.Relations != null && d.Sovereign != null)
@@ -164,6 +167,43 @@ namespace Ginei
                 }
                 sb.Append('\n');
             }
+        }
+
+        private void AppendPyramid(StringBuilder sb, ProtagonistCareerDirector d, Person me)
+        {
+            sb.Append("\n<color=#e7e0b0>◤ 階級ピラミッド（自勢力）</color>\n");
+            if (me == null || !MilitaryRankRegistry.Has(me.faction))
+            {
+                sb.Append("  <color=#9aa7b2>（未整備）</color>\n");
+                return;
+            }
+            RankDistribution dist = MilitaryRankRegistry.Get(me.faction);
+            int total = RankDistributionRules.TotalForce(dist);
+            if (total <= 0) { sb.Append("  <color=#9aa7b2>（未整備）</color>\n"); return; }
+
+            MilitaryGrade myGrade = RankDistributionRules.GradeForOfficerTier(me.rankTier);
+            MilitaryGrade[] show =
+            {
+                MilitaryGrade.元帥, MilitaryGrade.大将, MilitaryGrade.准将, MilitaryGrade.大佐,
+                MilitaryGrade.少尉, MilitaryGrade.准尉, MilitaryGrade.曹長, MilitaryGrade.二等兵,
+            };
+            for (int i = 0; i < show.Length; i++)
+            {
+                MilitaryGrade g = show[i];
+                bool mine = g == myGrade;
+                sb.Append("  ");
+                sb.Append(mine ? "<color=#ffd700>★ " : "　 ");
+                sb.Append(g.ToString()).Append("  ").Append(dist.Get(g)).Append(" 名");
+                if (mine) sb.Append("（現在地）</color>");
+                sb.Append('\n');
+            }
+
+            int nextTier = Mathf.Min(10, me.rankTier + 1);
+            int[] target = RankDistributionRules.PyramidTarget(total, RankDistributionRules.PyramidParams.Default);
+            int vac = RankDistributionRules.Vacancy(dist, RankDistributionRules.GradeForOfficerTier(nextTier), target);
+            bool can = RankPyramidDirector.Instance != null && RankPyramidDirector.Instance.CanPromote(me.faction, nextTier);
+            sb.Append("  <color=#6f8a9a>次階級 ").Append(d.RankName(nextTier)).Append(" の定員空き ").Append(vac)
+              .Append(can ? "（昇進余地あり）" : "（狭き門＝空き待ち）").Append("</color>\n");
         }
 
         private void AppendBar(StringBuilder sb, float v01, string colorHex)

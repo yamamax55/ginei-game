@@ -513,6 +513,28 @@ namespace Ginei
         private const float ReligionStabilityScale = 10f;   // 信仰の社会効果→安定度への反映スケール
         private const float SeparatismStabilityScale = 5f;  // 分離主義→安定度低下スケール
 
+        /// <summary>
+        /// 人物の俸給を月払いで回す（#2056 月払い配線・RunMonthlyCampaignTick から毎月）。
+        /// 月俸＝年俸÷12（階級#14 比例・WAGE#1969）、消費は年間需要の月割り、投資リターンも月割り＝合計は年次と整合。
+        /// </summary>
+        private void RunMonthlyPersonFinanceTick()
+        {
+            if (commanders == null) return;
+            for (int i = 0; i < commanders.Count; i++)
+            {
+                Person c = commanders[i];
+                if (c == null || c.deathYear != 0) continue;
+                c.financialTrait = (FinancialTrait)(System.Math.Abs(c.id) % 3); // 0貯金/1投資/2浪費
+                float monthlySalary = (50f + c.rankTier * 50f) / PersonFinanceTickRules.MonthsPerYear; // 年俸÷12
+                // 投資型の利回りは自勢力の株式市場心理に連動（好況で増・暴落で毀損・決定論）。月次なので年率を12分割。
+                float marketMood = 0f;
+                var lst = GetListings(c.faction);
+                if (lst != null && lst.Count > 0) marketMood = StockMarketSystemRules.MarketSentiment(lst) - 0.5f; // -0.5..+0.5
+                float annualRet = 0.05f + (c.financialTrait == FinancialTrait.投資 ? marketMood * 0.6f : 0f);
+                PersonFinanceTickRules.TickMonth(c, monthlySalary, annualRet / PersonFinanceTickRules.MonthsPerYear);
+            }
+        }
+
         private void RunAnnualLifecycleTick()
         {
             campaignYear++;
@@ -682,21 +704,8 @@ namespace Ginei
                 }
             }
 
-            // 人物の財産を1年ぶん（PFIN-6・#2056 配線）：俸給#1969 から特性で貯金/投資/浪費し財産が増減。
-            // デモ：id で財産行動特性を割り振る。投資型は変動（暴落リスク#185）・浪費型は貯まらない・貯金型は堅実。
-            for (int i = 0; i < commanders.Count; i++)
-            {
-                Person c = commanders[i];
-                if (c == null || c.deathYear != 0) continue;
-                c.financialTrait = (FinancialTrait)(System.Math.Abs(c.id) % 3); // 0貯金/1投資/2浪費
-                float salary = 50f + c.rankTier * 50f; // 俸給 proxy（階級#14 比例・WAGE#1969）
-                // P3：人物財産↔市場。投資型の利回りは自勢力の株式市場心理に連動（好況で増・暴落で毀損・決定論＝乱数廃止）。
-                float marketMood = 0f;
-                var lst = GetListings(c.faction);
-                if (lst != null && lst.Count > 0) marketMood = StockMarketSystemRules.MarketSentiment(lst) - 0.5f; // -0.5..+0.5
-                float ret = 0.05f + (c.financialTrait == FinancialTrait.投資 ? marketMood * 0.6f : 0f); // 投資は市場連動の±
-                PersonFinanceTickRules.TickYear(c, salary, ret);
-            }
+            // 人物の俸給は月払い（#2056 月払い配線）＝RunMonthlyPersonFinanceTick（RunMonthlyCampaignTick）で毎月支給。
+            // 年次ではここで支給しない（消費・投資リターンも月割りで回す＝合計は年次と整合）。
 
             // ネームド資産（NASSET-6・#2063 配線）：人物/国家が固有名の資産（旗艦・宮殿等）を持ち、収益→財産・値上がり・相続。
             SeedNamedAssets();                                  // デモ資産シード（冪等）

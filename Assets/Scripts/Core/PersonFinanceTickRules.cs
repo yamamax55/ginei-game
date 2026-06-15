@@ -26,5 +26,24 @@ namespace Ginei
         /// <summary>既定の基準需要での1年Tick。</summary>
         public static void TickYear(Person p, float salary, float investReturnRate)
             => TickYear(p, salary, investReturnRate, DefaultBaseNeed);
+
+        public const float MonthsPerYear = 12f;
+
+        /// <summary>
+        /// 1ヶ月ぶんの財産更新＝<b>俸給の月払い</b>。月俸（年俸÷12 相当）と月次の投資リターン率を受け取り、
+        /// 月割りの消費（年間需要÷12）を引いて可処分を特性で配分し財産を更新する。<paramref name="baseNeed"/> は
+        /// 年間基準需要（内部で月割り）。年次 <see cref="TickYear"/> と同じ式を月粒度で回すだけ（合計は年次と整合）。
+        /// </summary>
+        public static void TickMonth(Person p, float monthlySalary, float investReturnRate, float baseNeed)
+        {
+            if (p == null) return;
+            float monthlyNeed = PersonDemandRules.ConsumptionNeed(p.rankTier, baseNeed) / MonthsPerYear;
+            float disposable = PersonWealthRules.DisposableIncome(monthlySalary, monthlyNeed);
+            p.wealth = PersonWealthRules.WealthAfter(p.wealth, disposable, p.financialTrait, investReturnRate);
+        }
+
+        /// <summary>既定の基準需要での1ヶ月Tick。</summary>
+        public static void TickMonth(Person p, float monthlySalary, float investReturnRate)
+            => TickMonth(p, monthlySalary, investReturnRate, DefaultBaseNeed);
     }
 }

@@ -16,7 +16,7 @@ namespace Ginei.Tests
 
         // --- 構築・クランプ ---
         [Test]
-        public void PunishmentRegime_コンストラクタは0..1にクランプする()
+        public void PunishmentRegime_コンストラクタは0to1にクランプする()
         {
             var r = new PunishmentRegime(2f, -1f, 0.5f, 5f);
             Assert.AreEqual(1f, r.severity, Eps);
@@ -25,7 +25,7 @@ namespace Ginei.Tests
             Assert.AreEqual(1f, r.publicVisibility, Eps);
         }
 
-        // --- 脱走リスク：苛烈さ×執行で減る、0..1 ---
+        // --- 脱走リスク：苛烈さ×執行で減る、0to1 ---
         [Test]
         public void DeserterRisk_苛烈さ執行が高いほど減る()
         {
@@ -47,7 +47,7 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void DeserterRisk_境界は0..1に収まる()
+        public void DeserterRisk_境界は0to1に収まる()
         {
             float max = MilitaryJusticeRules.DeserterRisk(R(1f, 1f, 1f, 1f));
             float min = MilitaryJusticeRules.DeserterRisk(R(0f, 0f, 0f, 0f));
@@ -87,7 +87,7 @@ namespace Ginei.Tests
             Assert.AreEqual(1f, MilitaryJusticeRules.CohesionBonus(null), Eps);
         }
 
-        // --- 反感蓄積：苛烈さ×公開性で増える、0..1 ---
+        // --- 反感蓄積：苛烈さ×公開性で増える、0to1 ---
         [Test]
         public void ResentmentAccrual_苛烈さ公開性が高いほど増える()
         {
@@ -104,7 +104,7 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void ResentmentAccrual_境界は0..1に収まる()
+        public void ResentmentAccrual_境界は0to1に収まる()
         {
             float max = MilitaryJusticeRules.ResentmentAccrual(R(1f, 1f, 1f, 1f));
             float min = MilitaryJusticeRules.ResentmentAccrual(R(0f, 0f, 0f, 0f));
@@ -119,9 +119,9 @@ namespace Ginei.Tests
             Assert.AreEqual(0f, MilitaryJusticeRules.ResentmentAccrual(null), Eps);
         }
 
-        // --- 最適苛烈さ：0..1 かつ真の最小 ---
+        // --- 最適苛烈さ：0to1 かつ真の最小 ---
         [Test]
-        public void OptimalSeverity_常に0..1に収まる()
+        public void OptimalSeverity_常に0to1に収まる()
         {
             for (float enf = 0f; enf <= 1f; enf += 0.25f)
             for (float pub = 0f; pub <= 1f; pub += 0.25f)

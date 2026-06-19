@@ -57,7 +57,7 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void DeserterRisk_null は中立値()
+        public void DeserterRisk_nullは中立値()
         {
             Assert.AreEqual(MilitaryJusticeRules.NeutralDeserterRisk,
                 MilitaryJusticeRules.DeserterRisk(null), Eps);
@@ -82,7 +82,7 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void CohesionBonus_null は1()
+        public void CohesionBonus_nullは1()
         {
             Assert.AreEqual(1f, MilitaryJusticeRules.CohesionBonus(null), Eps);
         }
@@ -114,7 +114,7 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void ResentmentAccrual_null は0()
+        public void ResentmentAccrual_nullは0()
         {
             Assert.AreEqual(0f, MilitaryJusticeRules.ResentmentAccrual(null), Eps);
         }

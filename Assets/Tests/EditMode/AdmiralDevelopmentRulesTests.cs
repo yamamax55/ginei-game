@@ -98,7 +98,7 @@ namespace Ginei.Tests
         public void DistributeExperience_EvenShareSplitsEqually()
         {
             var p = new AdmiralDevelopmentRules.DevelopmentParams(0.25f);
-            float[] d = AdmiralDevelopmentRules.DistributeExperience(100f, CombatExperienceKind.統御);
+            float[] d = AdmiralDevelopmentRules.DistributeExperience(100f, CombatExperienceKind.統御, p);
             for (int i = 0; i < 4; i++) Assert.AreEqual(25f, d[i], 1e-3f);
         }
 

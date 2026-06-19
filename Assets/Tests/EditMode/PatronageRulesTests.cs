@@ -10,7 +10,7 @@ namespace Ginei.Tests
     /// </summary>
     public class PatronageRulesTests
     {
-        private static readonly PatronageTrapParams P = PatronageTrapParams.Default;
+        private static readonly PatronageParams P = PatronageParams.Default;
         // 忠誠0.6/劣化0.5/流出閾値0.5・緩傾斜0.2・最大0.8/改革抵抗0.9・既得20年
 
         [Test]
@@ -96,7 +96,7 @@ namespace Ginei.Tests
         [Test]
         public void Params_CtorClampsInputs()
         {
-            var p = new PatronageTrapParams(2f, -1f, 1.5f, -0.2f, 9f, 9f, 0f);
+            var p = new PatronageParams(2f, -1f, 1.5f, -0.2f, 9f, 9f, 0f);
             Assert.AreEqual(1f, p.loyaltyGainScale, 1e-5f);
             Assert.AreEqual(0f, p.qualityLossScale, 1e-5f);
             Assert.AreEqual(0.99f, p.exodusThreshold, 1e-5f);

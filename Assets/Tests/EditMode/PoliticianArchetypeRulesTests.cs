@@ -198,7 +198,7 @@ namespace Ginei.Tests
         // --- Params の堅牢性 ---
 
         [Test]
-        public void Params_高低しきい値の逆転入力でも低≤高を保証()
+        public void Params_高低しきい値の逆転入力でも低以下高を保証()
         {
             var prm = new Prm(0.3f, 0.7f, 0.3f, 0.5f, 0.3f); // 高<低 で渡す
             Assert.LessOrEqual(prm.lowThreshold, prm.highThreshold);

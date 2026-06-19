@@ -90,8 +90,32 @@ namespace Ginei
             new GameObject("ProtagonistCareerDirector").AddComponent<ProtagonistCareerDirector>();
         }
 
-        private void Awake() => Instance = this;
+        private void Awake()
+        {
+            Instance = this;
+            // 観測層規約：独立ルート（本ディレクタの static 状態）を J（CoreStateInspector）へ1行登録（重複ラベルは上書き）。
+            CoreStateInspector.Register("立身出世 (ProtagonistCareer)", BuildInspectorSnapshot);
+        }
         private void OnDestroy() { if (Instance == this) Instance = null; }
+
+        // J（汎用インスペクタ）用の状態スナップショット（観測専用・読むだけ）。未準備/不在は null。
+        private static object BuildInspectorSnapshot()
+        {
+            ProtagonistCareerDirector d = Instance;
+            if (d == null || d.Protagonist == null) return null;
+            var snap = new Dictionary<string, object>
+            {
+                ["主人公"] = d.Protagonist.name,
+                ["階級"] = $"{d.RankName(d.Protagonist.rankTier)} (tier{d.Protagonist.rankTier})",
+                ["武勲点"] = d.Merit != null ? d.Merit.points : 0f,
+                ["昇進確定段数"] = d.Merit != null ? d.Merit.meritPromotionsApplied : 0,
+                ["主命"] = d.ActiveMandate != null
+                    ? $"{d.ActiveMandate.kind}/{d.ActiveMandate.status}/期限{d.ActiveMandate.dueMonth}月" : "なし",
+                ["君主"] = d.Sovereign != null ? d.Sovereign.name : "（不在）",
+                ["戦果インボックス"] = $"与ダメ{pendingBattleDamage:0}/勝利{pendingBattleVictories}/会戦{pendingBattleCount}",
+            };
+            return snap;
+        }
 
         private void Update()
         {

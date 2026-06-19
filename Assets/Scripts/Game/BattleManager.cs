@@ -158,6 +158,8 @@ namespace Ginei
                 if (fs != null && LegacyOf(fs) == winner) winnerTactical += fs.strength;
             }
 
+            ReportProtagonistBattle(winner); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
+
             bool aWon = winner == BattleHandoff.factionA;
             int survivorStrategic = Mathf.Max(1, Mathf.RoundToInt(winnerTactical / (float)BattleHandoff.StrengthScale));
             BattleHandoff.SetResult(aWon, survivorStrategic);
@@ -611,6 +613,7 @@ namespace Ginei
         /// </summary>
         private void ApplyBattleExperience(Faction winnerFaction)
         {
+            ReportProtagonistBattle(winnerFaction); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
             IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
             for (int i = 0; i < all.Count; i++)
             {
@@ -635,6 +638,28 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                         $"{fs.admiralName} に武功章 {d.grade} を叙勲（戦功）");
                 }
+            }
+        }
+
+        /// <summary>
+        /// 主人公（<see cref="AdmiralData.isProtagonist"/> もしくは選択提督名一致）の艦隊が会戦に居れば、その戦果
+        /// （与ダメ＋勝敗）を立身出世の武勲インボックス（<see cref="ProtagonistCareerDirector.ReportBattle"/>）へ積む（P1-a #2477）。
+        /// 戦略へ戻った後の月次評定で武勲・主命達成へ変換される＝出世が会戦の結果で駆動する。
+        /// </summary>
+        private void ReportProtagonistBattle(Faction winner)
+        {
+            GameSettings gs = GameSettings.Instance;
+            string heroName = gs != null ? gs.selectedAdmiral : null;
+            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FleetStrength fs = all[i];
+                if (fs == null || fs.admiralData == null) continue;
+                bool isHero = fs.admiralData.isProtagonist ||
+                              (!string.IsNullOrEmpty(heroName) && fs.admiralData.admiralName == heroName);
+                if (!isHero) continue;
+                ProtagonistCareerDirector.ReportBattle(fs.DamageDealt, LegacyOf(fs) == winner);
+                break; // 主人公は1名
             }
         }
 

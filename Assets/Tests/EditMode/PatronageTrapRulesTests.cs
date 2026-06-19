@@ -11,7 +11,7 @@ namespace Ginei.Tests
     /// </summary>
     public class PatronageTrapRulesTests
     {
-        private static readonly PatronageParams P = PatronageParams.Default;
+        private static readonly PatronageTrapParams P = PatronageTrapParams.Default;
         // 低下0.05/秒・援助感度0.01・上限削り0.8・短期ブースト0.4・発育不全閾値0.7
 
         [Test]

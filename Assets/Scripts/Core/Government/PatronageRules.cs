@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ginei
 {
     /// <summary>猟官制・恩顧主義の調整係数（スポイルズ・システム）。</summary>
-    public readonly struct PatronageParams
+    public readonly struct PatronageTrapParams
     {
         /// <summary>全ポストを猟官化したとき買える忠誠の最大値。</summary>
         public readonly float loyaltyGainScale;
@@ -20,7 +20,7 @@ namespace Ginei
         /// <summary>改革抵抗が最大に固まるまでの既得年数。</summary>
         public readonly float entrenchYearsToMax;
 
-        public PatronageParams(
+        public PatronageTrapParams(
             float loyaltyGainScale, float qualityLossScale,
             float exodusThreshold, float exodusBaseRate, float exodusMax,
             float reformResistanceMax, float entrenchYearsToMax)
@@ -35,7 +35,7 @@ namespace Ginei
         }
 
         /// <summary>既定＝忠誠0.6・劣化0.5・流出閾値0.5/緩傾斜0.2/最大0.8・改革抵抗0.9/既得20年。</summary>
-        public static PatronageParams Default => new PatronageParams(0.6f, 0.5f, 0.5f, 0.2f, 0.8f, 0.9f, 20f);
+        public static PatronageTrapParams Default => new PatronageTrapParams(0.6f, 0.5f, 0.5f, 0.2f, 0.8f, 0.9f, 20f);
     }
 
     /// <summary>
@@ -56,33 +56,33 @@ namespace Ginei
         /// 買えた忠誠（0..loyaltyGainScale）＝猟官ポストの割合 patronageShare(0..1) に比例。
         /// 配るほど政権基盤は固い（恩を受けた者は裏切らない）。
         /// </summary>
-        public static float LoyaltyPurchased(float patronageShare, PatronageParams p)
+        public static float LoyaltyPurchased(float patronageShare, PatronageTrapParams p)
         {
             return Mathf.Clamp01(patronageShare) * p.loyaltyGainScale;
         }
 
         public static float LoyaltyPurchased(float patronageShare)
-            => LoyaltyPurchased(patronageShare, PatronageParams.Default);
+            => LoyaltyPurchased(patronageShare, PatronageTrapParams.Default);
 
         /// <summary>
         /// 行政能力（0..1、1=満全）＝1−猟官割合×(1−縁故者の腕前 loyalistCompetence(0..1))×劣化幅。
         /// 有能な子分なら劣化は浅い（腕前1で無傷）、無能な取り巻きで埋めると最大 qualityLossScale 落ちる。
         /// </summary>
-        public static float AdministrativeQuality(float patronageShare, float loyalistCompetence, PatronageParams p)
+        public static float AdministrativeQuality(float patronageShare, float loyalistCompetence, PatronageTrapParams p)
         {
             float incompetence = 1f - Mathf.Clamp01(loyalistCompetence);
             return Mathf.Clamp01(1f - Mathf.Clamp01(patronageShare) * incompetence * p.qualityLossScale);
         }
 
         public static float AdministrativeQuality(float patronageShare, float loyalistCompetence)
-            => AdministrativeQuality(patronageShare, loyalistCompetence, PatronageParams.Default);
+            => AdministrativeQuality(patronageShare, loyalistCompetence, PatronageTrapParams.Default);
 
         /// <summary>
         /// 実力者の流出（0..exodusMax）＝昇進が忠誠で決まる組織から才能は逃げる。
         /// 閾値 exodusThreshold までは緩傾斜（exodusBaseRate）、超えると加速して
         /// 全ポスト猟官化で exodusMax に達する（見切りの雪崩）。
         /// </summary>
-        public static float MeritocracyExodus(float patronageShare, PatronageParams p)
+        public static float MeritocracyExodus(float patronageShare, PatronageTrapParams p)
         {
             float share = Mathf.Clamp01(patronageShare);
             float atThreshold = p.exodusThreshold * p.exodusBaseRate;
@@ -96,7 +96,7 @@ namespace Ginei
         }
 
         public static float MeritocracyExodus(float patronageShare)
-            => MeritocracyExodus(patronageShare, PatronageParams.Default);
+            => MeritocracyExodus(patronageShare, PatronageTrapParams.Default);
 
         /// <summary>
         /// 論功行賞の期待圧力（0..1）＝報われない支持者の割合 max(0, 支持者−ポスト)/支持者。
@@ -116,7 +116,7 @@ namespace Ginei
         /// 既得層は試験制度（実力人事）を殺しに来る。既得年数 entrenchedYears が
         /// entrenchYearsToMax に達すると抵抗は最大、年数ゼロでも FreshResistanceRatio 分は抵抗する。
         /// </summary>
-        public static float ReformResistance(float patronageShare, float entrenchedYears, PatronageParams p)
+        public static float ReformResistance(float patronageShare, float entrenchedYears, PatronageTrapParams p)
         {
             float entrenchment = Mathf.Clamp01(Mathf.Max(0f, entrenchedYears) / p.entrenchYearsToMax);
             float hardness = FreshResistanceRatio + (1f - FreshResistanceRatio) * entrenchment;
@@ -124,20 +124,20 @@ namespace Ginei
         }
 
         public static float ReformResistance(float patronageShare, float entrenchedYears)
-            => ReformResistance(patronageShare, entrenchedYears, PatronageParams.Default);
+            => ReformResistance(patronageShare, entrenchedYears, PatronageTrapParams.Default);
 
         /// <summary>
         /// 政権にとっての損益＝買えた忠誠−行政劣化−実力者流出。
         /// 有能な子分への控えめな配分だけがわずかに引き合い、全面猟官化は縁故者が天才揃いでも
         /// 流出で赤字になる＝「忠誠は買えるが有能は買えない」を数値で出す。
         /// </summary>
-        public static float NetRegimeValue(float patronageShare, float loyalistCompetence, PatronageParams p)
+        public static float NetRegimeValue(float patronageShare, float loyalistCompetence, PatronageTrapParams p)
         {
             float qualityLoss = 1f - AdministrativeQuality(patronageShare, loyalistCompetence, p);
             return LoyaltyPurchased(patronageShare, p) - qualityLoss - MeritocracyExodus(patronageShare, p);
         }
 
         public static float NetRegimeValue(float patronageShare, float loyalistCompetence)
-            => NetRegimeValue(patronageShare, loyalistCompetence, PatronageParams.Default);
+            => NetRegimeValue(patronageShare, loyalistCompetence, PatronageTrapParams.Default);
     }
 }

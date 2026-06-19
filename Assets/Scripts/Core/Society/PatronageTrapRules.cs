@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ginei
 {
     /// <summary>後見依存ジレンマの調整係数（CEND-2 #2358）。</summary>
-    public readonly struct PatronageParams
+    public readonly struct PatronageTrapParams
     {
         /// <summary>依存度の自然低下/秒（援助が止まれば徐々に自立を取り戻す）。</summary>
         public readonly float decayRate;
@@ -20,7 +20,7 @@ namespace Ginei
         /// <summary>この依存度以上で「発育不全（自立不能）」とみなす閾値(0..1)。</summary>
         public readonly float stuntedThreshold;
 
-        public PatronageParams(float decayRate, float aidSensitivity, float capStrength,
+        public PatronageTrapParams(float decayRate, float aidSensitivity, float capStrength,
             float shortTermBoostScale, float stuntedThreshold)
         {
             this.decayRate = Mathf.Max(0f, decayRate);
@@ -34,7 +34,7 @@ namespace Ginei
         /// 既定＝低下0.05/秒・援助感度0.01・上限削り0.8・短期ブースト0.4・発育不全閾値0.7。
         /// 援助を絶てば約20秒で依存が1段抜ける一方、受け続ければ自力成長は最大8割まで削られる。
         /// </summary>
-        public static PatronageParams Default => new PatronageParams(0.05f, 0.01f, 0.8f, 0.4f, 0.7f);
+        public static PatronageTrapParams Default => new PatronageTrapParams(0.05f, 0.01f, 0.8f, 0.4f, 0.7f);
     }
 
     /// <summary>
@@ -53,7 +53,7 @@ namespace Ginei
         /// 援助の受領で依存状態を進める。累積援助＝aidAccumulator + max(0,aidAmount)、
         /// 依存度＝1 - exp(-感度×累積)（累積が増すほど1へ漸近・飽和）。負の援助は無視（負債化しない）。
         /// </summary>
-        public static PatronageState AccumulateDependency(PatronageState state, float aidAmount, PatronageParams p)
+        public static PatronageState AccumulateDependency(PatronageState state, float aidAmount, PatronageTrapParams p)
         {
             float aid = Mathf.Max(0f, aidAmount);
             float acc = Mathf.Max(0f, state.aidAccumulator) + aid;
@@ -62,14 +62,14 @@ namespace Ginei
         }
 
         public static PatronageState AccumulateDependency(PatronageState state, float aidAmount)
-            => AccumulateDependency(state, aidAmount, PatronageParams.Default);
+            => AccumulateDependency(state, aidAmount, PatronageTrapParams.Default);
 
         /// <summary>
-        /// 依存度の自然低下（dt後）。援助が止まれば <see cref="PatronageParams.decayRate"/>×dt ずつ
+        /// 依存度の自然低下（dt後）。援助が止まれば <see cref="PatronageTrapParams.decayRate"/>×dt ずつ
         /// 自立を取り戻す。累積援助カウンタも同じ割合で目減りさせ、依存度と整合させる
         /// （再び援助されたとき過去の蓄積が残り過ぎないように）。
         /// </summary>
-        public static PatronageState DependencyDecay(PatronageState state, float dt, PatronageParams p)
+        public static PatronageState DependencyDecay(PatronageState state, float dt, PatronageTrapParams p)
         {
             float step = Mathf.Max(0f, dt);
             float drop = p.decayRate * step;
@@ -82,41 +82,41 @@ namespace Ginei
         }
 
         public static PatronageState DependencyDecay(PatronageState state, float dt)
-            => DependencyDecay(state, dt, PatronageParams.Default);
+            => DependencyDecay(state, dt, PatronageTrapParams.Default);
 
         /// <summary>
         /// 有機的成長の上限倍率(0..1)＝1 - capStrength×依存度。依存が高いほど自力成長の天井が下がる。
         /// 依存0で1.0（無制限＝従来動作）、依存1で 1-capStrength（既定0.2＝自力成長は2割まで）。
         /// 呼び出し側はこの倍率を成長係数に乗じて頭打ちにする（基準値は破壊しない＝実効値パターン）。
         /// </summary>
-        public static float OrganicGrowthCap(float dependencyRatio, PatronageParams p)
+        public static float OrganicGrowthCap(float dependencyRatio, PatronageTrapParams p)
         {
             float dep = Mathf.Clamp01(dependencyRatio);
             return Mathf.Clamp01(1f - p.capStrength * dep);
         }
 
         public static float OrganicGrowthCap(float dependencyRatio)
-            => OrganicGrowthCap(dependencyRatio, PatronageParams.Default);
+            => OrganicGrowthCap(dependencyRatio, PatronageTrapParams.Default);
 
         /// <summary>state 版の有機成長上限。</summary>
-        public static float OrganicGrowthCap(PatronageState state, PatronageParams p)
+        public static float OrganicGrowthCap(PatronageState state, PatronageTrapParams p)
             => OrganicGrowthCap(state.dependencyRatio, p);
 
         /// <summary>
         /// 短期ブースト倍率(>=1)＝1 + shortTermBoostScale×依存度。援助を受けるほど短期の指標
         /// （安定・戦力・生活水準）が底上げされる＝罠の「甘い側」。依存0で1.0、依存1で 1+scale。
         /// </summary>
-        public static float ShortTermBoost(float dependencyRatio, PatronageParams p)
+        public static float ShortTermBoost(float dependencyRatio, PatronageTrapParams p)
         {
             float dep = Mathf.Clamp01(dependencyRatio);
             return 1f + p.shortTermBoostScale * dep;
         }
 
         public static float ShortTermBoost(float dependencyRatio)
-            => ShortTermBoost(dependencyRatio, PatronageParams.Default);
+            => ShortTermBoost(dependencyRatio, PatronageTrapParams.Default);
 
         /// <summary>state 版の短期ブースト。</summary>
-        public static float ShortTermBoost(PatronageState state, PatronageParams p)
+        public static float ShortTermBoost(PatronageState state, PatronageTrapParams p)
             => ShortTermBoost(state.dependencyRatio, p);
 
         /// <summary>
@@ -134,17 +134,17 @@ namespace Ginei
             => WithdrawalShock(state.dependencyRatio);
 
         /// <summary>
-        /// 発育不全（自立不能）か＝依存度が <see cref="PatronageParams.stuntedThreshold"/> 以上。
+        /// 発育不全（自立不能）か＝依存度が <see cref="PatronageTrapParams.stuntedThreshold"/> 以上。
         /// true なら有機的変容（CEND-1）に進めない＝庇護者なしには立ち行かない。
         /// </summary>
-        public static bool IsStunted(float dependencyRatio, PatronageParams p)
+        public static bool IsStunted(float dependencyRatio, PatronageTrapParams p)
             => Mathf.Clamp01(dependencyRatio) >= p.stuntedThreshold;
 
         public static bool IsStunted(float dependencyRatio)
-            => IsStunted(dependencyRatio, PatronageParams.Default);
+            => IsStunted(dependencyRatio, PatronageTrapParams.Default);
 
         /// <summary>state 版の発育不全判定。</summary>
-        public static bool IsStunted(PatronageState state, PatronageParams p)
+        public static bool IsStunted(PatronageState state, PatronageTrapParams p)
             => IsStunted(state.dependencyRatio, p);
     }
 }

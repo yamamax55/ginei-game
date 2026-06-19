@@ -46,10 +46,10 @@
 
 ## 2. P2（積み上げが戦闘力・継続に届かない）
 
-### P2-a 軍の質が戦略から戦術へ流れない
-- **事実**：`ForceQualityRules.CombatMultiplier(NcoCorps, 新兵練度, readiness, veterancyXp)` は**器が完成**（`Core/Combat/ForceQualityRules.cs:29-50`）。だが `StrategicFleet` に NCO・練度・veterancy の**フィールドが無く**、`GalaxyView.Input.cs:261-264` は `null`/`0.5f` の**プレースホルダ**を渡す。
-- **影響**：教育（士官学校/下士官団）・軍政・練度を積んでも**会戦の強さが変わらない**（効くのは補給readinessのみ）。4X の積み上げが戦術へ届かない。
-- **最小手**：`StrategicFleet`（or 編制側）に練度/veterancy スカラを1つ持たせ、降下時に `ForceQualityRules` の引数へ流す（合成窓口は既存＝属性追加＋配線）。
+### P2-a 軍の質が戦略から戦術へ流れない 〔訂正：自動解決は実装済み・残は実会戦の一貫性のみ〕
+- **訂正（再調査）**：本項は前回監査（#2476 前）の失効。master には既に**艦隊練度システムが配線済み**＝`GalaxyView.Veterancy.cs`（`fleetXp` を id キーで保持・`RunVeterancyTick` 年次獲得/減衰・`FleetVeterancyFactor`）。**自動解決の戦闘係数は練度を折込済み**＝`GalaxyView.Economy.cs:1088` `CombatFactorOf = EffectiveCombatFactor(supply, tech) × FleetVeterancyFactor(f)`。よって「軍の積み上げ→戦闘力」は**自動解決では成立**している（前回監査の "効くのは補給のみ" は失効）。※私はこれを見落とし P2-a を二重実装しかけて破棄した（教訓＝着手前に #2476 の Game パーシャルまで確認する）。
+- **残る穴（軽微・要設計判断）**：**実会戦（BattleHandoff）**の質だけ別式で、`GalaxyView.Input.cs:472-473/497` が `ForceQualityRules.CombatMultiplier(null, 0.5f, FirepowerFactor(supply))×tech` を使い**練度を折り込まない**＝自動解決と実会戦で歴戦艦隊の扱いが不一致。
+- **最小手（提案）**：実会戦の質に既存 `FleetVeterancyFactor(a/b)` を乗算して自動解決と揃える（新規ロジック不要・既存アクセサ）。ただし「手動会戦は艦隊練度でなく操艦の腕で決める」意図なら現状維持が正＝**設計判断が要るため未着手**（オーナー確認待ち）。
 
 ### P2-b セーブ往復に練度/成長が乗らない
 - **事実**：`CampaignSaveData`/`CampaignSerializer` は星系/勢力/国庫/税率/人物/艦隊/Province/Clock/朝廷を保存（`Core/Society/CampaignSaveData.cs` 各 Save 構造体）。だが `StrategicFleetSave` に **veterancy/NCO/提督Growth が無い**（P2-a・P1-b と同根＝そもそもフィールドが無い）。

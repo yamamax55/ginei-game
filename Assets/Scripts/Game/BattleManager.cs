@@ -624,10 +624,10 @@ namespace Ginei
                 float amount = BattleMetaRules.ExperienceFromBattle(fs.DamageDealt, 0, isWinner);
                 if (amount <= 0f) continue;
 
-                // Growth は AdmiralData へ未永続（Wave1 配線待ち）。一時インスタンスで関数の疎通のみ確認。
-                var tempGrowth = new Growth(GrowthArchetype.叩き上げ);
-                GrowthRules.GainExperience(tempGrowth, amount, dt: 1f);
-                // 将来: fs.admiralData.growth に GainExperience を適用する。
+                // 会戦で得た経験を id キーの成長台帳へ蓄える（P1-b #2477＝捨てない）。基準能力は AdmiralData、経験はここ。
+                // 共有 ScriptableObject(AdmiralData) を実行時に書き換えず、GetInstanceID キーで分離（MedalRegistry と同型）。
+                GrowthArchetype arch = fs.admiralData.growth != null ? fs.admiralData.growth.archetype : GrowthArchetype.叩き上げ;
+                GrowthRegistry.GainExperience(fs.admiralData.GetInstanceID(), arch, amount, dt: 1f);
 
                 // #2263 叙勲：戦功（与ダメ＋勝利）に応じて武功章を授与。次戦の士気底上げ（名誉）へ繋がる。
                 float merit = Mathf.Clamp(fs.DamageDealt / MedalMeritScale, 0f, 100f) + (isWinner ? MedalWinnerMeritBonus : 0f);

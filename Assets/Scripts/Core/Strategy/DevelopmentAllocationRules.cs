@@ -33,8 +33,12 @@ namespace Ginei
         /// <summary>潜在力スコアの正規化基準人口（この人口で潜在力 ≈ 1.0）。集約粒度＝惑星単位。</summary>
         public const float PotentialPopulationScale = 100f;
 
-        /// <summary>1惑星あたりの投資上限（予算に対する割合＝収穫逓減の頭打ち）。1拠点へ注ぎ込みすぎない。</summary>
-        public const float PerProvinceCapRatio = 0.4f;
+        /// <summary>
+        /// 1惑星あたりの投資上限（予算に対する割合＝収穫逓減の頭打ち）。1拠点へ注ぎ込みすぎない。
+        /// 0.5 超＝惑星数が少ない（N≦2）ときも総上限が予算を上回り、最低優先度の惑星は cap に達せず
+        /// 優先度の順序（不安定＞安定がより多く貰う）が保たれる。
+        /// </summary>
+        public const float PerProvinceCapRatio = 0.6f;
 
         /// <summary>収穫逓減（凹関数）の半飽和投資量。投資=この値で最大安定上昇の約半分に達する。</summary>
         public const float GainHalfSaturation = 100f;

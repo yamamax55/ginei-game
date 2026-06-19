@@ -152,12 +152,12 @@ namespace Ginei
             float atk = Mathf.Max(0f, attackerStrength);
             float def = Mathf.Max(0f, defenderGarrison);
 
-            // 守備隊が居なければ無抵抗占領（攻撃側無傷・最大進捗）。
-            if (def <= 0f)
-                return new GroundBattleResult(true, 0f, 0f, atk > 0f ? p.maxCaptureDelta : 0f);
-            // 攻撃側が居なければ会戦不成立（双方無傷・進捗なし）。
+            // 攻撃側が居なければ会戦不成立（双方無傷・進捗なし）。守備不在の判定より先＝双方0でも勝者なし。
             if (atk <= 0f)
                 return new GroundBattleResult(false, 0f, 0f, 0f);
+            // 守備隊が居なければ無抵抗占領（攻撃側無傷・最大進捗）。
+            if (def <= 0f)
+                return new GroundBattleResult(true, 0f, 0f, p.maxCaptureDelta);
 
             // 実効戦力＝頭数 × 士気 ×（攻撃側は複合兵科倍率／守備側は地形＋築城度の守備有利）。
             float arms = attackerArmsFactor <= 0f ? 1f : attackerArmsFactor;

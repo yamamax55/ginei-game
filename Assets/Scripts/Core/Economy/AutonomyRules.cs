@@ -11,6 +11,7 @@ namespace Ginei
     {
         集団依存,
         自律分散,
+        集合意識型,
     }
 
     /// <summary>

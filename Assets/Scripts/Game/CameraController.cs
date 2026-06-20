@@ -16,14 +16,20 @@ namespace Ginei
         public float dragSensitivity = 1.0f;
         
         [Header("ズーム設定")]
-        [Tooltip("ズーム速度（マウスホイール）")]
-        public float zoomSpeed = 12f;
-        [Tooltip("最小ズームサイズ")]
-        public float minZoom = 2f;
-        [Tooltip("最大ズームサイズ")]
-        public float maxZoom = 30f;
-        [Tooltip("開始時のズーム（大きいほど引いた画。会戦開始時に適用）")]
+        [Tooltip("ズーム感度（ホイール速度に比例。大きいほど速い）")]
+        public float zoomSpeed = 20f;
+        [Tooltip("ズームの滑らかさ（目標サイズへ寄る速さ。大きいほどキビキビ）")]
+        public float zoomSmoothing = 12f;
+        [Tooltip("最小ズームサイズ（小さいほど深くズームイン）")]
+        public float minZoom = 1f;
+        [Tooltip("最大ズームサイズ（大きいほど広くズームアウト＝MAP全体）")]
+        public float maxZoom = 120f;
+        [Tooltip("開始時のズーム（大きいほど引いた画。会戦開始時に適用・フォールバック）")]
         public float startZoom = 16f;
+        [Tooltip("会戦開始時に全艦隊が収まるよう自動でMAP全体にズームアウトする")]
+        public bool frameWholeBattlefieldOnStart = true;
+        [Tooltip("MAP全体フレーミング時の余白倍率（1.0=ぴったり／大きいほど引く）")]
+        public float frameMargin = 1.25f;
 
         [Header("画面端スクロール (#87)")]
         [Tooltip("マウスを画面端に寄せるとパンする（設定で有効/無効・GameSettings.edgeScrollEnabled を優先）")]
@@ -58,6 +64,9 @@ namespace Ginei
         private float shakeTimer = 0f;
         private Vector3 lastShakeOffset = Vector3.zero;
 
+        private float zoomTarget;          // 滑らかズームの目標 orthographicSize
+        private bool framedOnce;           // MAP全体フレーミング（艦隊が湧くのを待って一度だけ）
+
         private void Awake()
         {
             cam = GetComponent<Camera>();
@@ -71,12 +80,16 @@ namespace Ginei
             float z = startZoom;
             if (GameSettings.Instance != null) z = GameSettings.Instance.cameraStartZoom;
             if (cam != null) cam.orthographicSize = Mathf.Clamp(z, minZoom, maxZoom);
+            zoomTarget = cam != null ? cam.orthographicSize : z; // 滑らかズームの初期目標
         }
 
         private void Update()
         {
             // 設定画面のトグル（GameSettings.edgeScrollEnabled）を反映（#87）
             if (GameSettings.Instance != null) edgeScrollEnabled = GameSettings.Instance.edgeScrollEnabled;
+
+            // 会戦開始時：全艦隊が湧いたらMAP全体が見渡せるよう一度だけズームアウト（艦隊登録を待つ）。
+            if (!framedOnce && frameWholeBattlefieldOnStart) framedOnce = TryFrameWholeBattlefield();
 
             HandlePan();
             HandleEdgeScroll();
@@ -167,22 +180,68 @@ namespace Ginei
         /// </summary>
         private void HandleZoom()
         {
-            if (Mouse.current == null) return;
+            if (cam == null) return;
 
-            float scroll = Mouse.current.scroll.ReadValue().y;
-            if (Mathf.Abs(scroll) <= 0.01f) return;
+            // ホイール入力で目標サイズを更新（倍率式＝深度に依らず一定の体感／ホイール速度に比例）。
+            if (Mouse.current != null)
+            {
+                float scroll = Mouse.current.scroll.ReadValue().y;
+                if (Mathf.Abs(scroll) > 0.01f)
+                {
+                    float raw = scroll * zoomSpeed * 0.01f;            // 速く回すほど大きい
+                    float factor = Mathf.Clamp(1f - raw, 0.4f, 2.5f); // 1イベントの倍率（暴れ防止のクランプ）
+                    zoomTarget = Mathf.Clamp(zoomTarget * factor, minZoom, maxZoom);
+                }
+            }
 
-            // ズーム前のカーソル下ワールド座標（2D 直交＝入力 z は x/y に影響しない）
-            Vector2 mouse = Mouse.current.position.ReadValue();
-            Vector3 worldBefore = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
+            // 目標サイズへ滑らかに寄せる（フレームレート非依存・ポーズ中も効くよう unscaled）＋カーソル中心維持。
+            if (Mathf.Abs(cam.orthographicSize - zoomTarget) > 0.0001f)
+            {
+                Vector2 mouse = Mouse.current != null ? Mouse.current.position.ReadValue()
+                    : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+                Vector3 worldBefore = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
+                float t = 1f - Mathf.Exp(-zoomSmoothing * Time.unscaledDeltaTime);
+                cam.orthographicSize = Mathf.Lerp(cam.orthographicSize, zoomTarget, t);
+                Vector3 worldAfter = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
+                Vector3 shift = worldBefore - worldAfter;
+                transform.position += new Vector3(shift.x, shift.y, 0f);
+            }
+        }
 
-            float newSize = cam.orthographicSize - (scroll * 0.01f * zoomSpeed);
-            cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
+        /// <summary>
+        /// 全旗艦（艦隊）が画面に収まるよう、その外接矩形の中心へカメラを移し orthographicSize を合わせる
+        /// （会戦開始時に一度・MAP全体が見渡せる引いた画）。艦隊未登録（湧く前/非戦闘ビュー）のときは false で次フレーム再試行。
+        /// </summary>
+        private bool TryFrameWholeBattlefield()
+        {
+            if (cam == null) return false;
+            var flags = FleetRegistry.AllFlagships;
+            if (flags == null || flags.Count == 0) return false;
 
-            // ズーム後に同じスクリーン点が指す座標を求め、ズレぶんカメラを移動＝カーソル中心ズーム
-            Vector3 worldAfter = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
-            Vector3 shift = worldBefore - worldAfter;
-            transform.position += new Vector3(shift.x, shift.y, 0f);
+            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+            int n = 0;
+            for (int i = 0; i < flags.Count; i++)
+            {
+                var fs = flags[i];
+                if (fs == null) continue;
+                Vector2 p = fs.transform.position;
+                minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x);
+                minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
+                n++;
+            }
+            if (n == 0) return false;
+
+            Vector2 center = new Vector2((minX + maxX) * 0.5f, (minY + maxY) * 0.5f);
+            float halfH = (maxY - minY) * 0.5f;
+            float halfW = (maxX - minX) * 0.5f;
+            float aspect = cam.aspect > 0.01f ? cam.aspect : 1.6f;
+            float needSize = Mathf.Max(halfH, halfW / aspect) * frameMargin;
+            needSize = Mathf.Clamp(Mathf.Max(needSize, 4f), minZoom, maxZoom); // 1隊だけ等で潰れないよう下限
+
+            cam.orthographicSize = needSize;
+            zoomTarget = needSize;
+            transform.position = new Vector3(center.x, center.y, transform.position.z);
+            return true;
         }
 
         /// <summary>

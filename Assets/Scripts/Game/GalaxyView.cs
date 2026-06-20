@@ -272,6 +272,14 @@ namespace Ginei
             SetupEvents(); // S6：支持低下イベント（#116 エンジン）を用意
             BuildVisuals();
 
+            // WIN-3：複数同時会戦の結果を1フレーム1件ずつ global へ復元して既存の反映処理へ流す
+            //（各会戦は自分のスナップショットを BattleResultQueue へ積む＝global を奪い合わない）。
+            if (!BattleHandoff.Pending && !BattleHandoff.Resolved && !BattleHandoff.siegeResolved
+                && BattleResultQueue.Count > 0 && BattleResultQueue.TryPop(out BattleHandoff.State bres))
+            {
+                BattleHandoff.Restore(bres);
+            }
+
             // 実会戦（Battleシーン）から戻ってきた結果を戦略へ反映。
             // さらに、潜行中に銀河の時計は止まらない＝観ていなかった他戦線は自動侵攻で決着（#586 ④⑤）。
             if (BattleHandoff.Resolved && BattleHandoff.Pending)

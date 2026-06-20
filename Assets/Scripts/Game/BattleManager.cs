@@ -39,6 +39,19 @@ namespace Ginei
         /// </summary>
         private IReadOnlyList<FleetStrength> Flagships => FleetRegistry.FlagshipsIn(gameObject.scene);
 
+        // WIN-3 #2570：この会戦専用の受け渡しスナップショット（複数同時で global BattleHandoff を奪い合わない）。
+        // BattleDirector がロード完了時に注入する。null＝フルスクリーン会戦（global を直接使う＝従来動作）。
+        private BattleHandoff.State ctx;
+        /// <summary>BattleDirector が当該会戦の受け渡しスナップショットを注入する（WIN-3）。</summary>
+        public void SetHandoffContext(BattleHandoff.State s) => ctx = s;
+        private bool Windowed => ctx != null;
+        private bool HPending => ctx != null ? ctx.Pending : BattleHandoff.Pending;
+        private bool HSystemView => ctx != null ? ctx.IsSystemView : BattleHandoff.IsSystemView;
+        private bool HPlanetSiege => ctx != null ? ctx.IsPlanetSiege : BattleHandoff.IsPlanetSiege;
+        private Faction HFactionA => ctx != null ? ctx.factionA : BattleHandoff.factionA;
+        private Faction HFactionB => ctx != null ? ctx.factionB : BattleHandoff.factionB;
+        private string HReturnScene => ctx != null ? ctx.returnScene : BattleHandoff.returnScene;
+
         private void Start()
         {
             // 開始時にタイムスケールをリセット
@@ -63,7 +76,7 @@ namespace Ginei
             }
 
             // システムビュー（非戦闘・恒星系の閲覧）：戦闘判定はせず、Backspace で戦略マップへ戻るだけ。
-            if (BattleHandoff.IsSystemView)
+            if (HSystemView)
             {
                 if (!isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
                 {
@@ -82,7 +95,7 @@ namespace Ginei
 
             // 戦略マップからの実会戦（C-2 二層遷移 #586 ②）：Backspace でいつでも戦略マップへ復帰。
             // 現時点の優勢側を勝者として結果を書き戻し、撤収する（離脱＝以後は自動委任）。
-            if (BattleHandoff.Pending && !isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
+            if (HPending && !isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
             {
                 LeaveToStrategy();
                 return;
@@ -101,7 +114,7 @@ namespace Ginei
                     Debug.LogWarning("BattleManager: 開始時に艦隊が見つかりませんでした。");
                 }
                 // 戦略マップからの実会戦なら、いつでも復帰できることを通知（#586 ②）
-                if (BattleHandoff.Pending)
+                if (HPending)
                 {
                     var hud = FindFirstObjectByType<FleetHUDManager>();
                     if (hud != null) hud.ShowMessage("Backspace：戦略マップへ復帰（以後は自動委任）", 5f);
@@ -137,7 +150,7 @@ namespace Ginei
             if (!BattleViewport.Active) Time.timeScale = 0f;
 
             // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る
-            if (BattleHandoff.Pending)
+            if (HPending)
             {
                 WriteHandoffResultAndReturn(winner);
                 return;
@@ -165,12 +178,22 @@ namespace Ginei
 
             ReportProtagonistBattle(winner); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
 
-            bool aWon = winner == BattleHandoff.factionA;
+            bool aWon = winner == HFactionA;
             int survivorStrategic = Mathf.Max(1, Mathf.RoundToInt(winnerTactical / (float)BattleHandoff.StrengthScale));
-            BattleHandoff.SetResult(aWon, survivorStrategic);
 
             Time.timeScale = 1f; // 戦略へ戻すので通常速度へ
-            ReturnToStrategy(BattleHandoff.returnScene);
+            if (Windowed)
+            {
+                // 複数同時会戦（WIN-3）：自分の受け渡しへ結果を書き、結果キューへ積む（global を奪い合わない）。
+                ctx.sideAWon = aWon; ctx.survivorStrength = survivorStrategic; ctx.Resolved = true;
+                BattleResultQueue.Push(ctx);
+                ReturnToStrategy(null);
+            }
+            else
+            {
+                BattleHandoff.SetResult(aWon, survivorStrategic);
+                ReturnToStrategy(BattleHandoff.returnScene);
+            }
         }
 
         /// <summary>
@@ -180,9 +203,10 @@ namespace Ginei
         /// </summary>
         private void ReturnToStrategy(string returnScene)
         {
-            if (BattleViewport.Active)
+            if (Windowed)
             {
-                BattleWindow.NotifyBattleEnded();
+                // 複数同時会戦（WIN-3）：自分のシーンのウィンドウを閉じてアンロード（戦略は背後に生存）。
+                BattleDirector.NotifyBattleEnded(gameObject.scene);
                 return;
             }
             SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(returnScene) ? "Strategy" : returnScene);
@@ -197,8 +221,8 @@ namespace Ginei
             if (isBattleOver) return;
             isBattleOver = true;
             if (!BattleViewport.Active) Time.timeScale = 0f;
-            if (!BattleHandoff.Pending) { ReturnToStrategy(BattleHandoff.returnScene); return; }
-            if (BattleHandoff.IsPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
+            if (!HPending) { ReturnToStrategy(HReturnScene); return; }
+            if (HPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
             else WriteHandoffResultAndReturn(LeadingFaction());
         }
 
@@ -211,16 +235,40 @@ namespace Ginei
             // 戦術マップでの攻城進捗（制空権/侵略値/占領）を割合で書き戻す（GalaxyView が惑星へ反映）。
             // arena が無くても必ず resolve して受け渡しを完結させる（Pending の残留防止）。
             SiegeArena arena = FindFirstObjectByType<SiegeArena>();
+            float defR, invR, garR, garM; bool cap, surr;
             if (arena != null)
-                BattleHandoff.SetSiegeResult(arena.DefenseRatio, arena.InvasionRatio, arena.Captured,
-                    arena.GarrisonRatio, arena.GarrisonMoraleRatio, arena.Surrendered);
+            {
+                defR = arena.DefenseRatio; invR = arena.InvasionRatio; cap = arena.Captured;
+                garR = arena.GarrisonRatio; garM = arena.GarrisonMoraleRatio; surr = arena.Surrendered;
+            }
             else
-                BattleHandoff.SetSiegeResult(BattleHandoff.planetDefenseRatio, BattleHandoff.planetInvasionRatio, false,
-                    BattleHandoff.planetGarrisonRatio, BattleHandoff.planetGarrisonMorale, false);
+            {
+                defR = ctx != null ? ctx.planetDefenseRatio : BattleHandoff.planetDefenseRatio;
+                invR = ctx != null ? ctx.planetInvasionRatio : BattleHandoff.planetInvasionRatio;
+                garR = ctx != null ? ctx.planetGarrisonRatio : BattleHandoff.planetGarrisonRatio;
+                garM = ctx != null ? ctx.planetGarrisonMorale : BattleHandoff.planetGarrisonMorale;
+                cap = false; surr = false;
+            }
 
-            string ret = BattleHandoff.returnScene;
             Time.timeScale = 1f;
-            ReturnToStrategy(ret);
+            if (Windowed)
+            {
+                // 複数同時会戦（WIN-3）：攻城進捗を自分の受け渡しへ書いて結果キューへ（GalaxyView が惑星へ反映）。
+                ctx.siegeResultDefense = Mathf.Clamp01(defR);
+                ctx.siegeResultInvasion = Mathf.Clamp01(invR);
+                ctx.siegeResultCaptured = cap;
+                ctx.siegeResultGarrison = Mathf.Clamp01(garR);
+                ctx.siegeResultMorale = Mathf.Clamp01(garM);
+                ctx.siegeResultSurrendered = surr;
+                ctx.siegeResolved = true;
+                BattleResultQueue.Push(ctx);
+                ReturnToStrategy(null);
+            }
+            else
+            {
+                BattleHandoff.SetSiegeResult(defR, invR, cap, garR, garM, surr);
+                ReturnToStrategy(BattleHandoff.returnScene);
+            }
         }
 
         /// <summary>
@@ -228,10 +276,15 @@ namespace Ginei
         /// </summary>
         private void ReturnToStrategyView()
         {
-            string ret = BattleHandoff.returnScene;
-            BattleHandoff.Clear();
             Time.timeScale = 1f;
-            ReturnToStrategy(ret);
+            if (Windowed)
+            {
+                // システムビューは結果が無い＝何も積まずに窓を閉じるだけ。
+                ReturnToStrategy(null);
+                return;
+            }
+            BattleHandoff.Clear();
+            SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(BattleHandoff.returnScene) ? "Strategy" : BattleHandoff.returnScene);
         }
 
         /// <summary>
@@ -246,10 +299,10 @@ namespace Ginei
             {
                 FleetStrength fs = alive[i];
                 if (fs == null) continue;
-                if (LegacyOf(fs) == BattleHandoff.factionA) a += fs.strength;
-                else if (LegacyOf(fs) == BattleHandoff.factionB) b += fs.strength;
+                if (LegacyOf(fs) == HFactionA) a += fs.strength;
+                else if (LegacyOf(fs) == HFactionB) b += fs.strength;
             }
-            return (b > a) ? BattleHandoff.factionB : BattleHandoff.factionA;
+            return (b > a) ? HFactionB : HFactionA;
         }
 
         /// <summary>
@@ -379,11 +432,13 @@ namespace Ginei
         /// </summary>
         private void ResolveScenarioAndVip()
         {
-            activeScenario = ScenarioData.ActiveScenario;
+            // Handoff 経由（潜行・複数同時）は創発会戦＝殲滅判定。static な ActiveScenario（他会戦の
+            // ロードで上書きされうる）を引き継がない（WIN-3：別会戦の勝利条件で即決着するのを防ぐ）。
+            activeScenario = HPending ? null : ScenarioData.ActiveScenario;
             // 戦略マップからの実会戦（潜行・複数艦隊・攻城など Handoff 経由）は**創発的な艦隊戦**なので、
             // 直前に遊んだ単発シナリオの勝利条件（旗艦撃破/護衛/時間防衛 等）を引き継がない＝殲滅で判定する。
             // 以前は scenarioName に残った別シナリオを Resolve してしまい、対象VIPが居らず**会戦が即決着**していた。
-            if (activeScenario == null && !BattleHandoff.Pending)
+            if (activeScenario == null && !HPending)
             {
                 activeScenario = ScenarioData.Resolve(GameSettings.Instance.scenarioName);
             }

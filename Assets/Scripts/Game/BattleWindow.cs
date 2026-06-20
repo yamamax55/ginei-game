@@ -9,31 +9,16 @@ using TMPro;
 namespace Ginei
 {
     /// <summary>
-    /// 会戦をウィンドウ化して表示する（WIN-1 #2568）。戦略マップを背後に残したまま Battle シーンを
+    /// 1会戦ぶんのウィンドウ（WIN-1 #2568 / WIN-3 #2570 で複数同時対応）。戦略マップを背後に残したまま Battle シーンを
     /// additive ロード（独立 2D 物理）し、その専用カメラを <see cref="RenderTexture"/> に描いて RawImage 窓へ映す。
-    /// タイトルバーでドラッグ移動・× で閉じ、決着/離脱（BattleManager → <see cref="NotifyBattleEnded"/>）でも閉じてシーンをアンロードする。
-    /// 入力は <see cref="BattleViewport"/> が画面→会戦ワールドへ変換する。既存のフルスクリーン会戦は
-    /// <c>GameSettings.windowedBattles=false</c> で従来どおり（後方互換）。
-    /// 既知の第1版の制限（実機で順次対応）：HUD/コマンドメニュー/通知は全画面オーバーレイ／会戦のマウスズーム・
-    /// 矩形選択は窓座標へ未対応（キーパン・直クリック選択・命令は可）／会戦の一時停止は全体時間に効く。
+    /// タイトルバーでドラッグ移動・× で離脱（BattleManager 経由）・決着でも閉じてシーンをアンロードする。
+    /// 生成・直列ロード・オフセット割当・フォーカス・結果反映は <see cref="BattleDirector"/> が司る。
+    /// 入力は <see cref="BattleViewport"/>（フォーカス窓のみ）が画面→会戦ワールドへ変換する。
+    /// 既存のフルスクリーン会戦は <c>GameSettings.windowedBattles=false</c> で従来どおり（後方互換）。
+    /// 既知の制限：HUD/コマンドメニュー/通知は全画面オーバーレイ／一時停止は全体時間に効く（WIN-4 で対応）。
     /// </summary>
     public class BattleWindow : MonoBehaviour
     {
-        private static BattleWindow instance;
-
-        /// <summary>会戦ウィンドウが開いているか。</summary>
-        public static bool IsOpen => instance != null && instance.isOpen;
-
-        /// <summary>カーソルが会戦ウィンドウ（枠全体）の上にあるか。GalaxyView がこの間はマップ操作を譲る。</summary>
-        public static bool PointerOverWindow
-        {
-            get
-            {
-                if (instance == null || !instance.isOpen || instance.windowRT == null || Mouse.current == null) return false;
-                return RectTransformUtility.RectangleContainsScreenPoint(instance.windowRT, Mouse.current.position.ReadValue(), null);
-            }
-        }
-
         [Header("ウィンドウ")]
         public Vector2 windowSize = new Vector2(1040f, 660f);
         public int rtWidth = 1040;
@@ -52,31 +37,129 @@ namespace Ginei
         private bool sceneLoaded;
         private object escWindowToken;
         private TextMeshProUGUI titleCap;
+        private System.Action<BattleWindow> onLoaded;
+        private System.Action<BattleWindow> onClosed;
 
-        /// <summary>会戦ウィンドウを開く（必要なら生成）。BattleHandoff は呼び出し側が事前に Queue 済みであること。</summary>
-        public static void Open()
+        /// <summary>この窓が開いているか。</summary>
+        public bool IsOpen => isOpen;
+        /// <summary>この窓の会戦シーン。</summary>
+        public Scene BattleScene => battleScene;
+        /// <summary>この窓の会戦カメラ。</summary>
+        public Camera Cam => battleCam;
+        /// <summary>この窓のマップ領域 RectTransform（入力変換用）。</summary>
+        public RectTransform MapRect => mapRT;
+        /// <summary>シーンのロードと描画束ねが完了したか。</summary>
+        public bool Ready => sceneLoaded && battleCam != null;
+
+        /// <summary>カーソルがこの窓（枠全体）の上にあるか。</summary>
+        public bool ContainsPointer
         {
-            if (instance == null)
+            get
             {
-                GameObject go = new GameObject("BattleWindow");
-                instance = go.AddComponent<BattleWindow>();
-                instance.Build();
+                if (!isOpen || windowRT == null || Mouse.current == null) return false;
+                return RectTransformUtility.RectangleContainsScreenPoint(windowRT, Mouse.current.position.ReadValue(), null);
             }
-            instance.OpenInternal();
         }
 
-        /// <summary>会戦が決着/離脱したら（BattleManager から）窓を閉じてシーンをアンロードする。</summary>
-        public static void NotifyBattleEnded()
+        // ===== 公開ライフサイクル（BattleDirector が呼ぶ）=====
+
+        /// <summary>
+        /// 会戦シーンを additive ロードして窓に表示する。<paramref name="worldOffset"/> は戦場の遠方オフセット
+        /// （会戦ごとに固有）。<paramref name="anchoredPos"/> は窓の初期位置。完了で <paramref name="loadedCb"/>。
+        /// 呼び出し前に BattleDirector が BattleHandoff を当該会戦のスナップショットへ復元済みであること。
+        /// </summary>
+        public void BeginOpen(Vector2 worldOffset, Vector2 anchoredPos,
+            System.Action<BattleWindow> loadedCb, System.Action<BattleWindow> closedCb)
         {
-            if (instance != null) instance.Close();
+            onLoaded = loadedCb;
+            onClosed = closedCb;
+            EnsureEventSystem();
+            Build(anchoredPos);
+
+            rt = new RenderTexture(rtWidth, rtHeight, 16);
+            rt.Create();
+            if (mapImage != null) mapImage.texture = rt;
+
+            isOpen = true;
+            if (root != null) root.SetActive(true);
+
+            // 戦場を会戦ごとの遠方オフセットへ置く（戦略・他会戦と同一ワールド空間でも映り込まないよう隔離）。
+            // BattleSetup.Awake が additive ロード中にこの値を読んで自シーンへ確定登録する＝ロード前に設定する。
+            BattleField.PendingOrigin = worldOffset;
+
+            sceneLoaded = false;
+            SceneLoader.Instance.LoadSceneAdditive("Battle", true, OnBattleLoaded);
+        }
+
+        /// <summary>窓を閉じて会戦シーンをアンロードし、描画資源を解放する（BattleDirector が呼ぶ）。</summary>
+        public void CloseWindow()
+        {
+            if (!isOpen) return;
+            isOpen = false;
+
+            if (battleCam != null) { battleCam.targetTexture = null; battleCam = null; }
+            if (sceneLoaded && battleScene.IsValid())
+                SceneLoader.Instance.UnloadSceneAdditive(battleScene);
+            if (battleScene.IsValid()) BattleField.ClearScene(battleScene);
+            sceneLoaded = false;
+
+            Cleanup();
+            UIWindowStack.Unregister(escWindowToken);
+            escWindowToken = null;
+            onClosed?.Invoke(this);
+        }
+
+        // ===== ロード完了 =====
+
+        private void OnBattleLoaded(Scene scene)
+        {
+            battleScene = scene;
+            sceneLoaded = scene.IsValid() && scene.isLoaded;
+            battleCam = FindBattleCamera(scene);
+            if (battleCam != null)
+                battleCam.targetTexture = rt; // 画面でなくウィンドウ（RT）へ描く
+            else
+                Debug.LogWarning("BattleWindow: 会戦カメラが見つかりませんでした（additive ロード後）。");
+            onLoaded?.Invoke(this);
+        }
+
+        private static Camera FindBattleCamera(Scene scene)
+        {
+            if (!scene.IsValid()) return null;
+            GameObject[] roots = scene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                Camera c = roots[i].GetComponentInChildren<Camera>(true);
+                if (c != null) return c;
+            }
+            return null;
+        }
+
+        /// <summary>この会戦の BattleManager を返す（スナップショット注入・離脱に使う）。</summary>
+        public BattleManager FindBattleManager()
+        {
+            if (!battleScene.IsValid()) return null;
+            GameObject[] roots = battleScene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                BattleManager bm = roots[i].GetComponentInChildren<BattleManager>(true);
+                if (bm != null) return bm;
+            }
+            return null;
+        }
+
+        /// <summary>× / Esc：現状の優勢側を勝者として書き戻して離脱する（BattleManager 経由）。</summary>
+        private void RequestLeave()
+        {
+            BattleManager bm = Ready ? FindBattleManager() : null;
+            if (bm != null) bm.LeaveToStrategy();
+            else BattleDirector.NotifyBattleEnded(battleScene); // 見つからなければ単に閉じる
         }
 
         // ===== UI 構築 =====
 
-        private void Build()
+        private void Build(Vector2 anchoredPos)
         {
-            EnsureEventSystem();
-
             GameObject canvasObj = new GameObject("BattleWindowCanvas");
             canvasObj.transform.SetParent(transform, false);
             Canvas canvas = canvasObj.AddComponent<Canvas>();
@@ -94,7 +177,7 @@ namespace Ginei
             windowRT = win.GetComponent<RectTransform>();
             windowRT.anchorMin = windowRT.anchorMax = windowRT.pivot = new Vector2(0.5f, 0.5f);
             windowRT.sizeDelta = windowSize;
-            windowRT.anchoredPosition = Vector2.zero;
+            windowRT.anchoredPosition = anchoredPos;
             Image winImg = win.AddComponent<Image>();
             winImg.color = new Color(0.03f, 0.04f, 0.07f, 0.98f);
             Outline border = win.AddComponent<Outline>();
@@ -119,8 +202,7 @@ namespace Ginei
             mapImage.color = Color.white;
             mapImage.raycastTarget = false;
 
-            root.SetActive(false);
-            escWindowToken = UIWindowStack.Register(() => isOpen, Close, 940, "会戦");
+            escWindowToken = UIWindowStack.Register(() => isOpen, RequestLeave, 940, "会戦");
         }
 
         private void BuildTitleBar(Transform parent)
@@ -149,100 +231,9 @@ namespace Ginei
             cimg.color = new Color(0.13f, 0.18f, 0.26f, 1f);
             Button cbtn = cb.AddComponent<Button>();
             cbtn.transition = UnityEngine.UI.Selectable.Transition.None;
-            cbtn.onClick.AddListener(OnCloseButton);
+            cbtn.onClick.AddListener(RequestLeave);
             TextMeshProUGUI glyph = CreateText(cb.transform, "×", 18f, Color.white, TextAlignmentOptions.Center);
             StretchFull(glyph.rectTransform);
-        }
-
-        // ===== 開閉 =====
-
-        private void OpenInternal()
-        {
-            if (isOpen) return; // 1会戦のみ（複数同時は WIN-3）
-            Cleanup();
-
-            rt = new RenderTexture(rtWidth, rtHeight, 16);
-            rt.Create();
-            if (mapImage != null) mapImage.texture = rt;
-
-            isOpen = true;
-            if (root != null) root.SetActive(true);
-
-            // 戦場を遠方オフセットへ置く（戦略マップと同一ワールド空間のため、会戦カメラに戦略が映り込むのを防ぐ）。
-            // BattleSetup.Awake が additive ロード中にこの値を読んで自シーンへ確定登録する＝ロード前に設定する。
-            BattleField.PendingOrigin = new Vector2(0f, 100000f);
-
-            // Battle を additive ロード（独立 2D 物理＝会戦間/戦略との干渉防止）。完了で会戦カメラを RT に束ねる。
-            sceneLoaded = false;
-            SceneLoader.Instance.LoadSceneAdditive("Battle", true, OnBattleLoaded);
-        }
-
-        private void OnBattleLoaded(Scene scene)
-        {
-            battleScene = scene;
-            sceneLoaded = scene.IsValid() && scene.isLoaded;
-            battleCam = FindBattleCamera(scene);
-            if (battleCam != null)
-            {
-                battleCam.targetTexture = rt;      // 画面でなくウィンドウ（RT）へ描く
-                BattleViewport.SetActive(scene, battleCam, mapRT);
-            }
-            else
-            {
-                Debug.LogWarning("BattleWindow: 会戦カメラが見つかりませんでした（additive ロード後）。");
-            }
-        }
-
-        private static Camera FindBattleCamera(Scene scene)
-        {
-            if (!scene.IsValid()) return null;
-            GameObject[] roots = scene.GetRootGameObjects();
-            for (int i = 0; i < roots.Length; i++)
-            {
-                Camera c = roots[i].GetComponentInChildren<Camera>(true);
-                if (c != null) return c;
-            }
-            return null;
-        }
-
-        private void OnCloseButton()
-        {
-            // × は「戦略へ離脱」＝現状の優勢側を勝者として書き戻すため、BattleManager の復帰経路を使う。
-            BattleManager bm = sceneLoaded ? FindBattleManager() : null;
-            if (bm != null) bm.LeaveToStrategy();
-            else Close(); // 見つからなければ単に閉じる
-        }
-
-        private BattleManager FindBattleManager()
-        {
-            if (!battleScene.IsValid()) return null;
-            GameObject[] roots = battleScene.GetRootGameObjects();
-            for (int i = 0; i < roots.Length; i++)
-            {
-                BattleManager bm = roots[i].GetComponentInChildren<BattleManager>(true);
-                if (bm != null) return bm;
-            }
-            return null;
-        }
-
-        /// <summary>窓を閉じて会戦シーンをアンロードし、描画資源を解放する。</summary>
-        public void Close()
-        {
-            if (!isOpen) return;
-            isOpen = false;
-
-            BattleViewport.Clear();
-            if (battleCam != null) { battleCam.targetTexture = null; battleCam = null; }
-            if (sceneLoaded && battleScene.IsValid())
-                SceneLoader.Instance.UnloadSceneAdditive(battleScene);
-            sceneLoaded = false;
-
-            Cleanup();
-            if (root != null) root.SetActive(false);
-
-            if (battleScene.IsValid()) BattleField.ClearScene(battleScene); // 戦場中心の登録を解除
-            Time.timeScale = 1f;                       // 念のため通常速度へ
-            GameInput.SetContext(InputContext.戦略);    // 会戦が会戦コンテキストにしているため戦略へ戻す
         }
 
         private void Cleanup()
@@ -260,7 +251,6 @@ namespace Ginei
         {
             UIWindowStack.Unregister(escWindowToken);
             Cleanup();
-            if (instance == this) instance = null;
         }
 
         // ===== ヘルパ =====

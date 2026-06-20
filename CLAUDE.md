@@ -108,7 +108,7 @@
 > 各クラスの責務・主なAPI・依存・固定子オブジェクト名などの**詳細は [docs/components-catalog.md](docs/components-catalog.md)**。
 > ここは「何が在るか」の索引のみ（現状＝正・これに合わせる）。**壊すと不具合になる依存・命名は下の専用節**に要点を残す。
 
-- **システム・管理層**：`BattleSetup`・`BattleManager`・`FleetRegistry`・`TitleManager`・`ResultManager`・`CampaignEndOverlay`・`PauseManager`・`PlaytestRunner`
+- **システム・管理層**：`BattleSetup`・`BattleManager`・`FleetRegistry`・`TitleManager`・`ResultManager`・`CampaignEndOverlay`・`PauseManager`・`PlaytestRunner`・`BattleDirector`・`BattleResultQueue`
 - **入力・UI・カメラ**：`UIWindowStack`・`StrategySystemMenu`・`FleetCommander`・`CameraController`・`CommandMenu`・`FleetHUDManager`・`OrderOfBattlePanel`・`HelpOverlay`・`StrategyMapWindow`・`MapWindowDrag`・`Minimap`・`BattleWindow`・`BattleViewport`・`BattleField`
 - **艦隊コンポーネント（旗艦 GameObject に付く）**：`Selectable`・`Squadron`・`EscortShip`・`FlagshipMarker`・`FleetMovement`・`WeaponArc`・`FleetWeapon`・`FleetStrength`・`FleetMorale`・`FleetSustainment`・`BattlefieldCommandManager`・`CorpsFormation`・`FleetAI`・`FactionColor`
 - **表示・背景**：`DamagePopup`・`BeamFx`・`LabelZoomScaler`・`SpaceBackground`・`FormationPreview`・`BlackHole`・`FleetDetailPanel`・`SystemDetailPanel`・`CampaignObserverOverlay`・`CoreStateInspector`・`MilitaryObserverOverlay`・`NotificationLogOverlay`・`EconomyObserverOverlay`・`DiplomacyObserverOverlay`・`PoliticsObserverOverlay`・`LogisticsObserverOverlay`・`DemographicsObserverOverlay`・`LaborObserverOverlay`・`FiscalObserverOverlay`・`ProductionObserverOverlay`・`GovernmentObserverOverlay`・`BureaucracyObserverOverlay`・`ResearchObserverOverlay`・`ShipyardObserverOverlay`・`PersonnelDynamicsObserverOverlay`・`ChronicleObserverOverlay`・`WealthObserverOverlay`・`MilitaryDynamicsObserverOverlay`・`RingiObserverOverlay`

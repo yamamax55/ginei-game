@@ -235,5 +235,111 @@ namespace Ginei
             admiralA = admiralB = null;
             fleets.Clear();
         }
+
+        // ===== スナップショット（WIN-3 #2570 複数同時会戦）=====
+        // BattleHandoff は static 単一スロットのため、複数会戦を同時に扱うには各会戦が自分の受け渡し内容を
+        // 退避（Capture）して保持し、ロード時・結果書き戻し時に復元（Restore）する必要がある。
+        // BattleDirector がロードを直列化する間や、各 BattleManager の決着時に使う。
+
+        /// <summary>BattleHandoff の全状態のスナップショット（会戦ごとに保持・復元する）。</summary>
+        public sealed class State
+        {
+            public bool Pending, Resolved;
+            public Faction factionA, factionB;
+            public int strengthA, strengthB;
+            public AdmiralData admiralA, admiralB;
+            public int fleetIdA, fleetIdB;
+            public string returnScene;
+            public float loyaltyA, loyaltyB, intrigueA, intrigueB, qualityA, qualityB;
+            public bool hasDefender;
+            public Faction defenderFaction;
+            public Vector2 approachDir;
+            public bool sideAWon;
+            public int survivorStrength;
+            public bool IsPlanetSiege;
+            public int planetSystemId;
+            public string planetName;
+            public Faction planetOwner;
+            public Planet.SiegeTargetKind planetKind;
+            public float planetDefenseRatio, planetInvasionRatio;
+            public Faction besiegerFaction;
+            public int besiegerStrength;
+            public int planetMaxGarrison;
+            public float planetGarrisonRatio, planetGarrisonMorale;
+            public bool IsSystemView;
+            public int systemViewId;
+            public string systemViewName;
+            public Faction systemViewOwner;
+            public bool siegeResolved;
+            public float siegeResultDefense, siegeResultInvasion;
+            public bool siegeResultCaptured;
+            public float siegeResultGarrison, siegeResultMorale;
+            public bool siegeResultSurrendered;
+            public readonly List<HandoffFleet> fleets = new List<HandoffFleet>();
+        }
+
+        /// <summary>現在の static 状態をスナップショットへ退避する。</summary>
+        public static State Capture()
+        {
+            var s = new State
+            {
+                Pending = Pending, Resolved = Resolved,
+                factionA = factionA, factionB = factionB,
+                strengthA = strengthA, strengthB = strengthB,
+                admiralA = admiralA, admiralB = admiralB,
+                fleetIdA = fleetIdA, fleetIdB = fleetIdB,
+                returnScene = returnScene,
+                loyaltyA = loyaltyA, loyaltyB = loyaltyB,
+                intrigueA = intrigueA, intrigueB = intrigueB,
+                qualityA = qualityA, qualityB = qualityB,
+                hasDefender = hasDefender, defenderFaction = defenderFaction, approachDir = approachDir,
+                sideAWon = sideAWon, survivorStrength = survivorStrength,
+                IsPlanetSiege = IsPlanetSiege, planetSystemId = planetSystemId, planetName = planetName,
+                planetOwner = planetOwner, planetKind = planetKind,
+                planetDefenseRatio = planetDefenseRatio, planetInvasionRatio = planetInvasionRatio,
+                besiegerFaction = besiegerFaction, besiegerStrength = besiegerStrength,
+                planetMaxGarrison = planetMaxGarrison, planetGarrisonRatio = planetGarrisonRatio,
+                planetGarrisonMorale = planetGarrisonMorale,
+                IsSystemView = IsSystemView, systemViewId = systemViewId, systemViewName = systemViewName,
+                systemViewOwner = systemViewOwner,
+                siegeResolved = siegeResolved, siegeResultDefense = siegeResultDefense,
+                siegeResultInvasion = siegeResultInvasion, siegeResultCaptured = siegeResultCaptured,
+                siegeResultGarrison = siegeResultGarrison, siegeResultMorale = siegeResultMorale,
+                siegeResultSurrendered = siegeResultSurrendered,
+            };
+            s.fleets.AddRange(fleets);
+            return s;
+        }
+
+        /// <summary>スナップショットを static 状態へ復元する。</summary>
+        public static void Restore(State s)
+        {
+            if (s == null) return;
+            Pending = s.Pending; Resolved = s.Resolved;
+            factionA = s.factionA; factionB = s.factionB;
+            strengthA = s.strengthA; strengthB = s.strengthB;
+            admiralA = s.admiralA; admiralB = s.admiralB;
+            fleetIdA = s.fleetIdA; fleetIdB = s.fleetIdB;
+            returnScene = s.returnScene;
+            loyaltyA = s.loyaltyA; loyaltyB = s.loyaltyB;
+            intrigueA = s.intrigueA; intrigueB = s.intrigueB;
+            qualityA = s.qualityA; qualityB = s.qualityB;
+            hasDefender = s.hasDefender; defenderFaction = s.defenderFaction; approachDir = s.approachDir;
+            sideAWon = s.sideAWon; survivorStrength = s.survivorStrength;
+            IsPlanetSiege = s.IsPlanetSiege; planetSystemId = s.planetSystemId; planetName = s.planetName;
+            planetOwner = s.planetOwner; planetKind = s.planetKind;
+            planetDefenseRatio = s.planetDefenseRatio; planetInvasionRatio = s.planetInvasionRatio;
+            besiegerFaction = s.besiegerFaction; besiegerStrength = s.besiegerStrength;
+            planetMaxGarrison = s.planetMaxGarrison; planetGarrisonRatio = s.planetGarrisonRatio;
+            planetGarrisonMorale = s.planetGarrisonMorale;
+            IsSystemView = s.IsSystemView; systemViewId = s.systemViewId; systemViewName = s.systemViewName;
+            systemViewOwner = s.systemViewOwner;
+            siegeResolved = s.siegeResolved; siegeResultDefense = s.siegeResultDefense;
+            siegeResultInvasion = s.siegeResultInvasion; siegeResultCaptured = s.siegeResultCaptured;
+            siegeResultGarrison = s.siegeResultGarrison; siegeResultMorale = s.siegeResultMorale;
+            siegeResultSurrendered = s.siegeResultSurrendered;
+            fleets.Clear();
+            fleets.AddRange(s.fleets);
+        }
     }
 }

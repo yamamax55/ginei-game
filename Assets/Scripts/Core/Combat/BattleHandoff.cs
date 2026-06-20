@@ -23,6 +23,7 @@ namespace Ginei
         public static AdmiralData admiralA, admiralB;  // 任意（演出用・無ければ既定提督）
         public static int fleetIdA, fleetIdB;          // 戦略側の艦隊ID（戻ってから紐付ける）
         public static string returnScene = "Strategy";
+        public static string battleLabel;              // 会戦ウィンドウの見出し用（戦っている場所名・WIN-3 #2570）
 
         // 旗幟（#817 関ヶ原型）：国家状態由来の基準忠誠/調略浸透を会戦へ運ぶ（既定 1/0＝従来動作）
         public static float loyaltyA = 1f, loyaltyB = 1f;
@@ -250,6 +251,7 @@ namespace Ginei
             public AdmiralData admiralA, admiralB;
             public int fleetIdA, fleetIdB;
             public string returnScene;
+            public string battleLabel;
             public float loyaltyA, loyaltyB, intrigueA, intrigueB, qualityA, qualityB;
             public bool hasDefender;
             public Faction defenderFaction;
@@ -288,7 +290,7 @@ namespace Ginei
                 strengthA = strengthA, strengthB = strengthB,
                 admiralA = admiralA, admiralB = admiralB,
                 fleetIdA = fleetIdA, fleetIdB = fleetIdB,
-                returnScene = returnScene,
+                returnScene = returnScene, battleLabel = battleLabel,
                 loyaltyA = loyaltyA, loyaltyB = loyaltyB,
                 intrigueA = intrigueA, intrigueB = intrigueB,
                 qualityA = qualityA, qualityB = qualityB,
@@ -320,7 +322,7 @@ namespace Ginei
             strengthA = s.strengthA; strengthB = s.strengthB;
             admiralA = s.admiralA; admiralB = s.admiralB;
             fleetIdA = s.fleetIdA; fleetIdB = s.fleetIdB;
-            returnScene = s.returnScene;
+            returnScene = s.returnScene; battleLabel = s.battleLabel;
             loyaltyA = s.loyaltyA; loyaltyB = s.loyaltyB;
             intrigueA = s.intrigueA; intrigueB = s.intrigueB;
             qualityA = s.qualityA; qualityB = s.qualityB;

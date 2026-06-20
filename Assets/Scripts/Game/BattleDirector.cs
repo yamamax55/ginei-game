@@ -99,7 +99,8 @@ namespace Ginei
             go.transform.SetParent(transform, false);
             BattleWindow win = go.AddComponent<BattleWindow>();
             slotOf[win] = slot;
-            win.BeginOpen(worldOffset, anchoredPos, OnWindowLoaded, OnWindowClosed);
+            string title = !string.IsNullOrEmpty(currentLoadSnapshot.battleLabel) ? currentLoadSnapshot.battleLabel : "会戦";
+            win.BeginOpen(worldOffset, anchoredPos, title, OnWindowLoaded, OnWindowClosed);
         }
 
         private void OnWindowLoaded(BattleWindow win)
@@ -128,6 +129,7 @@ namespace Ginei
             {
                 BattleViewport.Clear();
                 GameInput.SetContext(InputContext.戦略); // 会戦が無くなったら戦略入力へ戻す
+                Time.timeScale = 1f;                     // 会戦が無くなったら通常速度へ戻す
             }
         }
 
@@ -142,6 +144,11 @@ namespace Ginei
         private void Update()
         {
             if (windows.Count == 0) return;
+
+            // 会戦は戦略マップと同じ時間で流す（WIN-3）：統一クロックの速度/ポーズを Time.timeScale へ写す。
+            // ＝戦略を一時停止/倍速すると全会戦も同様に追従する（会戦ごとに別時間にはしない）。
+            GameClock clock = StrategySession.Clock;
+            if (clock != null) Time.timeScale = clock.paused ? 0f : Mathf.Max(0f, clock.speed);
 
             // フォーカス：カーソルが乗っている窓の会戦だけがプレイヤー入力を受ける。
             BattleWindow focus = null;

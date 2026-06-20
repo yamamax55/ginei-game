@@ -355,6 +355,13 @@ namespace Ginei
                 SceneManager.LoadScene("Battle");
         }
 
+        /// <summary>星系IDから表示名を返す（会戦ウィンドウの見出し用）。不明なら「宙域」。</summary>
+        private string SystemName(int systemId)
+        {
+            StarSystem s = map != null ? map.GetSystem(systemId) : null;
+            return s != null && !string.IsNullOrEmpty(s.systemName) ? s.systemName : "宙域";
+        }
+
         /// <summary>
         /// マウスの当フレーム移動量ぶん、<b>掴んだ地図を指の向きへ動かす</b>（掴んだ点がカーソルに付いてくるグラブ方式）。
         /// スクリーン差分→ワールド距離へ換算（カメラ rect のビューポート高で正規化）。パン目標を動かし cam は滑らかに追従。
@@ -454,6 +461,9 @@ namespace Ginei
         private bool DescendOnEngagement(StrategicFleet a, StrategicFleet b)
         {
             if (a == null || b == null) return false;
+
+            // 会戦ウィンドウの見出し（WIN-3 #2570）：戦っている回廊（星系間）の名前。
+            BattleHandoff.battleLabel = $"{SystemName(a.currentSystemId)}–{SystemName(a.destinationSystemId)} 回廊";
 
             // 同一回廊上で交戦中の全艦隊を2陣営に集める。3隊以上なら複数艦隊モードで会戦へ。
             var sideA = new List<StrategicFleet>();
@@ -587,6 +597,7 @@ namespace Ginei
             if (sys != null && (sys.owner == sideA[0].faction || sys.owner == sideB[0].faction))
                 BattleHandoff.SetDefender(sys.owner, Vector2.right); // 侵攻方向は会戦アリーナ座標では一定（守備中央・攻撃側面）
 
+            BattleHandoff.battleLabel = $"{SystemName(systemId)} 星系"; // 会戦ウィンドウの見出し（WIN-3）
             LaunchBattleScene();
             return true;
         }
@@ -609,6 +620,7 @@ namespace Ginei
             float invRatio = s.planet.invasionThreshold > 0f ? s.planet.invasionProgress / s.planet.invasionThreshold : 0f;
             BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio, invRatio,
                 besieger.faction, besieger.strength, "Strategy", s.planet.kind);
+            BattleHandoff.battleLabel = $"{s.systemName} 攻防"; // 会戦ウィンドウの見出し（WIN-3・攻城）
             LaunchBattleScene();
             return true;
         }

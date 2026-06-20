@@ -55,12 +55,19 @@ namespace Ginei
             }
 
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）。
-            // ウィンドウ化会戦（WIN-2）では自分のシーンの艦だけをクリア（同時進行する他会戦を消さない）。
+            // ウィンドウ化会戦（WIN-2/3）では自分のシーンの艦だけをクリア（同時進行する他会戦を消さない）。
             if (BattleViewport.Active) FleetRegistry.ClearScene(gameObject.scene);
             else FleetRegistry.Clear();
-            FleetRoster.Clear(); // 艦隊編制台帳(#146)も会戦ごとに作り直す（永続化は #108 で別途）
-            OrderOfBattle.Clear(); // 編制ツリー(#147)も会戦ごとに作り直す
-            ShipNameRegistry.Clear(); // 旗艦名(#旗艦名)の払い出しも会戦ごとに初期化（永続化は別途）
+
+            // FleetRoster/OrderOfBattle/ShipNameRegistry は static 単一の台帳。フルスクリーン会戦では会戦ごとに
+            // 作り直すが、ウィンドウ化会戦（複数同時・戦略マップ同居）で全クリアすると戦略や他会戦の台帳を壊すため、
+            // ウィンドウ時はクリアしない（台帳の会戦ごと分離は今後・WIN-4）。
+            if (!BattleViewport.Active)
+            {
+                FleetRoster.Clear(); // 艦隊編制台帳(#146)
+                OrderOfBattle.Clear(); // 編制ツリー(#147)
+                ShipNameRegistry.Clear(); // 旗艦名(#旗艦名)の払い出し
+            }
 
             // 戦略マップからの遭遇（実会戦・C-3）が予約されていれば、それを生成して終了
             if (BattleHandoff.Pending)

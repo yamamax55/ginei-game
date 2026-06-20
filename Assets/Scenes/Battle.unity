@@ -1555,9 +1555,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.CameraController
   panSpeed: 20
   dragSensitivity: 1
-  zoomSpeed: 5
-  minZoom: 2
-  maxZoom: 20
+  zoomSpeed: 20
+  minZoom: 1
+  maxZoom: 1000
   startZoom: 16
   edgeScrollEnabled: 1
   edgeMargin: 12

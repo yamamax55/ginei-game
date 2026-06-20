@@ -104,8 +104,8 @@ namespace Ginei
         {
             if (Mouse.current == null || cam == null) return;
 
-            // 会戦ウィンドウ（WIN-1）の上ではマップ操作を会戦へ譲る（背後の戦略マップが二重に反応しない）。
-            if (BattleWindow.PointerOverWindow) return;
+            // 会戦ウィンドウ（WIN-1/3）の上ではマップ操作を会戦へ譲る（背後の戦略マップが二重に反応しない）。
+            if (BattleDirector.AnyPointerOverWindow()) return;
 
             HandleZoom(); // マウスホイール：カーソル中心ズーム（滑らかに追従・回し幅で加速）
 
@@ -350,7 +350,7 @@ namespace Ginei
         private void LaunchBattleScene()
         {
             if (GameSettings.Instance != null && GameSettings.Instance.windowedBattles)
-                BattleWindow.Open();
+                BattleDirector.Open();   // WIN-3：複数同時会戦の司令塔が窓を開く
             else
                 SceneManager.LoadScene("Battle");
         }

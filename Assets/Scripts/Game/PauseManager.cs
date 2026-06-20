@@ -20,6 +20,13 @@ namespace Ginei
         private float savedTimeScale = 1f;
         private bool isPaused = false;
 
+        /// <summary>
+        /// アクティブポーズ（#86）中で命令入力を受け付けてよいか。
+        /// ＝Space ポーズで思考中（システムメニュー／設定／詳細パネルが手前に無い）。
+        /// FleetCommander 等が timeScale==0 でも入力を通すかの唯一の窓口（毎フレーム更新）。
+        /// </summary>
+        public static bool IsActivePauseInputAllowed { get; private set; }
+
         private void Start()
         {
             // pauseMenuRoot が未割り当てなら、ポーズメニューUIをコードで自動生成
@@ -58,7 +65,20 @@ namespace Ginei
         private void Update()
         {
             HandleInput();
+            UpdateActivePauseState();
             UpdateUI();
+        }
+
+        /// <summary>
+        /// アクティブポーズ（#86）の入力許可フラグを更新する。
+        /// Space ポーズ中（システムメニュー／設定／詳細・編制パネルが手前に無い）のみ true。
+        /// </summary>
+        private void UpdateActivePauseState()
+        {
+            bool menuShown = pauseMenuRoot != null && pauseMenuRoot.activeSelf;
+            bool settingsShown = settingsPanel != null && settingsPanel.activeSelf;
+            IsActivePauseInputAllowed = isPaused && !menuShown && !settingsShown
+                                        && !FleetDetailPanel.IsOpen && !OrderOfBattlePanel.IsOpen;
         }
 
         private void HandleInput()
@@ -127,9 +147,16 @@ namespace Ginei
             Debug.Log("Game Paused");
         }
 
+        private void OnDisable()
+        {
+            // シーン破棄時に入力許可フラグを残さない（次シーンで誤って入力を通さない）。
+            IsActivePauseInputAllowed = false;
+        }
+
         public void Resume()
         {
             isPaused = false;
+            IsActivePauseInputAllowed = false;
             Time.timeScale = savedTimeScale;
             if (pauseMenuRoot != null) pauseMenuRoot.SetActive(false);
             if (settingsPanel != null) settingsPanel.SetActive(false);
@@ -176,7 +203,8 @@ namespace Ginei
             {
                 if (Time.timeScale == 0)
                 {
-                    timeScaleText.text = "PAUSE";
+                    // アクティブポーズ中（命令入力可）は一言添える（#86）。
+                    timeScaleText.text = IsActivePauseInputAllowed ? "PAUSE（命令可能）" : "PAUSE";
                 }
                 else
                 {

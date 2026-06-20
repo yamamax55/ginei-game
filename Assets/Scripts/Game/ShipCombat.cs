@@ -219,9 +219,11 @@ namespace Ginei
             float fForm = Mathf.Max(0f, formationAttackFactor); // 陣形特性#72＋相性#2177（呼び出し側で合成）
             float fLan = Mathf.Max(0f, lanchesterFactor);        // ランチェスター集中
             float fQual = Mathf.Max(0f, qualityFactor);          // 軍の質（C4・ForceQualityRules）
+            // 武名の鼓舞（ADM-3 #2304・1.0..1.2）：名将の旗の下では味方がよく戦う。fame0＝1.0＝従来動作。
+            float fRenown = admiral != null ? RenownRules.InspirationFactor(admiral.fame) : 1f;
 
             // 総合倍率をクランプ（#2252）＝修飾子の乗算スタックが暴れない。
-            float total = attackBonus * moraleFactor * flank * fForm * fLan * fQual;
+            float total = attackBonus * moraleFactor * flank * fForm * fLan * fQual * fRenown;
             float clamped = DamageClampRules.Clamp(total);
 
             if (breakdown != null)
@@ -233,6 +235,7 @@ namespace Ginei
                 breakdown.Add("陣形", fForm);
                 breakdown.Add("集中", fLan);
                 breakdown.Add("軍質", fQual);
+                breakdown.Add("武名", fRenown);
             }
             return Mathf.Max(0, Mathf.RoundToInt(baseDamage * clamped));
         }

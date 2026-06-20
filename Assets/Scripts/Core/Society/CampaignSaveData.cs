@@ -25,6 +25,18 @@ namespace Ginei
         public float courtAuthority = 0.35f;
         // 主人公の立身出世（一人称・TKO #2477・P1-c）。null=主人公なし＝後方互換（旧セーブは復元時に無視）。
         public ProtagonistCareerSave protagonistCareer;
+        // 全提督の会戦成長（ADM-2 #2303・安定キー=admiralName で永続）。空=後方互換。
+        public List<AdmiralGrowthSave> admiralGrowth = new List<AdmiralGrowthSave>();
+    }
+
+    /// <summary>提督の会戦成長（<see cref="Growth"/>）のセーブ平データ。実行時キー（InstanceID）は不安定なため
+    /// 安定キー＝<see cref="AdmiralData.admiralName"/> で持ち、復元時に `ContentDatabase` で解決して `GrowthRegistry` へ戻す。</summary>
+    [Serializable]
+    public class AdmiralGrowthSave
+    {
+        public string admiralName;
+        public float experience;
+        public int archetype;  // (int)GrowthArchetype
     }
 
     /// <summary>

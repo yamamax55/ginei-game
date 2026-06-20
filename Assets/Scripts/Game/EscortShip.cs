@@ -18,6 +18,9 @@ namespace Ginei
         [Tooltip("この配下艦が持つ艦艇数（旗艦より少なめ。通常は Squadron.escortShipCount が設定）")]
         public int shipCount = 200;
 
+        [Tooltip("固さ係数：被弾ダメージをこの値で割って受ける（艦艇数は水増ししない）。5＝5倍固い")]
+        public float durabilityFactor = 5f;
+
         [Tooltip("被弾判定用コライダーの半径")]
         public float colliderRadius = 0.3f;
 
@@ -232,6 +235,11 @@ namespace Ginei
             // 挟撃／包囲（#2178）：所属部隊が囲まれているほど配下艦も被ダメ増。
             if (flagship != null && flagship.EnvelopmentFactor > 0f)
                 damage = Mathf.RoundToInt(damage * EnvelopmentRules.DamageFactor(flagship.EnvelopmentFactor));
+
+            // 固さ係数：被ダメを 1/durabilityFactor に軽減（5＝5倍固い）。被弾が来た以上は最低1は通す
+            // （極小ダメージで無敵化しないため）。基準ダメージ式は非破壊＝受け手側で実効的に軽減する。
+            if (damage > 0 && durabilityFactor > 1f)
+                damage = Mathf.Max(1, Mathf.RoundToInt(damage / durabilityFactor));
 
             shipCount -= damage;
             if (shipCount <= 0)

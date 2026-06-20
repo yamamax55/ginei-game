@@ -238,3 +238,41 @@
 - オープン Issue 949件（EPIC 146件）のうち過半は**世界観/思想系の設計 EPIC**＝コード実装ではなく開示エンジン（FND-4）への**データ入力**として消化する方針。EPIC が急増しているのは `/worldview-epic` の自動バックログ補充ルーチン（6時間ごと・閾値16冊・最大20冊）が回っているため＝**「設計の在庫」であり実装負債ではない**（質＞量）。
 - 数値・創作裁定は各 Issue/設計書の【要・作者判断】で確定する。
 - テスト方針：純ロジックは EditMode＋TestHarness（`dotnet test`）で回帰。シーン/UI はエディタ Play で目視（CLAUDE.md「テスト基盤」参照）。
+
+---
+
+## 8. 会戦ロードマップ更新（2026-06-20 追記）
+
+> §3（Phase A）の会戦項目を現状に合わせて補足する**追記**。既存記述は据え置き、ここで差分のみ整理する。
+
+### 8-1. 現在地に追加（直近セッションで master 反映済み・未ログだったもの）
+- **会戦カメラ刷新**：滑らかズーム（目標サイズへ指数収束・unscaledでポーズ中も可）＋ホイール速度比例＋深度拡大（minZoom 1／**maxZoom 300**）＋**開始時に全旗艦の外接矩形へ自動フレーミング**（MAP全体表示・`CameraController`）。
+- **戦場境界クランプ**：`FleetMovement.containInBattlefield`（既定ON・半径60）で旗艦をMAP外へ逃さない。撤退の離脱端（`FleetAI.battlefieldRadius`=45）より広いので退却→端離脱は従来どおり。
+- **初期配置＝守備中央/攻撃=侵攻方向**：星系/惑星の所有勢力を守備側として原点へ、攻撃側を侵攻方向へ（`BattleHandoff.SetDefender`／`BattleSetup.SpawnHandoffFleets`）。回廊の相互衝突は従来の左右対称にフォールバック。
+- **手触り調整**：配下艦の固さ係数（`EscortShip.durabilityFactor`）／旗艦も後方から包囲参加（`FleetAI.joinEncirclement`）。
+- **占領まわり**：攻城ラベル残存の解消＋**占領の開始/完了通知**（`GalaxyView.RunPlanetSiegeTick`/`NotifyStationingCaptures`）。敗北条件を「全星系喪失のみ」に整理（`CampaignVictoryRules`）。
+
+### 8-2. ★最優先＝「会戦Core配線」トラック（新設）
+夜間の Core 量産で**戦闘の純ロジックが多数 master に入ったが、会戦/盤面に未接続**＝最大の伸びしろ。係数は `CombatModifiers`/`ModifierStack`（#106 実装済）へ積み、二重実装しない。
+- `GroundBattleRules`（地形/諸兵科/ランチェスター地上戦）→ `SiegeArena` の地上交戦へ。
+- `BattleDoctrine`（集中/分散/機動）→ `ShipCombat.ComputeDamage`/`FleetStrength.TakeDamage` の係数へ。
+- `AdmiralDevelopmentRules`（戦い方→能力面の成長）→ `BattleManager` の戦果→成長経路（既存TODO）へ。
+- `FleetDeployabilityRules`（補給×疲労×整備→出撃可否/実効戦力）→ 会戦前の戦力割引・出撃ゲートへ。
+- `TacticalParadigmRules`/`TrainingCycleRules`/`MilitaryJusticeRules` ほか戦闘系 → 該当窓口へ橋渡し。
+
+### 8-3. 会戦の「質」を戦略→戦術へ届ける
+- 現状 `ForceQualityRules` は**補給readinessのみ**会戦に効く。`FleetDeployability`（疲労/整備）・練度 `VeterancyRules` を会戦の実効 baseStrength へ合流（4Xの積み上げが戦術に届く）。
+
+### 8-4. 演出・手触り（§3-4 の具体化）
+- #73 決着演出（最後の一撃スロー＋勝敗バナー）／#778 敗走演出（最優先指定）。
+- #86 アクティブポーズ・#84 ミニマップ（§3-1 継続）。
+- **会戦バランスのノブ集約**：固さ/包囲間合い/境界半径/ズーム感度などの調整値を一望できる形に（散逸防止）。
+
+### 8-5. 戦術の幅（§3-2/3-3 継続）
+- #76-78 RTS戦闘要塞（砲台/主砲・予告線）／#751 PB-2 クリック型惑星近辺戦闘／#212 退却追撃・#213 指向性ZOC。
+
+### 8-6. クローズ/更新の確認（§3 の表記が古い箇所）
+- #106 係数パイプライン＝**実装済**（`CombatModifiers`/`ModifierStack`）。#72 陣形特性・#2178 包囲・側背面なども実装済＝「未着手/残り」表記を更新。
+- §3-6 #106「未着手」は実態と乖離＝要訂正。
+
+> 優先順：**8-2（会戦Core配線）→ 8-3（質の合流）→ 8-4（演出/ノブ）→ 8-5（幅）**。「Coreは増えるが盤面に出ない」乖離を配線で潰すのが会戦の最短の価値。

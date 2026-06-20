@@ -25,6 +25,10 @@ namespace Ginei
         // 艦隊指揮の下限（准将＝tier5）。これ未満は尉官/佐官＝モンタージュで駆け上がる。
         private const int FlagRankTier = 5;
 
+        // 会戦→武勲の換算（P1-a #2477）。与ダメをこの量で割って撃沈功績の magnitude に（上限 MaxBattleMerit）。
+        private const float DamagePerSinkMerit = 50f;
+        private const int MaxBattleMerit = 30;
+
         // 1月あたりの game-秒（GameDate.DateParams 既定＝60秒/日×30日）。
         private const float SecondsPerMonth = 60f * 30f;
         private const int ProtagonistId = 900001;
@@ -49,6 +53,21 @@ namespace Ginei
         private int lastCouncilMonth;
         private bool ready;
 
+        // 会戦の戦果インボックス（別シーンの BattleManager が積む・static で Battle→Strategy を跨いで保持）。
+        // 次の月次評定でドレインして武勲化＝立身出世が「時間経過」でなく「会戦の結果」で進む（P1-a #2477）。
+        private static float pendingBattleDamage;
+        private static int pendingBattleVictories;
+        private static int pendingBattleCount;
+
+        /// <summary>会戦の戦果を主人公の武勲インボックスへ積む（<see cref="BattleManager"/> から・別シーン可）。
+        /// 主人公の艦隊ぶんだけを渡すこと（判定は呼び出し側）。次の月次評定で武勲へ変換される。</summary>
+        public static void ReportBattle(float damageDealt, bool isWinner)
+        {
+            if (damageDealt > 0f) pendingBattleDamage += damageDealt;
+            if (isWinner) pendingBattleVictories++;
+            pendingBattleCount++;
+        }
+
         private static readonly MeritRecordRules.MeritRecordParams MeritP = MeritRecordRules.MeritRecordParams.Default;
         private static readonly SovereignMandateRules.MandateParams MandateP = SovereignMandateRules.MandateParams.Default;
         // 評定は発令しない（issueChance=0）＝発令はカスケード経由で本クラスが行う。
@@ -71,8 +90,32 @@ namespace Ginei
             new GameObject("ProtagonistCareerDirector").AddComponent<ProtagonistCareerDirector>();
         }
 
-        private void Awake() => Instance = this;
+        private void Awake()
+        {
+            Instance = this;
+            // 観測層規約：独立ルート（本ディレクタの static 状態）を J（CoreStateInspector）へ1行登録（重複ラベルは上書き）。
+            CoreStateInspector.Register("立身出世 (ProtagonistCareer)", BuildInspectorSnapshot);
+        }
         private void OnDestroy() { if (Instance == this) Instance = null; }
+
+        // J（汎用インスペクタ）用の状態スナップショット（観測専用・読むだけ）。未準備/不在は null。
+        private static object BuildInspectorSnapshot()
+        {
+            ProtagonistCareerDirector d = Instance;
+            if (d == null || d.Protagonist == null) return null;
+            var snap = new Dictionary<string, object>
+            {
+                ["主人公"] = d.Protagonist.name,
+                ["階級"] = $"{d.RankName(d.Protagonist.rankTier)} (tier{d.Protagonist.rankTier})",
+                ["武勲点"] = d.Merit != null ? d.Merit.points : 0f,
+                ["昇進確定段数"] = d.Merit != null ? d.Merit.meritPromotionsApplied : 0,
+                ["主命"] = d.ActiveMandate != null
+                    ? $"{d.ActiveMandate.kind}/{d.ActiveMandate.status}/期限{d.ActiveMandate.dueMonth}月" : "なし",
+                ["君主"] = d.Sovereign != null ? d.Sovereign.name : "（不在）",
+                ["戦果インボックス"] = $"与ダメ{pendingBattleDamage:0}/勝利{pendingBattleVictories}/会戦{pendingBattleCount}",
+            };
+            return snap;
+        }
 
         private void Update()
         {
@@ -101,8 +144,11 @@ namespace Ginei
             if (Protagonist.rankTier < FlagRankTier)
                 MeritRecordRules.Record(Merit, ExploitKind.任務達成, juniorServiceMerit, MeritP);
 
-            // 主命の遂行（会戦/任務での達成を簡略にロール＝将来は会戦結果で駆動）。
-            if (SovereignMandateRules.IsOpen(ActiveMandate) && Random.value < mandateSuccessChance)
+            // 会戦の戦果を武勲へ取り込む（会戦結果で駆動・P1-a #2477）。勝利があれば主命達成の主因になる。
+            bool wonBattle = DrainBattleMerit(month);
+
+            // 主命の遂行：会戦で勝てば達成（戦果で駆動）。会戦が無い月は従来の簡易ロールでフォールバック。
+            if (SovereignMandateRules.IsOpen(ActiveMandate) && (wonBattle || Random.value < mandateSuccessChance))
             {
                 float favor = SovereignMandateRules.Complete(ActiveMandate, Merit, MeritP, MandateP);
                 SovereignMandateRules.ApplyOutcomeFavor(Relations, ActiveMandate, favor);
@@ -149,6 +195,21 @@ namespace Ginei
                     Push(NotificationSeverity.注意, $"［主命］{ResolveName(ActiveMandate.issuerId)} より「{ActiveMandate.kind}」を拝命");
                 }
             }
+        }
+
+        // インボックスの戦果を武勲へ変換し、勝利の有無を返す（主命達成の主因判定に使う）。
+        private bool DrainBattleMerit(int month)
+        {
+            if (pendingBattleCount <= 0) return false;
+            float dmg = pendingBattleDamage; int wins = pendingBattleVictories;
+            pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
+
+            int sink = Mathf.Clamp(Mathf.RoundToInt(dmg / DamagePerSinkMerit), 0, MaxBattleMerit);
+            if (sink > 0) MeritRecordRules.Record(Merit, ExploitKind.撃沈, sink, MeritP);   // 与ダメ→撃沈功績
+            if (wins > 0) MeritRecordRules.Record(Merit, ExploitKind.旗艦撃破, wins, MeritP); // 勝利→殊勲
+            if (sink > 0 || wins > 0)
+                Push(NotificationSeverity.情報, "［戦功］会戦の働きで武勲を得た");
+            return wins > 0;
         }
 
         private SovereignMandate IssueViaCascade(int month)
@@ -220,6 +281,9 @@ namespace Ginei
 
         private void Setup()
         {
+            // 戦果インボックスを新戦役ぶんでリセット（前のプレイの残留を持ち込まない）。
+            pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
+
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;
             // 立身出世は尉官〜元帥の完全ラダーで段階昇進させる（playerFactionData は将官のみのことが多く段が飛ぶため）。

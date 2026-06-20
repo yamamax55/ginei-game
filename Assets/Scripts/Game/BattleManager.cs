@@ -158,6 +158,8 @@ namespace Ginei
                 if (fs != null && LegacyOf(fs) == winner) winnerTactical += fs.strength;
             }
 
+            ReportProtagonistBattle(winner); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
+
             bool aWon = winner == BattleHandoff.factionA;
             int survivorStrategic = Mathf.Max(1, Mathf.RoundToInt(winnerTactical / (float)BattleHandoff.StrengthScale));
             BattleHandoff.SetResult(aWon, survivorStrategic);
@@ -611,6 +613,7 @@ namespace Ginei
         /// </summary>
         private void ApplyBattleExperience(Faction winnerFaction)
         {
+            ReportProtagonistBattle(winnerFaction); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
             IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
             for (int i = 0; i < all.Count; i++)
             {
@@ -621,10 +624,10 @@ namespace Ginei
                 float amount = BattleMetaRules.ExperienceFromBattle(fs.DamageDealt, 0, isWinner);
                 if (amount <= 0f) continue;
 
-                // Growth は AdmiralData へ未永続（Wave1 配線待ち）。一時インスタンスで関数の疎通のみ確認。
-                var tempGrowth = new Growth(GrowthArchetype.叩き上げ);
-                GrowthRules.GainExperience(tempGrowth, amount, dt: 1f);
-                // 将来: fs.admiralData.growth に GainExperience を適用する。
+                // 会戦で得た経験を id キーの成長台帳へ蓄える（P1-b #2477＝捨てない）。基準能力は AdmiralData、経験はここ。
+                // 共有 ScriptableObject(AdmiralData) を実行時に書き換えず、GetInstanceID キーで分離（MedalRegistry と同型）。
+                GrowthArchetype arch = fs.admiralData.growth != null ? fs.admiralData.growth.archetype : GrowthArchetype.叩き上げ;
+                GrowthRegistry.GainExperience(fs.admiralData.GetInstanceID(), arch, amount, dt: 1f);
 
                 // #2263 叙勲：戦功（与ダメ＋勝利）に応じて武功章を授与。次戦の士気底上げ（名誉）へ繋がる。
                 float merit = Mathf.Clamp(fs.DamageDealt / MedalMeritScale, 0f, 100f) + (isWinner ? MedalWinnerMeritBonus : 0f);
@@ -635,6 +638,28 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                         $"{fs.admiralName} に武功章 {d.grade} を叙勲（戦功）");
                 }
+            }
+        }
+
+        /// <summary>
+        /// 主人公（<see cref="AdmiralData.isProtagonist"/> もしくは選択提督名一致）の艦隊が会戦に居れば、その戦果
+        /// （与ダメ＋勝敗）を立身出世の武勲インボックス（<see cref="ProtagonistCareerDirector.ReportBattle"/>）へ積む（P1-a #2477）。
+        /// 戦略へ戻った後の月次評定で武勲・主命達成へ変換される＝出世が会戦の結果で駆動する。
+        /// </summary>
+        private void ReportProtagonistBattle(Faction winner)
+        {
+            GameSettings gs = GameSettings.Instance;
+            string heroName = gs != null ? gs.selectedAdmiral : null;
+            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FleetStrength fs = all[i];
+                if (fs == null || fs.admiralData == null) continue;
+                bool isHero = fs.admiralData.isProtagonist ||
+                              (!string.IsNullOrEmpty(heroName) && fs.admiralData.admiralName == heroName);
+                if (!isHero) continue;
+                ProtagonistCareerDirector.ReportBattle(fs.DamageDealt, LegacyOf(fs) == winner);
+                break; // 主人公は1名
             }
         }
 

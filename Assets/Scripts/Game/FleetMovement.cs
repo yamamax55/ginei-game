@@ -32,6 +32,12 @@ namespace Ginei
         [Tooltip("敗走時の移動速度・回頭速度の倍率")]
         public float routedMobilityRatio = 0.5f;
 
+        [Header("戦場の境界（MAP外へ逃さない）")]
+        [Tooltip("旗艦を戦場（原点中心の円）内に留める＝MAP外へ出ない。撤退の戦場端離脱(battlefieldRadius=45)より広く取る")]
+        public bool containInBattlefield = true;
+        [Tooltip("戦場の半径（原点中心）。これを超える移動はクランプ。撤退の離脱端より大きくして退却→離脱は妨げない")]
+        public float battlefieldRadius = 60f;
+
         [Tooltip("後退（向きを保ったまま下がる）時の速度倍率。前進より遅くする")]
         [Range(0f, 1f)]
         public float reverseSpeedRatio = 0.5f;
@@ -222,6 +228,17 @@ namespace Ginei
                 if (isReverse)
                     moveDir = distance > 0.0001f ? (Vector3)(direction / distance) : Vector3.zero;
                 transform.position += moveDir * (currentSpeed * Time.deltaTime);
+
+                // 戦場の境界：原点中心の円内に留めてMAP外へ逃さない（撤退の離脱端より広いので退却は妨げない）。
+                if (containInBattlefield && battlefieldRadius > 0f)
+                {
+                    Vector2 p = transform.position;
+                    if (p.sqrMagnitude > battlefieldRadius * battlefieldRadius)
+                    {
+                        p = p.normalized * battlefieldRadius;
+                        transform.position = new Vector3(p.x, p.y, transform.position.z);
+                    }
+                }
             }
 
             // 5. 到着後の向き合わせ（指定があれば、実効回頭速度でその場回頭してから停止）

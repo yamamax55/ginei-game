@@ -245,6 +245,22 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 指定ワールド座標へカメラ中心を即ジャンプさせる（#84 ミニマップのクリックジャンプ／ドラッグ追従）。
+        /// 手動ジャンプなのでフォーカス追従は解除し、移動境界でクランプする。
+        /// </summary>
+        public void JumpTo(Vector2 worldPos)
+        {
+            isFocusing = false;
+            transform.position = new Vector3(worldPos.x, worldPos.y, transform.position.z);
+            ClampPosition();
+        }
+
+        /// <summary>カメラ移動境界（最小）。ミニマップが戦場ワールド矩形の写像に使う（#84）。</summary>
+        public Vector2 MinBounds => minBounds;
+        /// <summary>カメラ移動境界（最大）。ミニマップが戦場ワールド矩形の写像に使う（#84）。</summary>
+        public Vector2 MaxBounds => maxBounds;
+
+        /// <summary>
         /// Fキーによる選択艦隊へのフォーカス。
         /// </summary>
         private void HandleFocus()

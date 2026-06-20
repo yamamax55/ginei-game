@@ -535,7 +535,8 @@ namespace Ginei
                 case GameAction.カメラ下:
                 case GameAction.カメラ左:
                 case GameAction.カメラ右:
-                case GameAction.選択フォーカス: return "カメラ";
+                case GameAction.選択フォーカス:
+                case GameAction.ミニマップ切替: return "カメラ";
                 case GameAction.グループ選択1:
                 case GameAction.グループ選択2:
                 case GameAction.グループ選択3: return "部隊グループ";

@@ -163,6 +163,7 @@ namespace Ginei
         private TextMesh helpLine;
         private TextMesh policyLine;                 // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示
         private readonly Dictionary<int, TextMesh> siegeLabels = new Dictionary<int, TextMesh>();
+        private readonly HashSet<int> besiegedSystems = new HashSet<int>(); // 攻城中の星系（開始/完了通知の状態遷移検出）
 
         // S5/S6（縦スライス）：税率レバー・財政・支持低下イベント
         [Header("内政スライス（S5/S6）")]
@@ -378,12 +379,13 @@ namespace Ginei
             else { engagedElapsed = 0f; currentAutoResolveSeconds = 0.0; }
 
             // 防衛惑星の攻城（停泊した敵対艦隊が S-AV で制空権制圧→侵略→占領）。銀河時間で進む。
-            StrategyRules.TickSieges(map, reg, dt, new SiegeParams(siegeSuppressRate, siegeInvadeRate, siegeDefenseRegen));
+            // 攻城開始/占領完了の通知＋占領後のラベル残存を防ぐため、TickSieges を状態遷移検出でラップする。
+            RunPlanetSiegeTick(dt);
 
             occupyTimer += dt;
             if (occupyTimer >= 0.4f)
             {
-                StrategyRules.ResolveAllOccupations(map, reg); // 無防備星系は停泊で占領
+                NotifyStationingCaptures(); // 無防備星系の停泊占領を検出して通知（占領完了）
                 occupyTimer = 0f;
                 // 盤面の所有が動いたら即・制覇判定（占領も攻城#131 の捕獲も拾う＝全星系支配で年境界を待たず勝利イベント）。
                 RunCampaignVictoryCheck();

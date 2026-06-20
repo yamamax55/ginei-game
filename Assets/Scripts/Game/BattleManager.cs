@@ -147,6 +147,7 @@ namespace Ginei
         {
             if (!EvaluateVictory(out Faction winner, out string reason, out FleetStrength winnerRep)) return;
 
+            Debug.Log($"[WIN3] CheckVictory decided: scene={gameObject.scene.name}#{gameObject.scene.handle} winner={winner} reason={reason} flagships={Flagships.Count}");
             isBattleOver = true;
 
             // 決着時に時間を停止（ウィンドウ化会戦では全体時間を止めない＝戦略を凍結しない）

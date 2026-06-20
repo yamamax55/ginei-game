@@ -58,6 +58,7 @@ namespace Ginei
             // ※BattleViewport.Active はカーソルが窓上のときだけ true になる「フォーカス」状態で、ここの判定には使えない
             //   （過去バグ：2つ目の会戦の初期化時にカーソルが窓外だと FleetRegistry.Clear() が走り1つ目の艦を全消去していた）。
             bool windowed = gameObject.scene != SceneManager.GetActiveScene();
+            Debug.Log($"[WIN3] BattleSetup: myScene={gameObject.scene.name}#{gameObject.scene.handle} active={SceneManager.GetActiveScene().name}#{SceneManager.GetActiveScene().handle} windowed={windowed} clear={(windowed ? "ClearScene" : "Clear(全消去)")}");
 
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）。
             // ウィンドウ化会戦（WIN-2/3）では自分のシーンの艦だけをクリア（同時進行する他会戦を消さない）。

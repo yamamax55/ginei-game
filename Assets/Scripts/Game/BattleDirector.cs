@@ -120,6 +120,7 @@ namespace Ginei
 
         private void OnWindowClosed(BattleWindow win)
         {
+            Debug.Log($"[WIN3] OnWindowClosed: scene={win.BattleScene.name}#{win.BattleScene.handle} windowsBefore={windows.Count}");
             windows.Remove(win);
             if (slotOf.TryGetValue(win, out int slot)) { usedSlots.Remove(slot); slotOf.Remove(win); }
             if (BattleViewport.IsFocused(win.BattleScene)) BattleViewport.Clear();

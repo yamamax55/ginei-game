@@ -6,6 +6,10 @@ namespace Ginei
     /// </summary>
     public enum PersonOrigin { 平民, 貴族, 王家 }
 
+    /// <summary>出自ごとの軍歴の入口（採用「出自選択」）。平民＝士官学校／貴族＝幼年学校（→士官学校）／王家＝王室教育。
+    /// 実体の選抜・修業は既存（<c>MilitaryAcademyRules</c>/<c>RoyalEducationRules</c>/#155）へ接続する＝本列挙は入口の分類のみ。</summary>
+    public enum EnrollPath { 士官学校, 幼年学校, 王室教育 }
+
     /// <summary>
     /// 主人公の出自の純ロジック（採用「出自選択」・唯一の窓口）。出自は<b>身分の分類と入口</b>だけを持ち、実際の効果は
     /// 既存システムへ“接続のみ”＝貴族/王家は封建・貴族制(#168)・地方自治(#1306)、王家は王室(#188)・王室教育
@@ -28,6 +32,28 @@ namespace Ginei
 
         /// <summary>主人公の死で操作座をどう継ぐか＝貴族/王家は継承(#646)で世継ぎへ、平民は一代記の完結→新規（#907 の解答）。</summary>
         public static bool InheritsOnDeath(PersonOrigin o) => IsNoble(o);
+
+        /// <summary>出自の軍歴の入口（学校）。平民→士官学校／貴族→幼年学校／王家→王室教育（実体の選抜は既存へ接続）。</summary>
+        public static EnrollPath PathFor(PersonOrigin o)
+        {
+            switch (o)
+            {
+                case PersonOrigin.貴族: return EnrollPath.幼年学校;
+                case PersonOrigin.王家: return EnrollPath.王室教育;
+                default: return EnrollPath.士官学校;
+            }
+        }
+
+        /// <summary>入口の学校名（表示・一代記）。</summary>
+        public static string SchoolName(EnrollPath p)
+        {
+            switch (p)
+            {
+                case EnrollPath.幼年学校: return "幼年学校";
+                case EnrollPath.王室教育: return "王室教育課程";
+                default: return "士官学校";
+            }
+        }
 
         /// <summary>表示用の短い肩書き（一代記・執務机）。</summary>
         public static string Title(PersonOrigin o)

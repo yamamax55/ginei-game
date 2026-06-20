@@ -42,6 +42,22 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void EnrollPath_Mapping()
+        {
+            Assert.AreEqual(EnrollPath.士官学校, OriginRules.PathFor(PersonOrigin.平民));
+            Assert.AreEqual(EnrollPath.幼年学校, OriginRules.PathFor(PersonOrigin.貴族));
+            Assert.AreEqual(EnrollPath.王室教育, OriginRules.PathFor(PersonOrigin.王家));
+        }
+
+        [Test]
+        public void SchoolName_NonEmpty()
+        {
+            Assert.IsNotEmpty(OriginRules.SchoolName(EnrollPath.士官学校));
+            Assert.IsNotEmpty(OriginRules.SchoolName(EnrollPath.幼年学校));
+            Assert.IsNotEmpty(OriginRules.SchoolName(EnrollPath.王室教育));
+        }
+
+        [Test]
         public void Title_NonEmpty()
         {
             Assert.IsNotEmpty(OriginRules.Title(PersonOrigin.平民));

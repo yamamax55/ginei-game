@@ -349,10 +349,12 @@ namespace Ginei
 
             Merit = new MeritRecord(ProtagonistId);
 
-            // 士官学校から任官（TKO-1）。
-            var academy = new Academy(7, pf, "士官学校", 200, 0.55f);
+            // 士官学校から任官（TKO-1）。出自で入口の学校が変わる（平民=士官学校/貴族=幼年学校/王家=王室教育）。
+            // 実体の選抜は既存の多段選抜（MilitaryAcademyRules）へ接続＝ここは入口の名称ぶんだけ反映（数値は不変・後方互換）。
+            string schoolName = OriginRules.SchoolName(OriginRules.PathFor(Origin));
+            var academy = new Academy(7, pf, schoolName, 200, 0.55f);
             var outcome = ProtagonistCareerRules.EnrollWithClass(Protagonist, academy, 60, EnrollYear, 910000, i => Random.value);
-            ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.入校, $"{OriginRules.Title(Origin)}・士官学校へ入校");
+            ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.入校, $"{OriginRules.Title(Origin)}・{schoolName}へ入校");
             // 任官は少尉から（大学校卒＝大尉 fast-track）。准将までは月次評定のモンタージュで駆け上がる（TKO-12）。
             int commission = MilitaryAcademyRules.CommissionTier(outcome.degree, outcome.hammockNumber);
             if (commission <= 0) commission = 1; // 主人公は最低 少尉で任官

@@ -104,6 +104,9 @@ namespace Ginei
         {
             if (Mouse.current == null || cam == null) return;
 
+            // 会戦ウィンドウ（WIN-1）の上ではマップ操作を会戦へ譲る（背後の戦略マップが二重に反応しない）。
+            if (BattleWindow.PointerOverWindow) return;
+
             HandleZoom(); // マウスホイール：カーソル中心ズーム（滑らかに追従・回し幅で加速）
 
             // いずれかの UI 窓（観測オーバーレイ/決裁デスク/通知/星系図等）をドラッグ中は、マップ操作を窓へ譲る
@@ -340,6 +343,19 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 会戦へ潜行する（WIN-1 #2568）。GameSettings.windowedBattles なら会戦をウィンドウで開き、
+        /// 戦略マップを背後に残す。OFF なら従来どおり全画面の Battle シーンへ遷移する。
+        /// 呼び出し前に BattleHandoff を Queue 済みであること（各 TryDescend* が行う）。
+        /// </summary>
+        private void LaunchBattleScene()
+        {
+            if (GameSettings.Instance != null && GameSettings.Instance.windowedBattles)
+                BattleWindow.Open();
+            else
+                SceneManager.LoadScene("Battle");
+        }
+
+        /// <summary>
         /// マウスの当フレーム移動量ぶん、<b>掴んだ地図を指の向きへ動かす</b>（掴んだ点がカーソルに付いてくるグラブ方式）。
         /// スクリーン差分→ワールド距離へ換算（カメラ rect のビューポート高で正規化）。パン目標を動かし cam は滑らかに追従。
         /// </summary>
@@ -449,7 +465,7 @@ namespace Ginei
                 AddHandoffSide(entries, sideA, true);
                 AddHandoffSide(entries, sideB, false);
                 BattleHandoff.QueueMulti(entries, sideA[0].faction, sideB[0].faction, sideA[0].id, sideB[0].id, "Strategy");
-                SceneManager.LoadScene("Battle");
+                LaunchBattleScene();
                 return true;
             }
 
@@ -472,7 +488,7 @@ namespace Ginei
             BattleHandoff.qualityA = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(a.supply)) * TechEffectRules.CombatStrengthFactor(TechLevelOf(a.faction));
             BattleHandoff.qualityB = ForceQualityRules.CombatMultiplier(null, 0.5f, MilitaryReadinessRules.FirepowerFactor(b.supply)) * TechEffectRules.CombatStrengthFactor(TechLevelOf(b.faction));
 
-            SceneManager.LoadScene("Battle");
+            LaunchBattleScene();
             return true;
         }
 
@@ -571,7 +587,7 @@ namespace Ginei
             if (sys != null && (sys.owner == sideA[0].faction || sys.owner == sideB[0].faction))
                 BattleHandoff.SetDefender(sys.owner, Vector2.right); // 侵攻方向は会戦アリーナ座標では一定（守備中央・攻撃側面）
 
-            SceneManager.LoadScene("Battle");
+            LaunchBattleScene();
             return true;
         }
 
@@ -593,7 +609,7 @@ namespace Ginei
             float invRatio = s.planet.invasionThreshold > 0f ? s.planet.invasionProgress / s.planet.invasionThreshold : 0f;
             BattleHandoff.QueuePlanetSiege(s.id, s.systemName, s.planet.owner, defRatio, invRatio,
                 besieger.faction, besieger.strength, "Strategy", s.planet.kind);
-            SceneManager.LoadScene("Battle");
+            LaunchBattleScene();
             return true;
         }
 

@@ -68,7 +68,7 @@ namespace Ginei
 
         [Header("会戦改善")]
         [Tooltip("撤退中、原点からこの距離（自勢力側の画面端）に達したら戦場から離脱（恒久退却）")]
-        public float battlefieldRadius = 45f;
+        public float battlefieldRadius = 135f;
 
         [Tooltip("戦況（兵力比・敗走）に応じて有利な陣形へ自動切替する（AI艦隊のみ）")]
         public bool autoFormation = true;

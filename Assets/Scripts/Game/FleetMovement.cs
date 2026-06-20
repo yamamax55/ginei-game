@@ -36,7 +36,7 @@ namespace Ginei
         [Tooltip("旗艦を戦場（原点中心の円）内に留める＝MAP外へ出ない。撤退の戦場端離脱(battlefieldRadius=45)より広く取る")]
         public bool containInBattlefield = true;
         [Tooltip("戦場の半径（原点中心）。これを超える移動はクランプ。撤退の離脱端より大きくして退却→離脱は妨げない")]
-        public float battlefieldRadius = 60f;
+        public float battlefieldRadius = 180f;
 
         [Tooltip("後退（向きを保ったまま下がる）時の速度倍率。前進より遅くする")]
         [Range(0f, 1f)]

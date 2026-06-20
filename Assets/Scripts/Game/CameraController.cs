@@ -23,7 +23,7 @@ namespace Ginei
         [Tooltip("最小ズームサイズ（小さいほど深くズームイン）")]
         public float minZoom = 1f;
         [Tooltip("最大ズームサイズ（大きいほど広くズームアウト＝MAP全体）")]
-        public float maxZoom = 120f;
+        public float maxZoom = 300f;
         [Tooltip("開始時のズーム（大きいほど引いた画。会戦開始時に適用・フォールバック）")]
         public float startZoom = 16f;
         [Tooltip("会戦開始時に全艦隊が収まるよう自動でMAP全体にズームアウトする")]

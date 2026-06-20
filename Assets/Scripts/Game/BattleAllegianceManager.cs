@@ -186,10 +186,15 @@ namespace Ginei
 
             fs.Defect(newData, newLegacy);
 
-            // プレイヤー側へ来たなら手動指揮へ、離れたなら AI 指揮へ（主人公は AI に乗っ取らせない・GON-6）
+            // AI標準＋手動上書きモデル：AI は常に有効のまま、プレイヤー側に来たら playerCommanded＝true
+            // （選択・手動指示の対象）にし、離れたら false にする（AI標準のまま敵として動く）。
             bool nowPlayerSide = IsPlayerSide(fs);
             FleetAI ai = fs.GetComponent<FleetAI>();
-            if (ai != null) ai.enabled = ProtagonistRules.ShouldEnableAI(fs.admiralData, nowPlayerSide);
+            if (ai != null)
+            {
+                ai.playerCommanded = nowPlayerSide;
+                ai.enabled = true;
+            }
 
             // プレイヤーの選択から外す（敵になった艦隊を選択し続けない）
             if (!nowPlayerSide)

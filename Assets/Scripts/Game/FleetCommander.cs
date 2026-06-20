@@ -426,6 +426,8 @@ namespace Ginei
                     weapon.SetManualTargetFleet(targetFleet);
                     weapon.SetMissileMode(useMissile);
                 }
+
+                BeginManualOverride(selectable);   // AI標準操舵を一時上書き（命令完了で自動復帰）
             }
 
             // 攻撃対象を画面に一定時間表示
@@ -567,6 +569,8 @@ namespace Ginei
                     FleetMovement movement = mu.sel.GetComponent<FleetMovement>();
                     if (movement != null) movement.SetDestination(pos + mu.offset, facingAngleZ);
                 }
+
+                BeginManualOverride(mu.sel);   // AI標準操舵を一時上書き（命令完了で自動復帰）
             }
             Debug.Log(pendingAttackMove ? "アタックムーブを発令しました。" : "移動命令を発令しました。");
             EndMoveTargeting();
@@ -595,6 +599,8 @@ namespace Ginei
 
                 FleetMovement movement = mu.sel.GetComponent<FleetMovement>();
                 if (movement != null) movement.SetReverseDestination(pos + mu.offset);
+
+                BeginManualOverride(mu.sel);   // AI標準操舵を一時上書き（命令完了で自動復帰）
             }
             EndMoveTargeting();
             Debug.Log("後退命令を発令しました。");
@@ -626,8 +632,20 @@ namespace Ginei
                 if (sel == null) continue;
                 FleetStandardOrder order = EnsureStandardOrder(sel);
                 if (order != null) order.SetHold();
+                BeginManualOverride(sel);   // AI標準操舵を上書き（保持 stance が続く間は AI に渡さない）
             }
             Debug.Log("その場保持を発令しました。");
+        }
+
+        /// <summary>
+        /// 手動命令の発令時に呼ぶ。隷下艦隊は AI を標準動作させつつ、命令中は
+        /// FleetAI.BeginManualOverride() で AI 操舵を一時停止する（命令完了で自動復帰）。
+        /// </summary>
+        private void BeginManualOverride(Selectable sel)
+        {
+            if (sel == null) return;
+            FleetAI ai = sel.GetComponent<FleetAI>();
+            if (ai != null) ai.BeginManualOverride();
         }
 
         /// <summary>艦隊に FleetStandardOrder（標準命令の継続処理）を保証して返す。#85</summary>
@@ -742,6 +760,14 @@ namespace Ginei
             // まずコライダー直撃を判定（配下艦を撃っても親までさかのぼり旗艦の Selectable を取得）。
             Selectable selectable = (collider != null) ? collider.GetComponentInParent<Selectable>() : null;
 
+            // プレイヤー隷下（playerCommanded）以外は選択・指揮の対象外（AI標準＋手動上書きモデル）。
+            // ※AIは手動上書き(BeginManualOverride)に道を譲るため、敵を選べると敵を指揮できてしまう。
+            if (selectable != null)
+            {
+                FleetAI selAi = selectable.GetComponent<FleetAI>();
+                if (selAi == null || !selAi.playerCommanded) selectable = null;
+            }
+
             // 直撃が無ければ、クリック近傍（許容ピクセル内）で最寄りの自艦隊を選ぶ。
             // 小さな三角の艦でもピクセル単位の精密クリックを要求しない＝選びやすくする。
             if (selectable == null)
@@ -771,7 +797,7 @@ namespace Ginei
                 if (fs == null) continue;
 
                 FleetAI ai = fs.GetComponent<FleetAI>();
-                if (ai != null && ai.enabled) continue;   // プレイヤー操作艦のみ（AI/敵は対象外）
+                if (ai == null || !ai.playerCommanded) continue;   // プレイヤー隷下のみ選択可（AI標準でも隷下は手動指示で上書き）
 
                 Selectable sel = fs.GetComponent<Selectable>();
                 if (sel == null) continue;
@@ -977,7 +1003,7 @@ namespace Ginei
                 if (fs == null) continue;
 
                 FleetAI ai = fs.GetComponent<FleetAI>();
-                if (ai != null && ai.enabled) continue;   // AI/敵 は対象外
+                if (ai == null || !ai.playerCommanded) continue;   // プレイヤー隷下のみ選択可（AI標準でも隷下は手動指示で上書き）
 
                 Selectable sel = fs.GetComponent<Selectable>();
                 if (sel == null) continue;

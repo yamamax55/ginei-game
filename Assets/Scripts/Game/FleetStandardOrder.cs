@@ -62,7 +62,7 @@ namespace Ginei
         private void Update()
         {
             if (Time.timeScale == 0f) return;
-            if (ai != null && ai.enabled) return;                 // AI/敵艦には適用しない（プレイヤー艦のみ）
+            if (ai != null && ai.enabled && !ai.ManualOverride) return; // AI操舵中は適用しない（手動上書き中＝プレイヤー命令中のみ動く）
             if (strength != null && !strength.IsAlive) return;    // 退却中は無効
 
             switch (stance)

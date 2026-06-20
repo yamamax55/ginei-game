@@ -73,15 +73,33 @@ namespace Ginei
         [Tooltip("戦況（兵力比・敗走）に応じて有利な陣形へ自動切替する（AI艦隊のみ）")]
         public bool autoFormation = true;
 
+        [Tooltip("プレイヤーの隷下艦隊か（true＝選択・手動指示の対象。AIは標準で動き、手動指示で上書きする）")]
+        public bool playerCommanded;
+
+        private bool manualOverride;
+        /// <summary>手動指示で AI 操舵を一時上書き中か（指示完了で自動的に AI へ復帰）。</summary>
+        public bool ManualOverride => manualOverride;
+
         private FleetMovement movement;
         private FleetWeapon weapon;
         private FleetStrength strength;
         private WeaponArc weaponArc;
+        private FleetStandardOrder standardOrder;
 
         private float nextSearchTime;
         private FleetStrength targetEnemy;
         private FleetMorale moraleComponent;
         private Squadron squadron;
+
+        /// <summary>手動指示でAI操舵を上書きする（プレイヤーが移動/攻撃/保持を発令したときに呼ぶ）。</summary>
+        public void BeginManualOverride()
+        {
+            manualOverride = true;
+            // FleetStandardOrder は命令時に動的 AddComponent されるため参照を取り直す
+            if (standardOrder == null) standardOrder = GetComponent<FleetStandardOrder>();
+        }
+        /// <summary>手動上書きを解除してAI操舵へ戻す。</summary>
+        public void EndManualOverride() { manualOverride = false; }
 
         private void Awake()
         {
@@ -91,12 +109,24 @@ namespace Ginei
             weaponArc = GetComponent<WeaponArc>();
             moraleComponent = GetComponent<FleetMorale>();
             squadron = GetComponent<Squadron>();
+            standardOrder = GetComponent<FleetStandardOrder>();
         }
 
         private void Update()
         {
             // 既に戦場から離脱（恒久退却）した艦は何もしない。
             if (strength != null && !strength.IsAlive) return;
+
+            // 手動指示の上書き：プレイヤーの命令が生きている間は AI 操舵を譲る（基本AI＋手動で上書き）。
+            // 命令が完了（移動停止＝到達 かつ 手動標的なし かつ 標準命令なし）したら自動的に AI へ復帰する。
+            if (manualOverride)
+            {
+                bool busy = (movement != null && movement.IsMoving)
+                    || (weapon != null && weapon.HasManualTarget)
+                    || (standardOrder != null && standardOrder.stance != FleetStandardOrder.Stance.なし);
+                if (busy) return;          // 手動操作を優先（AIは口を出さない）
+                manualOverride = false;    // 指示完了＝AIへ復帰
+            }
 
             // 敗走チェック (最優先)
             if (moraleComponent != null && moraleComponent.IsRouted)

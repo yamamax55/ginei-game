@@ -51,6 +51,7 @@ namespace Ginei
         private List<CascadeLevel> cascade;
         private Faction pf = Faction.同盟;
         private int lastCouncilMonth;
+        private int heroAdmiralKey; // 主人公の AdmiralData.GetInstanceID()＝会戦成長台帳 GrowthRegistry のキー（P1-b 永続）
         private bool ready;
 
         // 会戦の戦果インボックス（別シーンの BattleManager が積む・static で Battle→Strategy を跨いで保持）。
@@ -283,8 +284,9 @@ namespace Ginei
         public ProtagonistCareerSave CaptureSave()
         {
             if (!ready || Protagonist == null) return new ProtagonistCareerSave { hasData = false };
+            Growth heroGrowth = heroAdmiralKey != 0 ? GrowthRegistry.Get(heroAdmiralKey) : null;
             return ProtagonistCareerSerializer.Capture(Protagonist, Merit, ActiveMandate,
-                lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount);
+                lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount, heroGrowth);
         }
 
         // ===== セットアップ =====
@@ -300,6 +302,7 @@ namespace Ginei
             FactionRanks = BuildCareerLadder();
 
             AdmiralData pa = gs != null ? ContentDatabase.AdmiralByName(gs.selectedAdmiral) : null;
+            heroAdmiralKey = pa != null ? pa.GetInstanceID() : 0; // 会戦成長台帳のキー（BattleManager と同じ GetInstanceID）
             Protagonist = new Person(ProtagonistId, pa != null ? pa.FullName : "主人公", pf, PersonRole.軍人);
             if (pa != null)
             {
@@ -328,6 +331,9 @@ namespace Ginei
                 pendingBattleDamage = loaded.pendingBattleDamage;
                 pendingBattleVictories = loaded.pendingBattleVictories;
                 pendingBattleCount = loaded.pendingBattleCount;
+                // 会戦で得た提督の成長（XP）を復元（P1-b 永続＝捨てない）。会戦時の GrowthRegistry キーと一致。
+                if (loaded.hasGrowth && heroAdmiralKey != 0)
+                    GrowthRegistry.GetOrCreate(heroAdmiralKey, (GrowthArchetype)loaded.growthArchetype).experience = loaded.growthExperience;
                 PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 lastCouncilMonth = loaded.lastCouncilMonth;
                 Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");

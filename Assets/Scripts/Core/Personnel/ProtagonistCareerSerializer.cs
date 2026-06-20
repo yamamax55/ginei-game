@@ -10,7 +10,8 @@ namespace Ginei
     {
         /// <summary>主人公の立身出世状態を平データへ写す（<paramref name="hero"/> 必須・他は null/0 可）。</summary>
         public static ProtagonistCareerSave Capture(Person hero, MeritRecord merit, SovereignMandate mandate,
-            int lastCouncilMonth, int nextMandateId, float pendingBattleDamage, int pendingBattleVictories, int pendingBattleCount)
+            int lastCouncilMonth, int nextMandateId, float pendingBattleDamage, int pendingBattleVictories, int pendingBattleCount,
+            Growth growth = null)
         {
             if (hero == null) return new ProtagonistCareerSave { hasData = false };
             var d = new ProtagonistCareerSave
@@ -35,6 +36,12 @@ namespace Ginei
                 pendingBattleVictories = pendingBattleVictories,
                 pendingBattleCount = pendingBattleCount,
             };
+            if (growth != null)
+            {
+                d.hasGrowth = true;
+                d.growthExperience = growth.experience;
+                d.growthArchetype = (int)growth.archetype;
+            }
             if (mandate != null)
             {
                 d.hasMandate = true;

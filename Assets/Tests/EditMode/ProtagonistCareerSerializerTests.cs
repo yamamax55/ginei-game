@@ -100,6 +100,25 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void RoundTrip_Growth_Preserved()
+        {
+            Person hero = MakeHero();
+            var growth = new Growth(GrowthArchetype.老練型, 137.5f);
+            ProtagonistCareerSave d = ProtagonistCareerSerializer.Capture(hero, null, null, 0, 0, 0f, 0, 0, growth);
+            Assert.IsTrue(d.hasGrowth);
+            Assert.AreEqual(137.5f, d.growthExperience, 1e-4f);
+            Assert.AreEqual((int)GrowthArchetype.老練型, d.growthArchetype);
+        }
+
+        [Test]
+        public void Capture_NoGrowth_HasGrowthFalse()
+        {
+            Person hero = MakeHero();
+            ProtagonistCareerSave d = ProtagonistCareerSerializer.Capture(hero, null, null, 0, 0, 0f, 0, 0);
+            Assert.IsFalse(d.hasGrowth);
+        }
+
+        [Test]
         public void RoundTrip_BattleInbox_Preserved()
         {
             Person hero = MakeHero();

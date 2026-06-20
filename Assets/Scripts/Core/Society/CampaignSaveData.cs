@@ -45,6 +45,10 @@ namespace Ginei
         // 武勲台帳（MeritRecord）
         public float meritPoints;
         public int meritExploitCount, meritPromotionsApplied;
+        // 会戦で得た提督の成長（Growth・P1-b 永続＝会戦XPを捨てない）。hasGrowth=false なら未蓄積（後方互換）。
+        public bool hasGrowth;
+        public float growthExperience;
+        public int growthArchetype;  // (int)GrowthArchetype
         // 月次ループ状態
         public int lastCouncilMonth;
         public int nextMandateId;

@@ -49,17 +49,18 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void Defeat_WhenRivalReachesDominationThreshold()
+        public void Continues_WhenRivalDominatesButPlayerSurvives()
         {
-            // 5星系中4を敵（同盟）＝0.8 ≥ 0.7。プレイヤー（帝国）は1星系を残すが敵に制覇され敗北。
+            // 敗北は「全星系喪失（滅亡）」のみ＝敵が大きく支配しても自軍が1星系でも残れば継続。
+            // 5星系中4を敵（同盟）＝0.8。プレイヤー（帝国）は1星系を残す → 継続（敗北しない）。
             var m = Map(Faction.同盟, Faction.同盟, Faction.同盟, Faction.同盟, Faction.帝国);
-            Assert.AreEqual(CampaignOutcome.敗北, CampaignVictoryRules.Evaluate(m, Faction.帝国));
+            Assert.AreEqual(CampaignOutcome.継続, CampaignVictoryRules.Evaluate(m, Faction.帝国));
         }
 
         [Test]
-        public void NotDefeat_WhenRivalBelowThreshold()
+        public void Continues_WhenRivalBelowThreshold()
         {
-            // 5星系中3を敵＝0.6 < 0.7・プレイヤー2＝0.4 → まだ継続（敵制覇に至らず）。
+            // 5星系中3を敵・プレイヤー2 → 継続。
             var m = Map(Faction.同盟, Faction.同盟, Faction.同盟, Faction.帝国, Faction.帝国);
             Assert.AreEqual(CampaignOutcome.継続, CampaignVictoryRules.Evaluate(m, Faction.帝国));
         }

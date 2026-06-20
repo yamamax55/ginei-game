@@ -13,7 +13,8 @@ namespace Ginei
     {
         /// <summary>
         /// 難易度ごとの勝敗しきい値。**制覇勝利は難易度を問わず「すべての星系（惑星）を占領」＝dominationFraction=1.0（全制圧）**。
-        /// 難易度は敵制覇（敗北）しきい値 rivalDominationFraction と開始戦力で差をつける（勝利条件は据え置き全制圧）。
+        /// 難易度は開始戦力で差をつける（勝利条件は据え置き全制圧・敗北は全星系喪失のみ）。
+        /// rivalDominationFraction は決着には用いず（敵が大きく支配しても自軍が残る限り敗北しない）難易度表示/観測用に保持する。
         /// </summary>
         public static CampaignVictoryRules.CampaignVictoryParams VictoryParams(CampaignDifficulty d)
         {

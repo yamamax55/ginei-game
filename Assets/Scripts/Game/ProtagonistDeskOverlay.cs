@@ -92,6 +92,9 @@ namespace Ginei
             sb.Append("  <color=#ffe08a>").Append(me.name).Append("</color>　")
               .Append("<color=#9ad0ff>").Append(d.RankName(me.rankTier)).Append("</color>\n");
             sb.Append("  <color=#9aa7b2>").Append(OriginRules.Title(d.Origin)).Append("</color>\n");
+            sb.Append("  <color=#9aa7b2>武名</color> ");
+            AppendBar(sb, Mathf.Clamp01(d.Fame / 100f), "#d0b060");
+            sb.Append("　<color=#6f8a9a>(政界転身の資本)</color>\n");
 
             // 能力（会戦成長 P1-b を反映した実効値＝基準＋GrowthRegistry）
             Growth g = d.HeroGrowth;

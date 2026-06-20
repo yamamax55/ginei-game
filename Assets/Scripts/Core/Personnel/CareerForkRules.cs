@@ -65,10 +65,18 @@ namespace Ginei
         /// </summary>
         public static List<CareerFork> AvailableForks(float loyalty, float grievance, float merit01,
             float favorWithSovereign, int rankTier, ForkParams p)
+            => AvailableForks(loyalty, grievance, merit01, merit01, favorWithSovereign, rankTier, p);
+
+        /// <summary>
+        /// 政界転身の判定だけ別の政治資本（<paramref name="politicsCapital01"/>＝武名 ADM-3 等）で評価するオーバーロード。
+        /// 独立は武勲（<paramref name="merit01"/>）で、政界転身は武名で開く＝「戦果で旗を立てる」と「名声で政界へ」を分ける。
+        /// </summary>
+        public static List<CareerFork> AvailableForks(float loyalty, float grievance, float merit01, float politicsCapital01,
+            float favorWithSovereign, int rankTier, ForkParams p)
         {
             var forks = new List<CareerFork> { CareerFork.忠勤 };
-            // 政界転身は不満に依らず開く＝武名（武勲）と stature（階級）があれば政治資本になる（ヤン型/カエサル型）。
-            if (Mathf.Clamp01(merit01) >= p.politicsMeritFloor && rankTier >= p.politicsTierFloor)
+            // 政界転身は不満に依らず開く＝武名（政治資本）と stature（階級）があれば政界入りできる（ヤン型/カエサル型）。
+            if (Mathf.Clamp01(politicsCapital01) >= p.politicsMeritFloor && rankTier >= p.politicsTierFloor)
                 forks.Add(CareerFork.政界転身);
             if (!IsDisaffected(loyalty, grievance, p)) return forks;
 

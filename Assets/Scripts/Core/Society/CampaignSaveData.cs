@@ -54,6 +54,8 @@ namespace Ginei
         public int lastCouncilMonth;
         public int nextMandateId;
         public float grievance;      // 不満（主命失敗の蓄積・岐路判定 CareerForkRules 用）
+        public int fame;             // 武名（ADM-3 #2304・戦功で上がり政界転身の資本に）
+        public int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可）
         // 会戦戦果の未処理インボックス（戦果→武勲は次の月次評定で変換＝保存中に失わない）
         public float pendingBattleDamage;
         public int pendingBattleVictories, pendingBattleCount;

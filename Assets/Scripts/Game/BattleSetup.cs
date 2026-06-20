@@ -58,7 +58,6 @@ namespace Ginei
             // ※BattleViewport.Active はカーソルが窓上のときだけ true になる「フォーカス」状態で、ここの判定には使えない
             //   （過去バグ：2つ目の会戦の初期化時にカーソルが窓外だと FleetRegistry.Clear() が走り1つ目の艦を全消去していた）。
             bool windowed = gameObject.scene != SceneManager.GetActiveScene();
-            Debug.Log($"[WIN3] BattleSetup: myScene={gameObject.scene.name}#{gameObject.scene.handle} active={SceneManager.GetActiveScene().name}#{SceneManager.GetActiveScene().handle} windowed={windowed}");
 
             // 0. 索敵レジストリの初期化。**常に自分のシーンの艦だけをクリア**する（FleetRegistry.Clear() の全消去は使わない）。
             //    こうすれば、2つ目の会戦のセットアップが1つ目の会戦の旗艦を消す事故が原理的に起きない
@@ -274,8 +273,12 @@ namespace Ginei
         {
             foreach (var fs in Object.FindObjectsByType<FleetStrength>(FindObjectsSortMode.None))
             {
+                if (fs == null) continue;
+                // ★WIN-3 重要：FindObjectsByType は**全シーン**を走査するため、自分の会戦シーンの艦だけを対象にする。
+                //   さもないと2つ目の会戦のセットアップが1つ目の会戦の艦を Destroy し「1つ目が両軍壊滅で即消え」する。
+                if (fs.gameObject.scene != gameObject.scene) continue;
                 // ルート（親が無い艦隊）のみ対象。配下艦は親ごと消える
-                if (fs != null && fs.transform.parent == null)
+                if (fs.transform.parent == null)
                 {
                     fs.gameObject.SetActive(false); // FindObjectsByType(既定)の集計から即除外
                     Destroy(fs.gameObject);

@@ -3,8 +3,9 @@ using UnityEngine;
 
 namespace Ginei
 {
-    /// <summary>主人公の重大な岐路（TKO-7・#2484）。忠勤＝仕え続ける／下野＝軍を辞す／亡命＝敵勢力へ／独立＝旗揚げ。</summary>
-    public enum CareerFork { 忠勤, 下野, 亡命, 独立 }
+    /// <summary>主人公の重大な岐路（TKO-7・#2484）。忠勤＝仕え続ける／下野＝軍を辞す／亡命＝敵勢力へ／独立＝旗揚げ／
+    /// 政界転身＝軍歴・武名を政治資本に政界へ（「政治家提督」・序列内の文民の道・ヤン型/カエサル型）。</summary>
+    public enum CareerFork { 忠勤, 下野, 亡命, 独立, 政界転身 }
 
     /// <summary>
     /// 主人公個人の岐路の純ロジック（TKO-7・太閤立志伝V「忠臣にも梟雄にも」・#2484・唯一の窓口）。忠誠・不満（冷遇/主命失敗の蓄積）・
@@ -28,19 +29,30 @@ namespace Ginei
             public readonly float independenceMeritFloor;
             /// <summary>独立が開く階級 tier の下限（自前の旗を立てる stature）。</summary>
             public readonly int independenceTierFloor;
+            /// <summary>政界転身が開く武勲（実力＝武名 ADM-3）の下限。不満に依らず開く（positive な岐路）。</summary>
+            public readonly float politicsMeritFloor;
+            /// <summary>政界転身が開く階級 tier の下限（政界入りの stature＝既定 准将5＝将官）。</summary>
+            public readonly int politicsTierFloor;
 
+            /// <summary>政界転身の既定（武勲0.5・准将5）で5引数版を構成する（既存呼び出しの後方互換）。</summary>
             public ForkParams(float grievanceToConsider, float loyaltyToStay, float defectFavorCeiling,
                 float independenceMeritFloor, int independenceTierFloor)
+                : this(grievanceToConsider, loyaltyToStay, defectFavorCeiling, independenceMeritFloor, independenceTierFloor, 0.5f, 5) { }
+
+            public ForkParams(float grievanceToConsider, float loyaltyToStay, float defectFavorCeiling,
+                float independenceMeritFloor, int independenceTierFloor, float politicsMeritFloor, int politicsTierFloor)
             {
                 this.grievanceToConsider = Mathf.Clamp01(grievanceToConsider);
                 this.loyaltyToStay = Mathf.Clamp01(loyaltyToStay);
                 this.defectFavorCeiling = Mathf.Clamp(defectFavorCeiling, -1f, 1f);
                 this.independenceMeritFloor = Mathf.Clamp01(independenceMeritFloor);
                 this.independenceTierFloor = independenceTierFloor;
+                this.politicsMeritFloor = Mathf.Clamp01(politicsMeritFloor);
+                this.politicsTierFloor = politicsTierFloor;
             }
 
-            /// <summary>既定＝不満0.5で検討・忠誠0.6で留まる・関係−0.3以下で亡命・独立は武勲0.6かつ大将(8)以上。</summary>
-            public static ForkParams Default => new ForkParams(0.5f, 0.6f, -0.3f, 0.6f, 8);
+            /// <summary>既定＝不満0.5で検討・忠誠0.6で留まる・関係−0.3以下で亡命・独立は武勲0.6かつ大将(8)以上・政界転身は武勲0.5かつ准将(5)以上。</summary>
+            public static ForkParams Default => new ForkParams(0.5f, 0.6f, -0.3f, 0.6f, 8, 0.5f, 5);
         }
 
         /// <summary>離反を考える状態か＝不満が閾値以上 かつ 忠誠が引き留め閾値未満。</summary>
@@ -55,6 +67,9 @@ namespace Ginei
             float favorWithSovereign, int rankTier, ForkParams p)
         {
             var forks = new List<CareerFork> { CareerFork.忠勤 };
+            // 政界転身は不満に依らず開く＝武名（武勲）と stature（階級）があれば政治資本になる（ヤン型/カエサル型）。
+            if (Mathf.Clamp01(merit01) >= p.politicsMeritFloor && rankTier >= p.politicsTierFloor)
+                forks.Add(CareerFork.政界転身);
             if (!IsDisaffected(loyalty, grievance, p)) return forks;
 
             forks.Add(CareerFork.下野); // 不満ある者にはいつでも静かな退場がある

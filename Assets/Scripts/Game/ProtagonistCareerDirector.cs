@@ -47,10 +47,17 @@ namespace Ginei
         public PersonRelationGraph Relations { get; private set; }
         public ProtagonistChronicle Chronicle { get; private set; }
         public IReadOnlyList<CascadeLevel> Cascade => cascade;
+        public PersonOrigin Origin { get; private set; } // 出自（採用「出自選択」・平民/貴族/王家）
+        /// <summary>主人公の会戦成長（GrowthRegistry・無ければ null）。執務机が実効能力の表示に使う。</summary>
+        public Growth HeroGrowth => heroAdmiralKey != 0 ? GrowthRegistry.Get(heroAdmiralKey) : null;
+        /// <summary>不満（主命失敗で増・達成で減）＝岐路判定の入力。</summary>
+        public float Grievance => grievance;
 
         private List<CascadeLevel> cascade;
         private Faction pf = Faction.同盟;
         private int lastCouncilMonth;
+        private int heroAdmiralKey; // 主人公の AdmiralData.GetInstanceID()＝会戦成長台帳 GrowthRegistry のキー（P1-b 永続）
+        private float grievance;    // 不満（主命失敗で増・達成で減）＝岐路判定 CareerForkRules 用
         private bool ready;
 
         // 会戦の戦果インボックス（別シーンの BattleManager が積む・static で Battle→Strategy を跨いで保持）。
@@ -152,6 +159,7 @@ namespace Ginei
             {
                 float favor = SovereignMandateRules.Complete(ActiveMandate, Merit, MeritP, MandateP);
                 SovereignMandateRules.ApplyOutcomeFavor(Relations, ActiveMandate, favor);
+                grievance = Mathf.Max(0f, grievance - 0.15f); // 達成で不満が和らぐ
                 ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.主命達成, $"{ActiveMandate.kind}を完遂");
                 Push(NotificationSeverity.情報, $"［主命達成］{ActiveMandate.kind}を完遂（武勲を得た）");
                 ActiveMandate = null;
@@ -166,6 +174,7 @@ namespace Ginei
 
             if (ActiveMandate != null && ActiveMandate.status == MandateStatus.失敗)
             {
+                grievance = Mathf.Clamp01(grievance + 0.2f); // 失敗で不満が募る（岐路の引き金）
                 ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.主命失敗, $"{ActiveMandate.kind}が期限切れ");
                 Push(NotificationSeverity.注意, $"［主命失敗］{ActiveMandate.kind}（期限切れ）");
                 ActiveMandate = null;
@@ -277,19 +286,49 @@ namespace Ginei
             return Sovereign;
         }
 
+        // ===== セーブ/復元（P1-c #2477） =====
+
+        /// <summary>現在の立身出世状態をセーブ平データへ写す（GalaxyView の戦役セーブから呼ぶ）。未準備なら hasData=false。</summary>
+        public ProtagonistCareerSave CaptureSave()
+        {
+            if (!ready || Protagonist == null) return new ProtagonistCareerSave { hasData = false };
+            Growth heroGrowth = heroAdmiralKey != 0 ? GrowthRegistry.Get(heroAdmiralKey) : null;
+            ProtagonistCareerSave save = ProtagonistCareerSerializer.Capture(Protagonist, Merit, ActiveMandate,
+                lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount, heroGrowth, Chronicle);
+            save.origin = (int)Origin;
+            save.grievance = grievance;
+            return save;
+        }
+
+        /// <summary>主人公にいま開かれているキャリアの岐路（TKO-7・政界転身を含む）。執務机が表示する＝一人称の自由意志の可視化。
+        /// 入力は既存状態から導出（忠誠≈君主との親密度・不満＝grievance・実力＝武勲・stature＝階級）。判定は <see cref="CareerForkRules"/>。</summary>
+        public List<CareerFork> AvailableForks()
+        {
+            if (Protagonist == null) return new List<CareerFork> { CareerFork.忠勤 };
+            float favor = (Relations != null && Sovereign != null)
+                ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
+            float loyalty = Mathf.Clamp01(0.5f + favor * 0.5f); // 親密度→忠誠の近似
+            float merit01 = MeritRecordRules.MeritScore01(Merit, MeritP);
+            return CareerForkRules.AvailableForks(loyalty, grievance, merit01,
+                Mathf.Clamp(favor, -1f, 1f), Protagonist.rankTier, CareerForkRules.ForkParams.Default);
+        }
+
         // ===== セットアップ =====
 
         private void Setup()
         {
             // 戦果インボックスを新戦役ぶんでリセット（前のプレイの残留を持ち込まない）。
             pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
+            grievance = 0f;
 
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;
+            Origin = gs != null ? gs.selectedOrigin : OriginRules.Default; // 出自（復元時は下で上書き）
             // 立身出世は尉官〜元帥の完全ラダーで段階昇進させる（playerFactionData は将官のみのことが多く段が飛ぶため）。
             FactionRanks = BuildCareerLadder();
 
             AdmiralData pa = gs != null ? ContentDatabase.AdmiralByName(gs.selectedAdmiral) : null;
+            heroAdmiralKey = pa != null ? pa.GetInstanceID() : 0; // 会戦成長台帳のキー（BattleManager と同じ GetInstanceID）
             Protagonist = new Person(ProtagonistId, pa != null ? pa.FullName : "主人公", pf, PersonRole.軍人);
             if (pa != null)
             {
@@ -303,16 +342,45 @@ namespace Ginei
             }
 
             Sovereign = FindSovereign() ?? new Person(SovereignId, "君主", pf, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
-            Merit = new MeritRecord(ProtagonistId);
             Relations = new PersonRelationGraph();
             Chronicle = new ProtagonistChronicle();
 
-            // 士官学校から任官（TKO-1）。
-            var academy = new Academy(7, pf, "士官学校", 200, 0.55f);
+            // 「続きから」＝立身出世の進捗を復元（P1-c #2477）。あれば士官学校からの再任官をせず復帰する。
+            ProtagonistCareerSave loaded = StrategySession.PendingProtagonistCareer;
+            StrategySession.PendingProtagonistCareer = null; // 一度だけ消費
+            if (loaded != null && loaded.hasData)
+            {
+                ProtagonistCareerSerializer.ApplyPerson(loaded, Protagonist);
+                Merit = ProtagonistCareerSerializer.ToMerit(loaded);
+                ActiveMandate = ProtagonistCareerSerializer.ToMandate(loaded);
+                if (loaded.nextMandateId > 0) nextMandateId = loaded.nextMandateId;
+                pendingBattleDamage = loaded.pendingBattleDamage;
+                pendingBattleVictories = loaded.pendingBattleVictories;
+                pendingBattleCount = loaded.pendingBattleCount;
+                // 会戦で得た提督の成長（XP）を復元（P1-b 永続＝捨てない）。会戦時の GrowthRegistry キーと一致。
+                if (loaded.hasGrowth && heroAdmiralKey != 0)
+                    GrowthRegistry.GetOrCreate(heroAdmiralKey, (GrowthArchetype)loaded.growthArchetype).experience = loaded.growthExperience;
+                ProtagonistCareerSerializer.ApplyChronicle(loaded, Chronicle); // 一代記（TKO-6）を復元
+                Origin = (PersonOrigin)loaded.origin; // 出自を復元
+                grievance = loaded.grievance;
+                PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
+                lastCouncilMonth = loaded.lastCouncilMonth;
+                Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");
+                ready = true;
+                return;
+            }
+
+            Merit = new MeritRecord(ProtagonistId);
+
+            // 士官学校から任官（TKO-1）。出自で入口の学校が変わる（平民=士官学校/貴族=幼年学校/王家=王室教育）。
+            // 実体の選抜は既存の多段選抜（MilitaryAcademyRules）へ接続＝ここは入口の名称ぶんだけ反映（数値は不変・後方互換）。
+            string schoolName = OriginRules.SchoolName(OriginRules.PathFor(Origin));
+            var academy = new Academy(7, pf, schoolName, 200, 0.55f);
             var outcome = ProtagonistCareerRules.EnrollWithClass(Protagonist, academy, 60, EnrollYear, 910000, i => Random.value);
-            ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.入校, "士官学校へ入校");
+            ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.入校, $"{OriginRules.Title(Origin)}・{schoolName}へ入校");
             // 任官は少尉から（大学校卒＝大尉 fast-track）。准将までは月次評定のモンタージュで駆け上がる（TKO-12）。
             int commission = MilitaryAcademyRules.CommissionTier(outcome.degree, outcome.hammockNumber);
+            commission = Mathf.Max(commission, OriginRules.CommissionFloor(Origin)); // 出自の“スタートの段”（貴族/王家は先行）
             if (commission <= 0) commission = 1; // 主人公は最低 少尉で任官
             Protagonist.rankTier = commission;
             ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.卒業任官,

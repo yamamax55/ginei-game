@@ -37,6 +37,8 @@ namespace Ginei
         public FactionData playerFactionData;
         public string scenarioName = "アスターテ会戦";
         public string selectedAdmiral = "ラインハルト";
+        [Tooltip("主人公の出自（採用「出自選択」＝平民/貴族/王家。視点は一人称固定のまま絡む政治と継承が変わる）")]
+        public PersonOrigin selectedOrigin = PersonOrigin.平民;
         [Tooltip("キャンペーン難易度（新規戦役の設定画面で選択。勝敗しきい値と開始戦力の傾きに反映）")]
         public CampaignDifficulty campaignDifficulty = CampaignDifficulty.普通;
         

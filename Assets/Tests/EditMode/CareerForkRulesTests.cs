@@ -13,14 +13,27 @@ namespace Ginei.Tests
         private static CareerForkRules.ForkParams P => CareerForkRules.ForkParams.Default;
 
         [Test]
-        public void Loyal_OnlyServe()
+        public void Loyal_Junior_OnlyServe()
         {
-            // 忠誠高・不満低 → 離反しない＝忠勤のみ
+            // 忠誠高・不満低・武名低・若手（准将未満）→ 離反も政界転身も開かない＝忠勤のみ
             Assert.IsFalse(CareerForkRules.IsDisaffected(0.9f, 0.2f, P));
-            var forks = CareerForkRules.AvailableForks(0.9f, 0.2f, 0.9f, 0.5f, 10, P);
+            var forks = CareerForkRules.AvailableForks(0.9f, 0.2f, 0.3f, 0.5f, 4, P);
             Assert.AreEqual(1, forks.Count);
             Assert.Contains(CareerFork.忠勤, forks);
-            Assert.AreEqual(CareerFork.忠勤, CareerForkRules.Recommend(0.9f, 0.2f, 0.9f, 0.5f, 10, P));
+            Assert.AreEqual(CareerFork.忠勤, CareerForkRules.Recommend(0.9f, 0.2f, 0.3f, 0.5f, 4, P));
+        }
+
+        [Test]
+        public void LoyalButRenowned_OpensPoliticalTransition()
+        {
+            // 忠誠が高くても武名（武勲0.6≥0.5）と stature（准将5以上）があれば「政界転身」が開く（ヤン型/カエサル型）。
+            // 不満が無いので離反系（下野/独立/亡命）は開かない。推奨は忠勤（政界転身は能動的な選択）。
+            var forks = CareerForkRules.AvailableForks(0.9f, 0.2f, 0.6f, 0.5f, 7, P);
+            Assert.Contains(CareerFork.政界転身, forks);
+            Assert.Contains(CareerFork.忠勤, forks);
+            Assert.IsFalse(forks.Contains(CareerFork.下野));
+            Assert.IsFalse(forks.Contains(CareerFork.独立));
+            Assert.AreEqual(CareerFork.忠勤, CareerForkRules.Recommend(0.9f, 0.2f, 0.6f, 0.5f, 7, P));
         }
 
         [Test]

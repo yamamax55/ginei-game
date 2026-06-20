@@ -91,6 +91,15 @@ namespace Ginei
             sb.Append("\n<color=#e7e0b0>◤ 人物</color>\n");
             sb.Append("  <color=#ffe08a>").Append(me.name).Append("</color>　")
               .Append("<color=#9ad0ff>").Append(d.RankName(me.rankTier)).Append("</color>\n");
+            sb.Append("  <color=#9aa7b2>").Append(OriginRules.Title(d.Origin)).Append("</color>\n");
+
+            // 能力（会戦成長 P1-b を反映した実効値＝基準＋GrowthRegistry）
+            Growth g = d.HeroGrowth;
+            sb.Append("\n<color=#e7e0b0>◤ 能力（会戦成長を反映）</color>\n");
+            AppendStat(sb, "統率", me.leadership, g);
+            AppendStat(sb, "攻撃", me.attack, g);
+            AppendStat(sb, "防御", me.defense, g);
+            AppendStat(sb, "機動", me.mobility, g);
 
             // 主命（カスケード）
             sb.Append("\n<color=#e7e0b0>◤ 主命（君主 → 指揮系統 → あなた）</color>\n");
@@ -132,6 +141,18 @@ namespace Ginei
                   .Append(favor.ToString("+0.00;-0.00;0.00")).Append("</color>\n");
             }
             else sb.Append("  <color=#9aa7b2>（記録なし）</color>\n");
+
+            // 岐路（開かれた進路・TKO-7・政界転身を含む）
+            sb.Append("\n<color=#e7e0b0>◤ 岐路（開かれた進路）</color>\n  ");
+            List<CareerFork> forks = d.AvailableForks();
+            for (int i = 0; i < forks.Count; i++)
+            {
+                if (i > 0) sb.Append("　/　");
+                sb.Append(ForkColor(forks[i])).Append(forks[i].ToString()).Append("</color>");
+            }
+            sb.Append("\n  <color=#9aa7b2>不満 </color>");
+            AppendBar(sb, d.Grievance, "#e0a06a");
+            sb.Append('\n');
 
             // 一代記
             sb.Append("\n<color=#e7e0b0>◤ 一代記（新しい順）</color>\n");
@@ -204,6 +225,27 @@ namespace Ginei
             bool can = RankPyramidDirector.Instance != null && RankPyramidDirector.Instance.CanPromote(me.faction, nextTier);
             sb.Append("  <color=#6f8a9a>次階級 ").Append(d.RankName(nextTier)).Append(" の定員空き ").Append(vac)
               .Append(can ? "（昇進余地あり）" : "（狭き門＝空き待ち）").Append("</color>\n");
+        }
+
+        // 会戦成長（GrowthRegistry）を反映した実効能力を1行表示（基準→実効・成長分を+表示）。
+        private void AppendStat(StringBuilder sb, string label, int baseStat, Growth g)
+        {
+            int grown = AdmiralGrowthRules.GrownStat(baseStat, g);
+            sb.Append("  ").Append(label).Append("  <color=#9ad0ff>").Append(grown).Append("</color>");
+            if (grown > baseStat) sb.Append(" <color=#8ce08c>(+").Append(grown - baseStat).Append(")</color>");
+            sb.Append('\n');
+        }
+
+        private static string ForkColor(CareerFork f)
+        {
+            switch (f)
+            {
+                case CareerFork.忠勤: return "<color=#9ad0ff>";
+                case CareerFork.政界転身: return "<color=#c9a0ff>";
+                case CareerFork.独立: return "<color=#ffd700>";
+                case CareerFork.亡命: return "<color=#ff9a8a>";
+                default: return "<color=#e0c060>"; // 下野
+            }
         }
 
         private void AppendBar(StringBuilder sb, float v01, string colorHex)

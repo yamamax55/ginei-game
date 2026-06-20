@@ -180,6 +180,7 @@ namespace Ginei
             }
 
             ReportProtagonistBattle(winner); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
+            GrantBattleGrowthAndMedals(winner); // P1-b #2477：潜行会戦でも提督が成長・叙勲する（戦略書き戻し経路の穴を塞ぐ）
 
             bool aWon = winner == HFactionA;
             int survivorStrategic = Mathf.Max(1, Mathf.RoundToInt(winnerTactical / (float)BattleHandoff.StrengthScale));
@@ -706,6 +707,18 @@ namespace Ginei
         private void ApplyBattleExperience(Faction winnerFaction)
         {
             ReportProtagonistBattle(winnerFaction); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
+            GrantBattleGrowthAndMedals(winnerFaction); // P1-b #2477／#2263：提督の成長(XP)・叙勲
+        }
+
+        /// <summary>
+        /// 各提督へ会戦経験（成長台帳 <see cref="GrowthRegistry"/>・P1-b #2477）と戦功の叙勲（#2263）を付与する。
+        /// 戦果報告（<see cref="ReportProtagonistBattle"/>＝P1-a）とは分離し、戦略への書き戻し経路
+        /// （<see cref="WriteHandoffResultAndReturn"/>）からも呼べるようにする＝<b>立身出世の本番である潜行会戦でも
+        /// 提督が成長・叙勲される</b>（従来は単発会戦＝<see cref="RecordResults"/> でしか成長せず、戦略の実会戦で
+        /// 成長が捨てられていた穴を塞ぐ）。<see cref="ReportProtagonistBattle"/> を含めないので二重計上しない。
+        /// </summary>
+        private void GrantBattleGrowthAndMedals(Faction winnerFaction)
+        {
             IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {

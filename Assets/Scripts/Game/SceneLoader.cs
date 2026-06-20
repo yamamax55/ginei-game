@@ -68,6 +68,38 @@ namespace Ginei
             StartCoroutine(LoadCoroutine(sceneName));
         }
 
+        /// <summary>
+        /// シーンを additive（既存シーンを残したまま）でロードする（WIN-1 #2568）。
+        /// localPhysics2D=true で会戦ごとに独立した 2D 物理ワールドを持たせる（会戦間の干渉防止）。
+        /// 完了時に読み込んだ Scene を onLoaded で返す（ロード画面は出さない＝戦略マップを残す）。
+        /// </summary>
+        public void LoadSceneAdditive(string sceneName, bool localPhysics2D, System.Action<Scene> onLoaded)
+        {
+            StartCoroutine(LoadAdditiveCoroutine(sceneName, localPhysics2D, onLoaded));
+        }
+
+        private IEnumerator LoadAdditiveCoroutine(string sceneName, bool localPhysics2D, System.Action<Scene> onLoaded)
+        {
+            var param = new LoadSceneParameters(
+                LoadSceneMode.Additive,
+                localPhysics2D ? LocalPhysicsMode.Physics2D : LocalPhysicsMode.None);
+            AsyncOperation op = SceneManager.LoadSceneAsync(sceneName, param);
+            if (op == null)
+            {
+                Debug.LogError("SceneLoader: additive LoadSceneAsync が null（scene: " + sceneName + "）");
+                yield break;
+            }
+            while (!op.isDone) yield return null;
+            Scene loaded = SceneManager.GetSceneByName(sceneName);
+            onLoaded?.Invoke(loaded);
+        }
+
+        /// <summary>additive でロードしたシーンをアンロードする（WIN-1）。</summary>
+        public void UnloadSceneAdditive(Scene scene)
+        {
+            if (scene.IsValid() && scene.isLoaded) SceneManager.UnloadSceneAsync(scene);
+        }
+
         private IEnumerator LoadCoroutine(string sceneName)
         {
             Debug.Log("SceneLoader: LoadCoroutine started for: " + sceneName);

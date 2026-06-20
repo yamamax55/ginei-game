@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
@@ -220,7 +221,7 @@ namespace Ginei
                           UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
             if (!overUI)
             {
-                Collider2D collider = Physics2D.OverlapPoint(GetMouseWorldPosition());
+                Collider2D collider = OverlapPointInScene(GetMouseWorldPosition());
                 if (collider != null)
                 {
                     hoverFleet = collider.GetComponentInParent<Squadron>();
@@ -753,7 +754,7 @@ namespace Ginei
         private void HandleSelection(bool additive)
         {
             Vector2 worldPos = GetMouseWorldPosition();
-            Collider2D collider = Physics2D.OverlapPoint(worldPos);
+            Collider2D collider = OverlapPointInScene(worldPos);
 
             // 追加選択(Shift)でなければ一旦すべて解除
             if (!additive) DeselectAll();
@@ -1105,11 +1106,28 @@ namespace Ginei
         /// </summary>
         public Vector2 GetMouseWorldPosition()
         {
+            // ウィンドウ化会戦（WIN-1）：会戦カメラは RenderTexture 描画なので、ウィンドウ内座標から変換する。
+            if (BattleViewport.Active && BattleViewport.TryPointerWorld(out Vector3 bw)) return bw;
+
             if (Mouse.current == null || mainCamera == null) return Vector2.zero;
             Vector2 mousePos = Mouse.current.position.ReadValue();
 
             float distanceToPlane = -mainCamera.transform.position.z;
             return mainCamera.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, distanceToPlane));
+        }
+
+        // 当たり判定は自分のシーンの 2D 物理ワールドで行う（WIN-1：ウィンドウ化会戦は独立物理のため）。
+        // フルスクリーン会戦では既定の物理ワールド＝従来と同じ。
+        private readonly System.Collections.Generic.List<Collider2D> _overlapResults = new System.Collections.Generic.List<Collider2D>();
+        private Collider2D OverlapPointInScene(Vector2 worldPoint)
+        {
+            PhysicsScene2D ps = gameObject.scene.GetPhysicsScene2D();
+            // 旗艦/配下艦のコライダは trigger なので useTriggers=true（既定の Physics2D.OverlapPoint と同等）。
+            // useLayerMask/useDepth は既定 false＝全レイヤー・全深度を対象。
+            ContactFilter2D filter = new ContactFilter2D { useTriggers = true };
+            _overlapResults.Clear();
+            int n = ps.OverlapPoint(worldPoint, filter, _overlapResults);
+            return n > 0 ? _overlapResults[0] : null;
         }
     }
 }

@@ -46,8 +46,9 @@ namespace Ginei
             // TIME-5（#951）：会戦中も統一クロックを進める＝潜行/復帰で時間が止まらない（戦略と同一時間）。
             // 会戦の倍速(timeScale)をクロック速度へ写し、実時間で累積する（同一 static クロックを active シーンが進める）。
             // 戦果（残存兵力）は BattleHandoff で銀河へ還元され、時間は同一クロックで連続する。
+            // ウィンドウ化会戦（WIN-1）では戦略マップが同居して同一クロックを進めるため、ここでは進めない（二重加算防止）。
             GameClock clock = StrategySession.Clock;
-            if (clock != null)
+            if (clock != null && !BattleViewport.Active)
             {
                 clock.speed = Mathf.Max(0f, Time.timeScale);
                 clock.paused = Time.timeScale <= 0f;
@@ -76,10 +77,7 @@ namespace Ginei
             // 現時点の優勢側を勝者として結果を書き戻し、撤収する（離脱＝以後は自動委任）。
             if (BattleHandoff.Pending && !isBattleOver && GameInput.WasPressed(GameAction.戦略へ復帰))
             {
-                isBattleOver = true;
-                Time.timeScale = 0f;
-                if (BattleHandoff.IsPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
-                else WriteHandoffResultAndReturn(LeadingFaction());
+                LeaveToStrategy();
                 return;
             }
 
@@ -128,8 +126,8 @@ namespace Ginei
 
             isBattleOver = true;
 
-            // 決着時に時間を停止
-            Time.timeScale = 0f;
+            // 決着時に時間を停止（ウィンドウ化会戦では全体時間を止めない＝戦略を凍結しない）
+            if (!BattleViewport.Active) Time.timeScale = 0f;
 
             // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る
             if (BattleHandoff.Pending)
@@ -165,7 +163,36 @@ namespace Ginei
             BattleHandoff.SetResult(aWon, survivorStrategic);
 
             Time.timeScale = 1f; // 戦略へ戻すので通常速度へ
-            SceneLoader.Instance.LoadScene(BattleHandoff.returnScene);
+            ReturnToStrategy(BattleHandoff.returnScene);
+        }
+
+        /// <summary>
+        /// 戦略へ戻る共通処理（WIN-1）。ウィンドウ化会戦では会戦ウィンドウを閉じてシーンをアンロードする
+        /// （戦略は背後に生きているので結果は GalaxyView が BattleHandoff から反映する）。
+        /// フルスクリーン会戦では従来どおり戦略シーンへ遷移する。
+        /// </summary>
+        private void ReturnToStrategy(string returnScene)
+        {
+            if (BattleViewport.Active)
+            {
+                BattleWindow.NotifyBattleEnded();
+                return;
+            }
+            SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(returnScene) ? "Strategy" : returnScene);
+        }
+
+        /// <summary>
+        /// 戦略マップへ離脱する（Backspace／会戦ウィンドウの ×）。現状の優勢側を勝者として書き戻す。
+        /// 攻城は決着を書き戻さず戦略側で継続。
+        /// </summary>
+        public void LeaveToStrategy()
+        {
+            if (isBattleOver) return;
+            isBattleOver = true;
+            if (!BattleViewport.Active) Time.timeScale = 0f;
+            if (!BattleHandoff.Pending) { ReturnToStrategy(BattleHandoff.returnScene); return; }
+            if (BattleHandoff.IsPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
+            else WriteHandoffResultAndReturn(LeadingFaction());
         }
 
         /// <summary>
@@ -186,7 +213,7 @@ namespace Ginei
 
             string ret = BattleHandoff.returnScene;
             Time.timeScale = 1f;
-            SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(ret) ? "Strategy" : ret);
+            ReturnToStrategy(ret);
         }
 
         /// <summary>
@@ -197,7 +224,7 @@ namespace Ginei
             string ret = BattleHandoff.returnScene;
             BattleHandoff.Clear();
             Time.timeScale = 1f;
-            SceneLoader.Instance.LoadScene(string.IsNullOrEmpty(ret) ? "Strategy" : ret);
+            ReturnToStrategy(ret);
         }
 
         /// <summary>

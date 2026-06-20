@@ -46,10 +46,11 @@ namespace Ginei
 
         private void Awake()
         {
-            // Battle シーン以外では一切動作しない（Title 等に誤って置かれても戦闘を始めない）
-            if (SceneManager.GetActiveScene().name != "Battle")
+            // Battle シーン以外では一切動作しない（Title 等に誤って置かれても戦闘を始めない）。
+            // additive ロード（WIN-1 ウィンドウ化会戦）では active シーンが Strategy のため、自分のシーン名で判定する。
+            if (gameObject.scene.name != "Battle")
             {
-                Debug.LogWarning($"BattleSetup: Battle シーン以外では動作しません（現在: {SceneManager.GetActiveScene().name}）。このオブジェクトはこのシーンから削除してください。");
+                Debug.LogWarning($"BattleSetup: Battle シーン以外では動作しません（現在: {gameObject.scene.name}）。このオブジェクトはこのシーンから削除してください。");
                 return;
             }
 

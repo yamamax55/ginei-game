@@ -49,6 +49,8 @@ namespace Ginei
         public float cameraStartZoom = 16f;
         [Tooltip("画面端スクロール（#87・CameraController が参照）。マウスが画面端でパン")]
         public bool edgeScrollEnabled = true;
+        [Tooltip("会戦をウィンドウ化（WIN-1 #2568）。潜行で全画面シーン置換でなく会戦ウィンドウを開く。問題時は OFF でフルスクリーンへ")]
+        public bool windowedBattles = true;
 
         // システム設定の永続化キー（PlayerPrefs）
         private const string PrefVolume = "Ginei_MasterVolume";

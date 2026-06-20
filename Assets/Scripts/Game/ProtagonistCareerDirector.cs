@@ -233,6 +233,80 @@ namespace Ginei
             }
         }
 
+        // 亡命（最小・キャリア継続型）：敵勢力へ降り、降格して士官として再出仕（艦隊/領土は持ち出さない）。
+        // 一人称＝主人公の所属がプレイヤーの所属＝GameSettings.playerFaction も追随。
+        private void ApplyDefection(int month)
+        {
+            Faction enemy = FindEnemyFaction();
+            pf = enemy;
+            Protagonist.faction = enemy;
+            Protagonist.rankTier = Mathf.Max(1, Protagonist.rankTier - 2); // 亡命者は降格して再出仕
+            Sovereign = FindSovereignFor(enemy)
+                ?? new Person(SovereignId, "君主", enemy, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
+            Merit = new MeritRecord(ProtagonistId);
+            fame = Mathf.RoundToInt(fame * 0.5f); SyncFameToRegistry(); // 旧友の信は失う
+            grievance = 0f; pendingPetitions = 0; ActiveMandate = null; retired = false;
+            Relations = new PersonRelationGraph();
+            PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.1f); // 新主君とは薄い縁から
+            var gs = GameSettings.Instance;
+            if (gs != null) gs.playerFaction = enemy;
+            ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, $"亡命（{enemy} へ降る）");
+            Push(NotificationSeverity.警告, $"［亡命］{Protagonist.name} は {enemy} へ降った（降格して再出仕）");
+        }
+
+        // 独立（最小）：新勢力(FactionData)を樹立し主人公を君主に。本拠1星系を割譲（ownerData のみ・enum は据え置き）。
+        // 経済/政治/AI の本格統合は後段＝本実装は「自ら旗を立て自分が主君」までの最小。
+        private void ApplyIndependence(int month)
+        {
+            var newFaction = ScriptableObject.CreateInstance<FactionData>();
+            newFaction.factionName = $"{Protagonist.name}独立軍";
+            newFaction.legacyFaction = pf; // 旧母体の系譜（敵対判定の後方互換）
+            string home = "辺境";
+            GalaxyMap map = StrategySession.Map;
+            if (map != null && map.systems != null)
+            {
+                for (int i = 0; i < map.systems.Count; i++)
+                {
+                    StarSystem s = map.systems[i];
+                    if (s != null && s.owner == pf) { s.ownerData = newFaction; home = s.systemName; break; }
+                }
+            }
+            Protagonist.isSovereign = true; // 自ら主君に
+            Sovereign = Protagonist;
+            ActiveMandate = null; retired = false; grievance = 0f; pendingPetitions = 0;
+            var gs = GameSettings.Instance;
+            if (gs != null) gs.playerFactionData = newFaction; // プレイヤーは独立勢力を率いる
+            ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, $"独立（{home} で旗揚げ・{newFaction.factionName}）");
+            Push(NotificationSeverity.警告, $"［独立］{Protagonist.name} が {home} で旗を揚げた（{newFaction.factionName}・最小実装）");
+        }
+
+        private Faction FindEnemyFaction()
+        {
+            GalaxyMap map = StrategySession.Map;
+            if (map != null && map.systems != null)
+            {
+                for (int i = 0; i < map.systems.Count; i++)
+                {
+                    StarSystem s = map.systems[i];
+                    if (s != null && s.owner != pf && FactionRelations.IsHostile(null, pf, null, s.owner)) return s.owner;
+                }
+            }
+            return pf == Faction.帝国 ? Faction.同盟 : Faction.帝国;
+        }
+
+        private Person FindSovereignFor(Faction f)
+        {
+            var gv = Object.FindAnyObjectByType<GalaxyView>();
+            if (gv == null || gv.CommanderRoster == null) return null;
+            var roster = gv.CommanderRoster;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                Person p = roster[i];
+                if (p != null && p.faction == f && p.isSovereign && p.IsAvailable) return p;
+            }
+            return null;
+        }
+
         // 政界転身：主人公を自勢力の与党（無ければ最大党）へ入党させる（政党#159・GOV-6）。best-effort（政党未整備なら何もしない）。
         private bool RegisterAsPolitician()
         {
@@ -441,12 +515,10 @@ namespace Ginei
                         : $"［岐路］{Protagonist.name} は政界へ転身した（政治家提督）");
                     break;
                 case ForkExecutor.亡命受入:
-                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "亡命（敵勢力へ）");
-                    Push(NotificationSeverity.警告, $"［岐路］{Protagonist.name} は亡命を選んだ（戦略への反映は後段）");
+                    ApplyDefection(month);   // 最小・キャリア継続型：敵勢力へ降って降格再出仕
                     break;
                 case ForkExecutor.独立樹立:
-                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "独立（旗揚げ）");
-                    Push(NotificationSeverity.警告, $"［岐路］{Protagonist.name} は独立の旗を揚げた（戦略への反映は後段）");
+                    ApplyIndependence(month); // 最小・キャリア継続型：新勢力を樹立し自ら君主に・本拠1星系割譲
                     break;
             }
             return true;

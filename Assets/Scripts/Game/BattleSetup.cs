@@ -120,15 +120,17 @@ namespace Ginei
         }
 
         /// <summary>
-        /// ウィンドウ化会戦（WIN-1）では戦場を遠方オフセット（<see cref="BattleViewport.WorldOrigin"/>）へ平行移動する。
+        /// ウィンドウ化会戦では戦場を会戦ごとの遠方オフセット（<see cref="BattleField.PendingOrigin"/>）へ平行移動する。
         /// 戦略マップと同一ワールド空間に additive ロードされるため、会戦カメラに戦略マップが映り込むのを防ぐ。
         /// このシーンの全ルートオブジェクト（旗艦・カメラ・背景・攻城アリーナ等）をまとめてずらす（配下艦は旗艦の子として追従）。
-        /// フルスクリーン会戦では WorldOrigin=(0,0) のため何もしない（従来どおり）。
+        /// フルスクリーン会戦では PendingOrigin=(0,0) のため何もしない（従来どおり）。
         /// </summary>
         private void ApplyWorldOffset()
         {
-            Vector2 o = BattleViewport.WorldOrigin;
+            Vector2 o = BattleField.PendingOrigin;
             if (o == Vector2.zero) return;
+            // 自分のシーンの戦場中心として確定登録（実行時の境界/離脱端/カメラ境界がこれを参照）。
+            BattleField.Register(gameObject.scene, o);
             Vector3 delta = new Vector3(o.x, o.y, 0f);
             GameObject[] roots = gameObject.scene.GetRootGameObjects();
             for (int i = 0; i < roots.Length; i++)

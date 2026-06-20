@@ -182,9 +182,11 @@ namespace Ginei
         {
             if (cam == null) return;
 
-            // ウィンドウ化会戦（WIN-1）：会戦カメラは RenderTexture 描画なので、画面マウスでなく
+            // ウィンドウ化会戦：会戦カメラは RenderTexture 描画なので、画面マウスでなく
             // 会戦ウィンドウ内のカーソル（BattleViewport）でズームする。窓外ではホイールを受けない。
+            // 複数会戦（WIN-3）ではフォーカス中の会戦カメラだけが操作を受ける。
             bool windowed = BattleViewport.Active;
+            if (windowed && !BattleViewport.IsFocused(gameObject.scene)) return;
 
             // ホイール入力で目標サイズを更新（倍率式＝深度に依らず一定の体感／ホイール速度に比例）。
             bool acceptScroll = !windowed || BattleViewport.PointerInside;
@@ -308,8 +310,8 @@ namespace Ginei
         /// </summary>
         private void ClampPosition()
         {
-            // ウィンドウ化会戦（WIN-1）では戦場が遠方オフセットへ置かれるため、移動境界も中心に追従させる。
-            Vector2 o = BattleViewport.WorldOrigin;
+            // ウィンドウ化会戦では戦場が会戦ごとの遠方オフセットへ置かれるため、移動境界も中心に追従させる。
+            Vector2 o = BattleField.OriginFor(gameObject.scene);
             float x = Mathf.Clamp(transform.position.x, minBounds.x + o.x, maxBounds.x + o.x);
             float y = Mathf.Clamp(transform.position.y, minBounds.y + o.y, maxBounds.y + o.y);
             transform.position = new Vector3(x, y, transform.position.z);

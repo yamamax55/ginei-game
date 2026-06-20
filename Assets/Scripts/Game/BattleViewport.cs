@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace Ginei
 {
@@ -11,23 +12,26 @@ namespace Ginei
     /// </summary>
     public static class BattleViewport
     {
-        /// <summary>ウィンドウ化会戦が表示中か。</summary>
+        /// <summary>ウィンドウ化会戦が表示中か（いずれかの会戦ウィンドウが開いている）。</summary>
         public static bool Active { get; private set; }
-
-        /// <summary>
-        /// 会戦の戦場中心のワールド座標（WIN-1）。ウィンドウ化会戦は戦略マップと同じワールド空間に
-        /// additive ロードされるため、遠方オフセットへ置いて戦略マップが会戦カメラに映り込むのを防ぐ。
-        /// フルスクリーン会戦では (0,0)（従来どおり）。BattleSetup が配置オフセットに、FleetMovement/FleetAI が
-        /// 戦場境界の中心に使う。
-        /// </summary>
-        public static Vector2 WorldOrigin;
 
         private static Camera cam;
         private static RectTransform mapRect;
 
-        /// <summary>会戦ウィンドウのカメラと表示 RawImage 矩形を登録して有効化する。</summary>
-        public static void SetActive(Camera battleCamera, RectTransform rawImageRect)
+        /// <summary>
+        /// 現在フォーカス中（プレイヤー入力を受ける）会戦シーン（WIN-3 #2570）。複数会戦ウィンドウが
+        /// 開いているとき、カーソルが乗っている窓の会戦だけが選択・指揮を受け付ける。
+        /// FleetCommander/CameraController が「自分のシーン＝フォーカス中か」を <see cref="IsFocused"/> で判定する。
+        /// </summary>
+        public static Scene FocusedScene { get; private set; }
+
+        /// <summary>指定シーンが現在フォーカス中の会戦か。</summary>
+        public static bool IsFocused(Scene scene) => Active && scene == FocusedScene;
+
+        /// <summary>フォーカス会戦のカメラと表示 RawImage 矩形を登録して有効化する。</summary>
+        public static void SetActive(Scene scene, Camera battleCamera, RectTransform rawImageRect)
         {
+            FocusedScene = scene;
             cam = battleCamera;
             mapRect = rawImageRect;
             Active = battleCamera != null && rawImageRect != null;

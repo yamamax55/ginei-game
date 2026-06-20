@@ -252,7 +252,7 @@ namespace Ginei
 
             var clock = StrategySession.Clock;
             clock?.Pause();
-            CampaignEndOverlay.Show(win, pf, Meters.hegemony);
+            CampaignEndOverlay.Show(win, pf, Meters.hegemony, reason); // 決着理由（柱の崩壊/覇権）を正しく表示
         }
 
         /// <summary>メーターを初期値へ戻す（新キャンペーン開始時）。</summary>

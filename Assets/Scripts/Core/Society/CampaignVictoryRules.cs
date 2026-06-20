@@ -91,19 +91,20 @@ namespace Ginei
 
         /// <summary>
         /// プレイヤー視点の決着を判定する：
-        /// 星系を1つも持たない＝敗北／敵対所有が残っていない（全制圧）or 支配率が閾値以上＝勝利／
-        /// 敵対勢力が支配率しきい値に到達＝敗北（追い詰められた）／ほかは継続。勝利判定が敗北判定より優先。
+        /// <b>星系を1つも持たない＝敗北（滅亡のみ）</b>／敵対所有が残っていない（全制圧）or 支配率が閾値以上＝勝利／ほかは継続。
+        /// 勝利判定が敗北判定より優先。<b>敵が大きく支配しても、自軍が1星系でも残る限り敗北しない</b>
+        /// （プレイヤーに目標どおり「全星系を失えば敗北」を一貫させる。<see cref="CampaignVictoryParams.rivalDominationFraction"/>・
+        /// <see cref="MaxRivalFraction"/> は難易度表示/観測用に残すが決着には用いない）。
         /// </summary>
         public static CampaignOutcome Evaluate(GalaxyMap map, Faction player, CampaignVictoryParams prm)
         {
             int total = TotalSystems(map);
             if (total <= 0) return CampaignOutcome.継続; // 盤面未構築
 
-            if (OwnedCount(map, player) == 0) return CampaignOutcome.敗北; // 滅亡
+            if (OwnedCount(map, player) == 0) return CampaignOutcome.敗北; // 滅亡（敗北はこれのみ）
             if (!RivalSystemsRemain(map, player)) return CampaignOutcome.勝利; // 全制圧
             if (OwnedFraction(map, player) >= prm.dominationFraction) return CampaignOutcome.勝利; // 制覇
-            if (MaxRivalFraction(map, player) >= prm.rivalDominationFraction) return CampaignOutcome.敗北; // 敵に制覇された
-            return CampaignOutcome.継続;
+            return CampaignOutcome.継続; // 敵が大きく支配しても自軍が残る限り継続
         }
 
         /// <summary>既定パラメータ版。</summary>

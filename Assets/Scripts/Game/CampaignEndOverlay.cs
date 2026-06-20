@@ -29,6 +29,13 @@ namespace Ginei
 
         /// <summary>戦役の決着を表示する（必要なら生成）。win=勝利か、ownedFraction=支配率(0..1)。</summary>
         public static void Show(bool win, Faction player, float ownedFraction)
+            => Show(win, player, ownedFraction, null);
+
+        /// <summary>
+        /// 決着理由つきで表示する。<paramref name="reason"/> 非空なら本文の見出しに用いる（決着系統が複数あるため
+        /// 「星系をすべて失った」固定表示で取り違えない＝領土＝既定文言／メーター崩壊＝"民心の崩壊" 等を正しく出す）。
+        /// </summary>
+        public static void Show(bool win, Faction player, float ownedFraction, string reason)
         {
             if (instance == null)
             {
@@ -36,7 +43,7 @@ namespace Ginei
                 instance = go.AddComponent<CampaignEndOverlay>();
                 instance.Build();
             }
-            instance.Display(win, player, ownedFraction);
+            instance.Display(win, player, ownedFraction, reason);
         }
 
         private void Build()
@@ -93,7 +100,7 @@ namespace Ginei
             root.SetActive(false);
         }
 
-        private void Display(bool win, Faction player, float ownedFraction)
+        private void Display(bool win, Faction player, float ownedFraction, string reason)
         {
             if (titleText != null)
             {
@@ -106,9 +113,13 @@ namespace Ginei
                 ? dateText.Replace("\n", "　") : "";
             if (bodyText != null)
             {
-                bodyText.text = win
-                    ? $"{player} は銀河を制覇した。\n支配 {pct}%\n\n{dateLine}"
-                    : $"{player} は星系をすべて失った。\n支配 {pct}%\n\n{dateLine}";
+                // 理由が渡された決着系統（メーター崩壊/覇権など）はその理由を見出しにする。
+                // 渡されない領土系統（CampaignVictoryRules）は従来の文言＋支配率を出す（後方互換）。
+                string headline = !string.IsNullOrEmpty(reason)
+                    ? reason
+                    : (win ? $"{player} は銀河を制覇した。" : $"{player} は星系をすべて失った。");
+                string metric = string.IsNullOrEmpty(reason) ? $"\n支配 {pct}%" : "";
+                bodyText.text = $"{headline}{metric}\n\n{dateLine}";
             }
 
             isOpen = true;

@@ -432,10 +432,48 @@ namespace Ginei
         private void SpawnHandoffFleets(System.Collections.Generic.List<GameObject> fleets, Faction playerFaction)
         {
             var list = BattleHandoff.fleets;
+            const float sideX = 7f, spreadY = 4f;
+
+            // 守備側=中央／攻撃側=侵攻方向（#初期配置）：星系所有者が守備側のとき、守備を原点に、攻撃を侵攻方向へ寄せる。
+            // 守備側が定義されない（回廊の相互衝突など）or 片側のみのときは従来の左右対称配置にフォールバック。
+            int countDef = 0, countAtk = 0;
+            if (BattleHandoff.hasDefender)
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (list[i].faction == BattleHandoff.defenderFaction) countDef++; else countAtk++;
+                }
+            bool defenderLayout = BattleHandoff.hasDefender && countDef > 0 && countAtk > 0;
+
+            if (defenderLayout)
+            {
+                Vector2 axis = BattleHandoff.approachDir.sqrMagnitude > 1e-6f ? BattleHandoff.approachDir.normalized : Vector2.right;
+                Vector2 perp = new Vector2(-axis.y, axis.x);     // 散開はアクシスに直交
+                float standoff = 2f * sideX;                      // 守備(原点)から攻撃側までの間合い（従来の左右間隔に相当）
+                int idA = 0, idd = 0;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var hf = list[i];
+                    bool isDef = hf.faction == BattleHandoff.defenderFaction;
+                    int idx, cnt; Vector2 basePos;
+                    if (isDef) { idx = idd++; cnt = countDef; basePos = Vector2.zero; }       // 守備＝MAP中央
+                    else { idx = idA++; cnt = countAtk; basePos = axis * standoff; }          // 攻撃＝侵攻方向
+                    float off = (cnt > 1) ? (idx - (cnt - 1) * 0.5f) * spreadY : 0f;
+                    Vector2 pos = basePos + perp * off;
+
+                    var e = MakeHandoffEntry(hf.faction, hf.admiral, hf.strategicStrength, pos);
+                    e.loyalty = hf.loyalty; e.intrigue = hf.intrigue;
+                    GameObject g = SpawnFleet(e, playerFaction);
+                    if (g == null) continue;
+                    var fsc = g.GetComponent<FleetStrength>();
+                    if (fsc != null) fsc.qualityFactor = hf.quality;
+                    fleets.Add(g);
+                }
+                return;
+            }
+
             int countA = 0, countB = 0;
             for (int i = 0; i < list.Count; i++) { if (list[i].sideA) countA++; else countB++; }
 
-            const float sideX = 7f, spreadY = 4f;
             int ia = 0, ib = 0;
             for (int i = 0; i < list.Count; i++)
             {

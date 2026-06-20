@@ -31,6 +31,18 @@ namespace Ginei
         [Tooltip("1回の被弾で減る士気の上限（最大士気に対する割合）＝一撃で即敗走させない #会戦改善")]
         public float maxSingleHitMoraleFraction = 0.08f;
 
+        [Header("武名の威圧（ADM-3 #2304）")]
+        [Tooltip("近傍の高武名の敵将が味方士気を削る（威圧）。RenownRules.IntimidationFactor を士気の押し下げに使う")]
+        public bool enableIntimidation = true;
+        [Tooltip("威圧が届く範囲")]
+        public float intimidationRange = 25f;
+        [Tooltip("威圧による士気低下の速さ（×武名係数×最大士気×dt）。押し下げの下限は (1-威圧係数)×最大士気")]
+        public float intimidationDrainRate = 0.6f;
+        // 威圧の再計算は間引き（毎フレーム全旗艦走査を避ける＝終盤ラグ回避）。
+        private const float IntimidationInterval = 0.5f;
+        private float intimidationCheckTimer;
+        private float currentIntimidation;
+
         // #2263 名誉→士気の底上げ（勲章の名誉点スケール・上限）。
         private const float PrestigeMoraleScale = 250f;     // 名誉点÷これ＝士気倍率の加算（50点で+20%）
         private const float MaxPrestigeMoraleBonus = 0.20f; // 名誉による士気底上げの上限
@@ -168,6 +180,45 @@ namespace Ginei
                 // 非交戦中による回復
                 ChangeMorale(recoveryRate * Time.deltaTime);
             }
+
+            ApplyIntimidation(); // 武名の威圧（ADM-3）：近傍の高武名の敵将が士気を押し下げる
+        }
+
+        // 武名の威圧（ADM-3 #2304）：近傍に高武名の敵将がいると士気が (1-威圧係数)×最大士気 まで押し下げられる。
+        private void ApplyIntimidation()
+        {
+            if (!enableIntimidation || strength == null) return;
+            intimidationCheckTimer -= Time.deltaTime;
+            if (intimidationCheckTimer <= 0f)
+            {
+                currentIntimidation = ComputeEnemyIntimidation();
+                intimidationCheckTimer = IntimidationInterval;
+            }
+            if (currentIntimidation <= 0f) return;
+            float floor = maxMorale * (1f - Mathf.Clamp01(currentIntimidation));
+            if (morale > floor)
+                morale = Mathf.Max(floor, morale - currentIntimidation * intimidationDrainRate * maxMorale * Time.deltaTime);
+        }
+
+        // 範囲内の敵旗艦の提督の実効武名から最大の威圧係数を返す（RenownRules.IntimidationFactor・平時 heroism=0）。
+        private float ComputeEnemyIntimidation()
+        {
+            if (strength == null) return 0f;
+            Vector3 pos = transform.position;
+            float r2 = intimidationRange * intimidationRange;
+            float maxF = 0f;
+            var flags = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flags.Count; i++)
+            {
+                FleetStrength f = flags[i];
+                if (f == null || !f.IsAlive || f.admiralData == null) continue;
+                if (!FactionRelations.IsHostile(strength.factionData, strength.faction, f)) continue;
+                if (((Vector2)(f.transform.position - pos)).sqrMagnitude > r2) continue;
+                int effFame = Mathf.Max(f.admiralData.fame, FameRegistry.Get(f.admiralData.GetInstanceID()));
+                float fac = RenownRules.IntimidationFactor(effFame, 0f);
+                if (fac > maxF) maxF = fac;
+            }
+            return maxF;
         }
 
         /// <summary>

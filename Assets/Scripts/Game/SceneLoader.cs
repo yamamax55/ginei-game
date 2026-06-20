@@ -83,14 +83,29 @@ namespace Ginei
             var param = new LoadSceneParameters(
                 LoadSceneMode.Additive,
                 localPhysics2D ? LocalPhysicsMode.Physics2D : LocalPhysicsMode.None);
+
+            // 同名シーン（"Battle"）を複数 additive ロードする（WIN-3 複数同時会戦）ため、ロードした
+            // 実体の Scene ハンドルを sceneLoaded イベントで捕捉する。GetSceneByName は同名が複数あると
+            // 先頭を返してしまい、2つ目以降の窓が誤って先頭シーンのカメラを奪う不具合になる。
+            Scene captured = default;
+            bool got = false;
+            UnityEngine.Events.UnityAction<Scene, LoadSceneMode> handler = (sc, mode) =>
+            {
+                if (!got) { captured = sc; got = true; }
+            };
+            SceneManager.sceneLoaded += handler;
+
             AsyncOperation op = SceneManager.LoadSceneAsync(sceneName, param);
             if (op == null)
             {
+                SceneManager.sceneLoaded -= handler;
                 Debug.LogError("SceneLoader: additive LoadSceneAsync が null（scene: " + sceneName + "）");
                 yield break;
             }
             while (!op.isDone) yield return null;
-            Scene loaded = SceneManager.GetSceneByName(sceneName);
+            SceneManager.sceneLoaded -= handler;
+
+            Scene loaded = got ? captured : SceneManager.GetSceneByName(sceneName);
             onLoaded?.Invoke(loaded);
         }
 

@@ -117,9 +117,16 @@ namespace Ginei
             sceneLoaded = scene.IsValid() && scene.isLoaded;
             battleCam = FindBattleCamera(scene);
             if (battleCam != null)
+            {
                 battleCam.targetTexture = rt; // 画面でなくウィンドウ（RT）へ描く
+                // 会戦カメラの AudioListener は無効化（戦略シーンの1つだけに保つ＝「2 audio listeners」警告/競合回避）。
+                var al = battleCam.GetComponent<AudioListener>();
+                if (al != null) al.enabled = false;
+            }
             else
+            {
                 Debug.LogWarning("BattleWindow: 会戦カメラが見つかりませんでした（additive ロード後）。");
+            }
             onLoaded?.Invoke(this);
         }
 

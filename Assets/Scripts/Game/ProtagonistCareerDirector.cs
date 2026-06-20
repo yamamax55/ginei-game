@@ -63,7 +63,10 @@ namespace Ginei
         private int fame;           // 武名（ADM-3 #2304・戦功で上がり政界転身の資本に・RenownRules）
         private int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可＝序列内・MEYASU の決裁デスクは通さない）
         private bool retired;       // 下野（TKO-7 岐路）＝月次ループを止める
+        private int ageMonths;      // 主人公の年齢（月）＝加齢/老衰死・継承の駆動（LifecycleRules）
         private bool ready;
+
+        private const int StartAgeMonths = 18 * 12; // 任官時の年齢（士官学校卒～18歳）
 
         // 会戦の戦果インボックス（別シーンの BattleManager が積む・static で Battle→Strategy を跨いで保持）。
         // 次の月次評定でドレインして武勲化＝立身出世が「時間経過」でなく「会戦の結果」で進む（P1-a #2477）。
@@ -149,7 +152,9 @@ namespace Ginei
 
         private void RunCouncil(int month)
         {
-            if (Protagonist == null || retired) return; // 下野後は立身出世ループを止める（TKO-7）
+            if (Protagonist == null || retired) return; // 下野/一代記完結後はループ停止（舞台を降りた）
+            ageMonths++;
+            if (ageMonths % 12 == 0 && CheckDeathAndSuccession(month)) return; // 加齢→老衰死→継承/一代記完結
             int beforeTier = Protagonist.rankTier;
 
             // 尉官/佐官時代は日々の勤務で武勲が少しずつ積む（昇進モンタージュ＝准将で実艦隊指揮へ）。
@@ -244,6 +249,40 @@ namespace Ginei
             return wins > 0;
         }
 
+        // 年境界で老衰死を判定し、死んだら継承（貴族/王家）or 一代記完結（平民）を処理する（採用「死で詰まない」・#907 解答）。
+        // 戻り値 true＝この月は死亡処理で終える。
+        private bool CheckDeathAndSuccession(int month)
+        {
+            int age = ageMonths / 12;
+            if (!LifecycleRules.ShouldDieOfAge(age, Random.value, 1, LifecycleRules.LifespanParams.Default)) return false;
+
+            ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.死去, $"{Protagonist.name} 逝去（享年{age}）");
+
+            bool noble = OriginRules.InheritsOnDeath(Origin);
+            if (ProtagonistSuccessionRules.ContinuesAsHeir(Origin, hasHeir: noble))
+            {
+                // 貴族/王家＝世継ぎが家督を継ぎ操作座を引き継ぐ（家督は継ぐが武勲/武名/成長は自分で立て直す）。
+                Person heir = ProtagonistHeirRules.CreateHeir(Protagonist, Origin, ProtagonistId, Protagonist.name + "の世継ぎ", EnrollYear + age);
+                Protagonist = heir;
+                Merit = new MeritRecord(ProtagonistId);
+                fame = 0; grievance = 0f; pendingPetitions = 0; retired = false;
+                ActiveMandate = null;
+                ageMonths = StartAgeMonths;
+                if (heroAdmiralKey != 0 && GrowthRegistry.Has(heroAdmiralKey)) GrowthRegistry.Get(heroAdmiralKey).experience = 0f;
+                if (Relations != null && Sovereign != null) PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
+                ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路,
+                    $"{heir.name} が家督を継ぎ {RankName(heir.rankTier)} に出仕");
+                Push(NotificationSeverity.警告, $"［継承］{heir.name} が家督を継いだ（{RankName(heir.rankTier)}）");
+                return true;
+            }
+
+            // 平民＝一代記の完結。次の主人公は新規プレイで（自動では始めない＝肥大化防止）。
+            retired = true;
+            ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.死去, "一代記、ここに完結（平民の叩き上げは一代限り）");
+            Push(NotificationSeverity.警告, $"［一代記完結］{Protagonist.name} の生涯が幕を閉じた（新規プレイで次の主人公を）");
+            return true;
+        }
+
         private SovereignMandate IssueViaCascade(int month)
         {
             MandateKind kind = (MandateKind)Random.Range(0, 6);
@@ -325,6 +364,7 @@ namespace Ginei
             save.pendingPetitions = pendingPetitions;
             save.retired = retired;
             save.politician = Protagonist != null && Protagonist.isPolitician;
+            save.ageMonths = ageMonths;
             return save;
         }
 
@@ -392,7 +432,7 @@ namespace Ginei
         {
             // 戦果インボックスを新戦役ぶんでリセット（前のプレイの残留を持ち込まない）。
             pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
-            grievance = 0f; fame = 0; pendingPetitions = 0; retired = false;
+            grievance = 0f; fame = 0; pendingPetitions = 0; retired = false; ageMonths = StartAgeMonths;
 
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;
@@ -440,6 +480,7 @@ namespace Ginei
                 pendingPetitions = loaded.pendingPetitions;
                 retired = loaded.retired;
                 Protagonist.isPolitician = loaded.politician;
+                ageMonths = loaded.ageMonths > 0 ? loaded.ageMonths : StartAgeMonths;
                 PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 lastCouncilMonth = loaded.lastCouncilMonth;
                 Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");

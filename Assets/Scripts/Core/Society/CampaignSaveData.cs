@@ -58,6 +58,7 @@ namespace Ginei
         public int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可）
         public bool retired;         // 下野（軍を辞した・TKO-7 岐路）＝月次ループ停止
         public bool politician;      // 政界転身済み（政治家提督・TKO-7 岐路）
+        public int ageMonths;        // 主人公の年齢（月）＝加齢/老衰死・継承の駆動（0=未設定＝既定初任年齢）
         // 会戦戦果の未処理インボックス（戦果→武勲は次の月次評定で変換＝保存中に失わない）
         public float pendingBattleDamage;
         public int pendingBattleVictories, pendingBattleCount;

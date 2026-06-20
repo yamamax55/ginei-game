@@ -14,6 +14,14 @@ namespace Ginei
         /// <summary>ウィンドウ化会戦が表示中か。</summary>
         public static bool Active { get; private set; }
 
+        /// <summary>
+        /// 会戦の戦場中心のワールド座標（WIN-1）。ウィンドウ化会戦は戦略マップと同じワールド空間に
+        /// additive ロードされるため、遠方オフセットへ置いて戦略マップが会戦カメラに映り込むのを防ぐ。
+        /// フルスクリーン会戦では (0,0)（従来どおり）。BattleSetup が配置オフセットに、FleetMovement/FleetAI が
+        /// 戦場境界の中心に使う。
+        /// </summary>
+        public static Vector2 WorldOrigin;
+
         private static Camera cam;
         private static RectTransform mapRect;
 

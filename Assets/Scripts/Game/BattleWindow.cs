@@ -168,6 +168,10 @@ namespace Ginei
             isOpen = true;
             if (root != null) root.SetActive(true);
 
+            // 戦場を遠方オフセットへ置く（戦略マップと同一ワールド空間のため、会戦カメラに戦略が映り込むのを防ぐ）。
+            // BattleSetup.Awake が additive ロード中にこの値を読んで配置をずらす＝ロード前に設定する。
+            BattleViewport.WorldOrigin = new Vector2(0f, 100000f);
+
             // Battle を additive ロード（独立 2D 物理＝会戦間/戦略との干渉防止）。完了で会戦カメラを RT に束ねる。
             sceneLoaded = false;
             SceneLoader.Instance.LoadSceneAdditive("Battle", true, OnBattleLoaded);
@@ -236,6 +240,7 @@ namespace Ginei
             Cleanup();
             if (root != null) root.SetActive(false);
 
+            BattleViewport.WorldOrigin = Vector2.zero;  // フルスクリーン会戦のため原点へ戻す
             Time.timeScale = 1f;                       // 念のため通常速度へ
             GameInput.SetContext(InputContext.戦略);    // 会戦が会戦コンテキストにしているため戦略へ戻す
         }

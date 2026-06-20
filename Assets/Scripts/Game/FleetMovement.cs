@@ -231,13 +231,15 @@ namespace Ginei
                     moveDir = distance > 0.0001f ? (Vector3)(direction / distance) : Vector3.zero;
                 transform.position += moveDir * (currentSpeed * Time.deltaTime);
 
-                // 戦場の境界：原点中心の円内に留めてMAP外へ逃さない（撤退の離脱端より広いので退却は妨げない）。
+                // 戦場の境界：戦場中心の円内に留めてMAP外へ逃さない（撤退の離脱端より広いので退却は妨げない）。
+                // 中心はウィンドウ化会戦（WIN-1）の遠方オフセットに追従（フルスクリーンは原点）。
                 if (containInBattlefield && battlefieldRadius > 0f)
                 {
-                    Vector2 p = transform.position;
-                    if (p.sqrMagnitude > battlefieldRadius * battlefieldRadius)
+                    Vector2 center = BattleViewport.WorldOrigin;
+                    Vector2 rel = (Vector2)transform.position - center;
+                    if (rel.sqrMagnitude > battlefieldRadius * battlefieldRadius)
                     {
-                        p = p.normalized * battlefieldRadius;
+                        Vector2 p = center + rel.normalized * battlefieldRadius;
                         transform.position = new Vector3(p.x, p.y, transform.position.z);
                     }
                 }

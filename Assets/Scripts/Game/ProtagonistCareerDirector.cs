@@ -62,6 +62,7 @@ namespace Ginei
         private float grievance;    // 不満（主命失敗で増・達成で減）＝岐路判定 CareerForkRules 用
         private int fame;           // 武名（ADM-3 #2304・戦功で上がり政界転身の資本に・RenownRules）
         private int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可＝序列内・MEYASU の決裁デスクは通さない）
+        private bool retired;       // 下野（TKO-7 岐路）＝月次ループを止める
         private bool ready;
 
         // 会戦の戦果インボックス（別シーンの BattleManager が積む・static で Battle→Strategy を跨いで保持）。
@@ -148,7 +149,7 @@ namespace Ginei
 
         private void RunCouncil(int month)
         {
-            if (Protagonist == null) return;
+            if (Protagonist == null || retired) return; // 下野後は立身出世ループを止める（TKO-7）
             int beforeTier = Protagonist.rankTier;
 
             // 尉官/佐官時代は日々の勤務で武勲が少しずつ積む（昇進モンタージュ＝准将で実艦隊指揮へ）。
@@ -322,6 +323,8 @@ namespace Ginei
             save.grievance = grievance;
             save.fame = fame;
             save.pendingPetitions = pendingPetitions;
+            save.retired = retired;
+            save.politician = Protagonist != null && Protagonist.isPolitician;
             return save;
         }
 
@@ -339,13 +342,57 @@ namespace Ginei
                 Mathf.Clamp(favor, -1f, 1f), Protagonist.rankTier, CareerForkRules.ForkParams.Default);
         }
 
+        /// <summary>
+        /// 主人公が岐路を選んで実行する（TKO-7・一人称の自由意志）。開かれた進路か（<see cref="AvailableForks"/>）＋前提
+        /// （<see cref="CareerForkExecutionRules.CanExecute"/>）を確認し、振り分け先（<see cref="CareerForkExecutionRules.ExecutorFor"/>）で
+        /// 内部状態を変える＝下野=月次ループ停止／政界転身=政治家フラグ／亡命・独立=記録＋通知（戦略への反映は後段の Game 配線）。
+        /// 実行できなければ通知して false。執務机のボタンから呼ぶ。
+        /// </summary>
+        public bool ExecuteFork(CareerFork f)
+        {
+            if (Protagonist == null) return false;
+            if (!AvailableForks().Contains(f)) { Push(NotificationSeverity.注意, "その進路はまだ開かれていません"); return false; }
+            bool hasEnemyHaven = true;                       // 多勢力＝迎える敵は居る（厳密な受入判定は後段）
+            bool hasIndependenceBase = Protagonist.rankTier >= 8; // 大将以上の stature（独立の拠点）
+            bool hasPoliticalOpening = true;                 // 政界の受け皿（政党#159 配線は後段）
+            if (!CareerForkExecutionRules.CanExecute(f, hasEnemyHaven, hasIndependenceBase, hasPoliticalOpening))
+            { Push(NotificationSeverity.注意, "その進路は今は実行できません（前提不足）"); return false; }
+
+            int month = lastCouncilMonth;
+            switch (CareerForkExecutionRules.ExecutorFor(f))
+            {
+                case ForkExecutor.なし:
+                    Push(NotificationSeverity.情報, "忠勤を続ける");
+                    break;
+                case ForkExecutor.退役:
+                    retired = true;
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "下野（軍を辞す）");
+                    Push(NotificationSeverity.注意, $"［岐路］{Protagonist.name} は下野した（軍を辞す）");
+                    break;
+                case ForkExecutor.政界入り:
+                    Protagonist.isPolitician = true;
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "政界転身（政治家提督へ）");
+                    Push(NotificationSeverity.情報, $"［岐路］{Protagonist.name} は政界へ転身した（政治家提督）");
+                    break;
+                case ForkExecutor.亡命受入:
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "亡命（敵勢力へ）");
+                    Push(NotificationSeverity.警告, $"［岐路］{Protagonist.name} は亡命を選んだ（戦略への反映は後段）");
+                    break;
+                case ForkExecutor.独立樹立:
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "独立（旗揚げ）");
+                    Push(NotificationSeverity.警告, $"［岐路］{Protagonist.name} は独立の旗を揚げた（戦略への反映は後段）");
+                    break;
+            }
+            return true;
+        }
+
         // ===== セットアップ =====
 
         private void Setup()
         {
             // 戦果インボックスを新戦役ぶんでリセット（前のプレイの残留を持ち込まない）。
             pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
-            grievance = 0f; fame = 0; pendingPetitions = 0;
+            grievance = 0f; fame = 0; pendingPetitions = 0; retired = false;
 
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;
@@ -391,6 +438,8 @@ namespace Ginei
                 grievance = loaded.grievance;
                 fame = loaded.fame;
                 pendingPetitions = loaded.pendingPetitions;
+                retired = loaded.retired;
+                Protagonist.isPolitician = loaded.politician;
                 PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 lastCouncilMonth = loaded.lastCouncilMonth;
                 Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");

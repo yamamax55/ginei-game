@@ -267,6 +267,54 @@ namespace Ginei
             if (bodyLabel != null) bodyLabel.text = BuildDump();
         }
 
+        // 岐路の実行ボタン（TKO-7・一人称の自由意志）。押すと director.ExecuteFork が開かれた進路か＋前提を確認して実行。
+        private void BuildForkButtons(Transform parent)
+        {
+            GameObject row = new GameObject("ForkButtonRow");
+            row.transform.SetParent(parent, false);
+            row.AddComponent<RectTransform>();
+            LayoutElement le = row.AddComponent<LayoutElement>();
+            le.minHeight = 38f; le.preferredHeight = 38f;
+            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 6f;
+            h.childControlWidth = true; h.childControlHeight = true;
+            h.childForceExpandWidth = true; h.childForceExpandHeight = true;
+            CareerFork[] forks = { CareerFork.忠勤, CareerFork.下野, CareerFork.政界転身, CareerFork.亡命, CareerFork.独立 };
+            for (int i = 0; i < forks.Length; i++) BuildForkButton(row.transform, forks[i]);
+        }
+
+        private void BuildForkButton(Transform parent, CareerFork fork)
+        {
+            GameObject go = new GameObject("Fork_" + fork);
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.16f, 0.18f, 0.24f, 1f);
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => OnFork(fork));
+
+            GameObject lblGo = new GameObject("Label");
+            lblGo.transform.SetParent(go.transform, false);
+            RectTransform lrt = lblGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.sizeDelta = Vector2.zero; lrt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI lbl = lblGo.AddComponent<TextMeshProUGUI>();
+            lbl.text = fork.ToString();
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.fontSize = 16f;
+            lbl.color = new Color(0.9f, 0.93f, 1f);
+            lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+        }
+
+        private void OnFork(CareerFork fork)
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.ExecuteFork(fork);
+            if (bodyLabel != null) bodyLabel.text = BuildDump();
+        }
+
         // ===== UI 構築（RingiObserverOverlay と同型＋具申ボタン） =====
 
         private void BuildUI()
@@ -322,6 +370,7 @@ namespace Ginei
 
             WindowChrome.AddTitleBarLayout(frameRT, "執務机", () => SetVisible(false));
             BuildPetitionButton(frame.transform);
+            BuildForkButtons(frame.transform);
             BuildScrollBody(frame.transform);
         }
 

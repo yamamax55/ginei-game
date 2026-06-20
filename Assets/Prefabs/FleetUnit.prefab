@@ -381,12 +381,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.Squadron
   currentFormation: 0
-  spacing: 2
+  spacing: 1
   smoothTime: 0.3
   combatSmoothTime: 1.2
   escortCount: 50
   escortShipCount: 200
-  memberScale: 0.8
+  memberScale: 0.4
   memberShips:
   - {fileID: 9143583804582508326}
   - {fileID: 1746193068831806453}

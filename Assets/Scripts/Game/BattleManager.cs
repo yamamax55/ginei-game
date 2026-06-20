@@ -45,6 +45,9 @@ namespace Ginei
         /// <summary>BattleDirector が当該会戦の受け渡しスナップショットを注入する（WIN-3）。</summary>
         public void SetHandoffContext(BattleHandoff.State s) => ctx = s;
         private bool Windowed => ctx != null;
+        // ウィンドウ化（additive）会戦か＝自分のシーンが active でない。フレーム0から信頼でき、ctx 注入や
+        // フォーカス(BattleViewport.Active)に依存しない（時間/タイムスケールの分岐に使う）。
+        private bool SceneWindowed => gameObject.scene != UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         private bool HPending => ctx != null ? ctx.Pending : BattleHandoff.Pending;
         private bool HSystemView => ctx != null ? ctx.IsSystemView : BattleHandoff.IsSystemView;
         private bool HPlanetSiege => ctx != null ? ctx.IsPlanetSiege : BattleHandoff.IsPlanetSiege;
@@ -68,7 +71,7 @@ namespace Ginei
             // 戦果（残存兵力）は BattleHandoff で銀河へ還元され、時間は同一クロックで連続する。
             // ウィンドウ化会戦（WIN-1）では戦略マップが同居して同一クロックを進めるため、ここでは進めない（二重加算防止）。
             GameClock clock = StrategySession.Clock;
-            if (clock != null && !BattleViewport.Active)
+            if (clock != null && !SceneWindowed)
             {
                 clock.speed = Mathf.Max(0f, Time.timeScale);
                 clock.paused = Time.timeScale <= 0f;
@@ -108,7 +111,6 @@ namespace Ginei
                 CountInitialByFaction();
                 ResolveScenarioAndVip();
                 initialHadHostilePair = HasHostilePair(Flagships);
-                Debug.Log($"[WIN3] Battle init: scene={gameObject.scene.name}#{gameObject.scene.handle} windowed={Windowed} flagships={Flagships.Count} hostilePair={initialHadHostilePair} HPending={HPending}");
                 initialized = true;
                 if (Flagships.Count == 0)
                 {
@@ -145,11 +147,10 @@ namespace Ginei
         {
             if (!EvaluateVictory(out Faction winner, out string reason, out FleetStrength winnerRep)) return;
 
-            Debug.Log($"[WIN3] CheckVictory decided: scene={gameObject.scene.name}#{gameObject.scene.handle} winner={winner} reason={reason} windowed={Windowed} flagships={Flagships.Count}");
             isBattleOver = true;
 
             // 決着時に時間を停止（ウィンドウ化会戦では全体時間を止めない＝戦略を凍結しない）
-            if (!BattleViewport.Active) Time.timeScale = 0f;
+            if (!SceneWindowed) Time.timeScale = 0f;
 
             // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る
             if (HPending)
@@ -222,7 +223,7 @@ namespace Ginei
         {
             if (isBattleOver) return;
             isBattleOver = true;
-            if (!BattleViewport.Active) Time.timeScale = 0f;
+            if (!SceneWindowed) Time.timeScale = 0f;
             if (!HPending) { ReturnToStrategy(HReturnScene); return; }
             if (HPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
             else WriteHandoffResultAndReturn(LeadingFaction());

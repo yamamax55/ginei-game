@@ -233,6 +233,21 @@ namespace Ginei
             }
         }
 
+        // 政界転身：主人公を自勢力の与党（無ければ最大党）へ入党させる（政党#159・GOV-6）。best-effort（政党未整備なら何もしない）。
+        private bool RegisterAsPolitician()
+        {
+            CampaignState c = StrategySession.Campaign;
+            if (c == null || c.states == null) return false;
+            FactionState fs = null;
+            for (int i = 0; i < c.states.Count; i++)
+                if (c.states[i] != null && c.states[i].faction == pf) { fs = c.states[i]; break; }
+            if (fs == null || fs.politics == null || fs.politics.parties == null || fs.politics.parties.Count == 0) return false;
+            Party party = PartyRules.RulingParty(fs.politics.parties) ?? fs.politics.parties[0];
+            if (party == null) return false;
+            if (!party.memberIds.Contains(Protagonist.id)) party.memberIds.Add(Protagonist.id);
+            return true;
+        }
+
         // 主人公の実行時武名を会戦の鼓舞（ShipCombat）へ反映＝AdmiralData の InstanceID キーで FameRegistry へ。
         private void SyncFameToRegistry()
         {
@@ -419,8 +434,11 @@ namespace Ginei
                     break;
                 case ForkExecutor.政界入り:
                     Protagonist.isPolitician = true;
+                    bool joined = RegisterAsPolitician(); // 政党#159 へ入党（与党＝政府の長への道）
                     ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "政界転身（政治家提督へ）");
-                    Push(NotificationSeverity.情報, $"［岐路］{Protagonist.name} は政界へ転身した（政治家提督）");
+                    Push(NotificationSeverity.情報, joined
+                        ? $"［岐路］{Protagonist.name} は政界へ転身し与党に入った（政治家提督）"
+                        : $"［岐路］{Protagonist.name} は政界へ転身した（政治家提督）");
                     break;
                 case ForkExecutor.亡命受入:
                     ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "亡命（敵勢力へ）");
@@ -489,6 +507,7 @@ namespace Ginei
                 pendingPetitions = loaded.pendingPetitions;
                 retired = loaded.retired;
                 Protagonist.isPolitician = loaded.politician;
+                if (loaded.politician) RegisterAsPolitician(); // 続きからでも与党在籍を復元（政党は再シードされるため best-effort）
                 ageMonths = loaded.ageMonths > 0 ? loaded.ageMonths : StartAgeMonths;
                 PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 lastCouncilMonth = loaded.lastCouncilMonth;

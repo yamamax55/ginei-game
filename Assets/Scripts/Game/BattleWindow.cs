@@ -39,6 +39,7 @@ namespace Ginei
         private TextMeshProUGUI titleCap;
         private System.Action<BattleWindow> onLoaded;
         private System.Action<BattleWindow> onClosed;
+        private string title = "会戦";
 
         /// <summary>この窓が開いているか。</summary>
         public bool IsOpen => isOpen;
@@ -68,11 +69,12 @@ namespace Ginei
         /// （会戦ごとに固有）。<paramref name="anchoredPos"/> は窓の初期位置。完了で <paramref name="loadedCb"/>。
         /// 呼び出し前に BattleDirector が BattleHandoff を当該会戦のスナップショットへ復元済みであること。
         /// </summary>
-        public void BeginOpen(Vector2 worldOffset, Vector2 anchoredPos,
+        public void BeginOpen(Vector2 worldOffset, Vector2 anchoredPos, string windowTitle,
             System.Action<BattleWindow> loadedCb, System.Action<BattleWindow> closedCb)
         {
             onLoaded = loadedCb;
             onClosed = closedCb;
+            if (!string.IsNullOrEmpty(windowTitle)) title = windowTitle;
             EnsureEventSystem();
             Build(anchoredPos);
 
@@ -200,16 +202,38 @@ namespace Ginei
             BuildTitleBar(win.transform);
 
             // マップ領域（RawImage＝RenderTexture を映す。raycastTarget=false＝会戦クリックは FleetCommander が直接処理）
+            // flexibleHeight=1＝タイトルバー以外の残り高さを埋める＝ウィンドウのサイズ変更に追従する。
             GameObject mapGo = new GameObject("Map", typeof(RectTransform));
             mapGo.transform.SetParent(win.transform, false);
             mapRT = mapGo.GetComponent<RectTransform>();
             LayoutElement le = mapGo.AddComponent<LayoutElement>();
-            le.preferredHeight = windowSize.y - TitleBarHeight;
+            le.minHeight = 120f;
+            le.flexibleHeight = 1f;
             mapImage = mapGo.AddComponent<RawImage>();
             mapImage.color = Color.white;
             mapImage.raycastTarget = false;
 
+            BuildResizeGrip(win.transform);
+
             escWindowToken = UIWindowStack.Register(() => isOpen, RequestLeave, 940, "会戦");
+        }
+
+        /// <summary>右下のサイズ変更グリップ（つかんでドラッグでウィンドウを拡縮）。</summary>
+        private void BuildResizeGrip(Transform winParent)
+        {
+            GameObject grip = new GameObject("ResizeGrip", typeof(RectTransform));
+            grip.transform.SetParent(winParent, false);
+            RectTransform g = grip.GetComponent<RectTransform>();
+            g.anchorMin = g.anchorMax = new Vector2(1f, 0f); // 右下
+            g.pivot = new Vector2(1f, 0f);
+            g.sizeDelta = new Vector2(20f, 20f);
+            g.anchoredPosition = Vector2.zero;
+            LayoutElement gle = grip.AddComponent<LayoutElement>();
+            gle.ignoreLayout = true; // VerticalLayoutGroup の行にせず右下に浮かせる
+            Image gi = grip.AddComponent<Image>();
+            gi.color = new Color(1f, 0.84f, 0.36f, 0.5f); // 金色の小さなつまみ
+            MapWindowDrag drag = grip.AddComponent<MapWindowDrag>();
+            drag.onDragDelta = OnResizeDrag;
         }
 
         private void BuildTitleBar(Transform parent)
@@ -223,7 +247,7 @@ namespace Ginei
             UIDragMove drag = bar.AddComponent<UIDragMove>();
             drag.target = windowRT;
 
-            titleCap = CreateText(bar.transform, "≡ 会戦　（ドラッグで移動／× で離脱）", 15f, new Color(1f, 0.84f, 0.36f), TextAlignmentOptions.Left);
+            titleCap = CreateText(bar.transform, $"≡ {title} の戦い　（上部ドラッグで移動／右下で拡縮／× 離脱）", 15f, new Color(1f, 0.84f, 0.36f), TextAlignmentOptions.Left);
             RectTransform crt = titleCap.rectTransform;
             crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one;
             crt.offsetMin = new Vector2(12f, 0f); crt.offsetMax = new Vector2(-42f, 0f);
@@ -241,6 +265,17 @@ namespace Ginei
             cbtn.onClick.AddListener(RequestLeave);
             TextMeshProUGUI glyph = CreateText(cb.transform, "×", 18f, Color.white, TextAlignmentOptions.Center);
             StretchFull(glyph.rectTransform);
+        }
+
+        /// <summary>右下グリップのドラッグでウィンドウサイズを変える（最小/最大でクランプ）。</summary>
+        private void OnResizeDrag(Vector2 delta)
+        {
+            if (windowRT == null) return;
+            // 画面の下方向ドラッグ＝高さ増。右方向ドラッグ＝幅増。
+            Vector2 sz = windowRT.sizeDelta + new Vector2(delta.x, -delta.y);
+            sz.x = Mathf.Clamp(sz.x, 480f, 1920f);
+            sz.y = Mathf.Clamp(sz.y, 320f, 1080f);
+            windowRT.sizeDelta = sz;
         }
 
         private void Cleanup()

@@ -348,8 +348,8 @@ if (Time.time >= nextSearchTime)
 
                 case AIState.撤退:
                     {
-                        // 戦場中心（WIN-1 のオフセット追従・フルスクリーンは原点）を基準に離脱端を判定する。
-                        Vector2 center = BattleViewport.WorldOrigin;
+                        // 戦場中心（会戦ごとの遠方オフセット追従・フルスクリーンは原点）を基準に離脱端を判定する。
+                        Vector2 center = BattleField.OriginFor(gameObject.scene);
                         // 敵不明（敗走で目標を見失う等）なら中心と反対＝外周方向を「自勢力端」とみなして目指す（#会戦改善 #3）。
                         Vector2 enemyPos = targetEnemy != null ? (Vector2)targetEnemy.transform.position : center;
 

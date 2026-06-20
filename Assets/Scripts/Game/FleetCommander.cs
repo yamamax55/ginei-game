@@ -117,6 +117,10 @@ namespace Ginei
             // 選択／移動先指定／攻撃目標指定／グループ操作 を受け付ける（実行は再開後に反映）。
             if (Time.timeScale == 0 && !PauseManager.IsActivePauseInputAllowed) return;
 
+            // 複数会戦（WIN-3）：フォーカス中の会戦ウィンドウだけがプレイヤー入力を受ける
+            // （カーソルが乗っている窓の会戦のみ選択・指揮可能）。フルスクリーン会戦は常に対象。
+            if (BattleViewport.Active && !BattleViewport.IsFocused(gameObject.scene)) return;
+
             // 移動先指定待ちの状態
             if (isWaitingForMoveTarget)
             {

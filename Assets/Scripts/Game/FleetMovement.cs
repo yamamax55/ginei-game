@@ -235,7 +235,7 @@ namespace Ginei
                 // 中心はウィンドウ化会戦（WIN-1）の遠方オフセットに追従（フルスクリーンは原点）。
                 if (containInBattlefield && battlefieldRadius > 0f)
                 {
-                    Vector2 center = BattleViewport.WorldOrigin;
+                    Vector2 center = BattleField.OriginFor(gameObject.scene);
                     Vector2 rel = (Vector2)transform.position - center;
                     if (rel.sqrMagnitude > battlefieldRadius * battlefieldRadius)
                     {

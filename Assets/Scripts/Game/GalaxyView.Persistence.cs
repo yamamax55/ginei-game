@@ -192,7 +192,10 @@ namespace Ginei
             var people = new System.Collections.Generic.List<Person>();
             if (commanders != null) people.AddRange(commanders);
             if (civilians != null) people.AddRange(civilians);
-            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces, StrategySession.CourtAuthority);
+            // 主人公の立身出世（TKO #2477・P1-c）も同じセーブへ（在席ならディレクタから写す）。
+            ProtagonistCareerSave career = ProtagonistCareerDirector.Instance != null
+                ? ProtagonistCareerDirector.Instance.CaptureSave() : null;
+            CampaignSaveManager.SaveSession(StrategySession.Campaign, people, reg, StrategySession.Clock, StrategySession.Provinces, StrategySession.CourtAuthority, career);
         }
 
         /// <summary>戦役の全状態をファイルへ保存する（F5・手動）。</summary>

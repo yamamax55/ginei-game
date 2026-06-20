@@ -277,6 +277,16 @@ namespace Ginei
             return Sovereign;
         }
 
+        // ===== セーブ/復元（P1-c #2477） =====
+
+        /// <summary>現在の立身出世状態をセーブ平データへ写す（GalaxyView の戦役セーブから呼ぶ）。未準備なら hasData=false。</summary>
+        public ProtagonistCareerSave CaptureSave()
+        {
+            if (!ready || Protagonist == null) return new ProtagonistCareerSave { hasData = false };
+            return ProtagonistCareerSerializer.Capture(Protagonist, Merit, ActiveMandate,
+                lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount);
+        }
+
         // ===== セットアップ =====
 
         private void Setup()
@@ -303,9 +313,29 @@ namespace Ginei
             }
 
             Sovereign = FindSovereign() ?? new Person(SovereignId, "君主", pf, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
-            Merit = new MeritRecord(ProtagonistId);
             Relations = new PersonRelationGraph();
             Chronicle = new ProtagonistChronicle();
+
+            // 「続きから」＝立身出世の進捗を復元（P1-c #2477）。あれば士官学校からの再任官をせず復帰する。
+            ProtagonistCareerSave loaded = StrategySession.PendingProtagonistCareer;
+            StrategySession.PendingProtagonistCareer = null; // 一度だけ消費
+            if (loaded != null && loaded.hasData)
+            {
+                ProtagonistCareerSerializer.ApplyPerson(loaded, Protagonist);
+                Merit = ProtagonistCareerSerializer.ToMerit(loaded);
+                ActiveMandate = ProtagonistCareerSerializer.ToMandate(loaded);
+                if (loaded.nextMandateId > 0) nextMandateId = loaded.nextMandateId;
+                pendingBattleDamage = loaded.pendingBattleDamage;
+                pendingBattleVictories = loaded.pendingBattleVictories;
+                pendingBattleCount = loaded.pendingBattleCount;
+                PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
+                lastCouncilMonth = loaded.lastCouncilMonth;
+                Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");
+                ready = true;
+                return;
+            }
+
+            Merit = new MeritRecord(ProtagonistId);
 
             // 士官学校から任官（TKO-1）。
             var academy = new Academy(7, pf, "士官学校", 200, 0.55f);

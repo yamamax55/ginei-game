@@ -40,7 +40,7 @@ namespace Ginei
         /// <summary>
         /// 戦役の<b>全状態</b>（銀河/勢力/財政/政体/人物/戦略艦隊/統一時間）を保存する（continue・全永続化）。
         /// </summary>
-        public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock, Dictionary<int, Province> provinces = null, CourtAuthority court = null)
+        public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock, Dictionary<int, Province> provinces = null, CourtAuthority court = null, ProtagonistCareerSave career = null)
         {
             if (campaign == null) return;
             CampaignSaveData save = CampaignSerializer.ToSaveData(campaign);
@@ -49,6 +49,7 @@ namespace Ginei
             CampaignSerializer.WriteProvinces(save, provinces);
             CampaignSerializer.WriteClock(save, clock);
             if (court != null) save.courtAuthority = court.authority; // 朝廷の権威を永続（官僚制基盤）
+            if (career != null && career.hasData) save.protagonistCareer = career; // 主人公の立身出世を永続（TKO #2477・P1-c）
             File.WriteAllText(SavePath, JsonUtility.ToJson(save, true));
         }
 
@@ -72,6 +73,8 @@ namespace Ginei
             StrategySession.Provinces = CampaignSerializer.ReadProvinces(save); // 内政を復元（空=後方互換）
             StrategySession.PendingPeople = CampaignSerializer.ReadPeople(save);
             StrategySession.CourtAuthority = new CourtAuthority(save.courtAuthority); // 朝廷の権威を復元（官僚制基盤）
+            StrategySession.PendingProtagonistCareer = (save.protagonistCareer != null && save.protagonistCareer.hasData)
+                ? save.protagonistCareer : null; // 主人公の立身出世を復元（TKO #2477・P1-c。ProtagonistCareerDirector が消費）
             return true;
         }
 

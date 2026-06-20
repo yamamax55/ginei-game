@@ -178,6 +178,29 @@ namespace Ginei
 
         // --- 外交（DIPLO・#2119 配線） ---
         /// <summary>勢力ペアの外交を年次で回す＝関係ドリフト→AIが宣戦/講和/同盟を決定し通知。</summary>
+        // 厭戦が関係値の親和へ寄与する重み（厭戦1.0で親和へ最大 +この値）＝民の疲弊が講和を後押しする強さ。
+        private const float WarWearinessPeaceWeight = 0.5f;
+        // 1年あたり、戦争損害(0..1)に比例して削られる民心(community.hope)の最大量＝戦争の銃後コスト。
+        private const float WarHopeDrainRate = 0.02f;
+
+        // 戦争の銃後コスト：損害に比例して民心(community.hope)を bounded に削る＝戦争は民を疲れさせる
+        // （その疲弊を HomefrontWeariness が拾い講和を後押しする＝内政⇄外交の閉ループ）。null安全。
+        private static void DrainWarHope(FactionState s, float casualties)
+        {
+            if (s == null || s.community == null) return;
+            s.community.hope = Mathf.Clamp01(s.community.hope - Mathf.Clamp01(casualties) * WarHopeDrainRate);
+        }
+
+        // 銃後の厭戦（0..1）。交戦中の勢力 f について、民心(community.hope)を銃後の支持・兵糧は中立(1)として
+        // WarWearinessModifiersRules で測る（基礎厭戦＝戦争ターン/損害に、民心低下と長期化の修飾を足す）。非交戦・null は 0。
+        private float HomefrontWeariness(Faction f, WarState war)
+        {
+            if (war == null) return 0f;
+            FactionState s = StateOf(f);
+            float homeSupport = (s != null && s.community != null) ? Mathf.Clamp01(s.community.hope) : 1f;
+            return WarWearinessModifiersRules.AdjustedWeariness(war, homeSupport, 1f);
+        }
+
         private void RunDiplomacyTick()
         {
             if (map == null) return;
@@ -203,9 +226,12 @@ namespace Ginei
                     // 軍産複合体の戦争バイアス（MCN-4 #1389・CAP-3 #204 配線）：どちらかに複合体が成立すると思想親和をさらに険悪化＝開戦を促し講和を遠ざける。
                     float warBias = Mathf.Max(MilitaryIndustrialRules.WarBias(GetMilitaryIndustrialPressure(fa)),
                                               MilitaryIndustrialRules.WarBias(GetMilitaryIndustrialPressure(fb)));
-                    var factors = new DiplomacyRules.OpinionFactors(-0.5f - warBias * 0.3f, 0.2f, true, 0f, false);
-                    WarState preWar = WarLedger.Get(a, b);                  // 講和前の戦況（領土移転の勝者判定用）
+                    WarState preWar = WarLedger.Get(a, b);                  // 講和前の戦況（領土移転の勝者判定＋銃後の厭戦に使う）
                     float preScore = preWar != null ? preWar.warScore : 0f;
+                    // 内政⇄外交の配線：交戦中なら双方の「銃後の厭戦」（民心低下＋長期化＋損害＝WarWearinessModifiersRules）を測り、
+                    // 厭戦が高いほど関係値の親和へ正の補正を足す＝民が疲れた国ほど講和へ傾く（既存の戦費/賠償とは別系統の追加効果）。
+                    float weariness = Mathf.Max(HomefrontWeariness(fa, preWar), HomefrontWeariness(fb, preWar));
+                    var factors = new DiplomacyRules.OpinionFactors(-0.5f - warBias * 0.3f + weariness * WarWearinessPeaceWeight, 0.2f, true, 0f, false);
                     var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);
 
                     // 外交アクションAI（P1 配線）：険悪×国力優位なら制裁＝相手の国庫を bounded に削る（効果額は DiplomaticEffectRules 委譲）。
@@ -263,8 +289,9 @@ namespace Ginei
                     if (ws == null) continue;
                     // 戦争の財政コスト（配線ループ#5）：損害が大きいほど双方の国庫が消耗する＝戦争は高くつく（全戦争・bounded）。
                     float warCost = Mathf.Clamp01(ws.casualties) * 0.02f;
-                    if (System.Enum.TryParse(ws.factionA, out Faction caf)) { var sc = StateOf(caf); if (sc != null) sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); }
-                    if (System.Enum.TryParse(ws.factionB, out Faction cbf)) { var sc = StateOf(cbf); if (sc != null) sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); }
+                    // 戦費は国庫を、損害は銃後の民心(community.hope)を削る＝戦争は民を疲れさせ、それが上の HomefrontWeariness 経由で講和を促す（内政⇄外交の閉ループ）。
+                    if (System.Enum.TryParse(ws.factionA, out Faction caf)) { var sc = StateOf(caf); if (sc != null) { sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); DrainWarHope(sc, ws.casualties); } }
+                    if (System.Enum.TryParse(ws.factionB, out Faction cbf)) { var sc = StateOf(cbf); if (sc != null) { sc.treasury = Mathf.Max(0f, sc.treasury * (1f - warCost)); DrainWarHope(sc, ws.casualties); } }
                     if (Mathf.Abs(ws.warScore) < 0.2f) continue; // 拮抗は賠償なし（戦費は上で課済み）
                     bool aWinning = ws.warScore > 0f;
                     if (!System.Enum.TryParse(aWinning ? ws.factionA : ws.factionB, out Faction wf)) continue;

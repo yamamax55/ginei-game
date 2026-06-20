@@ -58,12 +58,13 @@ namespace Ginei
             // ※BattleViewport.Active はカーソルが窓上のときだけ true になる「フォーカス」状態で、ここの判定には使えない
             //   （過去バグ：2つ目の会戦の初期化時にカーソルが窓外だと FleetRegistry.Clear() が走り1つ目の艦を全消去していた）。
             bool windowed = gameObject.scene != SceneManager.GetActiveScene();
-            Debug.Log($"[WIN3] BattleSetup: myScene={gameObject.scene.name}#{gameObject.scene.handle} active={SceneManager.GetActiveScene().name}#{SceneManager.GetActiveScene().handle} windowed={windowed} clear={(windowed ? "ClearScene" : "Clear(全消去)")}");
+            Debug.Log($"[WIN3] BattleSetup: myScene={gameObject.scene.name}#{gameObject.scene.handle} active={SceneManager.GetActiveScene().name}#{SceneManager.GetActiveScene().handle} windowed={windowed}");
 
-            // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）。
-            // ウィンドウ化会戦（WIN-2/3）では自分のシーンの艦だけをクリア（同時進行する他会戦を消さない）。
-            if (windowed) FleetRegistry.ClearScene(gameObject.scene);
-            else FleetRegistry.Clear();
+            // 0. 索敵レジストリの初期化。**常に自分のシーンの艦だけをクリア**する（FleetRegistry.Clear() の全消去は使わない）。
+            //    こうすれば、2つ目の会戦のセットアップが1つ目の会戦の旗艦を消す事故が原理的に起きない
+            //    （windowed 判定がどう転んでも自シーン以外には触れない＝複数同時会戦の安全策）。
+            //    フルスクリーン会戦でも「自シーン＝Battle の全艦」なので従来と同義。
+            FleetRegistry.ClearScene(gameObject.scene);
 
             // FleetRoster/OrderOfBattle/ShipNameRegistry は static 単一の台帳。フルスクリーン会戦では会戦ごとに
             // 作り直すが、ウィンドウ化会戦（複数同時・戦略マップ同居）で全クリアすると戦略や他会戦の台帳を壊すため、

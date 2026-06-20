@@ -36,6 +36,9 @@
 - [`gameci-setup.md`](./gameci-setup.md) — **GameCI セットアップ**（headless Unity を GitHub Actions で動かす）。ローカルの `Unity_lic.ulf` を `UNITY_LICENSE` Secret に貼る現行手順＋`unity-test` ワークフロー。Game層のコンパイル＋Unityテストを無人検証する。
 - [`unity-build-automation.md`](./unity-build-automation.md) — **Unity Build Automation 調査**（GameCIの**ライセンス不要**な代替）。`.ulf` が取れない間でも実Unityで EditMode/PlayMode テストを回せる。ダッシュボード設定＋GameCIとのトレードオフ。
 
+## 制作ガイド（アート/アセット）
+- [`blender-to-unity-3d-pipeline.md`](./blender-to-unity-3d-pipeline.md) — **Blender→Unity 3Dモデル制作・活用ガイド**（艦船モデルの設計／FBX・glTF書き出し／URPマテリアル／アニメ＝噴射VFX・砲塔スクリプト・ボーン／**ゲーム画面に重ねるムービー**＝透過コーデック・WebM vs パックアルファ・`timeScale=0`での負荷干渉回避）。実例：`Assets/Art/Ships/Battleship3D.blend`（PR #2594）。
+
 ## 開発ログ（dev-log/）
 - [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。
 - [`2026-06-10-time-fleet-notification.md`](./dev-log/2026-06-10-time-fleet-notification.md) — **統一時間 TIME-1〜7（#946/#959）／艦隊編成プール（#148/#884）／通知システム（#964）** を配線。詳細は `CLAUDE.md` の「時間・暦・通知システム」「艦隊編成プール」節。

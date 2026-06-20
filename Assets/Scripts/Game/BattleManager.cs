@@ -32,6 +32,13 @@ namespace Ginei
         private bool vipResolved = false;        // VIPの陣営を解決できたか
         private float holdAccum = 0f;            // 拠点保持の連続保持秒数（#2259）
 
+        /// <summary>
+        /// この会戦シーンに属する旗艦のみ（WIN-2 #2569 隔離の核）。ウィンドウ化会戦は会戦ごとに別シーンへ
+        /// additive ロードされるため、勝敗集計・初期化は自分のシーンの艦だけを数える（他会戦を巻き込まない）。
+        /// 単一会戦（フルスクリーン）では当該シーン＝全旗艦なので従来と同一（後方互換）。
+        /// </summary>
+        private IReadOnlyList<FleetStrength> Flagships => FleetRegistry.FlagshipsIn(gameObject.scene);
+
         private void Start()
         {
             // 開始時にタイムスケールをリセット
@@ -87,9 +94,9 @@ namespace Ginei
                 CountFleets(out initialImperialCount, out initialAllianceCount);
                 CountInitialByFaction();
                 ResolveScenarioAndVip();
-                initialHadHostilePair = HasHostilePair(FleetRegistry.AllFlagships);
+                initialHadHostilePair = HasHostilePair(Flagships);
                 initialized = true;
-                if (FleetRegistry.AllFlagships.Count == 0)
+                if (Flagships.Count == 0)
                 {
                     Debug.LogWarning("BattleManager: 開始時に艦隊が見つかりませんでした。");
                 }
@@ -149,7 +156,7 @@ namespace Ginei
         private void WriteHandoffResultAndReturn(Faction winner)
         {
             int winnerTactical = 0;
-            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> alive = Flagships;
             for (int i = 0; i < alive.Count; i++)
             {
                 FleetStrength fs = alive[i];
@@ -234,7 +241,7 @@ namespace Ginei
         private Faction LeadingFaction()
         {
             int a = 0, b = 0;
-            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> alive = Flagships;
             for (int i = 0; i < alive.Count; i++)
             {
                 FleetStrength fs = alive[i];
@@ -309,7 +316,7 @@ namespace Ginei
             {
                 Faction breaker = activeScenario.objectiveFaction;
                 float radius = activeScenario.battlefieldRadius;
-                foreach (var fs in FleetRegistry.AllFlagships)
+                foreach (var fs in Flagships)
                 {
                     if (!CountsForVictory(fs)) continue;
                     if (LegacyOf(fs) != breaker) continue;
@@ -331,7 +338,7 @@ namespace Ginei
                 float radius = activeScenario.objectiveRadius;
                 float needed = activeScenario.holdDuration;
                 bool holding = false;
-                foreach (var fs in FleetRegistry.AllFlagships)
+                foreach (var fs in Flagships)
                 {
                     if (!CountsForVictory(fs)) continue;
                     if (LegacyOf(fs) != holder) continue;
@@ -348,9 +355,9 @@ namespace Ginei
             }
 
             // --- 殲滅（全条件共通の終了条件・多勢力対応）：敵対する旗艦ペアが残っていない ---
-            if (!HasHostilePair(FleetRegistry.AllFlagships))
+            if (!HasHostilePair(Flagships))
             {
-                winnerRep = DetermineWinner(FleetRegistry.AllFlagships);
+                winnerRep = DetermineWinner(Flagships);
                 if (winnerRep == null)
                 {
                     winner = Faction.同盟; // 全旗艦喪失＝便宜上の勝者
@@ -393,10 +400,10 @@ namespace Ginei
         }
 
         /// <summary>指定 AdmiralData を持つ生存旗艦を探す（退却・破棄済みは登録外なので見つからない＝撃破扱い）。</summary>
-        private static FleetStrength FindLivingFlagshipByAdmiral(AdmiralData admiral)
+        private FleetStrength FindLivingFlagshipByAdmiral(AdmiralData admiral)
         {
             if (admiral == null) return null;
-            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i] != null && all[i].admiralData == admiral) return all[i];
@@ -405,9 +412,9 @@ namespace Ginei
         }
 
         /// <summary>指定の旧 enum 陣営に属する生存旗艦の代表を1隻返す（勝者名/MVP算出用）。</summary>
-        private static FleetStrength FindLivingFlagshipByLegacy(Faction f)
+        private FleetStrength FindLivingFlagshipByLegacy(Faction f)
         {
-            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
@@ -490,10 +497,10 @@ namespace Ginei
         }
 
         /// <summary>指定の旧 enum 陣営に属する生存旗艦数。</summary>
-        private static int CountLegacy(Faction f)
+        private int CountLegacy(Faction f)
         {
             int n = 0;
-            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
@@ -506,7 +513,7 @@ namespace Ginei
         {
             // 旧 enum バケツ別の生存旗艦数（後方互換の戦績集計用）
             imperial = 0; alliance = 0;
-            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
@@ -519,7 +526,7 @@ namespace Ginei
         private void CountInitialByFaction()
         {
             initialCountByFaction.Clear();
-            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
@@ -550,7 +557,7 @@ namespace Ginei
             Dictionary<string, int> remCount = new Dictionary<string, int>();
             Dictionary<string, int> remStrength = new Dictionary<string, int>();
 
-            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> alive = Flagships;
             for (int i = 0; i < alive.Count; i++)
             {
                 FleetStrength fs = alive[i];
@@ -603,7 +610,7 @@ namespace Ginei
 
             // 後方互換の enum 別集計（帝国/同盟バケツ）
             int impRem = 0, allRem = 0, impStr = 0, allStr = 0;
-            IReadOnlyList<FleetStrength> alive = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> alive = Flagships;
             for (int i = 0; i < alive.Count; i++)
             {
                 FleetStrength fs = alive[i];
@@ -641,7 +648,7 @@ namespace Ginei
         private void ApplyBattleExperience(Faction winnerFaction)
         {
             ReportProtagonistBattle(winnerFaction); // P1-a #2477：主人公の戦果を立身出世の武勲インボックスへ
-            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];
@@ -677,7 +684,7 @@ namespace Ginei
         {
             GameSettings gs = GameSettings.Instance;
             string heroName = gs != null ? gs.selectedAdmiral : null;
-            IReadOnlyList<FleetStrength> all = FleetRegistry.AllFlagships;
+            IReadOnlyList<FleetStrength> all = Flagships;
             for (int i = 0; i < all.Count; i++)
             {
                 FleetStrength fs = all[i];

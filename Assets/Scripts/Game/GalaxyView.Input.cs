@@ -565,6 +565,12 @@ namespace Ginei
             AddHandoffSide(entries, sideA, true);
             AddHandoffSide(entries, sideB, false);
             BattleHandoff.QueueMulti(entries, sideA[0].faction, sideB[0].faction, sideA[0].id, sideB[0].id, "Strategy");
+
+            // 初期配置：星系の所有勢力＝守備側（中央）／他方＝攻撃側（侵攻方向へ）。所有勢力が交戦当事者のときだけ設定。
+            StarSystem sys = map != null ? map.GetSystem(systemId) : null;
+            if (sys != null && (sys.owner == sideA[0].faction || sys.owner == sideB[0].faction))
+                BattleHandoff.SetDefender(sys.owner, Vector2.right); // 侵攻方向は会戦アリーナ座標では一定（守備中央・攻撃側面）
+
             SceneManager.LoadScene("Battle");
             return true;
         }

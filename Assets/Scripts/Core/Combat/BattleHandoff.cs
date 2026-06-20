@@ -29,6 +29,12 @@ namespace Ginei
         public static float intrigueA = 0f, intrigueB = 0f;
         public static float qualityA = 1f, qualityB = 1f; // 軍の質の戦闘力倍率（C4・ForceQualityRules。既定1.0＝従来動作）
 
+        // 初期配置（守備=中央/攻撃=侵攻方向）：星系/惑星の所有者を守備側として中央へ、攻撃側を侵攻方向へ寄せる。
+        // hasDefender=false（既定）なら従来の左右対称配置（回廊上の相互衝突など守備側が定まらない会戦）。
+        public static bool hasDefender;          // 守備側が定義されているか
+        public static Faction defenderFaction;   // 守備側＝係争星系/惑星の所有勢力
+        public static Vector2 approachDir;        // 攻撃側が侵攻してきた方向（係争地→攻撃側起点の単位ベクトル・戦略座標）
+
         // 出力：結果
         public static bool sideAWon;
         public static int survivorStrength;
@@ -139,6 +145,7 @@ namespace Ginei
             loyaltyA = loyaltyB = 1f;   // 旗幟は既定＝完全忠誠（戦略側が国家状態から上書きする・#817）
             intrigueA = intrigueB = 0f;
             qualityA = qualityB = 1f;   // 軍の質は既定＝1.0（戦略側が補給/練度から上書きする・C4）
+            hasDefender = false;        // 回廊上の相互衝突は守備側を定めない（左右対称＝従来動作）
             BattleHandoff.returnScene = returnScene;
             Pending = true;
             Resolved = false;
@@ -192,9 +199,21 @@ namespace Ginei
             loyaltyA = loyaltyB = 1f;
             intrigueA = intrigueB = 0f;
             qualityA = qualityB = 1f;
+            hasDefender = false;        // 既定は守備側なし（呼び出し側が必要なら直後に設定する）
             BattleHandoff.returnScene = returnScene;
             Pending = true;
             Resolved = false;
+        }
+
+        /// <summary>
+        /// 守備側（係争星系/惑星の所有勢力）と攻撃側の侵攻方向を設定する（<see cref="QueueMulti"/>/<see cref="Queue"/> の直後に呼ぶ）。
+        /// これで <c>BattleSetup</c> が守備側を中央・攻撃側を侵攻方向へ配置する。回廊の相互衝突など守備側が無い会戦では呼ばない。
+        /// </summary>
+        public static void SetDefender(Faction defender, Vector2 attackerApproachDir)
+        {
+            hasDefender = true;
+            defenderFaction = defender;
+            approachDir = attackerApproachDir.sqrMagnitude > 1e-6f ? attackerApproachDir.normalized : Vector2.right;
         }
 
         /// <summary>Battleシーン側が勝敗と勝者残存兵力を書き込む。</summary>
@@ -212,6 +231,7 @@ namespace Ginei
             IsPlanetSiege = false;
             IsSystemView = false;
             siegeResolved = false;
+            hasDefender = false;
             admiralA = admiralB = null;
             fleets.Clear();
         }

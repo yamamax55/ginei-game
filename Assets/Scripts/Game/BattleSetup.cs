@@ -66,6 +66,7 @@ namespace Ginei
                 if (BattleHandoff.IsSystemView) SetupSystemView();      // 非戦闘＝星系の閲覧（恒星系ビュー）
                 else if (BattleHandoff.IsPlanetSiege) SetupPlanetSiege();
                 else SetupFromHandoff();
+                ApplyWorldOffset();
                 return;
             }
 
@@ -111,7 +112,28 @@ namespace Ginei
             // 5. 軍団長の乗艦（CSG・打撃群指揮官）：軍団ごとに旗艦を1つ選び軍団長を乗艦させる。
             EmbarkCorpsCommanders(spawnedFleets);
 
+            ApplyWorldOffset();
+
             Debug.Log($"BattleSetup: シナリオ「{scenario.scenarioName}」から {spawnedFleets.Count} 艦隊を生成しました。");
+        }
+
+        /// <summary>
+        /// ウィンドウ化会戦（WIN-1）では戦場を遠方オフセット（<see cref="BattleViewport.WorldOrigin"/>）へ平行移動する。
+        /// 戦略マップと同一ワールド空間に additive ロードされるため、会戦カメラに戦略マップが映り込むのを防ぐ。
+        /// このシーンの全ルートオブジェクト（旗艦・カメラ・背景・攻城アリーナ等）をまとめてずらす（配下艦は旗艦の子として追従）。
+        /// フルスクリーン会戦では WorldOrigin=(0,0) のため何もしない（従来どおり）。
+        /// </summary>
+        private void ApplyWorldOffset()
+        {
+            Vector2 o = BattleViewport.WorldOrigin;
+            if (o == Vector2.zero) return;
+            Vector3 delta = new Vector3(o.x, o.y, 0f);
+            GameObject[] roots = gameObject.scene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                if (roots[i] == null) continue;
+                roots[i].transform.position += delta;
+            }
         }
 
         /// <summary>

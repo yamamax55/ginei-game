@@ -182,8 +182,13 @@ namespace Ginei
         {
             if (cam == null) return;
 
+            // ウィンドウ化会戦（WIN-1）：会戦カメラは RenderTexture 描画なので、画面マウスでなく
+            // 会戦ウィンドウ内のカーソル（BattleViewport）でズームする。窓外ではホイールを受けない。
+            bool windowed = BattleViewport.Active;
+
             // ホイール入力で目標サイズを更新（倍率式＝深度に依らず一定の体感／ホイール速度に比例）。
-            if (Mouse.current != null)
+            bool acceptScroll = !windowed || BattleViewport.PointerInside;
+            if (acceptScroll && Mouse.current != null)
             {
                 float scroll = Mouse.current.scroll.ReadValue().y;
                 if (Mathf.Abs(scroll) > 0.01f)
@@ -197,14 +202,24 @@ namespace Ginei
             // 目標サイズへ滑らかに寄せる（フレームレート非依存・ポーズ中も効くよう unscaled）＋カーソル中心維持。
             if (Mathf.Abs(cam.orthographicSize - zoomTarget) > 0.0001f)
             {
-                Vector2 mouse = Mouse.current != null ? Mouse.current.position.ReadValue()
-                    : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-                Vector3 worldBefore = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
                 float t = 1f - Mathf.Exp(-zoomSmoothing * Time.unscaledDeltaTime);
-                cam.orthographicSize = Mathf.Lerp(cam.orthographicSize, zoomTarget, t);
-                Vector3 worldAfter = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
-                Vector3 shift = worldBefore - worldAfter;
-                transform.position += new Vector3(shift.x, shift.y, 0f);
+                if (windowed)
+                {
+                    // 窓内のカーソル下ワールド点を維持してズーム（窓外なら中心維持なしでサイズだけ寄せる）。
+                    bool inside = BattleViewport.TryPointerWorld(out Vector3 wb);
+                    cam.orthographicSize = Mathf.Lerp(cam.orthographicSize, zoomTarget, t);
+                    if (inside && BattleViewport.TryPointerWorld(out Vector3 wa))
+                        transform.position += (Vector3)(wb - wa);
+                }
+                else
+                {
+                    Vector2 mouse = Mouse.current != null ? Mouse.current.position.ReadValue()
+                        : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+                    Vector3 worldBefore = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
+                    cam.orthographicSize = Mathf.Lerp(cam.orthographicSize, zoomTarget, t);
+                    Vector3 worldAfter = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
+                    transform.position += new Vector3(worldBefore.x - worldAfter.x, worldBefore.y - worldAfter.y, 0f);
+                }
             }
         }
 
@@ -292,8 +307,10 @@ namespace Ginei
         /// </summary>
         private void ClampPosition()
         {
-            float x = Mathf.Clamp(transform.position.x, minBounds.x, maxBounds.x);
-            float y = Mathf.Clamp(transform.position.y, minBounds.y, maxBounds.y);
+            // ウィンドウ化会戦（WIN-1）では戦場が遠方オフセットへ置かれるため、移動境界も中心に追従させる。
+            Vector2 o = BattleViewport.WorldOrigin;
+            float x = Mathf.Clamp(transform.position.x, minBounds.x + o.x, maxBounds.x + o.x);
+            float y = Mathf.Clamp(transform.position.y, minBounds.y + o.y, maxBounds.y + o.y);
             transform.position = new Vector3(x, y, transform.position.z);
         }
 

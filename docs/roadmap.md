@@ -50,13 +50,14 @@
 
 > これらは master 反映済み。新機能はこの上に乗せる。前版（06-06）から **Phase A の主要部・Phase C コア・Phase D の純ロジック層が大きく進んだ**。06-12〜14 は **戦略マップ UX 大改修・観測層 6→8 窓口・`GalaxyView` の partial 分割・会戦の膠着解消・配下艦運動 EMOV・CI 整備** が中心（詳細は [`dev-log/2026-06-14-strategy-ux-observers.md`](./dev-log/2026-06-14-strategy-ux-observers.md)）。
 
-### ★ 一人称の人生レイヤー（TKO・実装済だが「会戦に未接続」＝最大の穴）
-- **立身出世の Core＋UI は通っている**：`ProtagonistCareerRules`/`MeritRecordRules`/`PersonRelationRules`/`SovereignMandateRules`/`MandateCascadeRules`/`MonthlyCouncilRules`/`RankDistributionRules` ほか TKO-1〜13 純ロジック（test-first）＋ Game 層 `ProtagonistCareerDirector`（Strategy 自動生成・少尉任官→月次昇進モンタージュ→准将で実艦隊指揮・MBOカスケード＋具申）＋執務机UI `ProtagonistDeskOverlay`（Alt+J）。
-- **しかし看板機能が実プレイ（会戦）に反応していない**（[`current-state-audit-2026-06-post2476.md`](./current-state-audit-2026-06-post2476.md)）＝**今回の改訂で最優先化する穴**：
-  - 主命の成否が**会戦結果でなく乱数コイン**。会戦の戦果が主人公の武勲（`MeritRecordRules.Record`）へ**一切流れない**（`BattleManager` は `MeritRecordRules`/`ProtagonistCareerDirector` を grep 一致0件で呼ばない）。
-  - 会戦で得た**提督のXP（成長）が永続しない**（一時オブジェクトに入れて破棄＝立身出世の「階級」と「能力成長」の片輪が空転）。
-  - セーブに veterancy/提督Growth フィールドが無く「続きから」で練度・成長が失われる。
-- → 詳細な接続計画は **§3-0「★最優先トラック」**（新設）。
+### ★ 一人称の人生レイヤー（TKO・会戦接続＋永続まで実装済み＝PR #2593）
+- **立身出世の Core＋UI**：`ProtagonistCareerRules`/`MeritRecordRules`/`PersonRelationRules`/`SovereignMandateRules`/`MandateCascadeRules`/`MonthlyCouncilRules`/`RankDistributionRules` ほか TKO-1〜13 純ロジック（test-first）＋ Game 層 `ProtagonistCareerDirector`（Strategy 自動生成・少尉任官→月次昇進モンタージュ→准将で実艦隊指揮・MBOカスケード＋具申）＋執務机UI `ProtagonistDeskOverlay`（Alt+J）。
+- **会戦↔立身出世の接続を実装（PR #2593・§3-0）**＝旧監査（[`current-state-audit-2026-06-post2476.md`](./current-state-audit-2026-06-post2476.md)）の「看板機能が実プレイに反応しない」穴を解消：
+  - 会戦の戦果→主人公の武勲（`BattleManager.ReportProtagonistBattle`→月次でドレイン）。主命の成否は**会戦結果駆動**（勝てば達成・乱数はフォールバック）。
+  - 提督の成長(XP)＋叙勲を**潜行会戦でも付与**（`GrantBattleGrowthAndMedals` を戦略書き戻し経路からも）。
+  - **立身出世の永続**（`ProtagonistCareerSave`/`ProtagonistCareerSerializer`＝階級/能力/武勲/在席の主命/月次状態/会戦戦果インボックス/成長XP/一代記/出自/不満）＝「続きから」で失わない。
+  - 採用足場も実装：政界転身フォーク（`CareerForkRules`）・出自選択（`OriginRules`＝平民/貴族/王家＝入口分岐＋初任段差）・死後の継承ルーティング（`ProtagonistSuccessionRules`＝#907 解答）・執務机に実効能力(成長込み)/出自/開かれた岐路を表示。
+- → 詳細は **§3-0「★最優先トラック」**。残＝P1-d 具申の結実・岐路の実行配線・全提督の成長永続。**Game 層は Unity Play 目視検証が要**（本環境ではコンパイル不可）。
 
 ### 戦術コア（Battle シーン＝ほぼ完成形）
 - **RTS操作**：ドラッグ矩形選択 #82・標準命令（アタックムーブ/停止/保持）#85・カメラQoL（画面端スクロール/カーソル中心ズーム）#87・移動/後退/攻撃目標指定・陣形変更・艦隊円/ZOC円表示。
@@ -139,13 +140,15 @@
 
 ## 3. Phase A／Phase P：会戦と一人称の人生
 
-### 3-0. ★最優先トラック：一人称の人生を実プレイへ接続（会戦↔立身出世）
+### 3-0. ★最優先トラック：一人称の人生を実プレイへ接続（会戦↔立身出世）【大半 実装済＝PR #2593】
 > 「プレイヤー＝いち提督」採用の**最初の一手**。Core/UI は在るのに会戦と切れている穴（§0）を塞ぐ＝**配線のみ・新メカ最小**。窓口は既存（`MeritRecordRules`/`SovereignMandateRules`/`ProtagonistCareerDirector`）。
-- **P1-a 会戦戦果→武勲**：`BattleManager` の決着処理で、主人公提督が参加した会戦の戦果（撃沈/旗艦撃破/勝利/防衛達成）を `MeritRecordRules.Record(ExploitKind.…)` へ流す。
-- **P1-b 主命の成否を会戦/目標達成に紐付け**：`SovereignMandateRules` の達成判定を乱数コインから**実際の会戦結果**駆動へ（乱数はフォールバックに残してよいが戦果優先）。MBOカスケード（TKO-11）の末端目標＝いまプレイしている会戦に一致させる。
-- **P1-c 提督XP（成長）の永続**：会戦で得た提督成長を一時オブジェクトに捨てず `AdmiralData`/ロスターへ反映し、`CampaignSaveData`（`StrategicFleetSave` に veterancy/提督Growth フィールド追加）で「続きから」に残す。
-- **P1-d 上官側の自動裁可・具申の結実**：プレイヤーの具申（TKO-4）が上官に拾われ結実する経路、上官側の主命裁可の自動化（`ProtagonistCareerDirector`）。
-- 効果：**戦って勝つと出世する**という立身出世の心臓が初めて鼓動する。ADM-2 成長配線（#2303）・ADM-3 武名（#2304）はこの上に乗る。
+- ✅ **P1-a 会戦戦果→武勲**：`BattleManager.ReportProtagonistBattle`＝主人公提督が参加した会戦の戦果（与ダメ→撃沈/勝利→殊勲）を武勲インボックスへ→月次評定でドレイン（`MeritRecordRules`）。
+- ✅ **P1-b 主命の成否を会戦結果駆動＋潜行会戦の成長/叙勲**：主命達成は会戦勝利で駆動（乱数はフォールバック）。提督の成長(XP)＋叙勲を `GrantBattleGrowthAndMedals` で**潜行会戦でも付与**（従来は単発会戦のみ＝捨てられていた穴を解消）。
+- ✅ **P1-c 立身出世の永続**：`ProtagonistCareerSave`/`ProtagonistCareerSerializer`（test-first）＝階級/能力/武勲台帳/在席の主命/月次状態/会戦戦果インボックス/成長XP/一代記/出自/不満を `CampaignSaveManager` 経由で「続きから」に残す。`GrowthRegistry` の新規キャンペーン漏れも修正。
+- ✅ **採用足場**：政界転身フォーク（`CareerForkRules`）・出自選択（`OriginRules`＝平民/貴族/王家＝入口分岐＋初任段差 `CommissionFloor`）・死後の継承ルーティング（`ProtagonistSuccessionRules`＝#907 解答）・執務机に実効能力(成長込み)/出自/開かれた岐路/不満を表示。
+- ⏳ **P1-d 上官側の自動裁可・具申の結実**（残）：プレイヤーの具申（TKO-4）が上官に拾われ結実する経路＝**ペンディング中の MEYASU/決裁デスクと絡む**ため序列内の新経路設計が要る（後段・要設計合意）。
+- ⏳ **残**：岐路の**実行**配線（政界転身→政党#159／下野・亡命・独立→`CivilWarRules`/`DiplomacyRules`/`BattleAllegianceRules`）・継承の Game 接続（死→#646 世継ぎへ操作座）・全提督（主人公以外）の成長永続（安定キー）。
+- 効果：**戦って勝つと出世する**＝立身出世の心臓が鼓動。ADM-2 成長配線（#2303）・ADM-3 武名（#2304）はこの上に乗る。**Game 層は Unity Play 目視検証が要**。
 
 ### 3-1. RTS操作の仕上げ
 - ~~**#83 部隊グループ（Alt+数字）**~~ ✅ **完了**（`FleetCommander.HandleControlGroups`＝選択中なら割当・空なら呼出。Unityエディタの Ctrl+数字と衝突回避のため Alt 採用。ヘルプ/CLAUDE.md 反映済）
@@ -287,7 +290,7 @@
 
 > **「プレイヤー＝いち提督」採用により最優先を組み替え**：まず立身出世の心臓を会戦へ接続（SP0）。以後は会戦の手触り→自走世界の観測→配線待ちの順。横断基盤 #106 は実装済。
 
-- **SP0：一人称の人生を実プレイへ接続（★最優先・§3-0）** — P1-a 会戦戦果→武勲 → P1-b 主命を会戦結果駆動 → P1-c 提督XP永続＋セーブ → P1-d 上官裁可/具申結実。**戦って勝つと出世する**を成立させる。続けて ADM-2 成長配線（#2303）・ADM-3 武名（#2304）。
+- ~~**SP0：一人称の人生を実プレイへ接続（★最優先・§3-0）**~~ ✅ **大半 完了**（PR #2593＝P1-a 会戦戦果→武勲・P1-b 主命を会戦結果駆動＋潜行会戦の成長/叙勲・P1-c 立身出世の永続＋政界転身/出自/継承ルーティング/執務机表示）。**残**＝P1-d 具申の結実・岐路の実行配線・継承の Game 接続。続けて ADM-2 成長配線（#2303）・ADM-3 武名（#2304）。
 - ~~**SP1：縦スライス完成**~~ ✅ **完了**（S5 税レバー＋国庫＋民心・S6 不満イベント提示モーダル＝`0d287ef`）
 - **SP2：RTS操作仕上げ** — ~~#83 グループ~~ ✅ → #86 アクティブポーズ → #84 ミニマップ
 - **SP3：係数集約 #106** — 実効値パターンの合流点を作る（挙動不変リファクタ・#72/#123 の前提）

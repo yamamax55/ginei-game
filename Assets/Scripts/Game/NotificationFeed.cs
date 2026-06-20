@@ -41,6 +41,7 @@ namespace Ginei
 
         private long lastSeq;
         private int activeTab;
+        private bool battleContext;        // 会戦シーンか（背景透過＋戦術イベント中心の表示にする）
         private bool collapsed;            // 最小化中（タイトルバーだけに畳む）
         private RectTransform window;     // 枠ウィンドウ本体（ドラッグ対象）
         private Transform rowsParent;     // 通知行の親（固定高）
@@ -72,6 +73,8 @@ namespace Ginei
         private void Awake()
         {
             jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
+            // 会戦シーンでは背景を透過し、主に戦術マップの出来事（戦闘/システム）を映す。
+            battleContext = SceneManager.GetActiveScene().name == "Battle";
             BuildUI();
             UpdateTabVisuals();
             lastSeq = NotificationCenter.LastSeq; // 以降の新着を検知する基準
@@ -99,7 +102,7 @@ namespace Ginei
         }
 
         /// <summary>通知が現在のタブに該当するか。タブ追加は分岐を足すだけ。</summary>
-        private static bool Match(int tab, Notification n)
+        private bool Match(int tab, Notification n)
         {
             switch (tab)
             {
@@ -107,7 +110,9 @@ namespace Ginei
                     return n.severity == NotificationSeverity.注意 || n.severity == NotificationSeverity.警告;
                 case 2: // 決裁＝政治カテゴリ（裁可/諮問/自動処理 等）
                     return n.category == NotificationCategory.政治;
-                default: // 0=全般
+                default: // 0=全般。会戦では戦術マップの出来事（戦闘/システム）に絞る。
+                    if (battleContext)
+                        return n.category == NotificationCategory.戦闘 || n.category == NotificationCategory.システム;
                     return true;
             }
         }
@@ -209,9 +214,10 @@ namespace Ginei
             window.sizeDelta = new Vector2(panelWidth, 0f);
 
             var bg = win.AddComponent<Image>();
-            bg.color = panelColor;
+            // 会戦は背景透過（盤面を塞がない）。ドラッグ判定が消えないよう完全透明でなく極薄にする。
+            bg.color = battleContext ? new Color(0f, 0f, 0f, 0.12f) : panelColor;
             var border = win.AddComponent<Outline>();
-            border.effectColor = borderColor;
+            border.effectColor = battleContext ? new Color(borderColor.r, borderColor.g, borderColor.b, 0.35f) : borderColor;
             border.effectDistance = new Vector2(2f, -2f);
 
             var winVlg = win.AddComponent<VerticalLayoutGroup>();
@@ -235,7 +241,8 @@ namespace Ginei
             var bar = new GameObject("TitleBar");
             bar.transform.SetParent(parent, false);
             var img = bar.AddComponent<Image>();
-            img.color = titleBarColor;
+            // 会戦はタイトルバーも半透明（ドラッグ可能なまま盤面を透かす）。
+            img.color = battleContext ? new Color(titleBarColor.r, titleBarColor.g, titleBarColor.b, 0.5f) : titleBarColor;
             var le = bar.AddComponent<LayoutElement>();
             le.minHeight = 30f;
             le.preferredHeight = 30f;

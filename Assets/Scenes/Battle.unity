@@ -1563,8 +1563,8 @@ MonoBehaviour:
   edgeMargin: 12
   edgeScrollSpeed: 18
   focusSmoothTime: 0.2
-  minBounds: {x: -50, y: -50}
-  maxBounds: {x: 50, y: 50}
+  minBounds: {x: -200, y: -200}
+  maxBounds: {x: 200, y: 200}
   shakeMagnitude: 0.15
   shakeDuration: 0.15
 --- !u!1 &617484520
@@ -3213,7 +3213,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.BattleSetup
   fleetPrefab: {fileID: 3578503135173150785, guid: 71710143821c7b3469685fe742dd896c, type: 3}
   scenarioOverride: {fileID: 0}
-  spawnSeparation: 2.5
+  spawnSeparation: 7.5
   siegeApproachRadius: 5
   siegeBesiegerRingRadius: 8.5
   siegeBesiegerCount: 6

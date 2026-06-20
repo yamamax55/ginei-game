@@ -25,7 +25,7 @@ namespace Ginei
 
         [Header("増援（時間差投入・#2182）")]
         [Tooltip("増援が出現する戦場端の半径")]
-        public float reinforcementEdgeRadius = 45f;
+        public float reinforcementEdgeRadius = 135f;
 
         // 増援の時限スポーン（game-time で経過を計る＝倍速/ポーズ追従）。
         private readonly System.Collections.Generic.List<ScenarioData.FleetEntry> pendingReinforcements = new System.Collections.Generic.List<ScenarioData.FleetEntry>();

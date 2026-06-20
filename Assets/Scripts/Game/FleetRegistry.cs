@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 namespace Ginei
 {
@@ -49,6 +50,44 @@ namespace Ginei
         {
             allTargets.Clear();
             allFlagships.Clear();
+        }
+
+        // ===== 会戦ごとの隔離（WIN-2 #2569）=====
+        // ウィンドウ化会戦（WIN-1）は会戦ごとに別シーンへ additive ロードされる。距離ベースの探索
+        // （ShipCombat/ZoneOfControl 等）は遠方オフセットで自然に隔離されるが、勝敗集計・初期化・カメラ
+        // フレーミングのように「範囲を問わず全旗艦を数える」処理は会戦をまたいで混ざってしまう。
+        // それらは下のシーン限定列挙を使い、自分の会戦シーンの艦だけを対象にする。
+        // 単一会戦（フルスクリーン）では当該シーン＝全艦なので従来と同一（後方互換）。
+
+        /// <summary>指定シーンに属する旗艦のみを返す（会戦ごとの勝敗集計・フレーミング用）。</summary>
+        public static IReadOnlyList<FleetStrength> FlagshipsIn(Scene scene)
+        {
+            var list = new List<FleetStrength>();
+            for (int i = 0; i < allFlagships.Count; i++)
+            {
+                FleetStrength fs = allFlagships[i];
+                if (fs != null && fs.gameObject.scene == scene) list.Add(fs);
+            }
+            return list;
+        }
+
+        /// <summary>指定シーンに属する攻撃対象（旗艦＋配下艦）のみを返す。</summary>
+        public static IReadOnlyList<IShipTarget> TargetsIn(Scene scene)
+        {
+            var list = new List<IShipTarget>();
+            for (int i = 0; i < allTargets.Count; i++)
+            {
+                IShipTarget t = allTargets[i];
+                if (t != null && t.Transform != null && t.Transform.gameObject.scene == scene) list.Add(t);
+            }
+            return list;
+        }
+
+        /// <summary>指定シーンに属する艦だけを在庫から外す（その会戦の開始時クリア。他会戦は残す）。</summary>
+        public static void ClearScene(Scene scene)
+        {
+            allTargets.RemoveAll(t => t == null || (t.Transform != null && t.Transform.gameObject.scene == scene));
+            allFlagships.RemoveAll(fs => fs == null || fs.gameObject.scene == scene);
         }
     }
 }

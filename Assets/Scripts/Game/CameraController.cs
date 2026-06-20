@@ -230,7 +230,8 @@ namespace Ginei
         private bool TryFrameWholeBattlefield()
         {
             if (cam == null) return false;
-            var flags = FleetRegistry.AllFlagships;
+            // WIN-2：自分の会戦シーンの旗艦のみを枠に収める（同時進行する他会戦の遠方艦を含めない）。
+            var flags = FleetRegistry.FlagshipsIn(gameObject.scene);
             if (flags == null || flags.Count == 0) return false;
 
             float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;

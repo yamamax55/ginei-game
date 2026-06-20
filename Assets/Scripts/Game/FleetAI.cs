@@ -49,6 +49,12 @@ namespace Ginei
         [Tooltip("速度優位がある交戦時、IdealRange に対する許容誤差（デッドゾーン）。射程の約10%を既定とする")]
         public float keetingDeadzone = 1.0f;
 
+        [Header("旗艦の取り囲み参加 #旗艦参加")]
+        [Tooltip("交戦中、旗艦も配下艦の取り囲みに少し後ろから加わる（射程の一定割合まで前進して射界維持）")]
+        public bool joinEncirclement = true;
+        [Tooltip("旗艦が前進して保つ間合い＝実効射程に対する割合（1.0=最大射程で待機／小さいほど前へ。少し後ろ＝0.7）")]
+        [Range(0.3f, 1f)] public float flagshipEngageRangeRatio = 0.7f;
+
         [Header("非戦闘艦の回避 #128")]
         [Tooltip("非戦闘艦（偵察/入植/輸送）がこの距離以内の敵から逃げる（戦線を張らず交戦を避ける）")]
         public float nonCombatEvadeRange = 22f;
@@ -288,8 +294,24 @@ if (Time.time >= nextSearchTime)
                         }
                         if (!kiting)
                         {
-                            // 速度優位なし・デッドゾーン内・速度情報不明＝従来動作（射界維持・停止）
-                            movement.FaceTarget(targetEnemy.transform.position);
+                            // 旗艦の取り囲み参加（#旗艦参加）：最大射程で待たず、配下艦の囲みに少し後ろから加わる。
+                            // 実効射程の flagshipEngageRangeRatio まで前進し、到達後は射界維持（配下艦より外側＝少し後ろ）。
+                            if (joinEncirclement && movement != null && weaponArc != null)
+                            {
+                                Vector2 pos2d = transform.position;
+                                Vector2 enemyPos2d = targetEnemy.transform.position;
+                                float dist = Vector2.Distance(pos2d, enemyPos2d);
+                                float desired = weaponArc.range * Mathf.Clamp(flagshipEngageRangeRatio, 0.3f, 1f);
+                                if (dist > desired + keetingDeadzone)
+                                    movement.SetDestination(enemyPos2d);             // まだ遠い→前進して囲みに加わる
+                                else
+                                    movement.FaceTarget(enemyPos2d);                 // 到達→射界維持（停止）
+                            }
+                            else
+                            {
+                                // 速度優位なし・デッドゾーン内・速度情報不明＝従来動作（射界維持・停止）
+                                movement.FaceTarget(targetEnemy.transform.position);
+                            }
                         }
                     }
                     break;

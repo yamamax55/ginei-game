@@ -54,14 +54,15 @@ namespace Ginei.Tests
         [Test]
         public void PovertyReduction_DiminishingReturns()
         {
-            // カバー率の前半より後半の伸びが小さい（逓減）
+            // 同じ幅(0.25)の区間どうしで、低カバー域より高カバー域の伸びが小さい（逓減＝sqrt の凹性）。
             var p = WelfareProvisionRules.Params.Default;
             float at25 = WelfareProvisionRules.PovertyReduction(0.25f, p);
             float at50 = WelfareProvisionRules.PovertyReduction(0.50f, p);
+            float at75 = WelfareProvisionRules.PovertyReduction(0.75f, p);
             float at100 = WelfareProvisionRules.PovertyReduction(1.00f, p);
-            float firstHalf = at50 - at25;
-            float secondHalf = at100 - at50;
-            Assert.Less(secondHalf, firstHalf);
+            float lowSpan = at50 - at25;   // 低域の同幅区間
+            float highSpan = at100 - at75; // 高域の同幅区間
+            Assert.Less(highSpan, lowSpan);
         }
 
         [Test]

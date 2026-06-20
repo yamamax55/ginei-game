@@ -174,6 +174,12 @@ namespace Ginei
                 TextMesh sl = kv.Value;
                 if (s == null || s.planet == null || sl == null) continue;
                 Planet p = s.planet;
+                // 攻城中（敵対艦隊が在席）のときだけ状態を表示。占領完了/解囲でラベルを消す（残存バグ修正）。
+                if (!IsActiveSiege(s, p))
+                {
+                    if (sl.text.Length != 0) sl.text = "";
+                    continue;
+                }
                 if (!p.DomainDown)
                 {
                     sl.text = $"制空{Mathf.CeilToInt(100f * p.orbitalDefense / Mathf.Max(1f, p.maxOrbitalDefense))}%";

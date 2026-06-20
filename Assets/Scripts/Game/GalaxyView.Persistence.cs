@@ -33,6 +33,104 @@ namespace Ginei
             BattleHandoff.Clear();
         }
 
+        /// <summary>
+        /// 防衛惑星の攻城を1tick進め、<b>攻城開始</b>と<b>占領完了</b>を通知へ出す（自動解決経路）。
+        /// あわせて攻城中の星系集合 <see cref="besiegedSystems"/> を更新＝占領が終われば集合から外れ、
+        /// ラベル（制空/侵攻%）は <see cref="IsActiveSiege"/> 判定で消える（占領後にラベルが残らない）。
+        /// </summary>
+        private void RunPlanetSiegeTick(float dt)
+        {
+            if (map == null || reg == null || dt <= 0f) return;
+
+            // 1) 攻城開始の検出（敵対艦隊が在席し始めた惑星）＋占領前の所有を控える。
+            //    占領完了の差分検出のため、攻城中の惑星の現所有を一時記録する。
+            var ownerBefore = new Dictionary<int, Faction>();
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.planet == null) continue;
+                bool active = IsActiveSiege(s, s.planet);
+                bool was = besiegedSystems.Contains(s.id);
+                if (active)
+                {
+                    ownerBefore[s.id] = s.planet.owner;
+                    if (!was)
+                    {
+                        besiegedSystems.Add(s.id);
+                        StrategicFleet b = FindBesieger(s.id, s.planet.owner);
+                        string who = b != null ? b.faction.ToString() : "敵艦隊";
+                        NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
+                            $"{who} が {s.systemName} の攻城を開始");
+                    }
+                }
+                else if (was)
+                {
+                    // 攻城が解かれた（攻め手が去った／守りが固まった）＝占領前に解囲。
+                    besiegedSystems.Remove(s.id);
+                }
+            }
+
+            // 2) 攻城を進める（占領で planet/owner がフリップ）。
+            StrategyRules.TickSieges(map, reg, dt, new SiegeParams(siegeSuppressRate, siegeInvadeRate, siegeDefenseRegen));
+
+            // 3) 占領完了の検出（攻城中だった惑星の所有が変わった）。
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.planet == null) continue;
+                if (ownerBefore.TryGetValue(s.id, out Faction before) && before != s.planet.owner)
+                {
+                    besiegedSystems.Remove(s.id);
+                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
+                        $"{s.planet.owner} が {s.systemName} を占領");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 無防備星系の停泊占領（<see cref="StrategyRules.ResolveAllOccupations"/>）を実行し、所有が移った非防衛星系を
+        /// 「占領完了」として通知する（惑星攻城は <see cref="RunPlanetSiegeTick"/> が担うので二重通知しない＝惑星持ちは除外）。
+        /// </summary>
+        private void NotifyStationingCaptures()
+        {
+            if (map == null || reg == null) { StrategyRules.ResolveAllOccupations(map, reg); return; }
+
+            var ownerBefore = new Dictionary<int, Faction>();
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.planet != null) continue; // 惑星持ちは攻城経路で通知
+                ownerBefore[s.id] = s.owner;
+            }
+
+            StrategyRules.ResolveAllOccupations(map, reg);
+
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.planet != null) continue;
+                if (ownerBefore.TryGetValue(s.id, out Faction before) && before != s.owner)
+                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
+                        $"{s.owner} が {s.systemName} を占領");
+            }
+        }
+
+        /// <summary>
+        /// その防衛惑星が現に攻城されているか（敵対艦隊が在席）。<see cref="StrategyRules.TickSieges"/> の攻め手判定と同条件。
+        /// ラベル表示（制空/侵攻%）と攻城通知の両方がこの単一判定を使う＝占領完了/解囲でラベルが残らない。
+        /// </summary>
+        private bool IsActiveSiege(StarSystem s, Planet p)
+        {
+            if (s == null || p == null || reg == null) return false;
+            List<StrategicFleet> present = reg.FleetsAt(s.id);
+            for (int k = 0; k < present.Count; k++)
+            {
+                StrategicFleet f = present[k];
+                if (f != null && FactionRelations.IsHostile(null, f.faction, null, p.owner)) return true;
+            }
+            return false;
+        }
+
         // --- 政体進化（#117 配線）：首長制→民主/独裁→下位形態 ---
         private bool regimeFormsSeeded;
 

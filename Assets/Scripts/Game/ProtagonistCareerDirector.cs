@@ -47,6 +47,7 @@ namespace Ginei
         public PersonRelationGraph Relations { get; private set; }
         public ProtagonistChronicle Chronicle { get; private set; }
         public IReadOnlyList<CascadeLevel> Cascade => cascade;
+        public PersonOrigin Origin { get; private set; } // 出自（採用「出自選択」・平民/貴族/王家）
 
         private List<CascadeLevel> cascade;
         private Faction pf = Faction.同盟;
@@ -285,8 +286,10 @@ namespace Ginei
         {
             if (!ready || Protagonist == null) return new ProtagonistCareerSave { hasData = false };
             Growth heroGrowth = heroAdmiralKey != 0 ? GrowthRegistry.Get(heroAdmiralKey) : null;
-            return ProtagonistCareerSerializer.Capture(Protagonist, Merit, ActiveMandate,
+            ProtagonistCareerSave save = ProtagonistCareerSerializer.Capture(Protagonist, Merit, ActiveMandate,
                 lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount, heroGrowth, Chronicle);
+            save.origin = (int)Origin;
+            return save;
         }
 
         // ===== セットアップ =====
@@ -298,6 +301,7 @@ namespace Ginei
 
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;
+            Origin = gs != null ? gs.selectedOrigin : OriginRules.Default; // 出自（復元時は下で上書き）
             // 立身出世は尉官〜元帥の完全ラダーで段階昇進させる（playerFactionData は将官のみのことが多く段が飛ぶため）。
             FactionRanks = BuildCareerLadder();
 
@@ -335,6 +339,7 @@ namespace Ginei
                 if (loaded.hasGrowth && heroAdmiralKey != 0)
                     GrowthRegistry.GetOrCreate(heroAdmiralKey, (GrowthArchetype)loaded.growthArchetype).experience = loaded.growthExperience;
                 ProtagonistCareerSerializer.ApplyChronicle(loaded, Chronicle); // 一代記（TKO-6）を復元
+                Origin = (PersonOrigin)loaded.origin; // 出自を復元
                 PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 lastCouncilMonth = loaded.lastCouncilMonth;
                 Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");
@@ -347,7 +352,7 @@ namespace Ginei
             // 士官学校から任官（TKO-1）。
             var academy = new Academy(7, pf, "士官学校", 200, 0.55f);
             var outcome = ProtagonistCareerRules.EnrollWithClass(Protagonist, academy, 60, EnrollYear, 910000, i => Random.value);
-            ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.入校, "士官学校へ入校");
+            ProtagonistChronicleRules.Record(Chronicle, 0, ChronicleEventKind.入校, $"{OriginRules.Title(Origin)}・士官学校へ入校");
             // 任官は少尉から（大学校卒＝大尉 fast-track）。准将までは月次評定のモンタージュで駆け上がる（TKO-12）。
             int commission = MilitaryAcademyRules.CommissionTier(outcome.degree, outcome.hammockNumber);
             if (commission <= 0) commission = 1; // 主人公は最低 少尉で任官

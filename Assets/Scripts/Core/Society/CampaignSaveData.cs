@@ -40,6 +40,7 @@ namespace Ginei
         public int personId;
         public string name;
         public int rankTier;
+        public int origin;           // (int)PersonOrigin（出自・既定0=平民＝後方互換）
         // 能力（成長で動くので保存＝基準は AdmiralData だが在席値を継続）
         public int leadership, attack, defense, mobility, operation, intelligence;
         // 武勲台帳（MeritRecord）

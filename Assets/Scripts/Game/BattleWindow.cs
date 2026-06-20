@@ -129,7 +129,25 @@ namespace Ginei
             {
                 Debug.LogWarning("BattleWindow: 会戦カメラが見つかりませんでした（additive ロード後）。");
             }
+
+            // 会戦シーンに含まれる EventSystem を無効化（戦略シーンの1つに統一）。
+            // additive ロードで EventSystem が複数になると「2 event systems」警告が大量に出て uGUI 入力が競合する。
+            DisableSceneEventSystems(scene);
+
             onLoaded?.Invoke(this);
+        }
+
+        /// <summary>指定シーン内の EventSystem をすべて無効化する（複数 EventSystem の競合/警告を防ぐ）。</summary>
+        private static void DisableSceneEventSystems(Scene scene)
+        {
+            if (!scene.IsValid()) return;
+            GameObject[] roots = scene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                EventSystem[] systems = roots[i].GetComponentsInChildren<EventSystem>(true);
+                for (int j = 0; j < systems.Length; j++)
+                    if (systems[j] != null) systems[j].gameObject.SetActive(false);
+            }
         }
 
         private static Camera FindBattleCamera(Scene scene)

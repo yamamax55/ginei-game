@@ -218,13 +218,18 @@ namespace Ginei
         /// <summary>能力値の上限（補完してもこれを超えない）。</summary>
         public const int MaxStatValue = 100;
 
-        // ===== 実効能力（基準値＋参謀補完。基準フィールドは非破壊）=====
-        public int EffectiveLeadership   => ComputeEffective(leadership,   s => s.leadership);
-        public int EffectiveAttack       => ComputeEffective(attack,       s => s.attack);
-        public int EffectiveDefense      => ComputeEffective(defense,      s => s.defense);
-        public int EffectiveMobility     => ComputeEffective(mobility,     s => s.mobility);
+        // ===== 実効能力（基準値＋会戦成長(ADM-2 #2303)＋参謀補完。基準フィールドは非破壊）=====
+        // 戦闘4能力は会戦成長(GrowthRules#537)を畳み込んでから参謀補完＝会戦の戦果が次の会戦の実効能力に効く。
+        public int EffectiveLeadership   => ComputeEffective(AdmiralGrowthRules.GrownStat(leadership, RuntimeGrowth), s => s.leadership);
+        public int EffectiveAttack       => ComputeEffective(AdmiralGrowthRules.GrownStat(attack,     RuntimeGrowth), s => s.attack);
+        public int EffectiveDefense      => ComputeEffective(AdmiralGrowthRules.GrownStat(defense,    RuntimeGrowth), s => s.defense);
+        public int EffectiveMobility     => ComputeEffective(AdmiralGrowthRules.GrownStat(mobility,   RuntimeGrowth), s => s.mobility);
         public int EffectiveOperation    => ComputeEffective(operation,    s => s.operation);
         public int EffectiveIntelligence => ComputeEffective(intelligence, s => s.intelligence);
+
+        /// <summary>実行時の成長（会戦XP・ADM-2 #2303）。`GrowthRegistry`（id キー・P1-b 永続＝会戦で蓄積）を優先し、
+        /// 無ければ SO の <see cref="growth"/> フィールド（設計時の初期成長）。null＝成長なし＝従来動作（後方互換）。</summary>
+        private Growth RuntimeGrowth => GrowthRegistry.Get(GetInstanceID()) ?? growth;
 
         /// <summary>
         /// 基準値に「参謀（最大MaxStaff名）の当該能力の最高値×staffBonusRatio」を加えた実効値を返す。

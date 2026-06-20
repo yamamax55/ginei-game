@@ -39,6 +39,7 @@
 ## 開発ログ（dev-log/）
 - [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。
 - [`2026-06-10-time-fleet-notification.md`](./dev-log/2026-06-10-time-fleet-notification.md) — **統一時間 TIME-1〜7（#946/#959）／艦隊編成プール（#148/#884）／通知システム（#964）** を配線。詳細は `CLAUDE.md` の「時間・暦・通知システム」「艦隊編成プール」節。
+- [`2026-06-20-blender-battleship-3d.md`](./dev-log/2026-06-20-blender-battleship-3d.md) — **Blender MCPで戦艦を3D化**（流線型化・高さ3倍・噴射パーティクル／約600パーツ）。成果は PR #2594（`Battleship3D.blend`）＋ PR #2595（`blender-to-unity-3d-pipeline.md`）。Blender→Unityの落とし穴（パーティクル/手続き材質は持ち出せない・重ねムービーの透過）を整理。
 
 ## 推奨の読む順
 1. **世界観**：`worldbuilding-bible.md`（勢力・命名・年表の前提）

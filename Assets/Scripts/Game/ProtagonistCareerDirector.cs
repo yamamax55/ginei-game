@@ -52,13 +52,21 @@ namespace Ginei
         public Growth HeroGrowth => heroAdmiralKey != 0 ? GrowthRegistry.Get(heroAdmiralKey) : null;
         /// <summary>不満（主命失敗で増・達成で減）＝岐路判定の入力。</summary>
         public float Grievance => grievance;
+        /// <summary>武名（ADM-3 #2304・0..100・政界転身の政治資本）。</summary>
+        public int Fame => fame;
 
         private List<CascadeLevel> cascade;
         private Faction pf = Faction.同盟;
         private int lastCouncilMonth;
         private int heroAdmiralKey; // 主人公の AdmiralData.GetInstanceID()＝会戦成長台帳 GrowthRegistry のキー（P1-b 永続）
         private float grievance;    // 不満（主命失敗で増・達成で減）＝岐路判定 CareerForkRules 用
+        private int fame;           // 武名（ADM-3 #2304・戦功で上がり政界転身の資本に・RenownRules）
+        private int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可＝序列内・MEYASU の決裁デスクは通さない）
+        private bool retired;       // 下野（TKO-7 岐路）＝月次ループを止める
+        private int ageMonths;      // 主人公の年齢（月）＝加齢/老衰死・継承の駆動（LifecycleRules）
         private bool ready;
+
+        private const int StartAgeMonths = 18 * 12; // 任官時の年齢（士官学校卒～18歳）
 
         // 会戦の戦果インボックス（別シーンの BattleManager が積む・static で Battle→Strategy を跨いで保持）。
         // 次の月次評定でドレインして武勲化＝立身出世が「時間経過」でなく「会戦の結果」で進む（P1-a #2477）。
@@ -144,7 +152,9 @@ namespace Ginei
 
         private void RunCouncil(int month)
         {
-            if (Protagonist == null) return;
+            if (Protagonist == null || retired) return; // 下野/一代記完結後はループ停止（舞台を降りた）
+            ageMonths++;
+            if (ageMonths % 12 == 0 && CheckDeathAndSuccession(month)) return; // 加齢→老衰死→継承/一代記完結
             int beforeTier = Protagonist.rankTier;
 
             // 尉官/佐官時代は日々の勤務で武勲が少しずつ積む（昇進モンタージュ＝准将で実艦隊指揮へ）。
@@ -193,6 +203,23 @@ namespace Ginei
                     $"［将官昇任］{Protagonist.name} が {RankName(Protagonist.rankTier)} に列し、実艦隊の指揮を委ねられる");
             }
 
+            // 具申の結実（TKO-4・序列内）：上官が拾って裁可＝採用で建白採用の武勲。MEYASU の決裁デスク（god-view）は通さない。
+            if (pendingPetitions > 0)
+            {
+                float pf2 = (Relations != null && Sovereign != null)
+                    ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
+                float adoptChance = Mathf.Clamp01(0.35f + pf2 * 0.4f); // 上官との関係が良いほど拾われる
+                int adopted = 0;
+                for (int i = 0; i < pendingPetitions; i++) if (Random.value < adoptChance) adopted++;
+                pendingPetitions = 0;
+                if (adopted > 0)
+                {
+                    MeritRecordRules.Record(Merit, ExploitKind.建白採用, adopted, MeritP);
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.武勲, $"建白{adopted}件が容れられた");
+                    Push(NotificationSeverity.情報, $"［建白採用］具申{adopted}件が上官に容れられ武勲を得た");
+                }
+            }
+
             // 新たな主命をカスケードで拝命（君主の主命を指揮系統で噛み砕き末端へ）。
             if (ActiveMandate == null && Random.value < issueChance)
             {
@@ -216,9 +243,44 @@ namespace Ginei
             int sink = Mathf.Clamp(Mathf.RoundToInt(dmg / DamagePerSinkMerit), 0, MaxBattleMerit);
             if (sink > 0) MeritRecordRules.Record(Merit, ExploitKind.撃沈, sink, MeritP);   // 与ダメ→撃沈功績
             if (wins > 0) MeritRecordRules.Record(Merit, ExploitKind.旗艦撃破, wins, MeritP); // 勝利→殊勲
+            fame = RenownRules.Gain(fame, sink + wins * 5); // 戦功で武名が上がる（ADM-3・大勝ほど＝政界転身の資本）
             if (sink > 0 || wins > 0)
                 Push(NotificationSeverity.情報, "［戦功］会戦の働きで武勲を得た");
             return wins > 0;
+        }
+
+        // 年境界で老衰死を判定し、死んだら継承（貴族/王家）or 一代記完結（平民）を処理する（採用「死で詰まない」・#907 解答）。
+        // 戻り値 true＝この月は死亡処理で終える。
+        private bool CheckDeathAndSuccession(int month)
+        {
+            int age = ageMonths / 12;
+            if (!LifecycleRules.ShouldDieOfAge(age, Random.value, 1, LifecycleRules.LifespanParams.Default)) return false;
+
+            ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.死去, $"{Protagonist.name} 逝去（享年{age}）");
+
+            bool noble = OriginRules.InheritsOnDeath(Origin);
+            if (ProtagonistSuccessionRules.ContinuesAsHeir(Origin, hasHeir: noble))
+            {
+                // 貴族/王家＝世継ぎが家督を継ぎ操作座を引き継ぐ（家督は継ぐが武勲/武名/成長は自分で立て直す）。
+                Person heir = ProtagonistHeirRules.CreateHeir(Protagonist, Origin, ProtagonistId, Protagonist.name + "の世継ぎ", EnrollYear + age);
+                Protagonist = heir;
+                Merit = new MeritRecord(ProtagonistId);
+                fame = 0; grievance = 0f; pendingPetitions = 0; retired = false;
+                ActiveMandate = null;
+                ageMonths = StartAgeMonths;
+                if (heroAdmiralKey != 0 && GrowthRegistry.Has(heroAdmiralKey)) GrowthRegistry.Get(heroAdmiralKey).experience = 0f;
+                if (Relations != null && Sovereign != null) PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
+                ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路,
+                    $"{heir.name} が家督を継ぎ {RankName(heir.rankTier)} に出仕");
+                Push(NotificationSeverity.警告, $"［継承］{heir.name} が家督を継いだ（{RankName(heir.rankTier)}）");
+                return true;
+            }
+
+            // 平民＝一代記の完結。次の主人公は新規プレイで（自動では始めない＝肥大化防止）。
+            retired = true;
+            ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.死去, "一代記、ここに完結（平民の叩き上げは一代限り）");
+            Push(NotificationSeverity.警告, $"［一代記完結］{Protagonist.name} の生涯が幕を閉じた（新規プレイで次の主人公を）");
+            return true;
         }
 
         private SovereignMandate IssueViaCascade(int month)
@@ -271,7 +333,8 @@ namespace Ginei
             Petition pet = PersonRingiRules.RaiseTo(id, $"{Protagonist.name}の建白", Protagonist, superior, "career.petition");
             if (pet == null) { Push(NotificationSeverity.注意, "具申の資格がありません（上官でない）"); return false; }
             RingiDirector.Ledger.Add(pet);
-            Push(NotificationSeverity.情報, $"［具申］{superior.CharacterName} へ建白を提出（稟議 Alt+I で確認）");
+            pendingPetitions++; // 月次評定で上官（序列内）が裁可する＝結実すれば建白採用の武勲（P1-d）
+            Push(NotificationSeverity.情報, $"［具申］{superior.CharacterName} へ建白を提出（稟議 Alt+I で確認・月次評定で裁可）");
             return true;
         }
 
@@ -297,6 +360,11 @@ namespace Ginei
                 lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount, heroGrowth, Chronicle);
             save.origin = (int)Origin;
             save.grievance = grievance;
+            save.fame = fame;
+            save.pendingPetitions = pendingPetitions;
+            save.retired = retired;
+            save.politician = Protagonist != null && Protagonist.isPolitician;
+            save.ageMonths = ageMonths;
             return save;
         }
 
@@ -309,8 +377,53 @@ namespace Ginei
                 ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
             float loyalty = Mathf.Clamp01(0.5f + favor * 0.5f); // 親密度→忠誠の近似
             float merit01 = MeritRecordRules.MeritScore01(Merit, MeritP);
-            return CareerForkRules.AvailableForks(loyalty, grievance, merit01,
+            float politics01 = Mathf.Clamp01(fame / 100f); // 政界転身は武名（ADM-3）を資本に
+            return CareerForkRules.AvailableForks(loyalty, grievance, merit01, politics01,
                 Mathf.Clamp(favor, -1f, 1f), Protagonist.rankTier, CareerForkRules.ForkParams.Default);
+        }
+
+        /// <summary>
+        /// 主人公が岐路を選んで実行する（TKO-7・一人称の自由意志）。開かれた進路か（<see cref="AvailableForks"/>）＋前提
+        /// （<see cref="CareerForkExecutionRules.CanExecute"/>）を確認し、振り分け先（<see cref="CareerForkExecutionRules.ExecutorFor"/>）で
+        /// 内部状態を変える＝下野=月次ループ停止／政界転身=政治家フラグ／亡命・独立=記録＋通知（戦略への反映は後段の Game 配線）。
+        /// 実行できなければ通知して false。執務机のボタンから呼ぶ。
+        /// </summary>
+        public bool ExecuteFork(CareerFork f)
+        {
+            if (Protagonist == null) return false;
+            if (!AvailableForks().Contains(f)) { Push(NotificationSeverity.注意, "その進路はまだ開かれていません"); return false; }
+            bool hasEnemyHaven = true;                       // 多勢力＝迎える敵は居る（厳密な受入判定は後段）
+            bool hasIndependenceBase = Protagonist.rankTier >= 8; // 大将以上の stature（独立の拠点）
+            bool hasPoliticalOpening = true;                 // 政界の受け皿（政党#159 配線は後段）
+            if (!CareerForkExecutionRules.CanExecute(f, hasEnemyHaven, hasIndependenceBase, hasPoliticalOpening))
+            { Push(NotificationSeverity.注意, "その進路は今は実行できません（前提不足）"); return false; }
+
+            int month = lastCouncilMonth;
+            switch (CareerForkExecutionRules.ExecutorFor(f))
+            {
+                case ForkExecutor.なし:
+                    Push(NotificationSeverity.情報, "忠勤を続ける");
+                    break;
+                case ForkExecutor.退役:
+                    retired = true;
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "下野（軍を辞す）");
+                    Push(NotificationSeverity.注意, $"［岐路］{Protagonist.name} は下野した（軍を辞す）");
+                    break;
+                case ForkExecutor.政界入り:
+                    Protagonist.isPolitician = true;
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "政界転身（政治家提督へ）");
+                    Push(NotificationSeverity.情報, $"［岐路］{Protagonist.name} は政界へ転身した（政治家提督）");
+                    break;
+                case ForkExecutor.亡命受入:
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "亡命（敵勢力へ）");
+                    Push(NotificationSeverity.警告, $"［岐路］{Protagonist.name} は亡命を選んだ（戦略への反映は後段）");
+                    break;
+                case ForkExecutor.独立樹立:
+                    ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, "独立（旗揚げ）");
+                    Push(NotificationSeverity.警告, $"［岐路］{Protagonist.name} は独立の旗を揚げた（戦略への反映は後段）");
+                    break;
+            }
+            return true;
         }
 
         // ===== セットアップ =====
@@ -319,7 +432,7 @@ namespace Ginei
         {
             // 戦果インボックスを新戦役ぶんでリセット（前のプレイの残留を持ち込まない）。
             pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
-            grievance = 0f;
+            grievance = 0f; fame = 0; pendingPetitions = 0; retired = false; ageMonths = StartAgeMonths;
 
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;
@@ -363,6 +476,11 @@ namespace Ginei
                 ProtagonistCareerSerializer.ApplyChronicle(loaded, Chronicle); // 一代記（TKO-6）を復元
                 Origin = (PersonOrigin)loaded.origin; // 出自を復元
                 grievance = loaded.grievance;
+                fame = loaded.fame;
+                pendingPetitions = loaded.pendingPetitions;
+                retired = loaded.retired;
+                Protagonist.isPolitician = loaded.politician;
+                ageMonths = loaded.ageMonths > 0 ? loaded.ageMonths : StartAgeMonths;
                 PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 lastCouncilMonth = loaded.lastCouncilMonth;
                 Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");

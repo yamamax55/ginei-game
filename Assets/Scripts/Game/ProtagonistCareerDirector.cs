@@ -233,6 +233,12 @@ namespace Ginei
             }
         }
 
+        // 主人公の実行時武名を会戦の鼓舞（ShipCombat）へ反映＝AdmiralData の InstanceID キーで FameRegistry へ。
+        private void SyncFameToRegistry()
+        {
+            if (heroAdmiralKey != 0) FameRegistry.Set(heroAdmiralKey, fame);
+        }
+
         // インボックスの戦果を武勲へ変換し、勝利の有無を返す（主命達成の主因判定に使う）。
         private bool DrainBattleMerit(int month)
         {
@@ -244,6 +250,7 @@ namespace Ginei
             if (sink > 0) MeritRecordRules.Record(Merit, ExploitKind.撃沈, sink, MeritP);   // 与ダメ→撃沈功績
             if (wins > 0) MeritRecordRules.Record(Merit, ExploitKind.旗艦撃破, wins, MeritP); // 勝利→殊勲
             fame = RenownRules.Gain(fame, sink + wins * 5); // 戦功で武名が上がる（ADM-3・大勝ほど＝政界転身の資本）
+            SyncFameToRegistry(); // 稼いだ武名を会戦（ShipCombat の鼓舞）へ反映（ADM-3）
             if (sink > 0 || wins > 0)
                 Push(NotificationSeverity.情報, "［戦功］会戦の働きで武勲を得た");
             return wins > 0;
@@ -268,6 +275,7 @@ namespace Ginei
                 fame = 0; grievance = 0f; pendingPetitions = 0; retired = false;
                 ActiveMandate = null;
                 ageMonths = StartAgeMonths;
+                SyncFameToRegistry(); // 世継ぎは武名も一から（会戦の鼓舞もリセット）
                 if (heroAdmiralKey != 0 && GrowthRegistry.Has(heroAdmiralKey)) GrowthRegistry.Get(heroAdmiralKey).experience = 0f;
                 if (Relations != null && Sovereign != null) PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路,
@@ -477,6 +485,7 @@ namespace Ginei
                 Origin = (PersonOrigin)loaded.origin; // 出自を復元
                 grievance = loaded.grievance;
                 fame = loaded.fame;
+                SyncFameToRegistry(); // 続きからでも武名が会戦に効く
                 pendingPetitions = loaded.pendingPetitions;
                 retired = loaded.retired;
                 Protagonist.isPolitician = loaded.politician;

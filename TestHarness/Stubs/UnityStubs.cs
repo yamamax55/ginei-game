@@ -23,6 +23,10 @@ namespace UnityEngine
     public class Object
     {
         public string name = "";
+        // インスタンス固有の安定ID（UnityEngine.Object.GetInstanceID 相当）。GrowthRegistry 等の id キーに使う。
+        private int _instanceId;
+        private static int _instanceIdCounter = 1;
+        public int GetInstanceID() { if (_instanceId == 0) _instanceId = _instanceIdCounter++; return _instanceId; }
         public static void Destroy(Object obj) { }
         public static void DestroyImmediate(Object obj) { }
     }

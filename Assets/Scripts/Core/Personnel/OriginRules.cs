@@ -33,6 +33,21 @@ namespace Ginei
         /// <summary>主人公の死で操作座をどう継ぐか＝貴族/王家は継承(#646)で世継ぎへ、平民は一代記の完結→新規（#907 の解答）。</summary>
         public static bool InheritsOnDeath(PersonOrigin o) => IsNoble(o);
 
+        /// <summary>
+        /// 出自による初任等級の下限（採用「出自選択」＝“スタートの段”が変わる）。平民0＝士官学校の結果のまま（叩き上げ）／
+        /// 貴族2＝大尉相当（幼年学校・門閥の下駄）／王家3＝少佐相当（王室教育）。実際の任官は<b>この下限と学校結果の高い方</b>。
+        /// 数値は控えめな既定＝<b>要・作者調整</b>（門地開放#169 で平民も上り、貴族/王家は入口で先行する程度）。
+        /// </summary>
+        public static int CommissionFloor(PersonOrigin o)
+        {
+            switch (o)
+            {
+                case PersonOrigin.貴族: return 2;
+                case PersonOrigin.王家: return 3;
+                default: return 0;
+            }
+        }
+
         /// <summary>出自の軍歴の入口（学校）。平民→士官学校／貴族→幼年学校／王家→王室教育（実体の選抜は既存へ接続）。</summary>
         public static EnrollPath PathFor(PersonOrigin o)
         {

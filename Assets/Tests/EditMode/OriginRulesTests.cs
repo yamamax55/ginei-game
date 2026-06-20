@@ -58,6 +58,14 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void CommissionFloor_NobleAndRoyalStartHigher()
+        {
+            Assert.AreEqual(0, OriginRules.CommissionFloor(PersonOrigin.平民));
+            Assert.AreEqual(2, OriginRules.CommissionFloor(PersonOrigin.貴族));
+            Assert.AreEqual(3, OriginRules.CommissionFloor(PersonOrigin.王家));
+        }
+
+        [Test]
         public void Title_NonEmpty()
         {
             Assert.IsNotEmpty(OriginRules.Title(PersonOrigin.平民));

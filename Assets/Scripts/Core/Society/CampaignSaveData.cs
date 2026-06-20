@@ -53,6 +53,7 @@ namespace Ginei
         // 月次ループ状態
         public int lastCouncilMonth;
         public int nextMandateId;
+        public float grievance;      // 不満（主命失敗の蓄積・岐路判定 CareerForkRules 用）
         // 会戦戦果の未処理インボックス（戦果→武勲は次の月次評定で変換＝保存中に失わない）
         public float pendingBattleDamage;
         public int pendingBattleVictories, pendingBattleCount;

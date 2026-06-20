@@ -286,7 +286,7 @@ namespace Ginei
             if (!ready || Protagonist == null) return new ProtagonistCareerSave { hasData = false };
             Growth heroGrowth = heroAdmiralKey != 0 ? GrowthRegistry.Get(heroAdmiralKey) : null;
             return ProtagonistCareerSerializer.Capture(Protagonist, Merit, ActiveMandate,
-                lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount, heroGrowth);
+                lastCouncilMonth, nextMandateId, pendingBattleDamage, pendingBattleVictories, pendingBattleCount, heroGrowth, Chronicle);
         }
 
         // ===== セットアップ =====
@@ -334,6 +334,7 @@ namespace Ginei
                 // 会戦で得た提督の成長（XP）を復元（P1-b 永続＝捨てない）。会戦時の GrowthRegistry キーと一致。
                 if (loaded.hasGrowth && heroAdmiralKey != 0)
                     GrowthRegistry.GetOrCreate(heroAdmiralKey, (GrowthArchetype)loaded.growthArchetype).experience = loaded.growthExperience;
+                ProtagonistCareerSerializer.ApplyChronicle(loaded, Chronicle); // 一代記（TKO-6）を復元
                 PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.3f);
                 lastCouncilMonth = loaded.lastCouncilMonth;
                 Push(NotificationSeverity.情報, $"［復帰］{Protagonist.name}＝{RankName(Protagonist.rankTier)}（武勲{Merit.points:0}）");

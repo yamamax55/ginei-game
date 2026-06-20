@@ -60,6 +60,18 @@ namespace Ginei
         public int mandateId, mandateFaction, mandateIssuerId, mandateAssigneeId;
         public int mandateKind, mandateStatus, mandateIssuedMonth, mandateDueMonth;
         public string mandateObjective;
+        // 一代記（TKO-6・生涯イベント）。空=後方互換。
+        public int chronicleDropped;
+        public List<ChronicleEntrySave> chronicle = new List<ChronicleEntrySave>();
+    }
+
+    /// <summary>一代記の一行（TKO-6・<see cref="ChronicleEntry"/>）のセーブ平データ。</summary>
+    [Serializable]
+    public class ChronicleEntrySave
+    {
+        public int monthIndex;
+        public int kind;      // (int)ChronicleEventKind
+        public string note;
     }
 
     /// <summary>惑星内政（<see cref="Province"/>）のセーブ平データ。安定度/統合/経済/希少資源の継続。

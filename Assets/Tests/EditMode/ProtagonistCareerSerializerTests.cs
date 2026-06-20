@@ -111,6 +111,27 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void RoundTrip_Chronicle_Preserved()
+        {
+            Person hero = MakeHero();
+            var chron = new ProtagonistChronicle();
+            ProtagonistChronicleRules.Record(chron, 0, ChronicleEventKind.入校, "士官学校へ入校");
+            ProtagonistChronicleRules.Record(chron, 5, ChronicleEventKind.昇進, "准将へ");
+            ProtagonistChronicleRules.Record(chron, 9, ChronicleEventKind.主命達成, "占領を完遂");
+
+            ProtagonistCareerSave d = ProtagonistCareerSerializer.Capture(hero, null, null, 0, 0, 0f, 0, 0, null, chron);
+            Assert.AreEqual(3, d.chronicle.Count);
+
+            var restored = new ProtagonistChronicle();
+            ProtagonistCareerSerializer.ApplyChronicle(d, restored);
+            Assert.AreEqual(3, restored.Count);
+            Assert.AreEqual(ChronicleEventKind.入校, restored.entries[0].kind);
+            Assert.AreEqual("准将へ", restored.entries[1].note);
+            Assert.AreEqual(9, restored.entries[2].monthIndex);
+            Assert.AreEqual(ChronicleEventKind.主命達成, restored.entries[2].kind);
+        }
+
+        [Test]
         public void Capture_NoGrowth_HasGrowthFalse()
         {
             Person hero = MakeHero();

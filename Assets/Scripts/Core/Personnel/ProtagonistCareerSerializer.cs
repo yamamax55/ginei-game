@@ -11,7 +11,7 @@ namespace Ginei
         /// <summary>主人公の立身出世状態を平データへ写す（<paramref name="hero"/> 必須・他は null/0 可）。</summary>
         public static ProtagonistCareerSave Capture(Person hero, MeritRecord merit, SovereignMandate mandate,
             int lastCouncilMonth, int nextMandateId, float pendingBattleDamage, int pendingBattleVictories, int pendingBattleCount,
-            Growth growth = null)
+            Growth growth = null, ProtagonistChronicle chronicle = null)
         {
             if (hero == null) return new ProtagonistCareerSave { hasData = false };
             var d = new ProtagonistCareerSave
@@ -55,7 +55,32 @@ namespace Ginei
                 d.mandateDueMonth = mandate.dueMonth;
                 d.mandateObjective = mandate.objective ?? "";
             }
+            if (chronicle != null)
+            {
+                d.chronicleDropped = chronicle.droppedCount;
+                for (int i = 0; i < chronicle.entries.Count; i++)
+                {
+                    ChronicleEntry e = chronicle.entries[i];
+                    if (e == null) continue;
+                    d.chronicle.Add(new ChronicleEntrySave { monthIndex = e.monthIndex, kind = (int)e.kind, note = e.note ?? "" });
+                }
+            }
             return d;
+        }
+
+        /// <summary>平データの一代記を既存の <see cref="ProtagonistChronicle"/> へ復元する（既存を消してから入れ直す）。</summary>
+        public static void ApplyChronicle(ProtagonistCareerSave d, ProtagonistChronicle into)
+        {
+            if (into == null) return;
+            into.Clear();
+            if (d == null || !d.hasData || d.chronicle == null) return;
+            for (int i = 0; i < d.chronicle.Count; i++)
+            {
+                ChronicleEntrySave e = d.chronicle[i];
+                if (e == null) continue;
+                into.entries.Add(new ChronicleEntry(e.monthIndex, (ChronicleEventKind)e.kind, e.note));
+            }
+            into.droppedCount = d.chronicleDropped;
         }
 
         /// <summary>平データの階級・能力を既存の <see cref="Person"/> へ反映する（基準は AdmiralData だが在席値を継続）。</summary>

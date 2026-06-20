@@ -112,8 +112,9 @@ namespace Ginei
 
         private void Update()
         {
-            // ゲーム停止中は入力を受け付けない
-            if (Time.timeScale == 0) return;
+            // ゲーム停止中は入力を受け付けない。ただしアクティブポーズ（#86）中は
+            // 選択／移動先指定／攻撃目標指定／グループ操作 を受け付ける（実行は再開後に反映）。
+            if (Time.timeScale == 0 && !PauseManager.IsActivePauseInputAllowed) return;
 
             // 移動先指定待ちの状態
             if (isWaitingForMoveTarget)

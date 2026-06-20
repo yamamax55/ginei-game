@@ -355,13 +355,6 @@ namespace Ginei
                 SceneManager.LoadScene("Battle");
         }
 
-        /// <summary>星系IDから表示名を返す（会戦ウィンドウの見出し用）。不明なら「宙域」。</summary>
-        private string SystemName(int systemId)
-        {
-            StarSystem s = map != null ? map.GetSystem(systemId) : null;
-            return s != null && !string.IsNullOrEmpty(s.systemName) ? s.systemName : "宙域";
-        }
-
         /// <summary>
         /// マウスの当フレーム移動量ぶん、<b>掴んだ地図を指の向きへ動かす</b>（掴んだ点がカーソルに付いてくるグラブ方式）。
         /// スクリーン差分→ワールド距離へ換算（カメラ rect のビューポート高で正規化）。パン目標を動かし cam は滑らかに追従。

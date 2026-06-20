@@ -90,7 +90,8 @@ namespace Ginei
 
         private static void TryCreate(Scene scene)
         {
-            if (scene.name != "Strategy" && scene.name != "Battle") return;
+            // 決裁デスクは戦略マップ専用（会戦画面では表示しない＝戦術に集中させる）。
+            if (scene.name != "Strategy") return;
             if (UnityEngine.Object.FindAnyObjectByType<DecisionDeck>() != null) return;
             new GameObject("DecisionDeck").AddComponent<DecisionDeck>();
         }

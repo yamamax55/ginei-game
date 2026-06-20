@@ -254,7 +254,7 @@ namespace Ginei
         private void HandlePursuit()
         {
             if (movement == null) return;
-            if (fleetAI != null && fleetAI.enabled) return; // AI が動かしている艦は追尾しない
+            if (fleetAI != null && fleetAI.enabled && !fleetAI.ManualOverride) return; // AI操舵中は追尾しない（手動上書き中は追尾する）
 
             // 艦隊指定：敵艦隊の旗艦位置を追尾の基準にする
             if (manualTargetFleet != null)

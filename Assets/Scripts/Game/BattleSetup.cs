@@ -355,12 +355,15 @@ namespace Ginei
             FleetWeapon weapon = fleet.GetComponent<FleetWeapon>();
             if (weapon != null) weapon.enabled = true;
 
-            // AI 制御：プレイヤー勢力以外のみ FleetAI を有効化（プレイヤーは Selectable で操作）。
-            // ただし主人公（GON-6・isProtagonist）は陣営に関わらず常にプレイヤー操作＝AI無効。
+            // AI 制御（AI標準＋手動上書きモデル）：全艦隊で FleetAI を有効化し、AI を基本の操舵にする。
+            // プレイヤー隷下（自勢力）の艦は playerCommanded＝true として選択・手動指示の対象にし、
+            // 手動指示中だけ AI を上書きする（指示完了で AI へ復帰）。敵・非プレイヤーは playerCommanded＝false。
             FleetAI ai = fleet.GetComponent<FleetAI>();
             if (ai != null)
             {
-                ai.enabled = ProtagonistRules.ShouldEnableAI(entry.admiral, IsPlayerControlled(entry, playerFaction));
+                bool playerOwned = IsPlayerControlled(entry, playerFaction);
+                ai.playerCommanded = playerOwned;
+                ai.enabled = true; // 全艦 AI 標準（隷下も基本AIで動き、手動指示で上書き）
             }
 
             // 名前を分かりやすく
@@ -593,9 +596,13 @@ namespace Ginei
                 float a = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
                 g.transform.rotation = Quaternion.Euler(0f, 0f, a);
 
-                // 突入した攻城艦隊はプレイヤーが手動指揮（AIに乗っ取らせない）
+                // 突入した攻城艦隊はプレイヤー隷下（AI標準＋手動上書き）
                 FleetAI ai = g.GetComponent<FleetAI>();
-                if (ai != null) ai.enabled = false;
+                if (ai != null)
+                {
+                    ai.playerCommanded = true;
+                    ai.enabled = true;
+                }
             }
 
             Debug.Log($"BattleSetup: 惑星攻城マップを生成（{BattleHandoff.planetName} / {BattleHandoff.besiegerFaction} {n}隊が包囲）。");

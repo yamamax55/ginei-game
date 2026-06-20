@@ -23,6 +23,39 @@ namespace Ginei
         public float clockSpeed = 1f;
         // 朝廷の権威（官僚制基盤・名実の乖離）。既定0.35＝旧セーブに欠落していても武家政権相当で復元（後方互換）。
         public float courtAuthority = 0.35f;
+        // 主人公の立身出世（一人称・TKO #2477・P1-c）。null=主人公なし＝後方互換（旧セーブは復元時に無視）。
+        public ProtagonistCareerSave protagonistCareer;
+    }
+
+    /// <summary>
+    /// 主人公の立身出世（一人称・TKO #2477・P1-c #2477）のセーブ平データ。階級・能力・武勲台帳・在席の主命・
+    /// 会戦戦果の未処理インボックス・月次ループ状態を保存し、「続きから」で立身出世の進捗を失わない。
+    /// 変換は <see cref="ProtagonistCareerSerializer"/>（純ロジック・test-first）、配線は <c>ProtagonistCareerDirector</c>。
+    /// </summary>
+    [Serializable]
+    public class ProtagonistCareerSave
+    {
+        public bool hasData;
+        public int faction;          // (int)Faction
+        public int personId;
+        public string name;
+        public int rankTier;
+        // 能力（成長で動くので保存＝基準は AdmiralData だが在席値を継続）
+        public int leadership, attack, defense, mobility, operation, intelligence;
+        // 武勲台帳（MeritRecord）
+        public float meritPoints;
+        public int meritExploitCount, meritPromotionsApplied;
+        // 月次ループ状態
+        public int lastCouncilMonth;
+        public int nextMandateId;
+        // 会戦戦果の未処理インボックス（戦果→武勲は次の月次評定で変換＝保存中に失わない）
+        public float pendingBattleDamage;
+        public int pendingBattleVictories, pendingBattleCount;
+        // 在席の主命（SovereignMandate・無ければ hasMandate=false）
+        public bool hasMandate;
+        public int mandateId, mandateFaction, mandateIssuerId, mandateAssigneeId;
+        public int mandateKind, mandateStatus, mandateIssuedMonth, mandateDueMonth;
+        public string mandateObjective;
     }
 
     /// <summary>惑星内政（<see cref="Province"/>）のセーブ平データ。安定度/統合/経済/希少資源の継続。

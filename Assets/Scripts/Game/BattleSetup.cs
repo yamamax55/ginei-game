@@ -54,15 +54,20 @@ namespace Ginei
                 return;
             }
 
+            // ウィンドウ化（複数同時）会戦か＝additive ロードで自分のシーンが active でない（フルスクリーンは active＝自分）。
+            // ※BattleViewport.Active はカーソルが窓上のときだけ true になる「フォーカス」状態で、ここの判定には使えない
+            //   （過去バグ：2つ目の会戦の初期化時にカーソルが窓外だと FleetRegistry.Clear() が走り1つ目の艦を全消去していた）。
+            bool windowed = gameObject.scene != SceneManager.GetActiveScene();
+
             // 0. 索敵レジストリを初期化（静的状態がシーン再読込を跨いで残るのを防ぐ）。
             // ウィンドウ化会戦（WIN-2/3）では自分のシーンの艦だけをクリア（同時進行する他会戦を消さない）。
-            if (BattleViewport.Active) FleetRegistry.ClearScene(gameObject.scene);
+            if (windowed) FleetRegistry.ClearScene(gameObject.scene);
             else FleetRegistry.Clear();
 
             // FleetRoster/OrderOfBattle/ShipNameRegistry は static 単一の台帳。フルスクリーン会戦では会戦ごとに
             // 作り直すが、ウィンドウ化会戦（複数同時・戦略マップ同居）で全クリアすると戦略や他会戦の台帳を壊すため、
             // ウィンドウ時はクリアしない（台帳の会戦ごと分離は今後・WIN-4）。
-            if (!BattleViewport.Active)
+            if (!windowed)
             {
                 FleetRoster.Clear(); // 艦隊編制台帳(#146)
                 OrderOfBattle.Clear(); // 編制ツリー(#147)

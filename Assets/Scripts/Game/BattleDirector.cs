@@ -75,7 +75,6 @@ namespace Ginei
             // 呼び出し側（GalaxyView の潜行）が今 global へ積んだ受け渡しをスナップショットして退避。
             BattleHandoff.State snap = BattleHandoff.Capture();
             loadQueue.Enqueue(snap);
-            Debug.Log($"[WIN3] Open: label={snap.battleLabel} pending={snap.Pending} fleets={snap.fleets.Count} windows={windows.Count} queue={loadQueue.Count} loading={loading}");
 
             // ロード中なら、その潜行で global を上書きしてしまった分を「進行中の会戦」の内容へ戻す（取り合い防止）。
             if (loading && currentLoadSnapshot != null) BattleHandoff.Restore(currentLoadSnapshot);
@@ -101,7 +100,6 @@ namespace Ginei
             BattleWindow win = go.AddComponent<BattleWindow>();
             slotOf[win] = slot;
             string title = !string.IsNullOrEmpty(currentLoadSnapshot.battleLabel) ? currentLoadSnapshot.battleLabel : "会戦";
-            Debug.Log($"[WIN3] Pump→load: slot={slot} offset={worldOffset} title={title}");
             win.BeginOpen(worldOffset, anchoredPos, title, OnWindowLoaded, OnWindowClosed);
         }
 
@@ -112,7 +110,6 @@ namespace Ginei
             // この会戦の BattleManager に専用の受け渡しスナップショットを注入（global を奪い合わない）。
             BattleManager bm = win.FindBattleManager();
             if (bm != null) bm.SetHandoffContext(currentLoadSnapshot);
-            Debug.Log($"[WIN3] OnWindowLoaded: scene={win.BattleScene.name}#{win.BattleScene.handle} cam={(win.Cam != null)} bm={(bm != null)} windowsNow={windows.Count}");
 
             loading = false;
             currentLoadSnapshot = null;
@@ -123,7 +120,6 @@ namespace Ginei
 
         private void OnWindowClosed(BattleWindow win)
         {
-            Debug.Log($"[WIN3] OnWindowClosed: scene={win.BattleScene.name}#{win.BattleScene.handle} windowsBefore={windows.Count}\n{System.Environment.StackTrace}");
             windows.Remove(win);
             if (slotOf.TryGetValue(win, out int slot)) { usedSlots.Remove(slot); slotOf.Remove(win); }
             if (BattleViewport.IsFocused(win.BattleScene)) BattleViewport.Clear();

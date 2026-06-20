@@ -50,6 +50,7 @@ namespace Ginei
             CampaignSerializer.WriteClock(save, clock);
             if (court != null) save.courtAuthority = court.authority; // 朝廷の権威を永続（官僚制基盤）
             if (career != null && career.hasData) save.protagonistCareer = career; // 主人公の立身出世を永続（TKO #2477・P1-c）
+            WriteAdmiralGrowth(save); // 全提督の会戦成長を安定キーで永続（ADM-2 #2303）
             File.WriteAllText(SavePath, JsonUtility.ToJson(save, true));
         }
 
@@ -75,7 +76,45 @@ namespace Ginei
             StrategySession.CourtAuthority = new CourtAuthority(save.courtAuthority); // 朝廷の権威を復元（官僚制基盤）
             StrategySession.PendingProtagonistCareer = (save.protagonistCareer != null && save.protagonistCareer.hasData)
                 ? save.protagonistCareer : null; // 主人公の立身出世を復元（TKO #2477・P1-c。ProtagonistCareerDirector が消費）
+            ReadAdmiralGrowth(save); // 全提督の会戦成長を GrowthRegistry へ復元（ADM-2 #2303・安定キー）
             return true;
+        }
+
+        /// <summary>
+        /// 全提督の会戦成長（<see cref="GrowthRegistry"/>）を安定キー（<see cref="AdmiralData.admiralName"/>）で書き出す（ADM-2 #2303）。
+        /// 実行時キー（InstanceID）は不安定なため、`ContentDatabase` の全提督を走査し成長があるものだけ名前で保存する。
+        /// </summary>
+        private static void WriteAdmiralGrowth(CampaignSaveData save)
+        {
+            if (save == null) return;
+            IReadOnlyList<AdmiralData> all = ContentDatabase.AllAdmirals();
+            for (int i = 0; i < all.Count; i++)
+            {
+                AdmiralData a = all[i];
+                if (a == null || string.IsNullOrEmpty(a.admiralName)) continue;
+                Growth g = GrowthRegistry.Get(a.GetInstanceID());
+                if (g == null || g.experience <= 0f) continue;
+                save.admiralGrowth.Add(new AdmiralGrowthSave
+                {
+                    admiralName = a.admiralName,
+                    experience = g.experience,
+                    archetype = (int)g.archetype,
+                });
+            }
+        }
+
+        /// <summary>セーブの提督成長を <see cref="GrowthRegistry"/> へ復元する（名前→AdmiralData を `ContentDatabase` で解決）。</summary>
+        private static void ReadAdmiralGrowth(CampaignSaveData save)
+        {
+            if (save == null || save.admiralGrowth == null) return;
+            for (int i = 0; i < save.admiralGrowth.Count; i++)
+            {
+                AdmiralGrowthSave e = save.admiralGrowth[i];
+                if (e == null || string.IsNullOrEmpty(e.admiralName)) continue;
+                AdmiralData a = ContentDatabase.AdmiralByName(e.admiralName);
+                if (a == null) continue;
+                GrowthRegistry.GetOrCreate(a.GetInstanceID(), (GrowthArchetype)e.archetype).experience = e.experience;
+            }
         }
 
         /// <summary>セーブが存在するか。</summary>

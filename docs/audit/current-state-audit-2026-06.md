@@ -1,7 +1,11 @@
 ---
 type: audit
-tags: [audit]
+status: superseded
+superseded_by: current-state-audit-2026-06-21
+tags: [audit, 失効]
 ---
+
+> ⛔ **失効（参照非推奨）**。本書のギャップの一部（セーブ永続など）は解消済み。現状は最新の [[current-state-audit-2026-06-21]] を参照（過去ログとして保存）。
 
 # 現状監査 — 縦スライス1ループの実機検証（2026-06-18）
 

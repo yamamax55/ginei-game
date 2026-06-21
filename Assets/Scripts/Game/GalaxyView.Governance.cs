@@ -176,14 +176,8 @@ namespace Ginei
             StrategySession.Set(map, reg);
         }
 
-        // 戦略マップの星系名プール（手続き生成で重複なく引く）。
-        private static readonly string[] SystemNamePool =
-        {
-            "アスタ","ベガ","ケレス","ドラコ","エリス","フェニクス","オリオン","シリウス",
-            "リゲル","アルタイル","デネブ","アンタレス","ポラリス","カノープス","スピカ","プロキオン",
-            "カペラ","アルデバラン","レグルス","ミラ","ベラトリクス","ハダル","ミザール","アルゴル",
-            "タロス","ニケ","ヘスティア","ネメシス","ガイア","クロノス","セレネ","ヘリオス",
-        };
+        // 戦略マップの星系名プール（世界の名峰ベース・日本除く・#星系名）。実体は Core の MountainSystemNames。
+        private static string[] SystemNamePool => MountainSystemNames.Names;
 
         /// <summary>
         /// 新規戦役の銀河マップを手続き生成する（#いろんなマップ）。複数のトポロジ原型（0=二大陣営対峙／

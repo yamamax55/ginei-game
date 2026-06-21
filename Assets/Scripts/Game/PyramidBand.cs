@@ -10,6 +10,7 @@ namespace Ginei
     /// 単色塗り（色は <see cref="Graphic.color"/>）。クリック判定は矩形（Graphic 既定）で十分。
     /// 静的SVG画像と違い、人数・現在地ハイライトを動的に変えられる runtime ベクター。
     /// </summary>
+    [RequireComponent(typeof(CanvasRenderer))]
     public class PyramidBand : MaskableGraphic
     {
         [Tooltip("帯の上辺の幅(px)")]

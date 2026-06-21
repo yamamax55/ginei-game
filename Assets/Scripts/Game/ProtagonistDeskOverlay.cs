@@ -321,6 +321,9 @@ namespace Ginei
             barRT.pivot = new Vector2(0.5f, 0.5f);
             barRT.sizeDelta = new Vector2(bottomW, 0f);
             barRT.anchoredPosition = Vector2.zero;
+            // PyramidBand は Graphic 派生＝CanvasRenderer 必須。RequireComponent の自動付与に依存せず明示的に先付け
+            // （RectTransform を手動追加済みのGameObjectでは自動付与が効かずMissingComponentExceptionになる環境があるため）。
+            barObj.AddComponent<CanvasRenderer>();
             PyramidBand bar = barObj.AddComponent<PyramidBand>();
             bar.SetTrapezoid(topW, bottomW);
             Color baseColor = CategoryColor(grade);

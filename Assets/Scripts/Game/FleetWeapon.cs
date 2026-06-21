@@ -363,6 +363,10 @@ namespace Ginei
             if (myStrength != null && myStrength.activeAttackFactor != 1f)
                 baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * Mathf.Max(0.1f, myStrength.activeAttackFactor)));
 
+            // 混乱（#突撃・突撃を受けた側は反撃が鈍る）：与ダメ倍率を乗算（既定1.0＝<1で低下）。
+            if (myStrength != null && myStrength.confusionAttackFactor != 1f)
+                baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * Mathf.Max(0.1f, myStrength.confusionAttackFactor)));
+
             // 不意打ち（索敵 #2180）：敵に発見されていない攻撃側は先制の利（与ダメ増）。
             if (myStrength != null && myStrength.IsConcealed)
                 baseDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * DetectionRules.AmbushDamageFactor));

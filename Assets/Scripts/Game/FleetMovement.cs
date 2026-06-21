@@ -327,6 +327,10 @@ namespace Ginei
             if (strength != null && strength.activeSpeedFactor != 1f)
                 m.Mul(Mathf.Max(0.1f, strength.activeSpeedFactor));
 
+            // 混乱（#突撃・突撃を受けた側は統制が乱れ鈍る）：機動倍率（既定1.0＝<1で低下）。
+            if (strength != null && strength.confusionMobilityFactor != 1f)
+                m.Mul(Mathf.Max(0.1f, strength.confusionMobilityFactor));
+
             // 戦場の地形（#2181・小惑星帯=減速）：その地点の機動倍率（既定1.0）。
             m.Mul(Mathf.Max(0.1f, BattleTerrain.SpeedFactorAt(transform.position)));
 

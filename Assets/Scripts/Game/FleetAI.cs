@@ -259,7 +259,25 @@ if (Time.time >= nextSearchTime)
             float advantage = enemyStr > 0f ? strength.strength / enemyStr : 1f;
 
             if (BattleAiRules.TryChooseCommand(engaged, moraleRatio, advantage, out ActiveCommand cmd))
-                ActiveCommandState.Issue(strength, cmd);
+            {
+                if (ActiveCommandState.Issue(strength, cmd) && cmd == ActiveCommand.突撃)
+                    TryInflictChargeConfusion(); // 正面同士の突撃なら相手を混乱させる（#突撃）
+            }
+        }
+
+        /// <summary>
+        /// 突撃の発令に成功したとき、正面同士（互いに正対）かつ突撃間合いなら標的を混乱させる（#突撃）。
+        /// 突撃側は既存の自己バフ（攻撃/速度↑）を得て、受けた側は <see cref="ConfusionState"/> で混乱（被ダメ↑・与ダメ↓・機動↓）。
+        /// 仕掛けるかの判断は <see cref="BattleAiRules.TryChooseCommand"/>＝艦隊指揮官（軍団長能力を反映した AiSkill）による。
+        /// </summary>
+        private void TryInflictChargeConfusion()
+        {
+            if (targetEnemy == null || !targetEnemy.IsAlive) return;
+            Vector2 selfPos = transform.position;
+            Vector2 enemyPos = targetEnemy.transform.position;
+            if (!ChargeRules.InChargeRange(selfPos, enemyPos)) return;
+            if (!ChargeRules.IsHeadOn(selfPos, transform.up, enemyPos, targetEnemy.transform.up)) return;
+            ConfusionState.Inflict(targetEnemy);
         }
 
         /// <summary>
@@ -348,52 +366,44 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
-                        // ── #2254 キーティング（間合い調整）──
-                        // 自部隊が速度優位を持つ場合のみ射程帯に基づいて間合いを調整する。
-                        // 速度劣位・速度情報不明のときは従来どおり FaceTarget に留める（基準値は非破壊）。
-                        bool kiting = false;
-                        FleetMovement enemyMovement = targetEnemy.GetComponent<FleetMovement>();
-                        if (enemyMovement != null && weaponArc != null && movement.maxSpeed > enemyMovement.maxSpeed)
+                        // ── 基本＝遠距離砲撃（#突撃）：preferredBand（既定=遠）の理想間合いを保って撃ち合う。──
+                        // 突撃中（速度バフ＝指揮官が突撃を決めた）だけ間合いを詰めて押し込む。それ以外は近すぎれば
+                        // 射界を保って下がり、遠ければ理想間合いまで寄り、適正なら停止して砲撃する。
+                        Vector2 pos2d = transform.position;
+                        Vector2 enemyPos2d = targetEnemy.transform.position;
+                        float dist = Vector2.Distance(pos2d, enemyPos2d);
+                        bool charging = strength != null && strength.activeSpeedFactor > 1.05f; // 突撃発令中
+
+                        if (charging)
                         {
-                            Vector2 pos2d = transform.position;
-                            Vector2 enemyPos2d = targetEnemy.transform.position;
-                            float currentDist = Vector2.Distance(pos2d, enemyPos2d);
-
+                            // 突撃：間合いを詰めて点射界へ踏み込む（持ち場内・前方の味方は追い越さない）。
+                            Vector2 cdest = ApplyOvertakeLimit(ApplyCorpsLeash(enemyPos2d));
+                            movement.SetDestination(cdest);
+                        }
+                        else if (weaponArc != null)
+                        {
                             float idealRange = RangeBandRules.IdealRange(weaponArc.preferredBand, weaponArc.range);
-                            int direction = RangeBandRules.ApproachOrWithdraw(currentDist, idealRange, keetingDeadzone);
-
+                            int direction = RangeBandRules.ApproachOrWithdraw(dist, idealRange, keetingDeadzone);
                             if (direction > 0)
                             {
-                                movement.SetDestination(ApplyCorpsLeash(enemyPos2d)); // 遠すぎ→接近（持ち場内に留める #持ち場）
-                                kiting = true;
+                                // 遠すぎ→理想間合いまで寄る（突っ込みすぎない・持ち場/追い越し制限）。
+                                Vector2 adest = ApplyOvertakeLimit(ApplyCorpsLeash(enemyPos2d));
+                                movement.SetDestination(adest);
                             }
                             else if (direction < 0)
                             {
-                                Vector2 awayDir = (pos2d - enemyPos2d).normalized; // 近すぎ→射界を保って後退
-                                movement.SetReverseDestination(pos2d + awayDir * (idealRange - currentDist + keetingDeadzone));
-                                kiting = true;
-                            }
-                        }
-                        if (!kiting)
-                        {
-                            // 旗艦の取り囲み参加（#旗艦参加）：最大射程で待たず、配下艦の囲みに少し後ろから加わる。
-                            // 実効射程の flagshipEngageRangeRatio まで前進し、到達後は射界維持（配下艦より外側＝少し後ろ）。
-                            if (joinEncirclement && movement != null && weaponArc != null)
-                            {
-                                Vector2 pos2d = transform.position;
-                                Vector2 enemyPos2d = targetEnemy.transform.position;
-                                float dist = Vector2.Distance(pos2d, enemyPos2d);
-                                float desired = weaponArc.range * Mathf.Clamp(flagshipEngageRangeRatio, 0.3f, 1f);
-                                if (dist > desired + keetingDeadzone)
-                                    movement.SetDestination(ApplyCorpsLeash(enemyPos2d)); // まだ遠い→前進して囲みに加わる（持ち場内 #持ち場）
-                                else
-                                    movement.FaceTarget(enemyPos2d);                 // 到達→射界維持（停止）
+                                // 近すぎ→射界を保って遠距離砲撃の間合いへ後退。
+                                Vector2 awayDir = (pos2d - enemyPos2d).normalized;
+                                movement.SetReverseDestination(pos2d + awayDir * (idealRange - dist + keetingDeadzone));
                             }
                             else
                             {
-                                // 速度優位なし・デッドゾーン内・速度情報不明＝従来動作（射界維持・停止）
-                                movement.FaceTarget(targetEnemy.transform.position);
+                                movement.FaceTarget(enemyPos2d); // 適正間合い＝射界維持で砲撃
                             }
+                        }
+                        else
+                        {
+                            movement.FaceTarget(enemyPos2d);
                         }
                     }
                     break;

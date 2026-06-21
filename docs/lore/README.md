@@ -21,8 +21,15 @@ tags: [index]
 - `勢力/` … 帝国・同盟・諸侯などの勢力設定
 - `星系/` … 星系・惑星・回廊などの地理
 - `会戦/` … 各会戦のシナリオ・経緯・結果
+- `旗艦/` … 名のある旗艦（1艦1ノート）。`_テンプレート.md` を複製して使う
 - `用語集.md` … 用語の索引（各設定ノートへのリンク表）
 - `年表.md` … 環暦／宇宙暦／帝国暦の出来事を時系列で
+- `ID一覧.md` … エンティティ識別子（PER/FAC/BAT/SYS/SHP）の採番台帳。**新規ノートはここで採番**
+
+## 識別子（ID）
+- 人物・勢力・会戦・星系・旗艦の各ノートは frontmatter に一意の **`id`**（`PER-001` 等）を持つ。
+- 形式・採番・既発番は **[[ID一覧]]** で一元管理（重複防止）。新規ノートはまずそこで次番を採る。
+- ゲームデータの数値ID（`StarSystem.id`/`Person.id` 等）とは別の lore 内安定識別子（突き合わせは名前/IDで・二重管理しない）。
 
 ## 書き方の基本
 - **相互リンク**：本文で `[[` と打つと候補が出る。例 `[[ミレイア・セルウィン]]`、`[[黎明評議会]]`
@@ -40,3 +47,5 @@ tags: [index]
 | `人物/◯◯.md` | `Assets/Data/Admirals/◯◯.asset`（`AdmiralData`） |
 | `会戦/◯◯.md` | `Resources` 配下の `ScenarioData` |
 | `勢力/◯◯.md` | `Resources/Factions/◯◯`（`FactionData`） |
+| `星系/◯◯.md` | `StarSystem`（`GalaxyMap`・手続き生成） |
+| `旗艦/◯◯.md` | `signatureShipName`（`AdmiralData`）/ `ShipNameRegistry` |

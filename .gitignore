@@ -45,3 +45,6 @@ GeneratedAssets/
 # ポートレート生成の中間物（最終Sprite は Assets/Art/Portraits に取り込み済み）
 /Tools/portrait/staging/
 /Tools/portrait/transparent/
+
+# Obsidian の Vault ローカル設定（docs/lore を Vault として開いたときに生成される）
+.obsidian/

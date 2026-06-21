@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -163,6 +164,26 @@ namespace Ginei
             int idx = (int)g;
             if (idx < 0 || idx >= target.Length) return 0;
             return Mathf.Max(0, target[idx] - d.Get(g));
+        }
+
+        /// <summary>
+        /// 名のある士官（提督名鑑の実在人物）の階級別人数を、ピラミッドの士官段（少尉〜元帥）へ重ねて
+        /// <b>頂点を実態（実在の提督）に一致</b>させる。各士官段を max(現員, 実在数) へ引き上げる＝置換でなく下限保証
+        /// （マクロ集計との二重計上を抑えつつ、幾何減衰で 0 に丸まる「元帥0/大将0」を防ぐ）。
+        /// <paramref name="namedByTier"/>[t] は階級 tier t（少尉1〜元帥10・<see cref="ToOfficerTier"/>）の実在士官数。
+        /// index 0 は未使用、長さ不足の tier は無視。null/空は無変更（後方互換）。
+        /// </summary>
+        public static void OverlayNamedOfficers(RankDistribution d, IReadOnlyList<int> namedByTier)
+        {
+            if (d == null || namedByTier == null) return;
+            for (int tier = 1; tier <= 10; tier++)
+            {
+                if (tier >= namedByTier.Count) break;
+                int n = namedByTier[tier];
+                if (n <= 0) continue;
+                MilitaryGrade g = GradeForOfficerTier(tier);
+                if (d.Get(g) < n) d.Set(g, n);
+            }
         }
 
         /// <summary>

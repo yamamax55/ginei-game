@@ -206,18 +206,14 @@ namespace Ginei
             if (total <= 0) { sb.Append("  <color=#9aa7b2>（未整備）</color>\n"); return; }
 
             MilitaryGrade myGrade = RankDistributionRules.GradeForOfficerTier(me.rankTier);
-            MilitaryGrade[] show =
+            // 全階級を上（元帥）から下（二等兵）へ表示＝実態を省略せず、自分の階級（現在地）も必ず出る。
+            for (int g = RankDistributionRules.GradeCount - 1; g >= 0; g--)
             {
-                MilitaryGrade.元帥, MilitaryGrade.大将, MilitaryGrade.准将, MilitaryGrade.大佐,
-                MilitaryGrade.少尉, MilitaryGrade.准尉, MilitaryGrade.曹長, MilitaryGrade.二等兵,
-            };
-            for (int i = 0; i < show.Length; i++)
-            {
-                MilitaryGrade g = show[i];
-                bool mine = g == myGrade;
+                MilitaryGrade grade = (MilitaryGrade)g;
+                bool mine = grade == myGrade;
                 sb.Append("  ");
                 sb.Append(mine ? "<color=#ffd700>★ " : "　 ");
-                sb.Append(g.ToString()).Append("  ").Append(dist.Get(g)).Append(" 名");
+                sb.Append(grade.ToString()).Append("  ").Append(dist.Get(grade)).Append(" 名");
                 if (mine) sb.Append("（現在地）</color>");
                 sb.Append('\n');
             }

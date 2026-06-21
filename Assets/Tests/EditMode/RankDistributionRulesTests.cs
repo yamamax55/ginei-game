@@ -93,6 +93,44 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void OverlayNamedOfficers_RaisesTopGradesToNamedRoster()
+        {
+            // 幾何ピラミッドだと頂点が 0 に丸まる（120000・既定比）
+            int[] target = RankDistributionRules.PyramidTarget(120000, P);
+            Assert.AreEqual(0, target[(int)MilitaryGrade.元帥], "幾何分布では元帥は0に丸まる");
+            Assert.AreEqual(0, target[(int)MilitaryGrade.大将], "幾何分布では大将は0に丸まる");
+
+            var d = new RankDistribution();
+            for (int i = 0; i < target.Length; i++) d.Set((MilitaryGrade)i, target[i]);
+
+            // 実在の提督：元帥1・大将3・大尉2（tier 10/8/2）
+            var named = new int[11];
+            named[10] = 1; named[8] = 3; named[2] = 2;
+            RankDistributionRules.OverlayNamedOfficers(d, named);
+
+            Assert.AreEqual(1, d.Get(MilitaryGrade.元帥), "実在元帥が頂点に反映される");
+            Assert.AreEqual(3, d.Get(MilitaryGrade.大将), "実在大将が反映される");
+            // 大尉は幾何目標(50)＞実在(2)なので下げない＝max下限保証
+            Assert.AreEqual(target[(int)MilitaryGrade.大尉], d.Get(MilitaryGrade.大尉), "既存が多い段は据え置き");
+            Assert.GreaterOrEqual(d.Get(MilitaryGrade.大尉), 2, "実在数を下回らない");
+        }
+
+        [Test]
+        public void OverlayNamedOfficers_NeverLowersExistingCount()
+        {
+            var d = new RankDistribution();
+            d.Set(MilitaryGrade.少尉, 100); // 既存が多い段
+            var named = new int[11];
+            named[1] = 5; // 少尉(tier1)の実在は5
+            RankDistributionRules.OverlayNamedOfficers(d, named);
+            Assert.AreEqual(100, d.Get(MilitaryGrade.少尉), "max下限＝既存を下げない");
+
+            // null/空は無変更（後方互換）
+            RankDistributionRules.OverlayNamedOfficers(d, null);
+            Assert.AreEqual(100, d.Get(MilitaryGrade.少尉));
+        }
+
+        [Test]
         public void IsTopHeavy_FlagsOfficerBloat()
         {
             // 全員士官＝極端な頭でっかち

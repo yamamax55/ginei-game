@@ -47,6 +47,29 @@ namespace Ginei
         [Header("陣形設定")]
         public Formation currentFormation = Formation.紡錘陣;
 
+        [Header("陣形変更コスト（指揮スキルポイント・#陣形コスト）")]
+        [Tooltip("陣形変更は提督の指揮スキルポイントを消費する（多用を抑制）。プール上限・回復は統率に比例し、" +
+                 "戦闘中はコストが重い。数値は Core の FormationChangeCostRules.Params に委譲（基準非破壊）。")]
+        [Tooltip("非戦闘時の1回あたりコスト")]
+        public float formationPeaceCost = 25f;
+        [Tooltip("戦闘中のコスト倍率（>1＝重い。戦闘中の陣形変更は指揮系統が乱れる）")]
+        public float formationCombatCostMultiplier = 3f;
+        [Tooltip("スキルポイント上限（統率0→100でこの最小〜最大へ）")]
+        public float skillPointsAtLeadership0 = 60f;
+        public float skillPointsAtLeadership100 = 140f;
+        [Tooltip("スキルポイントの毎秒回復（統率0→100でこの最小〜最大へ）")]
+        public float skillRegenAtLeadership0 = 4f;
+        public float skillRegenAtLeadership100 = 10f;
+
+        // 指揮スキルポイントの実行時状態（提督ごとでなく艦隊ごと＝同提督が複数艦隊でも独立）。
+        private float skillPoints;
+        private bool skillPointsInit;
+
+        /// <summary>現在の指揮スキルポイント（HUD/観測用・read-only）。</summary>
+        public float SkillPoints => skillPoints;
+        /// <summary>指揮スキルポイントの上限（提督の実効統率に比例）。</summary>
+        public float SkillPointsMax => FormationChangeCostRules.MaxPoints(LeadershipForSkill(), SkillCostParams());
+
         [Tooltip("艦同士の間隔")]
         public float spacing = 1.2f;
 
@@ -523,8 +546,56 @@ namespace Ginei
 
         private void Update()
         {
+            RegenSkillPoints(Time.deltaTime); // 指揮スキルポイントの回復（フレームレート非依存・timeScale 追従＝ポーズで0）
             UpdateEncircleTarget();
             UpdateShipPositions();
+        }
+
+        /// <summary>陣形変更コストのパラメータを Inspector 調整値から組む（数式は Core へ委譲）。</summary>
+        private FormationChangeCostRules.Params SkillCostParams()
+            => new FormationChangeCostRules.Params(
+                skillPointsAtLeadership0, skillPointsAtLeadership100,
+                skillRegenAtLeadership0, skillRegenAtLeadership100,
+                formationPeaceCost, formationCombatCostMultiplier);
+
+        /// <summary>スキルポイント上限/回復に使う統率（提督の実効統率。不在は中庸50）。</summary>
+        private float LeadershipForSkill()
+            => (flagshipStrength != null && flagshipStrength.admiralData != null)
+                ? flagshipStrength.admiralData.EffectiveLeadership : 50f;
+
+        /// <summary>初回アクセス時にスキルポイントを上限で満たす（提督確定後に遅延初期化）。</summary>
+        private void EnsureSkillInit()
+        {
+            if (skillPointsInit) return;
+            skillPoints = SkillPointsMax;
+            skillPointsInit = true;
+        }
+
+        /// <summary>スキルポイントを dt 秒ぶん回復（上限まで）。</summary>
+        private void RegenSkillPoints(float dt)
+        {
+            EnsureSkillInit();
+            var p = SkillCostParams();
+            float regen = FormationChangeCostRules.RegenPerSecond(LeadershipForSkill(), p);
+            skillPoints = FormationChangeCostRules.Regen(skillPoints, SkillPointsMax, regen, dt);
+        }
+
+        /// <summary>
+        /// 陣形変更を試みる（コスト＝指揮スキルポイントを消費・#陣形コスト）。<b>陣形変更ロジックの実体（currentFormation 更新）はここに集約</b>し、
+        /// プレイヤー（FleetCommander）・AI（FleetAI）・軍団長（BattlefieldCommandManager）はこの窓口を呼ぶ。
+        /// 同一陣形は無償（true）。スキルポイント不足なら変更せず false。戦闘中はコストが重い。
+        /// </summary>
+        public bool TryChangeFormation(Formation f)
+        {
+            if (f == currentFormation) return true; // 同一陣形＝無償（実質ノーオペ）
+            EnsureSkillInit();
+            bool inCombat = flagshipWeapon != null && flagshipWeapon.IsInCombat;
+            var p = SkillCostParams();
+            float cost = FormationChangeCostRules.Cost(inCombat, p);
+            if (skillPoints < cost) return false; // スキルポイント不足＝多用できない
+            skillPoints -= cost;
+            currentFormation = f;
+            return true;
         }
 
         /// <summary>

@@ -76,6 +76,18 @@ namespace Ginei
         [Tooltip("プレイヤーの隷下艦隊か（true＝選択・手動指示の対象。AIは標準で動き、手動指示で上書きする）")]
         public bool playerCommanded;
 
+        [Header("軍団の持ち場（#持ち場・隷下は安易に離れない）")]
+        [Tooltip("軍団隷下の艦隊が持ち場（軍団長旗艦の位置）から離れてよい最大距離。これを超えて敵を深追いしない。0=無制限（従来動作）")]
+        public float corpsLeashRange = 35f;
+
+        // 軍団指揮（BattlefieldCommandManager が毎間隔で設定・解除）。隷下は陣形を軍団長に委ね、持ち場（アンカー）から深追いしない。
+        /// <summary>軍団長の指揮下にあり陣形を自己判断で切り替えない（軍団長が主導）。</summary>
+        [System.NonSerialized] public bool corpsControlled;
+        /// <summary>持ち場のアンカー（軍団長旗艦の位置）が有効か。軍団旗艦自身は false（隊を率いるため拘束しない）。</summary>
+        [System.NonSerialized] public bool hasCorpsAnchor;
+        /// <summary>持ち場のアンカー座標（軍団長旗艦の位置）。<see cref="hasCorpsAnchor"/> が true のとき有効。</summary>
+        [System.NonSerialized] public Vector2 corpsAnchor;
+
         private bool manualOverride;
         /// <summary>手動指示で AI 操舵を一時上書き中か（指示完了で自動的に AI へ復帰）。</summary>
         public bool ManualOverride => manualOverride;
@@ -185,6 +197,8 @@ if (Time.time >= nextSearchTime)
         private void UpdateFormationDoctrine()
         {
             if (!autoFormation || squadron == null || strength == null || !strength.IsCombatant) return;
+            // 軍団指揮下（#持ち場）は陣形を軍団長が主導する（BattlefieldCommandManager が放送）＝隷下は自己判断で切り替えない。
+            if (corpsControlled) return;
             float own = strength.strength;
             float enemy = (targetEnemy != null && targetEnemy.IsAlive) ? targetEnemy.strength : own; // 敵不明は等倍扱い
             bool routed = moraleComponent != null && moraleComponent.IsRouted;
@@ -201,7 +215,8 @@ if (Time.time >= nextSearchTime)
                     if (FormationMatchupRules.AttackFactor(counter, enemySq.currentFormation) > 1f) rec = counter;
                 }
             }
-            if (squadron.currentFormation != rec) squadron.currentFormation = rec;
+            // 陣形変更は指揮スキルポイントを消費（#陣形コスト）＝AIも多用できない（戦闘中は特に重い）。窓口は Squadron に集約。
+            if (squadron.currentFormation != rec) squadron.TryChangeFormation(rec);
         }
 
         /// <summary>会戦AIの目利き（0..1）＝提督の実効統率＋情報を正規化。提督不在は中庸0.5。</summary>
@@ -284,6 +299,7 @@ if (Time.time >= nextSearchTime)
                         Vector2 dest = SteerAroundBlackHoles(pos, targetEnemy.transform.position);
                         if (avoidEnemyZoc)
                             dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
+                        dest = ApplyCorpsLeash(dest); // 軍団隷下は持ち場から深追いしない（#持ち場）
                         movement.SetDestination(dest);
                     }
                     break;
@@ -312,7 +328,7 @@ if (Time.time >= nextSearchTime)
 
                             if (direction > 0)
                             {
-                                movement.SetDestination(enemyPos2d);       // 遠すぎ→接近
+                                movement.SetDestination(ApplyCorpsLeash(enemyPos2d)); // 遠すぎ→接近（持ち場内に留める #持ち場）
                                 kiting = true;
                             }
                             else if (direction < 0)
@@ -333,7 +349,7 @@ if (Time.time >= nextSearchTime)
                                 float dist = Vector2.Distance(pos2d, enemyPos2d);
                                 float desired = weaponArc.range * Mathf.Clamp(flagshipEngageRangeRatio, 0.3f, 1f);
                                 if (dist > desired + keetingDeadzone)
-                                    movement.SetDestination(enemyPos2d);             // まだ遠い→前進して囲みに加わる
+                                    movement.SetDestination(ApplyCorpsLeash(enemyPos2d)); // まだ遠い→前進して囲みに加わる（持ち場内 #持ち場）
                                 else
                                     movement.FaceTarget(enemyPos2d);                 // 到達→射界維持（停止）
                             }
@@ -375,6 +391,20 @@ if (Time.time >= nextSearchTime)
                     }
                     break;
             }
+        }
+
+        /// <summary>
+        /// 軍団の持ち場（#持ち場）：移動目標が軍団長旗艦（アンカー）から <see cref="corpsLeashRange"/> を超える場合、
+        /// アンカーからその距離の境界へ引き戻す＝隷下艦隊が敵を深追いして持ち場を離れないようにする。
+        /// アンカー未設定（単独・軍団旗艦自身・プレイヤー指揮）では素通し（従来動作）。撤退状態には適用しない。
+        /// </summary>
+        private Vector2 ApplyCorpsLeash(Vector2 dest)
+        {
+            if (!hasCorpsAnchor || corpsLeashRange <= 0f) return dest;
+            Vector2 off = dest - corpsAnchor;
+            float r = corpsLeashRange;
+            if (off.sqrMagnitude > r * r) return corpsAnchor + off.normalized * r;
+            return dest;
         }
 
         /// <summary>

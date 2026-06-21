@@ -80,6 +80,12 @@ namespace Ginei
         [Tooltip("軍団隷下の艦隊が持ち場（軍団長旗艦の位置）から離れてよい最大距離。これを超えて敵を深追いしない。0=無制限（従来動作）")]
         public float corpsLeashRange = 35f;
 
+        [Header("隊列整流（前方の味方を追い越さない・#隊列整流）")]
+        [Tooltip("前進時、前方にいる味方艦隊を追い越さないよう移動先の前進成分を手前で止める")]
+        public bool avoidOvertake = true;
+        [Tooltip("前方の味方の手前で確保する間隔（占有半径とこの値の大きい方を使う）")]
+        public float overtakeKeepBehind = 4f;
+
         // 軍団指揮（BattlefieldCommandManager が毎間隔で設定・解除）。隷下は陣形を軍団長に委ね、持ち場（アンカー）から深追いしない。
         /// <summary>軍団長の指揮下にあり陣形を自己判断で切り替えない（軍団長が主導）。</summary>
         [System.NonSerialized] public bool corpsControlled;
@@ -329,6 +335,7 @@ if (Time.time >= nextSearchTime)
                         if (avoidEnemyZoc)
                             dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
                         dest = ApplyCorpsLeash(dest); // 軍団隷下は持ち場から深追いしない（#持ち場）
+                        dest = ApplyOvertakeLimit(dest); // 前方の味方を追い越さない（#隊列整流）
                         movement.SetDestination(dest);
                     }
                     break;
@@ -434,6 +441,35 @@ if (Time.time >= nextSearchTime)
             float r = corpsLeashRange;
             if (off.sqrMagnitude > r * r) return corpsAnchor + off.normalized * r;
             return dest;
+        }
+
+        private readonly List<Vector2> overtakeBuffer = new List<Vector2>();
+
+        /// <summary>
+        /// 前方の味方を追い越さないよう移動先を制限する（#隊列整流）。前進方向＝現在の目標（敵）方向。
+        /// 前方にいる味方の手前（占有半径 or overtakeKeepBehind の大きい方）で前進成分を止める＝横移動（回り込み）は妨げない。
+        /// </summary>
+        private Vector2 ApplyOvertakeLimit(Vector2 dest)
+        {
+            if (!avoidOvertake || strength == null || targetEnemy == null) return dest;
+            Vector2 pos = transform.position;
+            Vector2 fwd = (Vector2)targetEnemy.transform.position - pos;
+            if (fwd.sqrMagnitude < 1e-4f) return dest;
+
+            overtakeBuffer.Clear();
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            if (flagships == null) return dest;
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == strength || !fs.IsAlive) continue;
+                if (FactionRelations.IsHostile(strength, fs)) continue; // 味方のみ
+                overtakeBuffer.Add((Vector2)fs.transform.position);
+            }
+
+            float keep = overtakeKeepBehind;
+            if (squadron != null) keep = Mathf.Max(keep, squadron.FootprintRadius());
+            return FleetSpacingRules.LimitOvertake(pos, dest, fwd, overtakeBuffer, keep);
         }
 
         /// <summary>軍団スロットの世界座標＝軍団長旗艦の現在位置＋軍団正面に回した局所スロット（軍団長の移動に追従）。</summary>

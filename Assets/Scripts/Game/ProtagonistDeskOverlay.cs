@@ -46,6 +46,16 @@ namespace Ginei
         private TextMeshProUGUI pyramidFooter;   // 次階級の定員空き
         private object escWindowToken;
 
+        // 士官段（少尉1〜元帥10）のネームド人数を毎フレーム数えるための再利用バッファ（GC回避）。
+        private readonly int[] namedCountByTier = new int[11];
+        private readonly HashSet<object> namedDedup = new HashSet<object>();
+
+        // 階級別ネームド人物ウィンドウ（帯クリックで開く）。
+        private GameObject rankWindowRoot;
+        private TextMeshProUGUI rankWindowTitle;
+        private TextMeshProUGUI rankWindowBody;
+        private object rankWindowEscToken;
+
         // 1階級ぶんの帯（色付き帯＝Image＋帯の上に重なるラベル＝TMP）。
         private class RankPyramidRow
         {
@@ -53,6 +63,15 @@ namespace Ginei
             public Image bar;
             public Color baseColor;
             public TextMeshProUGUI label;
+        }
+
+        // ネームド士官1名（OOB司令／艦隊台帳の司令・副提督・参謀／主人公）。
+        private struct NamedOfficer
+        {
+            public string name;
+            public int tier;
+            public string role;
+            public AdmiralData admiral; // null=主人公（Person）
         }
 
         private static readonly MeritRecordRules.MeritRecordParams MeritP = MeritRecordRules.MeritRecordParams.Default;
@@ -81,7 +100,11 @@ namespace Ginei
             escWindowToken = UIWindowStack.Register(() => panel != null && panel.activeSelf, () => SetVisible(false), canvasSortingOrder, "執務机");
         }
 
-        private void OnDestroy() => UIWindowStack.Unregister(escWindowToken);
+        private void OnDestroy()
+        {
+            UIWindowStack.Unregister(escWindowToken);
+            UIWindowStack.Unregister(rankWindowEscToken);
+        }
 
         private void Update()
         {
@@ -93,7 +116,11 @@ namespace Ginei
         }
 
         public void Toggle() => SetVisible(panel != null && !panel.activeSelf);
-        public void SetVisible(bool visible) { if (panel != null) panel.SetActive(visible); }
+        public void SetVisible(bool visible)
+        {
+            if (panel != null) panel.SetActive(visible);
+            if (!visible) CloseRankWindow(); // 執務机を閉じたら階級の人物ウィンドウも畳む
+        }
 
         // ===== ダンプ本体 =====
 
@@ -289,6 +316,18 @@ namespace Ginei
             Image bar = barObj.AddComponent<Image>();
             Color baseColor = CategoryColor(grade);
             bar.color = baseColor;
+            // 帯をクリックでこの階級のネームド人物ウィンドウを開く（raycast 対象は帯＝Image）。
+            Button barBtn = barObj.AddComponent<Button>();
+            // 注意：本プロジェクトには Ginei.Selectable（艦隊選択）があるため UnityEngine.UI.Selectable を明示。
+            barBtn.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+            barBtn.targetGraphic = bar;
+            ColorBlock cb = barBtn.colors;
+            cb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
+            cb.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+            cb.fadeDuration = 0.06f;
+            barBtn.colors = cb;
+            MilitaryGrade captured = grade;
+            barBtn.onClick.AddListener(() => OpenRankWindow(captured));
 
             // ラベル（帯の上に重ねる・全幅中央＝細い頂点でも文字が切れない）。
             GameObject lblObj = new GameObject("Label");
@@ -319,13 +358,17 @@ namespace Ginei
             if (!ready) return;
 
             RankDistribution dist = MilitaryRankRegistry.Get(me.faction);
+            // 士官段（少尉〜元帥）の人数はネームド人物（OOB司令／艦隊台帳／主人公）の実数に合わせる。
+            // 兵卒〜准尉はネームドが居ない＝マクロ集計（員数）をそのまま使う。
+            CountNamedByTier(me.faction);
             MilitaryGrade myGrade = RankDistributionRules.GradeForOfficerTier(me.rankTier);
             for (int i = 0; i < pyramidRows.Length; i++)
             {
                 RankPyramidRow row = pyramidRows[i];
                 if (row == null) continue;
                 bool mine = row.grade == myGrade;
-                int count = dist.Get(row.grade);
+                int tier = RankDistributionRules.ToOfficerTier(row.grade);
+                int count = tier >= 1 ? namedCountByTier[tier] : dist.Get(row.grade);
                 // 現在地は帯を金色寄りに明るく＋文字を金色＋（現在地）。
                 row.bar.color = mine ? Color.Lerp(row.baseColor, new Color(1f, 0.84f, 0.2f), 0.45f) : row.baseColor;
                 string ins = InsigniaGlyph(row.grade);
@@ -374,6 +417,199 @@ namespace Ginei
         {
             if (n <= 0) return "";
             return new string(c, Mathf.Clamp(n, 1, 6));
+        }
+
+        // ===== ネームド人物の集約（OOB司令＋艦隊台帳の司令/副提督/参謀＋主人公）=====
+
+        // 勢力の士官 tier 別ネームド人数を namedCountByTier に集計（再利用バッファ＝GC回避）。
+        private void CountNamedByTier(Faction f)
+        {
+            System.Array.Clear(namedCountByTier, 0, namedCountByTier.Length);
+            EnumerateNamed(f, (name, tier, role, adm) =>
+            {
+                if (tier >= 1 && tier <= 10) namedCountByTier[tier]++;
+            });
+        }
+
+        // 勢力のネームド士官を走査して visit を呼ぶ（重複は AdmiralData/Person 参照で排除）。
+        private void EnumerateNamed(Faction f, System.Action<string, int, string, AdmiralData> visit)
+        {
+            namedDedup.Clear();
+
+            // 主人公（Person・名鑑には居ないことが多いので明示的に加える）
+            var dir = ProtagonistCareerDirector.Instance;
+            Person me = dir != null ? dir.Protagonist : null;
+            if (me != null && me.faction == f && namedDedup.Add(me))
+                visit(me.name, me.rankTier, "あなた", null);
+
+            // 編制ツリー OrderOfBattle の各梯団司令
+            var formations = OrderOfBattle.AllFormations(f);
+            if (formations != null)
+                for (int i = 0; i < formations.Count; i++)
+                {
+                    var node = formations[i];
+                    if (node?.commander != null && namedDedup.Add(node.commander))
+                        visit(node.commander.FullName, node.commander.rankTier, node.echelon + "司令", node.commander);
+                }
+
+            // 艦隊台帳 FleetRoster の司令・副提督・参謀
+            var fleets = FleetRoster.AllFleets(f);
+            if (fleets != null)
+                for (int i = 0; i < fleets.Count; i++)
+                {
+                    var u = fleets[i];
+                    if (u == null) continue;
+                    VisitAdmiral(u.assignedAdmiral, u.DisplayName + " 司令", visit);
+                    VisitAdmiral(u.viceCommander, u.DisplayName + " 副提督", visit);
+                    VisitAdmiral(u.chiefOfStaff, u.DisplayName + " 参謀", visit);
+                }
+        }
+
+        private void VisitAdmiral(AdmiralData a, string role, System.Action<string, int, string, AdmiralData> visit)
+        {
+            if (a == null || !namedDedup.Add(a)) return;
+            visit(a.FullName, a.rankTier, role, a);
+        }
+
+        // ===== 階級別ネームド人物ウィンドウ（帯クリックで開く）=====
+
+        private void OpenRankWindow(MilitaryGrade grade)
+        {
+            if (rankWindowRoot == null) BuildRankWindow();
+            var dir = ProtagonistCareerDirector.Instance;
+            Person me = dir != null ? dir.Protagonist : null;
+            int tier = RankDistributionRules.ToOfficerTier(grade);
+
+            rankWindowTitle.text = "<b>" + grade + "</b> の人物";
+
+            var sb = new StringBuilder(512);
+            if (tier < 1)
+            {
+                // 兵卒〜准尉はネームド人物を持たない（員数のみ）。
+                int n = me != null && MilitaryRankRegistry.Has(me.faction)
+                    ? MilitaryRankRegistry.Get(me.faction).Get(grade) : 0;
+                sb.Append("<color=#9aa7b2>この階級にネームド人物はいません（員数のみ）。</color>\n\n");
+                sb.Append("<color=#8aa0b0>員数 </color><color=#cfe0ee>").Append(n.ToString("#,0")).Append("</color> 名");
+            }
+            else if (me == null)
+            {
+                sb.Append("<color=#9aa7b2>（立身出世ループ未起動）</color>");
+            }
+            else
+            {
+                var list = new List<NamedOfficer>();
+                EnumerateNamed(me.faction, (name, t, role, adm) =>
+                {
+                    if (t == tier) list.Add(new NamedOfficer { name = name, tier = t, role = role, admiral = adm });
+                });
+                list.Sort((x, y) => string.CompareOrdinal(x.role, y.role));
+
+                if (list.Count == 0)
+                    sb.Append("<color=#9aa7b2>この階級のネームド人物はいません。</color>");
+                else
+                {
+                    sb.Append("<color=#8aa0b0>計 ").Append(list.Count).Append(" 名</color>\n");
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        NamedOfficer o = list[i];
+                        bool isMe = o.admiral == null;
+                        sb.Append('\n').Append(isMe ? "<color=#ffe07a>★ " : "<color=#bfe9c0>◆ ")
+                          .Append(o.name).Append("</color>");
+                        sb.Append("　<color=#7f93a6>").Append(o.role).Append("</color>\n");
+                        if (o.admiral != null)
+                            sb.Append("   <color=#9fb0c0>統率</color> ").Append(o.admiral.EffectiveLeadership)
+                              .Append(" ／ <color=#9fb0c0>攻撃</color> ").Append(o.admiral.EffectiveAttack)
+                              .Append(" ／ <color=#9fb0c0>防御</color> ").Append(o.admiral.EffectiveDefense)
+                              .Append(" ／ <color=#9fb0c0>機動</color> ").Append(o.admiral.EffectiveMobility).Append('\n');
+                    }
+                }
+            }
+            rankWindowBody.text = sb.ToString();
+            rankWindowRoot.SetActive(true);
+            rankWindowRoot.transform.SetAsLastSibling(); // 最前面へ
+        }
+
+        private void CloseRankWindow() { if (rankWindowRoot != null) rankWindowRoot.SetActive(false); }
+
+        private void BuildRankWindow()
+        {
+            GameObject frame = new GameObject("RankPersonWindow");
+            frame.transform.SetParent(overlayRoot.transform, false);
+            RectTransform frameRT = frame.AddComponent<RectTransform>();
+            frameRT.anchorMin = new Vector2(0.5f, 0.5f);
+            frameRT.anchorMax = new Vector2(0.5f, 0.5f);
+            frameRT.pivot = new Vector2(0.5f, 0.5f);
+            frameRT.anchoredPosition = new Vector2(260f, 0f);
+            frameRT.sizeDelta = new Vector2(460f, 560f);
+            Image frameImg = frame.AddComponent<Image>();
+            frameImg.color = new Color(0.06f, 0.07f, 0.10f, 0.98f);
+
+            VerticalLayoutGroup vlg = frame.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(14, 14, 10, 12);
+            vlg.spacing = 6f;
+            vlg.childAlignment = TextAnchor.UpperLeft;
+            vlg.childControlWidth = true; vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
+
+            WindowChrome.AddTitleBarLayout(frameRT, "階級の人物", CloseRankWindow);
+
+            // タイトル（クリックした階級名）
+            GameObject titleObj = new GameObject("RankTitle");
+            titleObj.transform.SetParent(frame.transform, false);
+            titleObj.AddComponent<RectTransform>();
+            rankWindowTitle = titleObj.AddComponent<TextMeshProUGUI>();
+            rankWindowTitle.fontSize = bodyFontSize;
+            rankWindowTitle.color = new Color(0.92f, 0.95f, 1f);
+            rankWindowTitle.raycastTarget = false;
+            ApplyJapaneseFont(rankWindowTitle);
+
+            // 本文（スクロール）
+            GameObject scrollObj = new GameObject("RankScroll");
+            scrollObj.transform.SetParent(frame.transform, false);
+            scrollObj.AddComponent<RectTransform>();
+            LayoutElement scrollLE = scrollObj.AddComponent<LayoutElement>();
+            scrollLE.flexibleHeight = 1f;
+            ScrollRect scrollRect = scrollObj.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false; scrollRect.vertical = true; scrollRect.scrollSensitivity = 24f;
+
+            GameObject viewport = new GameObject("Viewport");
+            viewport.transform.SetParent(scrollObj.transform, false);
+            RectTransform viewportRT = viewport.AddComponent<RectTransform>();
+            viewportRT.anchorMin = Vector2.zero; viewportRT.anchorMax = Vector2.one;
+            viewportRT.sizeDelta = Vector2.zero; viewportRT.anchoredPosition = Vector2.zero;
+            viewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+            viewport.AddComponent<RectMask2D>();
+            scrollRect.viewport = viewportRT;
+
+            GameObject content = new GameObject("Content");
+            content.transform.SetParent(viewport.transform, false);
+            RectTransform contentRT = content.AddComponent<RectTransform>();
+            contentRT.anchorMin = new Vector2(0f, 1f); contentRT.anchorMax = new Vector2(1f, 1f);
+            contentRT.pivot = new Vector2(0.5f, 1f);
+            contentRT.anchoredPosition = Vector2.zero; contentRT.sizeDelta = Vector2.zero;
+            VerticalLayoutGroup cVlg = content.AddComponent<VerticalLayoutGroup>();
+            cVlg.childControlWidth = true; cVlg.childControlHeight = true;
+            cVlg.childForceExpandWidth = true; cVlg.childForceExpandHeight = false;
+            ContentSizeFitter csf = content.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scrollRect.content = contentRT;
+
+            GameObject bodyObj = new GameObject("RankBody");
+            bodyObj.transform.SetParent(content.transform, false);
+            rankWindowBody = bodyObj.AddComponent<TextMeshProUGUI>();
+            rankWindowBody.fontSize = bodyFontSize * 0.85f;
+            rankWindowBody.color = new Color(0.9f, 0.93f, 0.96f);
+            rankWindowBody.alignment = TextAlignmentOptions.TopLeft;
+            rankWindowBody.richText = true; rankWindowBody.raycastTarget = false;
+            ApplyJapaneseFont(rankWindowBody);
+
+            // Esc で（執務机より先に）この小窓を閉じる。
+            rankWindowEscToken = UIWindowStack.Register(
+                () => rankWindowRoot != null && rankWindowRoot.activeSelf, CloseRankWindow,
+                canvasSortingOrder + 5, "階級の人物");
+
+            rankWindowRoot = frame;
+            rankWindowRoot.SetActive(false);
         }
 
         // 会戦成長（GrowthRegistry）を反映した実効能力を1行表示（基準→実効・成長分を+表示）。

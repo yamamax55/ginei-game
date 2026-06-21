@@ -24,6 +24,7 @@
 | **ComfyUI + Stable Diffusion**（ローカル） | IP-Adapter/LoRA/ControlNet | **無料**(要GPU) | — | C満杯→D運用に注意。完全制御・コスト0 |
 
 > **コスト感**：提督100人を Nano Banana で1枚ずつ≒**$6.7**。リテイク込みでも少額。まず無料の Leonardo か手持ちの Gemini で画風を固めてから量産が安全。
+> **ローカル無料路線（推奨）**：RTX 3050 8GB で SDXL が回る＝**1枚ゼロ円・無制限・Claude Code からAPIバッチ**。導入手順は **docs/comfyui-setup.md**（D:にポータブル版＋商用可SDXL＋IP-Adapter）。サブスク/APIキー不要。
 
 ## 顔の同一性を保つ（identity lock）
 プロンプト＋シードだけでは「同じ画風の別人」になりがち。**参照画像**で人物を固定する：

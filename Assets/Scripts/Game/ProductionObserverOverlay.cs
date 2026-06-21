@@ -104,7 +104,7 @@ namespace Ginei
                 AppendFaction(sb, map, gv, s.faction);
             }
 
-            sb.Append("\n<color=#6f8a9a>※ 森林→木材→建材→住宅の連鎖（#2091）と食品/衣類等の消費財BOM（#2098）と市場価格（#179＝供給/需要で創発）を年次Tickで回す。</color>");
+            sb.Append("\n<color=#6f8a9a>※ 食品/衣類/住宅等の消費財BOM（#2098＝森林チェーン#2091 を簡略版へ統合）と市場価格（#179＝供給/需要で創発）を年次Tickで回す。</color>");
             return sb.ToString();
         }
 
@@ -112,9 +112,8 @@ namespace Ginei
         {
             var provinces = StrategySession.Provinces;
             int ownedCount = 0;
-            float forest = 0f, wood = 0f, materials = 0f, housing = 0f;
 
-            // 消費財BOM(#2098) の品目集計
+            // 消費財BOM(#2098) の品目集計（住宅もここに含まれる＝森林チェーン#2091 廃止）
             List<Commodity> consumerGoods = CommodityCatalog.ByCategory(CommodityCategory.消費財);
             float[] consumerTotals = consumerGoods != null ? new float[consumerGoods.Count] : null;
 
@@ -127,15 +126,6 @@ namespace Ginei
                     StarSystem sys = map.GetSystem(prov.systemId);
                     if (sys == null || sys.owner != fac) continue;
                     ownedCount++;
-
-                    ChainStock cs = gv.GetChainStock(prov.systemId);
-                    if (cs != null)
-                    {
-                        forest    += cs.forest;
-                        wood      += cs.wood;
-                        materials += cs.materials;
-                        housing   += cs.housing;
-                    }
 
                     if (consumerGoods != null)
                     {
@@ -156,11 +146,6 @@ namespace Ginei
                 sb.Append("  <color=#9aa7b2>（所有惑星なし）</color>\n");
                 return;
             }
-
-            sb.Append("  <color=#9fb0c0>生産チェーン</color>　森林 ").Append(forest.ToString("#,0"))
-              .Append("　木材 ").Append(wood.ToString("#,0"))
-              .Append("　建材 ").Append(materials.ToString("#,0"))
-              .Append("　住宅 ").Append(housing.ToString("#,0")).Append('\n');
 
             if (consumerGoods != null && consumerGoods.Count > 0)
             {

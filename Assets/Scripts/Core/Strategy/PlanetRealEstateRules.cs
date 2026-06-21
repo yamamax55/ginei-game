@@ -7,7 +7,7 @@ namespace Ginei
     /// ＝人口・安定度・統合度・生活水準・経済類型から<b>地価・賃料・地価指数（バブル）</b>を導く土台。
     /// 賃料は<b>魅力（所得 proxy）×人口</b>に連動し（賃料の裏付け）、地価は賃料×評価倍率×地価指数で立つ。
     /// 地価指数は<b>土地の希少性（需要/供給）</b>で年々値上がりし（賃料より速いと割高＝バブル）、金融危機で崩壊する。
-    /// 住宅戸数の需給は <see cref="HousingDemandRules"/>（#2091）へ委譲し二重実装しない。地価変動は <see cref="RealEstateRules"/>（勢力集約）・
+    /// 住宅戸数の需給は <see cref="ConsumerDemandRules"/>（簡略版BOM #2098 の住宅品目）へ委譲し二重実装しない。地価変動は <see cref="RealEstateRules"/>（勢力集約）・
     /// <see cref="PropertyValuationRules"/>（権利証 #2070）の入力にもなる。基準フィールドは非破壊（実効値パターン）。test-first。
     /// </summary>
     public static class PlanetRealEstateRules

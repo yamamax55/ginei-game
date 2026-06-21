@@ -1118,11 +1118,7 @@ namespace Ginei
             return list;
         }
 
-        /// <summary>星系の生産チェーン在庫（森林→木材→建材→住宅・#2091）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
-        public ChainStock GetChainStock(int systemId)
-            => chainStocks.TryGetValue(systemId, out var cs) ? cs : null;
-
-        /// <summary>星系のBOM消費財在庫（食品/衣類等・#2098）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
+        /// <summary>星系のBOM消費財在庫（食品/衣類/住宅等・#2098）。未生成なら null。観測層（生産流通）専用＝read-only。</summary>
         public CommodityStock GetCommodityStock(int systemId)
             => bomStocks.TryGetValue(systemId, out var cs) ? cs : null;
 
@@ -1367,56 +1363,12 @@ namespace Ginei
             // 交易は月次 RunMarketTick へ分離（Tick順見直し）。
         }
 
-        // --- 代表生産チェーン（森林→木材→建材→住宅・VCHAIN・#2091 デモ配線） ---
-        private readonly System.Collections.Generic.Dictionary<int, ChainStock> chainStocks
-            = new System.Collections.Generic.Dictionary<int, ChainStock>();
-
-        /// <summary>類型ごとの森林初期量（居住/農業は森が多く、工業/鉱業は少ない）。</summary>
-        private static float SeedForest(SystemType t)
-        {
-            switch (t)
-            {
-                case SystemType.農業: return 1000f;
-                case SystemType.居住: return 800f;
-                case SystemType.鉱業: return 200f;
-                default: return 300f; // 工業
-            }
-        }
-
-        /// <summary>惑星ごとに森林→木材→建材→住宅 を年次で流し、住宅充足で生活水準を補正（VCHAIN-6）。</summary>
-        private void RunSupplyChainTick()
-        {
-            if (provinces == null) return;
-            var p = SupplyChainParams.Default;
-            int shortageCount = 0, depletionCount = 0;
-            foreach (var kv in provinces)
-            {
-                Province prov = kv.Value;
-                if (prov == null) continue;
-                if (!chainStocks.TryGetValue(kv.Key, out var cs) || cs == null)
-                {
-                    // 初期住宅は需要の8割（最初から住んでいる）。
-                    cs = new ChainStock(SeedForest(prov.systemType), 0f, 0f, prov.population * p.perCapitaHousing * 0.8f);
-                    chainStocks[kv.Key] = cs;
-                }
-                var r = SupplyChainTickRules.TickYear(cs, prov.population, p);
-                // 住宅充足で生活水準#181 を補正（不足は頭打ち＝#2042 がその年に設定した値へ乗算）。
-                prov.livingStandard *= HousingDemandRules.LivingStandardFactor(r.occupancy, 0.7f);
-                if (r.occupancy < 0.8f) shortageCount++;
-                if (r.overharvest) depletionCount++;
-            }
-            if (shortageCount > 0)
-                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"住宅不足の星系 {shortageCount}（木材・建材の供給不足）");
-            if (depletionCount > 0)
-                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"森林の過伐採 {depletionCount} 星系（再生が追いつかない）");
-        }
-
-        // --- 汎用BOM消費財（食品/衣類・BOM・#2098 デモ配線） ---
+        // --- 汎用BOM消費財（食品/衣類/住宅・BOM・#2098 デモ配線。森林→木材→建材→住宅の本格チェーン#2091 は簡略版BOMへ統合済み） ---
         private readonly System.Collections.Generic.Dictionary<int, CommodityStock> bomStocks
             = new System.Collections.Generic.Dictionary<int, CommodityStock>();
         private bool bomSeeded;
-        private int grainId, fiberId, clothId, foodId, clothingId, herbId, medicineId;
-        private Recipe foodRecipe, clothRecipe, clothingRecipe, medicineRecipe;
+        private int grainId, fiberId, clothId, foodId, clothingId, herbId, medicineId, lumberId, housingId;
+        private Recipe foodRecipe, clothRecipe, clothingRecipe, medicineRecipe, housingRecipe;
         // BOM 充足→支持の蓄積（配線：充足率を勢力ごとに人口加重平均して community.hope へ）。
         private readonly System.Collections.Generic.HashSet<int> bomBottleneckSystems = new System.Collections.Generic.HashSet<int>();
 
@@ -1431,10 +1383,13 @@ namespace Ginei
             clothingId = CommodityCatalog.Register("衣類", CommodityCategory.消費財).id;
             herbId = CommodityCatalog.Register("薬草", CommodityCategory.原材料).id;       // 品目拡張：医薬の原材料
             medicineId = CommodityCatalog.Register("医薬品", CommodityCategory.消費財).id; // 品目拡張：健康に効く消費財
+            lumberId = CommodityCatalog.Register("建材", CommodityCategory.原材料).id;     // 住宅の原材料（森林→木材→建材の本格チェーン#2091 は廃止し1段に簡略化）
+            housingId = CommodityCatalog.Register("住宅", CommodityCategory.消費財).id;    // 簡略版BOMの住宅（耐久財だが他の消費財と同様に需要充足で扱う）
             foodRecipe = RecipeBook.Register(new Recipe(foodId).AddInput(grainId, 1f));        // 食品←穀物×1
             clothRecipe = RecipeBook.Register(new Recipe(clothId).AddInput(fiberId, 2f));       // 布←繊維×2
             clothingRecipe = RecipeBook.Register(new Recipe(clothingId).AddInput(clothId, 2f)); // 衣類←布×2
             medicineRecipe = RecipeBook.Register(new Recipe(medicineId).AddInput(herbId, 2f));  // 医薬品←薬草×2
+            housingRecipe = RecipeBook.Register(new Recipe(housingId).AddInput(lumberId, 2f));  // 住宅←建材×2（1段＝簡略版BOM）
             bomSeeded = true;
         }
 
@@ -1453,11 +1408,12 @@ namespace Ginei
                 cs.Add(grainId, prov.population * 1.5f * outFactor);
                 cs.Add(fiberId, prov.population * 0.6f * outFactor);
                 cs.Add(herbId, prov.population * 0.3f * outFactor); // 品目拡張：薬草（医薬の原材料）
+                cs.Add(lumberId, prov.population * 0.8f * outFactor); // 住宅の原材料：建材（森林チェーン#2091 を廃し供給で抽象化）
             }
             // Phase 2: 域内物流（DIST-6・#2112）＝余剰の穀物を不足惑星へ回廊で配送（通商破壊で分断）。生産の前に回す。
             RunRegionalDistributionTick();
             // Phase 3: レシピ生産＋消費財需要の充足。
-            int foodShort = 0, clothingShort = 0, medShort = 0;
+            int foodShort = 0, clothingShort = 0, medShort = 0, housingShort = 0;
             var bomFulfillSum = new System.Collections.Generic.Dictionary<Faction, float>();
             var bomPopSum = new System.Collections.Generic.Dictionary<Faction, float>();
             foreach (var kv in provinces)
@@ -1471,21 +1427,26 @@ namespace Ginei
                 BomTickRules.Produce(cs, clothRecipe, pop * 0.4f);
                 BomTickRules.Produce(cs, clothingRecipe, pop * 0.2f);
                 BomTickRules.Produce(cs, medicineRecipe, pop * 0.3f);
-                // 消費財需要の充足（食品=必需・衣類/医薬=控えめ）。
+                BomTickRules.Produce(cs, housingRecipe, pop * 0.3f); // 住宅←建材（1段・簡略版BOM）
+                // 消費財需要の充足（食品=必需・衣類/医薬=控えめ・住宅=居住需要）。
                 float foodDemand = ConsumerDemandRules.Demand(pop, 1.0f);
                 float clothingDemand = ConsumerDemandRules.Demand(pop, 0.2f);
                 float medDemand = ConsumerDemandRules.Demand(pop, 0.25f);
+                float housingDemand = ConsumerDemandRules.Demand(pop, 0.3f);
                 float foodFulfill = ConsumerDemandRules.Fulfillment(cs.Get(foodId), foodDemand);
                 float clothingFulfill = ConsumerDemandRules.Fulfillment(cs.Get(clothingId), clothingDemand);
                 float medFulfill = ConsumerDemandRules.Fulfillment(cs.Get(medicineId), medDemand);
+                float housingFulfill = ConsumerDemandRules.Fulfillment(cs.Get(housingId), housingDemand);
                 ConsumerDemandRules.Consume(cs, foodId, foodDemand);
                 ConsumerDemandRules.Consume(cs, clothingId, clothingDemand);
                 ConsumerDemandRules.Consume(cs, medicineId, medDemand);
-                float minFulfill = UnityEngine.Mathf.Min(foodFulfill, UnityEngine.Mathf.Min(clothingFulfill, medFulfill));
+                ConsumerDemandRules.Consume(cs, housingId, housingDemand);
+                float minFulfill = UnityEngine.Mathf.Min(foodFulfill, UnityEngine.Mathf.Min(clothingFulfill, UnityEngine.Mathf.Min(medFulfill, housingFulfill)));
                 prov.livingStandard *= ConsumerDemandRules.LivingStandardFactor(minFulfill, 0.6f);
                 if (foodFulfill < 0.8f) foodShort++;
                 if (clothingFulfill < 0.8f) clothingShort++;
                 if (medFulfill < 0.8f) medShort++;
+                if (housingFulfill < 0.8f) housingShort++;
 
                 // BOM 充足→支持（配線）：勢力ごとに人口加重で充足率を集計（後段で SupportDelta→hope）。
                 StarSystem sys = map != null ? map.GetSystem(kv.Key) : null;
@@ -1518,6 +1479,8 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"衣類不足の星系 {clothingShort}（繊維・布の供給不足）");
             if (medShort > 0)
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報, $"医薬品不足の星系 {medShort}（薬草・医薬の供給不足）");
+            if (housingShort > 0)
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"住宅不足の星系 {housingShort}（建材・住宅の供給不足）");
         }
 
         // --- SCM計画（MRP所要量展開・SCM・#2105 read-only 配線） ---

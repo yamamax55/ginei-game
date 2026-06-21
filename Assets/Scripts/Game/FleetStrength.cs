@@ -108,6 +108,14 @@ namespace Ginei
         public float activeSpeedFactor = 1f;
         /// <summary>特殊指揮の不退転（敗走しない・FleetMorale が参照）。</summary>
         public bool activeMoraleLock = false;
+
+        [Header("混乱（突撃を受けた側・#突撃・ConfusionState が設定）")]
+        /// <summary>混乱中の与ダメ倍率（FleetWeapon/EscortShip が乗算・既定1.0＝反撃低下で&lt;1）。</summary>
+        public float confusionAttackFactor = 1f;
+        /// <summary>混乱中の被ダメ倍率（TakeDamage が乗算・既定1.0＝怒涛で&gt;1）。</summary>
+        public float confusionDamageTakenFactor = 1f;
+        /// <summary>混乱中の機動倍率（FleetMovement が乗算・既定1.0＝統制乱れで&lt;1）。</summary>
+        public float confusionMobilityFactor = 1f;
         [Tooltip("所属軍集団名（#147・表示用。空＝なし）")]
         public string armyGroupName = "";
 
@@ -412,6 +420,10 @@ namespace Ginei
             // 特殊指揮（#2175・突撃=脆い／不退転=堅い）：被ダメ倍率を乗算（既定1.0）。
             if (activeDamageTakenFactor != 1f)
                 finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, activeDamageTakenFactor));
+
+            // 混乱（#突撃・突撃を受けて統制が崩れた側は怒涛で押される）：被ダメ倍率を乗算（既定1.0＝>1で増）。
+            if (confusionDamageTakenFactor != 1f)
+                finalDamage = Mathf.RoundToInt(finalDamage * Mathf.Max(0f, confusionDamageTakenFactor));
 
             // 人物 archetype（#猛将の猪突=脆い／#半身の端正な陣形=堅い 等）：被ダメ倍率（フラグ無しは1.0＝後方互換）。
             float archDmg = AdmiralArchetypeModifiers.DamageTakenFactor(admiralData);

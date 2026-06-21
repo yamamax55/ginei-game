@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using System.Collections;
 
@@ -46,6 +47,7 @@ namespace Ginei
         private GameObject hudStrengthRow, hudMoraleRow, hudShipsObj;
         private Image hudStrengthFill, hudMoraleFill;
         private bool hudBuilt;
+        private bool windowAttachDone; // 窓内へHUDを親替え済みか（WIN-4・ウィンドウ化会戦のみ）
 
         /// <summary>選択艦隊の陣営色を決定する。FactionData があればその color、無ければ enum の既定色。</summary>
         private Color ResolveFactionColor(FleetStrength fs)
@@ -57,7 +59,8 @@ namespace Ginei
 
         private void Start()
         {
-            if (commander == null) commander = Object.FindAnyObjectByType<FleetCommander>();
+            // 複数会戦が同時にロードされていても自分の会戦の指揮官を掴む（同シーン優先・WIN-4）。
+            if (commander == null) commander = BattleWindowUI.FindInSceneOrAny<FleetCommander>(gameObject.scene);
 
             // 旧シーンHUDがあれば隠す（コード生成HUDに一本化）
             if (infoPanel != null) infoPanel.SetActive(false);
@@ -68,7 +71,19 @@ namespace Ginei
 
         private void Update()
         {
+            TryWindowAttach();
             UpdateUI();
+        }
+
+        /// <summary>
+        /// ウィンドウ化会戦（WIN-4）では HUD パネルを自分の窓内 UI 親へ親替えする（全画面に広げない・重なり解消）。
+        /// フルスクリーン会戦（会戦シーン＝アクティブシーン）では何もしない＝従来どおり全画面表示（後方互換）。
+        /// </summary>
+        private void TryWindowAttach()
+        {
+            if (windowAttachDone || hudPanel == null) return;
+            if (gameObject.scene == SceneManager.GetActiveScene()) { windowAttachDone = true; return; }
+            if (BattleWindowUI.TryAttach(gameObject.scene, hudPanel.GetComponent<RectTransform>())) windowAttachDone = true;
         }
 
         // ===== HUD生成 =====

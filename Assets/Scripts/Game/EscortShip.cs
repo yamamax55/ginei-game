@@ -168,13 +168,14 @@ namespace Ginei
             // 艦種の火力倍率を実効値として基準ダメージに乗算（旗艦の基準値は非破壊）。
             float corpsAbility = flagship != null ? flagship.corpsAbilityFactor : 1f; // 軍団長の能力バフ/デバフ（CSG）
             float activeAtk = flagship != null ? flagship.activeAttackFactor : 1f;     // 特殊指揮（#2175）
+            float confAtk = flagship != null ? flagship.confusionAttackFactor : 1f;    // 混乱（#突撃・反撃低下）
             float ambush = (flagship != null && flagship.IsConcealed) ? DetectionRules.AmbushDamageFactor : 1f; // 不意打ち（#2180）
             // 命中・回避（#2255）：攻撃側精度は旗艦提督、回避は標的。外れはかすり。
             float acc = (flagship != null && flagship.admiralData != null)
                 ? (flagship.admiralData.EffectiveIntelligence + flagship.admiralData.EffectiveMobility) / 2f : 50f;
             float hit = AccuracyRules.HitFactor(AccuracyRules.HitChance(acc, ShipCombat.EvasionOf(target)), Random.value);
             int baseDamage = Mathf.Max(1, Mathf.RoundToInt(flagshipWeapon.damage * firepowerMultiplier
-                * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk) * ambush * Mathf.Max(0.1f, hit)));
+                * Mathf.Max(0.1f, corpsAbility) * Mathf.Max(0.1f, activeAtk) * Mathf.Max(0.1f, confAtk) * ambush * Mathf.Max(0.1f, hit)));
 
             // 武器種適性（#2256）：旗艦の weaponType を流用し、標的種別で与ダメ補正（実効値パターン・基準値非破壊）。
             if (flagshipWeapon != null)
@@ -220,7 +221,8 @@ namespace Ginei
             // MVP集計：配下艦の与ダメージも所属旗艦の戦果に加算
             if (flagship != null) flagship.AddDamageDealt(finalDamage);
 
-            DamagePopup.Show(targetPos, finalDamage, isFlank);
+            // 同一標的のダメージを短い窓で合算し、ポップアップを間引く（多数の配下艦の同時発砲対策・#会戦改善）。
+            DamageAccumulator.Add(target.Transform, finalDamage, isFlank, targetPos);
             FireBeam(targetPos);
             AudioManager.Instance.PlayBeam();
         }

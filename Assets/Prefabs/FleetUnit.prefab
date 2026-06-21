@@ -259,10 +259,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8e67a2b11571c94e9cd68a96ba32c1b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.FleetMovement
-  maxSpeed: 5
-  acceleration: 2
+  maxSpeed: 3.5
+  acceleration: 1.4
   deceleration: 4
-  rotationSpeed: 60
+  rotationSpeed: 42
   faceThreshold: 10
   arriveDistance: 0.5
   routedMobilityRatio: 0.5
@@ -308,7 +308,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ginei.FleetWeapon
   damage: 100
-  fireInterval: 1.2
+  fireInterval: 1.7
   flankMultiplier: 2
   missileAmmo: 10
   missileDamageMultiplier: 3

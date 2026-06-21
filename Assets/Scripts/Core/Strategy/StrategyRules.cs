@@ -499,22 +499,91 @@ namespace Ginei
         /// attackerWon=true なら a が勝者。敗者は除去、勝者は残存兵力へ、相打ち（残存0）は両除去。
         /// </summary>
         public static void ApplyBattleResult(StrategicFleetRegistry reg, StrategicFleet a, StrategicFleet b, CorridorBattleResult r)
+            => ApplyBattleResult(reg, a, b, r, 0);
+
+        /// <summary>
+        /// 敗北の代償つき版（#戦闘ドクトリン Stage4）。<paramref name="loserSurvivor"/> が正なら<b>敗者を除去せず
+        /// 原隊へ帰す</b>（撤退して生き延びた＝盤面に残し再建可能に）＝整然と退いた軍はプールでなく盤面戦力だけ
+        /// 失う。あわせて敗者に「士気・練度低下＋将帥の声望/政治的代償」を科す：兵力は撤退損耗ぶん削り（残った
+        /// 兵力を <see cref="CorpsRetreatRules.SurvivorsAfterWithdrawal"/> で目減りさせ）、声望/政治の代償は敗者の
+        /// 勢力/軍団名を添えて <see cref="NotificationCenter"/>（人事/政治）へ通知する（StrategicFleet に声望/練度の
+        /// 直列化フィールドは無いため、数値台帳でなく通知で表現する＝設計どおり）。
+        /// <paramref name="loserSurvivor"/>=0（既定）なら従来どおり敗者を除去する（完全後方互換）。
+        /// </summary>
+        public static void ApplyBattleResult(StrategicFleetRegistry reg, StrategicFleet a, StrategicFleet b,
+            CorridorBattleResult r, int loserSurvivor)
         {
             if (reg == null || a == null || b == null) return;
             StrategicFleet winner = r.attackerWon ? a : b;
             StrategicFleet loser = r.attackerWon ? b : a;
-            reg.Remove(loser);
+
+            if (loserSurvivor > 0)
+            {
+                // 撤退して生き延びた敗者：盤面に残し原隊へ帰す（再建可能）。敗北の代償を科す。
+                ApplyDefeatPenalty(loser, loserSurvivor, winner.strength);
+            }
+            else
+            {
+                reg.Remove(loser); // 完敗（生存兵力なし）＝盤面から除去（従来動作）
+            }
+
             winner.strength = r.survivorStrength;
             winner.engaged = false; // 決着＝交戦固着を解除し前進を再開（抽象・実会戦どちらの結果でも）
             if (winner.strength <= 0) reg.Remove(winner); // 相打ち
         }
 
         /// <summary>
+        /// 撤退して生き延びた敗者へ敗北の代償（#戦闘ドクトリン Stage4）を科す：撤退損耗で兵力を目減りさせ
+        /// （<see cref="CorpsRetreatRules.SurvivorsAfterWithdrawal"/>・交戦固着は解除して原隊へ帰す）、将帥の声望/
+        /// 政治的代償は敗者の勢力/軍団名を添えて通知する（数値台帳でなく通知で表現＝StrategicFleet に声望/士気/
+        /// 練度の直列化フィールドが無い設計に合わせる）。敗北の度合いは勝者比から推定し、完敗ほど損耗・代償が重い。
+        /// </summary>
+        private static void ApplyDefeatPenalty(StrategicFleet loser, int survivor, int winnerStrength)
+        {
+            if (loser == null) return;
+            int initial = Mathf.Max(1, loser.strength); // 戦闘前の兵力（呼び出し時点でまだ更新前）
+            float severity = CorpsRetreatRules.DefeatSeverity(survivor, initial, winnerStrength);
+
+            // 撤退に伴う追加損耗（しんがり・落伍）。最低1で原隊へ帰す（全滅させない）。
+            loser.strength = CorpsRetreatRules.SurvivorsAfterWithdrawal(survivor, severity);
+            loser.engaged = false; // 交戦固着を解いて原隊（後方）へ退ける
+
+            // 将帥の声望・政治的代償＝敗者の勢力/軍団を名指しで通知（人事/政治）。
+            string who = !string.IsNullOrEmpty(loser.corpsName) ? $"{loser.faction}・{loser.corpsName}" : loser.faction.ToString();
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                $"{who} は会戦に敗れ後退（士気・練度低下、指揮官の声望に傷）");
+            if (severity >= 0.6f) // 完敗は政治的な責任問題に波及
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"{who} の敗北で指揮官の政治的立場が揺らぐ");
+        }
+
+        /// <summary>
+        /// 敗者が撤退して生き延びる場合に原隊へ帰す残存兵力の既定割合（#戦闘ドクトリン Stage4）。
+        /// 実会戦で整然と退いた敗者は全滅でなく一部が後方へ生還する＝この割合×戦闘前兵力を生存とみなす。
+        /// </summary>
+        public const float DefeatedRetreatSurvivorRatio = 0.5f;
+
+        /// <summary>
         /// 実会戦（Battleシーン）から戻った結果（BattleHandoff）を戦略レジストリへ反映する（C-3）。
         /// 予約があり結果が書き込まれていれば、A/B の艦隊IDを引いて ApplyBattleResult を適用し、Handoff を消す。
-        /// 反映したら true。
+        /// 反映したら true。<b>敗者は除去（従来動作・完全後方互換）。</b>撤退した敗者を原隊へ帰したい場合は
+        /// <see cref="ApplyHandoffResultWithRetreat"/> を使う（#戦闘ドクトリン Stage4・opt-in）。
         /// </summary>
-        public static bool ApplyHandoffResult(StrategicFleetRegistry reg)
+        public static bool ApplyHandoffResult(StrategicFleetRegistry reg) => ApplyHandoffResult(reg, false);
+
+        /// <summary>
+        /// #戦闘ドクトリン Stage4：実会戦の敗者を<b>除去せず原隊へ帰す</b>opt-in版。敗者は撤退して生き延びた
+        /// ぶん（戦闘前兵力×<see cref="DefeatedRetreatSurvivorRatio"/>）を盤面に残し（再建可能）、敗北の代償
+        /// （撤退損耗で兵力目減り＋将帥の声望/政治的代償の通知）を科す。<see cref="ApplyHandoffResult"/> の
+        /// 既定（敗者除去）と分けることで既存契約を壊さない（Galaxy View 等が望めば本版へ差し替える）。
+        /// </summary>
+        public static bool ApplyHandoffResultWithRetreat(StrategicFleetRegistry reg) => ApplyHandoffResult(reg, true);
+
+        /// <summary>
+        /// 実会戦結果の反映本体。<paramref name="keepDefeatedLoser"/>=true なら敗者を原隊へ帰し代償を科す（Stage4）。
+        /// false なら従来どおり敗者除去（後方互換）。複数艦隊の会戦は按分版へ委譲。
+        /// </summary>
+        private static bool ApplyHandoffResult(StrategicFleetRegistry reg, bool keepDefeatedLoser)
         {
             if (reg == null || !BattleHandoff.Pending || !BattleHandoff.Resolved) return false;
             if (BattleHandoff.IsMultiFleet) return ApplyMultiHandoffResult(reg); // 複数艦隊の会戦は按分で反映
@@ -523,7 +592,16 @@ namespace Ginei
             var r = new CorridorBattleResult(BattleHandoff.sideAWon, BattleHandoff.survivorStrength);
             BattleHandoff.Clear();
             if (a == null || b == null) return false;
-            ApplyBattleResult(reg, a, b, r);
+            if (keepDefeatedLoser)
+            {
+                StrategicFleet loser = r.attackerWon ? b : a;
+                int loserSurvivor = Mathf.Max(1, Mathf.RoundToInt(Mathf.Max(0, loser.strength) * DefeatedRetreatSurvivorRatio));
+                ApplyBattleResult(reg, a, b, r, loserSurvivor);
+            }
+            else
+            {
+                ApplyBattleResult(reg, a, b, r);
+            }
             return true;
         }
 

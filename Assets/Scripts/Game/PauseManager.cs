@@ -29,6 +29,15 @@ namespace Ginei
 
         private void Start()
         {
+            // ウィンドウ化会戦（WIN-4 #2571）では時間制御は統一クロック（BattleDirector）が全会戦をまとめて駆動し、
+            // ポーズ/倍速は戦略側で操作する。会戦シーンごとの全画面ポーズメニューや timeScale 操作は競合・重なりの元なので
+            // 抑止する（Esc での離脱は BattleWindow が UIWindowStack 経由で担う）。フルスクリーン会戦では従来どおり。
+            if (gameObject.scene != SceneManager.GetActiveScene())
+            {
+                enabled = false; // Update を止める（入力・timeScale 操作・UI生成を行わない）
+                return;
+            }
+
             // pauseMenuRoot が未割り当てなら、ポーズメニューUIをコードで自動生成
             if (pauseMenuRoot == null)
             {

@@ -411,7 +411,10 @@ namespace Ginei
                 }
             }
 
-            // --- 殲滅（全条件共通の終了条件・多勢力対応）：敵対する旗艦ペアが残っていない ---
+            // --- 殲滅／押し出し（全条件共通の終了条件・多勢力対応）：敵対する旗艦ペアが残っていない ---
+            // 「押し出し勝ち」（#戦闘ドクトリン Stage4）もここで成立する：一方の戦闘艦隊が全て撤退線を越えて
+            // 離脱（BeginRetreat で IsAlive=false・レジストリ除外）／敗走すると、敵対ペアが消える＝盤上に残る側の
+            // 勝利になる（DetermineWinner が残存戦闘旗艦最多の勢力を勝者に選ぶ）。撤退＝撃沈と同じく戦線から外れる。
             if (!HasHostilePair(Flagships))
             {
                 winnerRep = DetermineWinner(Flagships);

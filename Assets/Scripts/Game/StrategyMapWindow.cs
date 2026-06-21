@@ -282,6 +282,11 @@ namespace Ginei
             hlg.childControlWidth = true; hlg.childControlHeight = true;
             hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = true;
 
+            // 執務机（なりきり提督の一人称UI）を上メニューへ格上げ＝観測ウィンドウのシステムタブ内項目でなく、
+            // コマンドバーの専用ボタンで直接開く（プレイヤーの主画面ゆえ最優先・観測の左に置く）。Alt+J も従来どおり。
+            MakeBarButton(cmd.transform, "執務机", 110f,
+                () => UnityEngine.Object.FindAnyObjectByType<ProtagonistDeskOverlay>()?.Toggle());
+
             // 上メニューの集約：25個のボタンを「観測」1個に畳み、タブ化したウィンドウ（内政/経済/軍事/政治/
             // システムの5タブ）から各オブザーバを開く。既存ウィンドウ・単一文字ショートカット（G/J/M/…）は不変。
             MakeBarButton(cmd.transform, "観測 ▾", 132f, ToggleObserverWindow);
@@ -535,7 +540,7 @@ namespace Ginei
             {
                 ("決裁",     () => UnityEngine.Object.FindAnyObjectByType<DecisionBoardPanel>()?.Toggle()),
                 ("稟議",     () => UnityEngine.Object.FindAnyObjectByType<RingiObserverOverlay>()?.Toggle()),
-                ("執務机",   () => UnityEngine.Object.FindAnyObjectByType<ProtagonistDeskOverlay>()?.Toggle()),
+                // 「執務机」はコマンドバーの専用ボタンへ格上げ（BuildMenuBar）＝ここからは除去（重複回避）。
                 ("メーター", () => UnityEngine.Object.FindAnyObjectByType<DecisionCampaignDirector>()?.Toggle()),
                 ("情報",     () => UnityEngine.Object.FindAnyObjectByType<CoreStateInspector>()?.Toggle()),
                 ("通知",     () => UnityEngine.Object.FindAnyObjectByType<NotificationLogOverlay>()?.Toggle()),

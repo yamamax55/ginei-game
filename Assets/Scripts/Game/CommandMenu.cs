@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace Ginei
 {
@@ -35,11 +36,27 @@ namespace Ginei
         // 現在開いているサブメニューのカテゴリ（同じカテゴリ再クリックで閉じるトグル判定）
         private string openCategory;
 
+        private bool windowAttachDone; // 窓内へメニューを親替え済みか（WIN-4・ウィンドウ化会戦のみ）
+
         private void Start()
         {
-            if (commander == null) commander = Object.FindAnyObjectByType<FleetCommander>();
+            // 複数会戦が同時にロードされていても自分の会戦の指揮官を掴む（同シーン優先・WIN-4）。
+            if (commander == null) commander = BattleWindowUI.FindInSceneOrAny<FleetCommander>(gameObject.scene);
             CacheFormationSubMenu();
             CloseMenu();
+        }
+
+        /// <summary>
+        /// ウィンドウ化会戦（WIN-4）ではコマンドメニュー（menuRoot）を自分の窓内 UI 親へ親替えする
+        /// （全画面に広げない・複数窓で重ならない）。メニューはマウス画面座標で開くので、親が窓矩形になっても
+        /// ScreenSpaceOverlay 上の座標一致は保たれ、ClampToScreen は窓矩形内へ収める。
+        /// フルスクリーン会戦（会戦シーン＝アクティブシーン）では何もしない（後方互換）。
+        /// </summary>
+        private void TryWindowAttach()
+        {
+            if (windowAttachDone || menuRoot == null) return;
+            if (gameObject.scene == SceneManager.GetActiveScene()) { windowAttachDone = true; return; }
+            if (BattleWindowUI.TryAttach(gameObject.scene, menuRoot.GetComponent<RectTransform>())) windowAttachDone = true;
         }
 
         /// <summary>
@@ -58,6 +75,8 @@ namespace Ginei
 
         private void Update()
         {
+            TryWindowAttach();
+
             // メニュー外クリックまたはEscで閉じる
             if (menuRoot.activeSelf)
             {

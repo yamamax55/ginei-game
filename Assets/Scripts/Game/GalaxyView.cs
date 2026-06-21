@@ -285,7 +285,7 @@ namespace Ginei
             // さらに、潜行中に銀河の時計は止まらない＝観ていなかった他戦線は自動侵攻で決着（#586 ④⑤）。
             if (BattleHandoff.Resolved && BattleHandoff.Pending)
             {
-                // 反映前に手動会戦の場所・勝敗を控える（ApplyHandoffResult は敗者を除去するため）。
+                // 反映前に手動会戦の場所・勝敗を控える（敗者は撤退で進行元へ引き返すが念のため控える）。
                 StrategicFleet ma = reg != null ? reg.GetFleet(BattleHandoff.fleetIdA) : null;
                 StrategicFleet mb = reg != null ? reg.GetFleet(BattleHandoff.fleetIdB) : null;
                 bool haveInfo = ma != null && mb != null;
@@ -300,7 +300,8 @@ namespace Ginei
                     mSurv = BattleHandoff.survivorStrength;
                 }
 
-                if (StrategyRules.ApplyHandoffResult(reg))
+                // 敗軍は全滅でなければ進行元へ撤退（盤面に残す）し敗戦ペナルティを科す（#戦闘ドクトリン Stage4）。
+                if (StrategyRules.ApplyHandoffResultWithRetreat(reg))
                 {
                     if (haveInfo) AnnounceOutcome(new EncounterOutcome(mMin, mMax, mWin, mLose, mSurv), manual: true);
 
@@ -524,9 +525,8 @@ namespace Ginei
 
             int m = monthCounter % 12;
             if (monthCounter % 3 == 0) RunDiplomacyTick();   // P2：外交は四半期（宣戦/講和/賠償/制裁/諜報）
-            if (m == 2)  RunSupplyChainTick();               // P1：重い生産連鎖を月割りで分散（各年1回・dt不変）
-            if (m == 6)  RunBomConsumerTick();
-            if (m == 10) RunScmPlanTick();
+            if (m == 6)  RunBomConsumerTick();               // P1：消費財BOM（食品/衣類/医薬/住宅）を年1回・dt不変。住宅は森林チェーン#2091 廃止で本Tickに統合
+            // SCM計画（MRP・#2105）は簡略化で凍結＝撤去。供給配分は RunBomConsumerTick 内の不足平滑化に集約
             monthCounter++;
         }
 

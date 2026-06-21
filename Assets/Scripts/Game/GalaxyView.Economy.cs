@@ -1483,81 +1483,38 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, $"住宅不足の星系 {housingShort}（建材・住宅の供給不足）");
         }
 
-        // --- SCM計画（MRP所要量展開・SCM・#2105 read-only 配線） ---
-        /// <summary>勢力ごとに消費財需要をMRP展開し、原材料供給見込みと突き合わせて逼迫品目を通知（状態は変えない）。</summary>
-        private void RunScmPlanTick()
-        {
-            if (map == null || provinces == null) return;
-            EnsureBomContent();
-            for (int f = 0; f < DemoFactions.Length; f++)
-            {
-                Faction fac = DemoFactions[f];
-                float totalPop = 0f, grainSupply = 0f, fiberSupply = 0f;
-                foreach (var s in map.systems)
-                {
-                    if (s == null || s.owner != fac) continue;
-                    if (!provinces.TryGetValue(s.id, out var prov) || prov == null) continue;
-                    float pop = prov.population;
-                    float outFactor = GovernanceRules.OutputFactor(prov);
-                    totalPop += pop;
-                    grainSupply += pop * 1.5f * outFactor; // RunBomConsumerTick と同じ供給見込み
-                    fiberSupply += pop * 0.6f * outFactor;
-                }
-                if (totalPop <= 0f) continue;
+        // SCM計画（MRP所要量展開・#2105）はゲーム簡略化のため凍結＝Tick撤去（ScmTickRules/MrpCoverageRules 削除済み）。
 
-                var demands = new System.Collections.Generic.Dictionary<int, float>
-                {
-                    { foodId, totalPop * 1.0f },     // 食品＝全員
-                    { clothingId, totalPop * 0.2f }, // 衣類＝控えめ
-                };
-                var onHand = new CommodityStock();
-                onHand.Add(grainId, grainSupply);
-                onHand.Add(fiberId, fiberSupply);
-
-                var plan = ScmTickRules.Plan(demands, onHand);
-                if (plan.serviceLevel < 0.7f && plan.criticalCommodity >= 0)
-                {
-                    var crit = CommodityCatalog.Get(plan.criticalCommodity);
-                    string name = crit != null ? crit.name : "原材料";
-                    NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
-                        $"{fac} SCM計画：{name}が逼迫（消費財の充足見込み {(int)(plan.serviceLevel * 100)}%）");
-                }
-            }
-        }
-
-        // --- 勢力内供給配分（域内物流・DIST・#2112 配線） ---
+        // --- 勢力内供給配分（域内物流・DIST・#2112 配線。簡略化：回廊トポロジ廃止＝勢力単位の不足平滑化） ---
         private const float DistributionLoss = 0.05f; // 回廊輸送ロス
 
-        /// <summary>勢力ごとに連結領域内で穀物を再配分＝余剰の穀倉惑星が不足惑星を養う（通商破壊で分断・封鎖惑星は孤立）。</summary>
+        /// <summary>勢力ごとに余剰の穀倉惑星が不足惑星を養う＝穀物の不足平滑化（簡略版・#2112 凍結）。
+        /// 回廊トポロジ（RegionReachabilityRules の連結成分）は簡略化のため廃止し、勢力単位の単一プールで配分。
+        /// 通商破壊#95：敵艦在席の封鎖惑星はプールから除外＝孤立（兵站の戦略的価値は維持）。</summary>
         private void RunRegionalDistributionTick()
         {
             if (map == null || provinces == null) return;
-            // 通商破壊#95：敵艦が在席する星系は中継不能＝領域を分断する。
-            var blocked = new System.Collections.Generic.HashSet<int>();
-            foreach (var s in map.systems)
-                if (s != null && HasHostileFleetAt(s)) blocked.Add(s.id);
-
             for (int f = 0; f < DemoFactions.Length; f++)
             {
                 Faction fac = DemoFactions[f];
-                var components = RegionReachabilityRules.Components(map, fac, blocked);
-                for (int ci = 0; ci < components.Count; ci++)
+                var ids = new System.Collections.Generic.List<int>();
+                foreach (var s in map.systems)
                 {
-                    var ids = new System.Collections.Generic.List<int>();
-                    foreach (var id in components[ci])
-                        if (provinces.TryGetValue(id, out var pv) && pv != null && bomStocks.TryGetValue(id, out var st) && st != null)
-                            ids.Add(id);
-                    if (ids.Count < 2) continue; // 2惑星以上ないと配分の意味がない
-
-                    var stocks = new CommodityStock[ids.Count];
-                    var grainDemand = new float[ids.Count];
-                    for (int i = 0; i < ids.Count; i++)
-                    {
-                        stocks[i] = bomStocks[ids[i]];
-                        grainDemand[i] = provinces[ids[i]].population * 1.0f; // 食品の素＝穀物の地元需要
-                    }
-                    RegionalDistributionTickRules.Distribute(stocks, grainId, grainDemand, float.MaxValue, DistributionLoss);
+                    if (s == null || s.owner != fac) continue;
+                    if (HasHostileFleetAt(s)) continue; // 封鎖惑星は孤立＝配分対象外（通商破壊#95）
+                    if (provinces.TryGetValue(s.id, out var pv) && pv != null && bomStocks.TryGetValue(s.id, out var st) && st != null)
+                        ids.Add(s.id);
                 }
+                if (ids.Count < 2) continue; // 2惑星以上ないと配分の意味がない
+
+                var stocks = new CommodityStock[ids.Count];
+                var grainDemand = new float[ids.Count];
+                for (int i = 0; i < ids.Count; i++)
+                {
+                    stocks[i] = bomStocks[ids[i]];
+                    grainDemand[i] = provinces[ids[i]].population * 1.0f; // 食品の素＝穀物の地元需要
+                }
+                RegionalDistributionTickRules.Distribute(stocks, grainId, grainDemand, float.MaxValue, DistributionLoss);
             }
         }
 

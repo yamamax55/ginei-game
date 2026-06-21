@@ -97,6 +97,9 @@ namespace Ginei
         [System.NonSerialized] public Vector2 corpsSlotLocal;
         /// <summary>軍団の正面（度・+Y 基準）。スロットの回転と正対方向に使う。</summary>
         [System.NonSerialized] public float corpsFacingDeg;
+        /// <summary>軍団長専用：軍団が隊形を整えるまで前進を保留する（集結優先・#軍団集結）。隷下には使わない。
+        /// 整い次第／敵接近で <see cref="BattlefieldCommandManager"/> が解除し、軍団ごと前進・交戦へ移る。</summary>
+        [System.NonSerialized] public bool corpsHold;
 
         private bool manualOverride;
         /// <summary>手動指示で AI 操舵を一時上書き中か（指示完了で自動的に AI へ復帰）。</summary>
@@ -303,6 +306,14 @@ if (Time.time >= nextSearchTime)
                         // 交戦規定（ROE・#2258）：攻撃的以外は追尾（深追い）しない。
                         // 防御的/射撃管制では前進を抑制（AdvanceFactor が0より大きければ接近するが距離は縮めすぎない）。
                         if (strength != null && !RoeRules.CanPursue(strength.stance)) break;
+
+                        // 軍団長は軍団が隊形を整えるまで前進を待つ（#軍団集結）。敵方向へ正対して待機し、
+                        // 整い次第／敵接近で BattlefieldCommandManager が corpsHold を解除＝軍団ごと前進・交戦へ移る。
+                        if (corpsHold)
+                        {
+                            movement.FaceTarget(targetEnemy.transform.position);
+                            break;
+                        }
 
                         // 軍団集結（#軍団集結）：敵が軍団（持ち場）から遠い間は独走せず、軍団長基準のスロットに就いて
                         // 軍団としてまとまって前進する（軍団長が前を率い、隷下は隊形を保って追従）。敵が持ち場へ迫れば交戦へ移る。

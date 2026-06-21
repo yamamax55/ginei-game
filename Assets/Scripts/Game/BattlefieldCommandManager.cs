@@ -42,6 +42,11 @@ namespace Ginei
         private const float CorpsSpacingMargin = 3f;
         private const float CorpsMinSpacing = 7f;
 
+        // 軍団長の前進保留（集結優先・#軍団集結）。隷下がスロットへこの許容範囲内に就けば「整った」とみなす。
+        private const float CorpsFormTolerance = 1.5f;     // 許容＝spacing×この係数
+        private const float CorpsFormMinTolerance = 8f;    // 許容の下限（spacing が小さくても確保）
+        private const float CorpsFormUpAbortRange = 45f;   // 敵がこの距離まで迫れば整列を待たず前進・交戦へ
+
         private void Awake()
         {
             ActingCommandLedger.Clear();   // 新しい会戦＝臨時指揮をリセット
@@ -209,6 +214,8 @@ namespace Ginei
             if (cmdAi != null) { cmdAi.corpsControlled = true; cmdAi.hasCorpsAnchor = false; cmdAi.hasCorpsSlot = false; }
 
             // 隷下：軍団長が陣形を発令し、軍団長基準のスロットへ就かせる（非接敵時はスロット集結・接敵時は持ち場内で交戦）。
+            // あわせて各隷下の現在地とスロットのズレを測り、隊形の整い具合（cohesion）を判定する（#軍団集結）。
+            float maxSlotErrorSqr = 0f;
             int ci = 0;
             for (int i = 0; i < slots.Count && ci < subs.Count; i++)
             {
@@ -217,14 +224,31 @@ namespace Ginei
                 Squadron sq = sub.GetComponent<Squadron>();
                 if (sq != null) sq.TryChangeFormation(rec); // 各艦隊の配下艦陣形（スキルポイント消費・#陣形コスト）
 
+                Vector2 slotLocal = slots[i].localPos - commanderLocal; // 軍団長を原点とした局所スロット
+                Vector2 slotWorld = anchor + RotateVec(slotLocal, facingDeg);
+                float errSqr = ((Vector2)sub.transform.position - slotWorld).sqrMagnitude;
+                if (errSqr > maxSlotErrorSqr) maxSlotErrorSqr = errSqr;
+
                 FleetAI ai = sub.GetComponent<FleetAI>();
                 if (ai == null) continue;
                 ai.corpsControlled = true;
                 ai.hasCorpsAnchor = true; ai.corpsAnchor = anchor;     // 持ち場（深追い抑制）
                 ai.hasCorpsSlot = true;                                // 軍団スロット集結（#軍団集結）
                 ai.corpsCommanderTf = commander.transform;
-                ai.corpsSlotLocal = slots[i].localPos - commanderLocal; // 軍団長を原点とした局所スロット
+                ai.corpsSlotLocal = slotLocal;
                 ai.corpsFacingDeg = facingDeg;
+            }
+
+            // 軍団長の前進保留（#軍団集結）：隊形が整う前に突進すると「各艦バラバラに突撃」になるため、
+            // 隷下がスロットへ就くまで軍団長は前進を待つ（敵方向へ正対して待機）。整い次第／敵が間近に迫れば解除し、
+            // 軍団ごとまとまって前進・交戦する。隷下がいない（単艦隊）軍団は待たない（従来どおり前進）。
+            if (cmdAi != null)
+            {
+                float formTol = Mathf.Max(spacing * CorpsFormTolerance, CorpsFormMinTolerance);
+                bool formed = subs.Count == 0 || maxSlotErrorSqr <= formTol * formTol;
+                bool enemyNear = nearest != null
+                    && ((Vector2)nearest.transform.position - anchor).sqrMagnitude <= CorpsFormUpAbortRange * CorpsFormUpAbortRange;
+                cmdAi.corpsHold = subs.Count > 0 && !formed && !enemyNear;
             }
 
             // 軍団長の陣形変更命令を通知（変化時のみ＝洪水回避・#軍団長の陣形変更命令）。会戦開始の初回も発火する。
@@ -246,6 +270,14 @@ namespace Ginei
             ai.hasCorpsAnchor = false;
             ai.hasCorpsSlot = false;
             ai.corpsCommanderTf = null;
+            ai.corpsHold = false;   // 拘束解除＝前進保留も解く（#軍団集結）
+        }
+
+        /// <summary>ベクトルを Z 角(度・+Y 基準)で回す（CorpsFormation / FleetAI と同一規約）。</summary>
+        private static Vector2 RotateVec(Vector2 v, float deg)
+        {
+            float r = deg * Mathf.Deg2Rad, c = Mathf.Cos(r), s = Mathf.Sin(r);
+            return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
         }
 
         /// <summary>艦隊の配下艦占有半径（無ければ0）。軍団スロット間隔の非重複に使う。</summary>

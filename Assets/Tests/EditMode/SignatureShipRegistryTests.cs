@@ -23,7 +23,8 @@ namespace Ginei.Tests
             // 本作オリジナル（主人公候補とその親友）。
             Assert.AreEqual("グリニッジ", SignatureShipRegistry.ResolveByName("ミレイア・セルウィン"));
             Assert.AreEqual("グリニッジ", SignatureShipRegistry.ResolveByName("ミレイア"));
-            Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア・フォン・ファルケンハイト"));
+            Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア・ファルケンハイト"));
+            Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア・フォン・ファルケンハイト")); // 旧名
             Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア"));
             Assert.AreEqual("", SignatureShipRegistry.ResolveByName("名もなき提督"));
         }

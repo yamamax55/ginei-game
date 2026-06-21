@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
   m_Name: Aurelia
   m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
-  admiralName: "アウレリア・フォン・ファルケンハイト"
+  admiralName: "アウレリア・ファルケンハイト"
   faction: 1
   sex: 1
   givenName: "アウレリア"
   middleName:
   familyName: "ファルケンハイト"
-  nobleParticle: "フォン"
+  nobleParticle:
   regnalNumber: 0
   epithet:
   callName: "アウレリア"
@@ -34,7 +34,7 @@ MonoBehaviour:
   humility: 44
   ambition: 74
   isSpecialForces: 0
-  isTranscendent: 0
+  isTranscendent: 1
   isHyoriHikyo: 0
   isInnovator: 0
   isRisingHero: 1

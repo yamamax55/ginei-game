@@ -22,7 +22,7 @@ MonoBehaviour:
   regnalNumber: 0
   epithet: 
   callName: "\u30DF\u30EC\u30A4\u30A2"
-  signatureShipName: 
+  signatureShipName: "グリニッジ"
   isProtagonist: 1
   rankTier: 1
   leadership: 68

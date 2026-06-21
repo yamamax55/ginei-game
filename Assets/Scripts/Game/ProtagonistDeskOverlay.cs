@@ -274,7 +274,8 @@ namespace Ginei
             row.transform.SetParent(parent, false);
             row.AddComponent<RectTransform>();
             LayoutElement le = row.AddComponent<LayoutElement>();
-            le.minHeight = 38f; le.preferredHeight = 38f;
+            // 高さは行を 38px に固定（flexibleHeight=0 で縦に伸びないようにする＝ボタンが巨大化しない）。
+            le.minHeight = 38f; le.preferredHeight = 38f; le.flexibleHeight = 0f;
             HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
             h.spacing = 6f;
             h.childControlWidth = true; h.childControlHeight = true;

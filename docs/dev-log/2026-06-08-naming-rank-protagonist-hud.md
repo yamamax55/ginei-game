@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 作業ログ 2026-06-08 — 命名/階級/主人公・HUD刷新・選択改善・詳細パネル・テスト基盤
 
 > 旧 GitHub Issue #746（priority:low / area:combat / design）から dev-log へ移設（2026-06-21）。タスクではなく作業ログ。

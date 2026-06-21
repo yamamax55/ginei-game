@@ -8,8 +8,8 @@ tags: [ops]
 > GameCI = GitHub Actions 上で headless Unity を動かす仕組み。これで dotnet TestHarness では
 > 検証できない **Game 層（MonoBehaviour/UI）のコンパイル＋Unity テスト**を無人で回せる。
 > public リポジトリなので GitHub Actions の実行は無料。
-> 将来：自動プレイテストharness（[`playtest-harness.md`](playtest-harness.md)）を PlayMode で回し、
-> スクショ＋ビジョンで視覚バグ/改善点を検出 → `agent-ready` issue → 自動実装（[`auto-implement-workflow.md`](auto-implement-workflow.md)）へ一周つなぐ。
+> 将来：自動プレイテストharness（[[playtest-harness]]）を PlayMode で回し、
+> スクショ＋ビジョンで視覚バグ/改善点を検出 → `agent-ready` issue → 自動実装（[[auto-implement-workflow]]）へ一周つなぐ。
 
 Unity バージョン：**6000.4.9f1**（`ProjectSettings/ProjectVersion.txt`）。ライセンス：**Personal（無料）**。
 

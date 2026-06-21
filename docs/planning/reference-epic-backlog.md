@@ -5,7 +5,7 @@ tags: [planning]
 
 # 参考EPIC バックログ（候補キュー）
 
-> 世界観・参考作品のEPIC化候補を貯める場所。処理は [`reference-epic-pipeline.md`](reference-epic-pipeline.md) の手順で、`/worldview-epic 次` が**上から順に未処理を1件**取る。
+> 世界観・参考作品のEPIC化候補を貯める場所。処理は [[reference-epic-pipeline]] の手順で、`/worldview-epic 次` が**上から順に未処理を1件**取る。
 > 思いついたらここに1行追記するだけでよい（着眼点は任意・空欄可）。
 
 | 状態 | 作品/テーマ | 着眼点（任意） | EPIC |

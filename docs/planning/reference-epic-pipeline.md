@@ -7,7 +7,7 @@ tags: [planning]
 
 > 参考作品（ゲーム/小説/歴史/思想家）を「設計書＋GitHub EPIC＋子Issue＋roadmap追記」へ落とす定型。
 > 実例：Almagest -Overture- #1054（ALM-1〜16）／狼と香辛料 #1071（SAW-1〜9）。
-> 連続実行は `/worldview-epic <作品名>`（スキル）＋ [`reference-epic-backlog.md`](reference-epic-backlog.md)（候補キュー）で回す。
+> 連続実行は `/worldview-epic <作品名>`（スキル）＋ [[reference-epic-backlog]]（候補キュー）で回す。
 
 ## 0. 入力と成果物
 
@@ -17,7 +17,7 @@ tags: [planning]
 1. 設計書 `docs/reference/<slug>-reference-design.md`
 2. GitHub **EPIC issue 1件**＋**子issue N件**（プレフィックス `XXX-n`）
 3. `docs/planning/roadmap.md` §5-2 へ **1行追記**
-4. [`reference-epic-backlog.md`](reference-epic-backlog.md) の該当行を「済 #n」へ
+4. [[reference-epic-backlog]] の該当行を「済 #n」へ
 5. コミット `docs: <作品>参考EPIC #<n>（XXX-1〜N）— <要約>`
 
 ## 1. 大原則（全工程で守る）
@@ -74,9 +74,9 @@ gh issue create --title "[XXX-n] <タイトル>" `
 
 ## 3. 連続実行（バックログ駆動）
 
-- 候補作品は [`reference-epic-backlog.md`](reference-epic-backlog.md) に貯める（思いついたら1行追記）。
+- 候補作品は [[reference-epic-backlog]] に貯める（思いついたら1行追記）。
 - `/worldview-epic 次` でバックログ先頭の未処理を取り、1作品=1サイクルで回す。
-- **調査（Step 1-2）は作品間で独立＝並列ファンアウト可**（[`parallel-core-fanout.md`](../ops/parallel-core-fanout.md) CCX-1 の方式で複数作品を同時調査）。ただし**起票（Step 4-6）は直列**＝issue 番号・roadmap 行・プレフィックスが競合するため。
+- **調査（Step 1-2）は作品間で独立＝並列ファンアウト可**（[[parallel-core-fanout]] CCX-1 の方式で複数作品を同時調査）。ただし**起票（Step 4-6）は直列**＝issue 番号・roadmap 行・プレフィックスが競合するため。
 
 ### クラウド自動実行（GitHub Actions・PC非依存）
 - **並列版 `.github/workflows/worldview-epic-parallel.yml`（master・現行）** が **30分ごと（UTC :11/:41）** に **fan-out/fan-in で N=5 並列**処理する：①`select`（直列1・backlogから5件選定＋プレフィックス割当）②`epicize`（並列5・各作品の設計書＋issue起票・**共有ファイルは触らずartifactで渡す**）③`integrate`（直列1・全fragmentを集約しroadmap/backlogを1push更新）。スループット約4倍（1時間で約10冊）。
@@ -91,5 +91,5 @@ gh issue create --title "[XXX-n] <タイトル>" `
 
 | 作品 | EPIC | 子Issue | 設計書 |
 |---|---|---|---|
-| Almagest -Overture- | #1054 | ALM-1〜16（#1055〜#1070） | [`almagest-reference-design.md`](../reference/almagest-reference-design.md) |
-| 狼と香辛料 | #1071 | SAW-1〜9（#1072〜#1080） | [`spice-and-wolf-reference-design.md`](../reference/spice-and-wolf-reference-design.md) |
+| Almagest -Overture- | #1054 | ALM-1〜16（#1055〜#1070） | [[almagest-reference-design]] |
+| 狼と香辛料 | #1071 | SAW-1〜9（#1072〜#1080） | [[spice-and-wolf-reference-design]] |

@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発ログ 2026-06-11 ── 観測層（可視化・第1層）／ブランチ整理＆マージ／参考EPIC量産
 
 Core 純ロジックの急増に「盤面で何も見えない」乖離を構造的に潰すための**観測層（read-only 可視化）**を入れた日。あわせて `claude/ccx-1-parallel-fanout` を整理して master へ統合し、roadmap を最新化。TestHarness は **1037 緑**。

@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発ログ 2026-06-10 ── 統一時間・艦隊編成プール・通知システム
 
 戦略レイヤーの「時間」「編成」「通知」基盤を一気に配線した日。純ロジックは Core で test-first、Game 配線は GalaxyView/BattleManager へ。TestHarness は 440→**1020** テストへ。

@@ -5,7 +5,7 @@ tags: [design]
 
 # 社交場 深堀り設計（EPIC #SLN・TALE-1 の実装深化）
 
-> 親系譜：カンタベリー物語 参考EPIC #1082（[`canterbury-tales-reference-design.md`](../reference/canterbury-tales-reference-design.md)）の **TALE-1 社交場フレーム（#1083）** を、独立EPICとして深堀りする。
+> 親系譜：カンタベリー物語 参考EPIC #1082（[[canterbury-tales-reference-design]]）の **TALE-1 社交場フレーム（#1083）** を、独立EPICとして深堀りする。
 > TALE-1 は「参加者集合→交流→関係値更新」の最小ルール（`GatheringRules`）を定義した。本EPICはその**土台の上に**、場の類型・関係グラフ基盤・席次プロトコル・噂・調略・縁談・派閥創発を足す——**「社交場＝群像劇と政治が交差するハブ」**に育てる。
 > 著作権注意：固有名・文章・キャラクターは流用せず、**構造パターンのみ**を参考にする。
 
@@ -85,7 +85,7 @@ tags: [design]
 
 | 不採用 | 理由 |
 |---|---|
-| ~~会話の逐次選択肢（対話アドベンチャー化）~~ | **→ 方針転換（2026-06-11 作者決定）＝EPIC #1156（DLG・[`dialogue-adventure-design.md`](dialogue-adventure-design.md)）で採用**。タイクン化は「プレイヤー出席時のみADV化・非出席は自動解決」（PERF原則5＝観測とシミュの分離）で回避 |
+| ~~会話の逐次選択肢（対話アドベンチャー化）~~ | **→ 方針転換（2026-06-11 作者決定）＝EPIC #1156（DLG・[[dialogue-adventure-design]]）で採用**。タイクン化は「プレイヤー出席時のみADV化・非出席は自動解決」（PERF原則5＝観測とシミュの分離）で回避 |
 | pop 単位の関係値 | **PERF #1117 原則1違反**。関係グラフはネームドのみ・有界 |
 | 社交スケジュールのマイクロ管理UI | 開催は暦Tick・参加は資格ルールで自動。プレイヤーは高位の決断のみ |
 | `GatheringRules`（TALE-1）の再実装 | TALE-1 が土台。SLN は類型・資格・接続を**足す**だけ |

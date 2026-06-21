@@ -1,3 +1,8 @@
+---
+type: index
+tags: [index]
+---
+
 # 設定資料集（Lore Vault）
 
 このフォルダは **Obsidian の Vault** として開く設定・物語のバイブル。

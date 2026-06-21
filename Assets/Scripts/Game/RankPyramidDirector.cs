@@ -78,6 +78,7 @@ namespace Ginei
                 for (int i = 0; i < target.Length; i++)
                     d.Set((MilitaryGrade)i, Mathf.RoundToInt(target[i] * seedFill));
             }
+            ApplyNamedOfficers(); // 頂点を実在の提督名鑑に合わせる（幾何分布だと元帥/大将が0に丸まるため）
             GameClock clock = StrategySession.Clock;
             lastYear = clock != null ? Mathf.FloorToInt((float)clock.ElapsedSeconds / SecondsPerYear) : 0;
         }
@@ -87,6 +88,31 @@ namespace Ginei
             var factions = new List<Faction>(MilitaryRankRegistry.Factions);
             for (int i = 0; i < factions.Count; i++)
                 RankFlowRules.TickYear(MilitaryRankRegistry.Get(factions[i]), annualIntake, Pyramid, Flow);
+            ApplyNamedOfficers(); // 年次フローで頂点が削れても実在の提督ぶんは下限保証
+        }
+
+        /// <summary>
+        /// 提督名鑑（<see cref="GalaxyView.CommanderRoster"/>）の存命士官を勢力×階級tier で数え、各勢力の
+        /// 階級ピラミッド頂点へ重ねる（<see cref="RankDistributionRules.OverlayNamedOfficers"/>＝max下限保証）。
+        /// マクロ集計（個体に降りない）と実在人物の<b>頂点</b>を一致させる＝「元帥0/大将0」を防ぐ。
+        /// </summary>
+        private void ApplyNamedOfficers()
+        {
+            var gv = Object.FindAnyObjectByType<GalaxyView>();
+            if (gv == null || gv.CommanderRoster == null) return;
+            var roster = gv.CommanderRoster;
+            var byFaction = new Dictionary<Faction, int[]>();
+            for (int i = 0; i < roster.Count; i++)
+            {
+                Person p = roster[i];
+                if (p == null || p.IsDeceased) continue;
+                int t = p.rankTier;
+                if (t < 1 || t > 10) continue; // 士官（少尉1〜元帥10）のみ
+                if (!byFaction.TryGetValue(p.faction, out var arr)) { arr = new int[11]; byFaction[p.faction] = arr; }
+                arr[t]++;
+            }
+            foreach (var kv in byFaction)
+                RankDistributionRules.OverlayNamedOfficers(MilitaryRankRegistry.Get(kv.Key), kv.Value);
         }
 
         /// <summary>

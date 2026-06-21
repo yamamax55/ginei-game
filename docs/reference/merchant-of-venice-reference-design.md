@@ -129,3 +129,4 @@ tags: [reference]
 - [[das-kapital-reference-design]] — 金融と利子の経済
 - [[behavioral-economics-reference-design]] — 契約と意思決定の非合理
 - [[waning-middle-ages-reference-design]] — 中世の金融と差別
+- [[canterbury-tales-reference-design]] — 中世群像と階級摩擦

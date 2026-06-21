@@ -127,3 +127,4 @@ tags: [reference]
 - [[merchant-of-venice-reference-design]] — 異邦人の法的地位と裁判
 - [[sword-honor-meritocracy-design]] — 昇進人事と実力登用
 - [[zuo-zhuan-reference-design]] — 下剋上と内部からの簒奪
+- [[canterbury-tales-reference-design]] — 群像劇の構造・人物挿話

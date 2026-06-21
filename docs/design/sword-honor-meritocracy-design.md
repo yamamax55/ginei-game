@@ -107,3 +107,4 @@ public static float PromotionFavor(MilitaryDegree degree, int warCollegeRank, fl
 - [[nco-education-us-reference-design]] — 米軍型実力主義の対比元
 - [[military-organization-design]] — 軍の編制・人事構造
 - [[sapiens-reference-design]] — 学閥という虚構秩序の参照
+- [[canterbury-tales-reference-design]] — 身分・階級摩擦の群像描写

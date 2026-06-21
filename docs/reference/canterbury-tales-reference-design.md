@@ -124,9 +124,12 @@ tags: [reference]
 > いずれも既存の人物/列伝/イベント/政治を**後退させず接続**する additive 設計。**名簿を“生きた群像劇”に変え、社交が政治（#113/#817）の火種になる**ことが最大の収穫。銀英伝＝群像劇の核心を強化する。
 
 ## 関連
+- [[social-venue-design]] — **TALE-1 社交場を深堀りする子EPIC**（#1145・SLN）
+- [[dialogue-adventure-design]] — 社交場のプレイヤー向け対話シーン化（#1156・DLG＝挿話の語り口）
 - [[king-lear-reference-design]] — シェイクスピア群像・人物像
 - [[othello-reference-design]] — シェイクスピア群像・人間関係
 - [[merchant-of-venice-reference-design]] — シェイクスピア・社会摩擦
 - [[waning-middle-ages-reference-design]] — 中世社会の身分と心性
+- [[pillars-of-the-earth-reference-design]] — 中世群像の社会階層・大事業
 - [[sword-honor-meritocracy-design]] — 身分と階級摩擦
 - [[taikou-risshiden-reference-design]] — 人物群像と人脈

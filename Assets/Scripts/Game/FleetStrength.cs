@@ -149,6 +149,19 @@ namespace Ginei
         [Tooltip("捨てがまり判定：この距離内に敵がいれば『追われている』とみなす（敵が追ってきている時だけ殿＝捨てがまりが発動）")]
         public float pursuitDetectRange = 12f;
 
+        [Header("追撃下の退却（#追撃撃沈）")]
+        [Tooltip("追撃を受けながら退却する旗艦が保持する残存（最大兵力比）。退却中も追撃ダメージでこれが尽きると撃沈される。" +
+                 "追手を振り切れば（pursuitDetectRange 内に敵なし）安全離脱して被弾しなくなる。0＝従来（退却＝即・被弾しない）")]
+        [Range(0f, 0.5f)]
+        public float pursuedRetreatHpRatio = 0.12f;
+        [Tooltip("退却中の追撃判定の再評価間隔（秒・間引き＝終盤ラグ回避）")]
+        public float pursuitRecheckInterval = 0.3f;
+
+        // 退却中の追撃状態（IsAlive/TakeDamage が O(1) で読むキャッシュ＝索敵の N^2 化を避ける）。
+        private bool stayTargetableRetreat; // 追撃下の退却で標的・被弾を残すか（安全離脱・静観退きは false）
+        private bool pursuedCached;         // 退却中の「追われている」キャッシュ（Update で間引き再計算）
+        private float nextPursuitCheck;
+
         [Header("挟撃／包囲（#2178）")]
         [Tooltip("挟撃判定の範囲（この距離内の敵対旗艦の方位分布から包囲度を算定）")]
         public float envelopmentRange = 14f;
@@ -203,7 +216,8 @@ namespace Ginei
         public Transform Transform => transform;
         public Faction Faction => faction;
         public FactionData FactionData => factionData;
-        public bool IsAlive => !IsRetreating && !IsDestroyed;
+        // 退却中でも「追撃を受けている間」は標的として残り被弾する（#追撃撃沈）。追手を振り切れば離脱完了＝対象外。
+        public bool IsAlive => !IsDestroyed && (!IsRetreating || (stayTargetableRetreat && pursuedCached));
 
         private void Awake()
         {
@@ -271,8 +285,25 @@ namespace Ginei
 
         private void Update()
         {
+            if (IsDestroyed) return;
+
+            // 退却中の追撃（#追撃撃沈）：追われている間は標的・被弾を残し、振り切ったら離脱完了＝対象外にする。
+            if (IsRetreating)
+            {
+                if (!stayTargetableRetreat) return; // 安全離脱・静観退きは従来どおり以後ノーオペ
+                if (Time.time < nextPursuitCheck) return;
+                nextPursuitCheck = Time.time + Mathf.Max(0.1f, pursuitRecheckInterval);
+                pursuedCached = IsBeingPursued();
+                if (!pursuedCached)
+                {
+                    // 追手を振り切った＝安全離脱完了。標的・カウントから外して以後は被弾しない。
+                    stayTargetableRetreat = false;
+                    FleetRegistry.Unregister(this);
+                }
+                return;
+            }
+
             // 挟撃（包囲度）を間引きで再計算しキャッシュ（被ダメに乗る）。退却・撃墜後は不要。
-            if (IsRetreating || IsDestroyed) return;
             if (Time.time < nextEnvelopmentTime) return;
             nextEnvelopmentTime = Time.time + Mathf.Max(0.1f, envelopmentUpdateInterval);
             UpdateEnvelopment();
@@ -347,7 +378,9 @@ namespace Ginei
         /// <param name="rawDamage">元のダメージ量</param>
         public void TakeDamage(int rawDamage)
         {
-            if (IsRetreating || IsDestroyed) return;
+            if (IsDestroyed) return;
+            // 退却中は通常無敵だが、追撃を受けている間（#追撃撃沈）は被弾し、残存が尽きれば撃沈される。
+            if (IsRetreating && !(stayTargetableRetreat && pursuedCached)) return;
 
             // 防御力によるダメージ軽減（参謀補完を反映した実効防御）
             float defenseValue = admiralData != null ? admiralData.EffectiveDefense : 0f;
@@ -400,7 +433,9 @@ namespace Ginei
             AudioManager.Instance.PlayHit();
             if (strength <= 0)
             {
-                ResolveFlagshipDown();
+                // 退却中に残存を撃ち尽くされた＝追撃に捕まって撃沈（#追撃撃沈）。通常は旗艦喪失の解決へ。
+                if (IsRetreating) DestroyFlagship(squadron != null && squadron.LivingEscortCount() > 0, duringRetreat: true);
+                else ResolveFlagshipDown();
             }
         }
 
@@ -436,7 +471,8 @@ namespace Ginei
                     $"{admiralName} 隊：島津の捨てがまり！配下艦が殿を務め旗艦は離脱");
                 // 殿の奮戦が近傍の味方を奮い立たせる（#2176 高揚）。
                 MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.捨てがまり成功);
-                BeginRetreat(); // 旗艦は退却（生存）。配下艦は殿として戦い続ける。
+                // 旗艦は退却（生存）。ただし追撃下では残存を残して逃げ、追手を振り切るまでは撃沈されうる（#追撃撃沈）。
+                BeginRetreat(keepTargetable: true);
             }
             else
             {
@@ -463,9 +499,10 @@ namespace Ginei
         /// <summary>
         /// 旗艦撃墜（本体破壊）。退却（生存）と異なり部隊は失われる。配下艦が残っていれば散り散りに逃がす。
         /// </summary>
-        private void DestroyFlagship(bool escortsScatter)
+        private void DestroyFlagship(bool escortsScatter, bool duringRetreat = false)
         {
-            if (IsDestroyed || IsRetreating) return;
+            // 退却中の追撃撃沈（#追撃撃沈）では IsRetreating でも破壊する。通常撃墜は退却中なら起こさない。
+            if (IsDestroyed || (IsRetreating && !duringRetreat)) return;
             IsDestroyed = true;
             strength = 0;
             UpdateDisplay();
@@ -479,9 +516,11 @@ namespace Ginei
             if (squadron != null) squadron.ScatterEscorts();
 
             NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.警告,
-                escortsScatter
-                    ? $"{admiralName} 隊：配下艦は散り散りに逃げ、旗艦は撃墜された"
-                    : $"{admiralName} 隊：旗艦撃墜");
+                duringRetreat
+                    ? $"{admiralName} 隊：退却中に追撃を受け旗艦撃沈"
+                    : (escortsScatter
+                        ? $"{admiralName} 隊：配下艦は散り散りに逃げ、旗艦は撃墜された"
+                        : $"{admiralName} 隊：旗艦撃墜"));
 
             // 旗艦撃墜＝近傍の味方はパニック、敵は高揚（#2176 士気の連鎖崩壊）。
             MoraleShock.Propagate(transform.position, factionData, faction, MoraleEvent.旗艦撃墜);
@@ -598,15 +637,28 @@ namespace Ginei
         /// 以降は IsAlive=false となり、攻撃・被弾・勝敗カウントから除外される。
         /// 静観組の「戦わずして去る」（#817・BattleAllegianceManager）からも呼ばれる。
         /// </summary>
-        public void BeginRetreat(bool withEffects = true)
+        public void BeginRetreat(bool withEffects = true, bool keepTargetable = false)
         {
             if (IsRetreating) return;
             IsRetreating = true;
-            strength = 0;
-            UpdateDisplay();
 
-            // 退却＝戦闘除外。レジストリから外す（配下艦は各自の Update で外れる）
-            FleetRegistry.Unregister(this);
+            if (keepTargetable && pursuedRetreatHpRatio > 0f)
+            {
+                // 追撃下の退却（#追撃撃沈）：残存を残して標的・被弾を継続。追手を振り切る（Update で判定）まで撃沈されうる。
+                stayTargetableRetreat = true;
+                pursuedCached = true;
+                nextPursuitCheck = Time.time + Mathf.Max(0.1f, pursuitRecheckInterval);
+                strength = Mathf.Max(1, Mathf.RoundToInt(maxStrength * Mathf.Clamp(pursuedRetreatHpRatio, 0f, 0.5f)));
+                UpdateDisplay();
+                // レジストリには残す（追撃する敵がこの旗艦を標的にできる）。
+            }
+            else
+            {
+                strength = 0;
+                UpdateDisplay();
+                // 退却＝戦闘除外。レジストリから外す（配下艦は各自の Update で外れる）
+                FleetRegistry.Unregister(this);
+            }
 
             // 旗艦喪失の演出（爆発＋カメラシェイク）。静観退き（#817・戦わず去る）では出さない
             if (withEffects)

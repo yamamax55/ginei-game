@@ -841,12 +841,18 @@ namespace Ginei
         public void ChangeFormation(int formationIdx)
         {
             Formation f = (Formation)formationIdx;
+            bool anyBlocked = false; // 指揮スキルポイント不足で変更できなかった艦隊があるか
             foreach (var selectable in selectedFleets)
             {
                 if (selectable == null) continue;
                 Squadron sq = selectable.GetComponent<Squadron>();
-                if (sq != null) sq.currentFormation = f;
+                if (sq == null) continue;
+                // 陣形変更は指揮スキルポイントを消費（#陣形コスト）。戦闘中はコストが重く、多用できない。
+                if (!sq.TryChangeFormation(f)) anyBlocked = true;
             }
+            if (anyBlocked)
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    "指揮スキルポイント不足で陣形を変更できない隊があった（戦闘中はコストが重い）");
         }
 
         /// <summary>

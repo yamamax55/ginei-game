@@ -124,3 +124,11 @@ base64で1行に埋め込んで解決。「見かけ上動いているが実は�
 - **Core 1082ファイルをドメインフォルダへ**：フラットだった`Assets/Scripts/Core`を12ドメイン（Economy 349/Combat・Society 各143/Government 126…）に整理。鍵は**物理配置と論理を分離してあったこと**＝asmdefは直下1つで再帰包含・namespaceは配置に依らずフラット`Ginei`。だから1082ファイルを動かしても**6059テストが1件も動かない**（コンパイル中立）。キーワード分類器で残差33件まで詰め、最後は手で寄せた。配置ずれはコンパイルに無害なので、迷ったら最も近いドメインへ。
 - **Unity でファイルを動かすなら`.cs`と`.cs.meta`はセットで**：Unityはスクリプト参照を`.meta`のGUIDで解決する。`.cs`だけ動かすと新GUIDのmetaが再生成され、**シーン/プレハブ/SOの参照が全部切れる**。`git mv`を両方に必ず流す（2164行のスクリプトを生成して一括実行）。
 - **CLAUDE.md はコンテキスト予算**：毎セッション読み込まれる256KBの**73%が「既存コンポーネント」表1つ**だった。詳細を`docs/catalog/components-catalog.md`へ逐語移し、本体には**クラス名の索引＋ポインタ**だけ残す（256KB→73KB）。「読み込み頻度×サイズ」が最大のファイルから削るのが、エージェントの思考を軽くする一番効く一手。`core-modules-catalog.md`分離と同じ思想の横展開。
+
+## 関連
+- [[reference-epic-pipeline]] — 参考EPIC化の定型手順
+- [[reference-epic-backlog]] — 連続EPIC化の候補キュー
+- [[late-game-performance-design]] — タイクン化＝終盤ラグ回避
+- [[parallel-core-fanout]] — Core並列ファンアウトの実務
+- [[core-modules-catalog]] — 純ロジックの網羅カタログ
+- [[components-catalog]] — 分離したコンポーネント詳細

@@ -35,3 +35,9 @@ tags: [dev-log]
 ## 未確定・次の判断
 - **本作での使い道は未決**：①3D→2Dスプライト書き出しで現行運用に載せる ②実3D投入（要・最適化/コライダー/LOD/Prefab）③演出ムービー（透過動画）。用途で必要作業が大きく変わる。
 - 本モデルは提供イラストの**ラフな再現（MVP）**であり、艦種設定・縮尺・実ゲーム検証は未。`FleetRegistry`/`BattleSetup` 等の既存システムへの接続は**シナリオ会戦に無影響**（アセット追加のみ）。
+
+## 関連
+- [[blender-to-unity-3d-pipeline]] — 当日整理した制作ガイド
+- [[portrait-pipeline]] — 提督アートの量産パイプライン
+- [[comfyui-setup]] — ローカル画像生成の環境
+- [[2026-06-21-dev-efficiency-juice-audio-portraits]] — アート/演出の続き

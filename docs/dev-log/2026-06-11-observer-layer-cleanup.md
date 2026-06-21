@@ -40,3 +40,10 @@ Core 純ロジックの急増に「盤面で何も見えない」乖離を構造
 ## ドキュメント
 - `docs/planning/roadmap.md`：日付 06-11・テスト 1037・Issue 949（EPIC146）・観測層 第1層・CCX-1/6・新設参考EPIC群を反映。
 - CLAUDE.md：観測層節＋コンポーネント表（`CampaignObserverOverlay`/`CoreStateInspector`）は反映済み。
+
+## 関連
+- [[2026-06-14-strategy-ux-observers]] — 観測層の続き
+- [[late-game-performance-design]] — タイクン回避の設計規律
+- [[parallel-core-fanout]] — Core並列ファンアウト（CCX-1）
+- [[reference-epic-pipeline]] — 参考EPIC量産の手順
+- [[components-catalog]] — 観測オーバーレイの詳細

@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s\\n' '{\"systemMessage\": \"✅ Claudeの回答が完了しました（ターン終了）\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}

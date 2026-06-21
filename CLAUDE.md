@@ -31,7 +31,7 @@
 - マジックナンバー禁止（`public` か `const`）。
 - データ（提督・シナリオ・勢力など）は ScriptableObject に分離する方針。
 - 実行時生成した `Material` は `OnDestroy` で `Destroy` してリークを防ぐ（`WeaponArc`/`FleetWeapon`/`DamagePopup` が踏襲）。
-- **★Inspector直列化の優先（再発防止・重要）**：シーン/プレハブに置かれた MonoBehaviour の `public` 調整値は、**`.unity`/`.prefab` に直列化された値が常に優先**＝**スクリプトの既定値を書き換えても効かない**（過去バグ：#2548 で `CameraController.maxZoom=300` にしたが `Battle.unity` の `maxZoom:20` が勝ち引けなかった／`FleetUnit.prefab` の `memberScale`/`spacing`/`escortCount` も同様）。**調整値を実際に効かせるときは、まず該当フィールドを `.unity`/`.prefab` で grep し、直列化されていれば“そのファイルを直す”**（テキストYAMLなので Unity 無しでも編集可）。直列化されていなければ（＝後から足したフィールド等）スクリプト既定が効く。主な直列化ホットスポット：`Battle.unity`（`CameraController`＝zoom/bounds・`BattleSetup`＝`spawnSeparation`）／`FleetUnit.prefab`（`Squadron`/`FleetAI`/`FleetMovement`）。
+- **★Inspector直列化の優先（再発防止・重要）**：シーン/プレハブに置かれた MonoBehaviour の `public` 調整値は、**`.unity`/`.prefab` に直列化された値が常に優先**＝**スクリプトの既定値を書き換えても効かない**（過去バグ：#2548 で `CameraController.maxZoom=300` にしたが `Battle.unity` の `maxZoom:20` が勝ち引けなかった／`FleetUnit.prefab` の `memberScale`/`spacing`/`escortCount` も同様）。**調整値を実際に効かせるときは、まず該当フィールドを `.unity`/`.prefab` で grep し、直列化されていれば“そのファイルを直す”**（テキストYAMLなので Unity 無しでも編集可）。直列化されていなければ（＝後から足したフィールド等）スクリプト既定が効く。**この grep は `Tools/serialized-value-check.sh <ClassName> [field]` に自動化済み**＝guid/`m_EditorClassIdentifier` で照合し「スクリプト既定 vs 直列化値」を並べて表示、直列化されていれば exit 1（hook/CI 判定可）。**調整値を直す配線・修正の前に必ず実行する**。主な直列化ホットスポット：`Battle.unity`（`CameraController`＝zoom/bounds・`BattleSetup`＝`spawnSeparation`）／`FleetUnit.prefab`（`Squadron`/`FleetAI`/`FleetMovement`）。
 
 ## シーン構成とゲームフロー
 - シーンは3つ：**Title** → **Battle** → **Result**（シーン名はこの文字列。`SceneLoader.LoadScene(name)` で遷移）。

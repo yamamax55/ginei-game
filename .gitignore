@@ -15,6 +15,7 @@ GeneratedAssets/
 # Claude Code のローカル状態・worktree（追跡しない）。ただしプロジェクト共有のコマンド/バックログは追跡する
 .claude/*
 !.claude/commands/
+!.claude/agents/
 !.claude/core-backlog.md
 !.claude/playtest-findings.md
 # MCP ローカル設定（マシン固有の絶対パスを含むため追跡しない）/ Serena のインデックスキャッシュ

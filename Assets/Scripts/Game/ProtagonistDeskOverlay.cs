@@ -30,8 +30,8 @@ namespace Ginei
         [Header("階級ピラミッド（グラフィカル）")]
         [Tooltip("最下級（二等兵）の帯の最大幅(px)。上の階級ほど細くなりピラミッド型になる")]
         public float pyramidMaxBarWidth = 860f;
-        [Tooltip("最上級（元帥）の帯の最小幅(px)＝頂点")]
-        public float pyramidMinBarWidth = 150f;
+        [Tooltip("ピラミッド頂点の幅(px)。小さいほど尖った三角形になる")]
+        public float pyramidMinBarWidth = 64f;
         [Tooltip("各階級の行の高さ(px)")]
         public float pyramidRowHeight = 28f;
         [Tooltip("帯の上のラベル文字サイズ")]
@@ -60,7 +60,7 @@ namespace Ginei
         private class RankPyramidRow
         {
             public MilitaryGrade grade;
-            public Image bar;
+            public Graphic bar; // 台形バンド（PyramidBand）。色のみ毎フレーム更新
             public Color baseColor;
             public TextMeshProUGUI label;
             public Image insignia; // 階級章スプライト（Gemini生成）。無ければ非表示＝ラベルのUnicode記号にフォールバック
@@ -271,7 +271,7 @@ namespace Ginei
             pyramidRoot.AddComponent<RectTransform>();
             VerticalLayoutGroup vlg = pyramidRoot.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(0, 0, 4, 6);
-            vlg.spacing = 1f;
+            vlg.spacing = 0f; // 帯どうしを密着＝台形が繋がり滑らかな三角形になる
             vlg.childAlignment = TextAnchor.UpperCenter; // 帯を中央寄せ＝左右対称のピラミッド
             vlg.childControlWidth = true; vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
@@ -297,9 +297,13 @@ namespace Ginei
         private RankPyramidRow BuildPyramidRow(Transform parent, MilitaryGrade grade)
         {
             int n = RankDistributionRules.GradeCount;
-            // 幅：底辺(二等兵=index0)が最大、頂点(元帥=index n-1)が最小。線形に細くする＝ピラミッド型。
-            float t = n > 1 ? (float)(int)grade / (n - 1) : 0f;
-            float width = Mathf.Lerp(pyramidMaxBarWidth, pyramidMinBarWidth, t);
+            // 滑らかな三角形にするため、帯を台形で描く。帯の上辺・下辺の幅を「ピラミッドの
+            // その高さでの幅」にすると、隣の帯と辺が一致して階段にならない。
+            // 縦位置 p（0=頂点＝元帥, n-1=底辺＝二等兵）。f=0 頂点/ f=1 底辺の幅 = lerp(apex, base, f)。
+            int p = (n - 1) - (int)grade;
+            float topW = Mathf.Lerp(pyramidMinBarWidth, pyramidMaxBarWidth, (float)p / n);
+            float bottomW = Mathf.Lerp(pyramidMinBarWidth, pyramidMaxBarWidth, (float)(p + 1) / n);
+            float midW = Mathf.Lerp(pyramidMinBarWidth, pyramidMaxBarWidth, (p + 0.5f) / n);
 
             // 行（レイアウトの子＝高さ固定・全幅）。中で帯を中央に置く。
             GameObject rowObj = new GameObject("Row_" + grade);
@@ -308,19 +312,20 @@ namespace Ginei
             LayoutElement le = rowObj.AddComponent<LayoutElement>();
             le.minHeight = pyramidRowHeight; le.preferredHeight = pyramidRowHeight; le.flexibleHeight = 0f;
 
-            // 色付き帯（中央寄せ・幅は階級で固定）。
+            // 色付き台形（中央寄せ・下辺幅でRT確保・上辺は内側へ）。行いっぱいの高さで密着＝三角形面。
             GameObject barObj = new GameObject("Bar");
             barObj.transform.SetParent(rowObj.transform, false);
             RectTransform barRT = barObj.AddComponent<RectTransform>();
             barRT.anchorMin = new Vector2(0.5f, 0f);
             barRT.anchorMax = new Vector2(0.5f, 1f);
             barRT.pivot = new Vector2(0.5f, 0.5f);
-            barRT.sizeDelta = new Vector2(width, -2f); // 高さは行いっぱい-2px（帯どうしが密着＝ピラミッド面）
+            barRT.sizeDelta = new Vector2(bottomW, 0f);
             barRT.anchoredPosition = Vector2.zero;
-            Image bar = barObj.AddComponent<Image>();
+            PyramidBand bar = barObj.AddComponent<PyramidBand>();
+            bar.SetTrapezoid(topW, bottomW);
             Color baseColor = CategoryColor(grade);
             bar.color = baseColor;
-            // 帯をクリックでこの階級のネームド人物ウィンドウを開く（raycast 対象は帯＝Image）。
+            // 帯をクリックでこの階級のネームド人物ウィンドウを開く（raycast 対象は台形）。
             Button barBtn = barObj.AddComponent<Button>();
             // 注意：本プロジェクトには Ginei.Selectable（艦隊選択）があるため UnityEngine.UI.Selectable を明示。
             barBtn.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
@@ -338,11 +343,12 @@ namespace Ginei
             insObj.transform.SetParent(barObj.transform, false);
             RectTransform insRT = insObj.AddComponent<RectTransform>();
             float insSize = pyramidRowHeight - 6f;
-            insRT.anchorMin = new Vector2(0f, 0.5f);
-            insRT.anchorMax = new Vector2(0f, 0.5f);
+            // 帯の中央高さでの左辺（midW/2）の内側に置く＝台形の傾斜に沿って収まる。
+            insRT.anchorMin = new Vector2(0.5f, 0.5f);
+            insRT.anchorMax = new Vector2(0.5f, 0.5f);
             insRT.pivot = new Vector2(0f, 0.5f);
             insRT.sizeDelta = new Vector2(insSize, insSize);
-            insRT.anchoredPosition = new Vector2(4f, 0f);
+            insRT.anchoredPosition = new Vector2(-midW * 0.5f + 4f, 0f);
             Image insImg = insObj.AddComponent<Image>();
             insImg.raycastTarget = false;
             insImg.preserveAspect = true;

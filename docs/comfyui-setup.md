@@ -11,7 +11,8 @@ ComfyUI 公式の **Windows ポータブル版**は CUDA 対応 PyTorch を同�
 1. [ComfyUI Releases](https://github.com/comfyanonymous/ComfyUI/releases) から最新の **`ComfyUI_windows_portable_nvidia.7z`** を入手。
 2. **`D:\ComfyUI_windows_portable\`** へ展開（7-Zip）。
 3. `run_nvidia_gpu.bat` を実行 → ブラウザで **http://127.0.0.1:8188**（初回は起動に少し時間）。
-4. **8GB VRAM の保険**：OOM が出たら `run_nvidia_gpu.bat` の `main.py` 行末に **`--lowvram`**（または `--medvram-sdxl`）を追記。SDXLでも回るが速度優先なら後述の Turbo/Lightning を使う。
+4. **★8GB VRAM は `--lowvram` 必須（実機検証済み）**：RTX 3050 8GB では標準モードだと SDXL が **OOM（`cudaErrorMemoryAllocation`）** する。`run_nvidia_gpu.bat` の `main.py` 行末に **`--lowvram`** を追記して起動すると安定（モデルをRAMに置きGPUへ小分け転送）。**解像度は 768×1024** が安全（832×1216 は OOM しがち＝バッチスクリプトの既定も 768×1024）。
+   - 別の定番エラー **`CUDA error: unknown error`** は CUDA コンテキスト不調＝**ComfyUI を再起動すれば回復**（モデルDL中から動かし続けると起きやすい）。
    - API は既定で `127.0.0.1:8188` に開いている（`/prompt` エンドポイント＝後段のバッチ生成が叩く）。外部から叩くなら `--listen`。
 
 ## 手順2：ComfyUI Manager（ノード/モデル導入を楽に）

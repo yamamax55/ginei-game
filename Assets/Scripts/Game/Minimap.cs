@@ -43,9 +43,11 @@ namespace Ginei
         private static readonly Color ViewRectColor = new Color(1f, 1f, 1f, 0.18f);
 
         private Canvas canvas;
+        private GameObject frameRoot;      // 枠ルート（表示/非表示トグル・窓内へ親替えする対象・WIN-4）
         private RectTransform content;     // ドットを配置する内側領域（pivot 中央）
         private RectTransform viewRect;    // 現在のカメラ視界を示す矩形
         private Image frameImage;          // クリック判定の対象（raycastTarget）
+        private bool windowAttachDone;     // 窓内へ枠を親替え済みか（WIN-4・ウィンドウ化会戦のみ）
         private readonly List<Image> dotPool = new List<Image>();
         private readonly List<Image> blackHolePool = new List<Image>();
 
@@ -69,27 +71,55 @@ namespace Ginei
         private static void TryCreate(Scene scene)
         {
             if (scene.name != "Battle") return;
-            if (Object.FindAnyObjectByType<Minimap>() != null) return;
-            new GameObject("Minimap").AddComponent<Minimap>();
+            // 会戦シーンごとに1つ（WIN-4）：ウィンドウ化会戦は複数の Battle シーンが同時にロードされるので、
+            // グローバル重複ガードでなく「このシーンに既に在るか」で判定する。窓ごとに自分のミニマップを持ち、
+            // 自シーンのカメラ・旗艦だけを映す。フルスクリーン会戦（単一 Battle シーン）では従来どおり1つ。
+            if (FindInScene(scene) != null) return;
+            GameObject go = new GameObject("Minimap");
+            // additive ロードされた会戦シーンに帰属させる（new GameObject は既定でアクティブシーンに入るため移す）。
+            if (scene.IsValid() && scene != SceneManager.GetActiveScene())
+                SceneManager.MoveGameObjectToScene(go, scene);
+            go.AddComponent<Minimap>();
+        }
+
+        /// <summary>指定シーンに属する Minimap を返す（無ければ null）。</summary>
+        private static Minimap FindInScene(Scene scene)
+        {
+            Minimap[] all = Object.FindObjectsByType<Minimap>(FindObjectsSortMode.None);
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && all[i].gameObject.scene == scene) return all[i];
+            return null;
         }
 
         // ===== 本体 =====
 
         private void Start()
         {
-            cam = Camera.main;
-            camController = Object.FindAnyObjectByType<CameraController>();
+            // 自分の会戦シーンのカメラ／カメラ制御を掴む（複数会戦が同時でも他会戦を映さない・WIN-4）。
+            cam = ResolveSceneCamera();
+            camController = BattleWindowUI.FindInSceneOrAny<CameraController>(gameObject.scene);
             EnsureEventSystem();
             Build();
         }
 
+        /// <summary>自分の会戦シーンに属するカメラを返す（無ければ Camera.main・フルスクリーン後方互換）。</summary>
+        private Camera ResolveSceneCamera()
+        {
+            Camera[] cams = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            for (int i = 0; i < cams.Length; i++)
+                if (cams[i] != null && cams[i].gameObject.scene == gameObject.scene) return cams[i];
+            return Camera.main;
+        }
+
         private void Update()
         {
+            TryWindowAttach();
+
             // 表示/非表示トグル（C・GameInput #107）
             if (GameInput.WasPressed(GameAction.ミニマップ切替))
             {
                 visible = !visible;
-                if (canvas != null) canvas.gameObject.SetActive(visible);
+                if (frameRoot != null) frameRoot.SetActive(visible); // 枠を直接トグル（窓内へ親替え後も効く・WIN-4）
             }
             if (!visible || canvas == null) return;
 
@@ -104,6 +134,17 @@ namespace Ginei
             }
 
             HandleClickJump();
+        }
+
+        /// <summary>
+        /// ウィンドウ化会戦（WIN-4）ではミニマップ枠を自分の窓内 UI 親へ親替えする（全画面に出さない・重なり解消）。
+        /// フルスクリーン会戦（会戦シーン＝アクティブシーン）では何もしない＝従来どおり右下に全画面表示（後方互換）。
+        /// </summary>
+        private void TryWindowAttach()
+        {
+            if (windowAttachDone || frameRoot == null) return;
+            if (gameObject.scene == SceneManager.GetActiveScene()) { windowAttachDone = true; return; }
+            if (BattleWindowUI.TryAttach(gameObject.scene, frameRoot.GetComponent<RectTransform>())) windowAttachDone = true;
         }
 
         /// <summary>戦場ワールド矩形（カメラ移動境界）。CameraController が無ければ既定値。</summary>
@@ -134,7 +175,9 @@ namespace Ginei
 
         private void PlotFleets()
         {
-            IReadOnlyList<FleetStrength> flags = FleetRegistry.AllFlagships;
+            // 自分の会戦シーンの旗艦だけを映す（複数会戦が同時でも他会戦の艦を出さない・WIN-4）。
+            // フルスクリーン会戦では当該シーン＝全艦なので従来と同一。
+            IReadOnlyList<FleetStrength> flags = FleetRegistry.FlagshipsIn(gameObject.scene);
             int used = 0;
             for (int i = 0; i < flags.Count; i++)
             {
@@ -159,6 +202,7 @@ namespace Ginei
             {
                 BlackHole bh = holes[i];
                 if (bh == null) continue;
+                if (bh.gameObject.scene != gameObject.scene) continue; // 自会戦シーンのブラックホールのみ（WIN-4）
 
                 Image icon = GetPooledDot(blackHolePool, used, blackHoleSize, "BlackHole");
                 icon.color = BlackHoleColor;
@@ -247,9 +291,10 @@ namespace Ginei
             canvasObj.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             canvasObj.AddComponent<GraphicRaycaster>(); // IsPointerOverGameObject 用（FleetCommander の誤選択回避）
 
-            // 枠（右下アンカー）＝クリック判定の対象
+            // 枠（右下アンカー）＝クリック判定の対象。表示トグル・窓内親替えはこの枠を対象にする（WIN-4）。
             GameObject frame = new GameObject("MinimapFrame");
             frame.transform.SetParent(canvasObj.transform, false);
+            frameRoot = frame;
             frameImage = frame.AddComponent<Image>();
             frameImage.color = new Color(0.05f, 0.07f, 0.1f, 0.78f);
             frameImage.raycastTarget = true;

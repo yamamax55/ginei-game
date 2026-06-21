@@ -90,3 +90,10 @@ tags: [audit]
 ## 4. テスト（EditMode・`FiscalYearCycleTests`）
 
 歳入（税率→税収）／予算編成（配分・緊縮 cap・均衡）／執行（出資度の満額・過剰・不足）／帰結（黒字減債・赤字増債・複利・債務スパイラル）／統合（歳入→予算→執行→債務を3年）／**ギャップ pin（空予算＝執行0＝年が回らない）** を固定。`TestHarness`（dotnet）でも回帰。
+
+## 関連
+- [[regime-evolution-test-and-gaps]] — 結合テストで配線ギャップを炙る同手法
+- [[current-state-audit-2026-06]] — 設計と配線の乖離の全体監査
+- [[core-modules-catalog]] — FiscalRules/BudgetRules の出所
+- [[das-kapital-reference-design]] — 財政・債務の思想的背景
+- [[late-game-performance-design]] — 暦境界Tickで財政を回す規律

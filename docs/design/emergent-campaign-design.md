@@ -107,3 +107,11 @@ Title ──┬─ [シナリオ] → 既存：陣営/会戦選択 → Battle �
 
 ### 変更履歴
 - v0.1：創発キャンペーンの統合設計。**モード併存**を軸に、`FactionData`=政体アーキタイプ参照で可変イデオロギーと既存プリセットを両立。銀河生成（チョーク保証）/探索フォグ/政体創発・変質/内政一体化/既存接続/段階手順/リスクを提示。**【要・作者判断】箇所は確定待ち。**
+
+## 関連
+- [[phase-c-core-design]] — 共有する戦術エンジンと回廊戦闘の基盤
+- [[phase-c-strategy]] — 上位の戦略レイヤー方針
+- [[wartime-logistics-design]] — 補給と内政統合の基盤
+- [[politics-prototype-design]] — 政体の階級表現の接続先
+- [[local-autonomy-design]] — 支配星系の統治・自治
+- [[regime-evolution-test-and-gaps]] — 政体創発・変質の検証

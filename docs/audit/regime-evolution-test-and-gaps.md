@@ -101,3 +101,10 @@ tags: [audit]
 - まず **R1 を検証テスト**として実装（現状＝形態型なし・遷移なしを pin）。
 - 次に §4 の `GovernmentForm`＋`GovernmentFormRules`（Core・test-first）を新設し、`Classify`/`CanTransition`/`Apply` を EditMode で固定。
 - 配線（年次 Tick＋既存窓口接続）は C1 Tier A の軍政駆動（CoupRules/CivilianControl）と**同時に行う**と、政体の選択がクーデター・人事・所有・支持に一気に効く。
+
+## 関連
+- [[communist-faction-design]] — 独裁/共産ルートの形態設計
+- [[local-autonomy-design]] — 統治形態と地方自治の接続
+- [[politics-prototype-design]] — 政党・選挙＝民主ルートの部品
+- [[das-kapital-reference-design]] — 所有(国有/私有)と革命の参照
+- [[core-modules-catalog]] — GovernmentFormRules 等の純ロジック索引

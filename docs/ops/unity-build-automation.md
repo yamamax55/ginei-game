@@ -52,3 +52,9 @@ UBA でも GameCI でも「AI対AIで会戦を回してバグ/改善点を検査
 - [Advanced settings reference • Build Automation • Unity Docs](https://docs.unity.com/en-us/build-automation/advanced-build-configuration/overview)
 - [Unity Pricing Changes | Unity](https://unity.com/products/pricing-updates)
 - [Understanding Unity DevOps charges（2026/3/1〜）| Unity Support](https://support.unity.com/hc/en-us/articles/34748492914964-Understanding-Unity-DevOps-charges)
+
+## 関連
+- [[gameci-setup]] — `.ulf` 待ちの GameCI 経路（相補）
+- [[auto-implement-workflow]] — テスト→issue→自動実装の一周
+- [[playtest-harness]] — Unity 無し環境の dotnet 検証
+- [[playtest-loop-ops]] — PlayMode 自動プレイテストの運用

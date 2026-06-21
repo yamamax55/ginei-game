@@ -54,3 +54,8 @@ ComfyUI ポータブル ~2–3GB＋SDXLベース ~6.5GB＋VAE/IPAdapter/clip_vis
 ## 参考
 - [ComfyUI 公式 System Requirements](https://docs.comfy.org/installation/system_requirements) / [Windows導入(2026)](https://runaihome.com/blog/comfyui-windows-setup-guide/)
 - [cubiq/ComfyUI_IPAdapter_plus](https://github.com/cubiq/ComfyUI_IPAdapter_plus)（モデル表・配置はここが一次情報）
+
+## 関連
+- [[portrait-pipeline]] — ポートレート量産パイプライン
+- [[blender-to-unity-3d-pipeline]] — もう一つのアート生成経路
+- [[audio-sourcing]] — 無料アセット調達の姉妹手順

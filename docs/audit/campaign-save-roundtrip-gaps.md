@@ -45,3 +45,10 @@ tags: [audit]
 4. 財政フローは在席のままで可（再導出）。
 
 > 注：本タスクでは**最小・確実な修正（`governmentForm` 永続）**のみ適用。1〜3 はそれぞれ `CampaignSaveData` のスキーマ拡張＋`GalaxyView`/static の流し込みが要る広めの作業＝承認の上で個別に。
+
+## 関連
+- [[current-state-audit-2026-06]] — セーブ永続をP1ギャップに挙げる
+- [[test-completion-plan]] — 本書はL5の検証計画
+- [[fiscal-year-cycle-gap-analysis]] — 財政フローの永続境界
+- [[emergent-campaign-design]] — 永続すべき政体創発状態の出所
+- [[regime-evolution-test-and-gaps]] — 政体進化の永続要件

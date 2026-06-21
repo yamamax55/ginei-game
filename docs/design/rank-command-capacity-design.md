@@ -109,3 +109,10 @@ tags: [design]
 - **副提督による指揮補完**（#885）：副提督がいると一段上の規模を率いられる等のルールを入れるか。
 - **指揮限界超過時の挙動**：率いきれない艦隊を率いると統率/士気にペナルティ（実効値パターン）か、そもそも配属不可か。
 - 人物名鑑の表示：「兵力」を「指揮可能規模（〜N隻・分艦隊/艦隊/…）」へ差し替え。
+
+## 関連
+- [[fleet-organization-design]] — 艦隊編成プールと兵力の出所
+- [[military-organization-design]] — 梯団・編制の段の母体
+- [[sword-honor-meritocracy-design]] — 階級と席次・実力主義
+- [[components-catalog]] — FleetUnitData/OrderOfBattle の索引
+- [[roadmap]] — 立身出世（昇進→指揮規模拡大）の背骨

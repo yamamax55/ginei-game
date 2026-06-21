@@ -27,3 +27,9 @@ tags: [planning]
 | 企業 | 東インド会社/総合商社/財閥/コングロマリット/プラットフォーム独占/スタートアップ。資本の組織・成長と倒産・国家を超える経済主体（商社FRM#1022/株式#185/会計#973/フェザーン#160に直結） |
 
 <!-- 追記例： | 建築 | 要塞/都市計画/モニュメント＝権力と空間の構造 | -->
+
+## 関連
+- [[reference-epic-backlog]] — 本軸の発掘が供給する先のバックログ
+- [[reference-epic-pipeline]] — バックログ→EPIC化の定型手順
+- [[parallel-core-fanout]] — multi-modal sweep の並列発掘手法
+- [[worldbuilding-bible]] — 固有名不使用＝構造のみ参照の方針

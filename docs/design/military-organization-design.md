@@ -123,3 +123,10 @@ tags: [design]
 - **混成の度合い**：諸兵科連合を完全自由にするか、比率の目安（戦闘:支援）を持つか。
 - **戦術単位の継戦不可ペナルティ**：補給を賄えないとき士気/兵力減（実効値パターン）か行動制限か。
 - 既存シナリオ/編制データへの移行（`EchelonType` 拡張時の後方互換）。
+
+## 関連
+- [[fleet-organization-design]] — 艦隊編成・プール配分の姉妹EPIC
+- [[rank-command-capacity-design]] — 階級↔指揮可能規模（統合先）
+- [[components-catalog]] — OrderOfBattle 等の実装索引
+- [[wartime-logistics-design]] — 戦術単位の継戦・兵站依存
+- [[planetary-battle-design]] — 陸戦系編制が効く惑星戦

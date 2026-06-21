@@ -45,3 +45,10 @@ tags: [ops]
 - 見る：Actions「Playtest Improve 自動ループ」／`auto/playtest-*` PR／`.claude/playtest-findings.md`。
 - 止める：Actions でワークフロー Disable、または cron をコメントアウト。
 - 手動で1回：Actions → Run workflow。
+
+## 関連
+- [[playtest-harness]] — AI対AI会戦の実行基盤
+- [[auto-implement-workflow]] — 枠を共有する自動実装ループ
+- [[parallel-core-fanout]] — core-wave のファンアウト
+- [[core-modules-catalog]] — 退避先カタログ
+- [[gameci-setup]] — CIでのUnity実行の制約

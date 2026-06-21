@@ -65,3 +65,9 @@ tags: [ops]
 4. CC-BY を使ったらクレジットに追記。
 
 > 注：`AudioManager` の本対応（Resources自動ロード・クロスフェード・Strategy/Result枠・各シーン配線）は実装済み。あとは**素材を置くだけ**。
+
+## 関連
+- [[components-catalog]] — AudioManager の責務・API 索引
+- [[comfyui-setup]] — 画像素材生成の調達パイプライン
+- [[portrait-pipeline]] — ポートレート素材の調達手順
+- [[game-introduction]] — 制作の全体像・素材の位置づけ

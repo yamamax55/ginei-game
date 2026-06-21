@@ -145,3 +145,10 @@ WebMアルファは**WebGL・一部モバイルで再生制限**あり。広く�
 - Blender **パーティクル/プロシージャル材質は持ち出せない** → Unity側で再構築。
 - **Apply Transform 忘れ**でスケール事故。**.meta 同梱忘れ**で参照切れ。
 - 重ねムービーは **透過必須**＝mp4単体は不可。**負荷干渉は timeScale=0＋sim停止**が最も確実。
+
+## 関連
+- [[portrait-pipeline]] — 提督肖像のアセット生成パイプライン
+- [[comfyui-setup]] — 画像生成環境のセットアップ
+- [[audio-sourcing]] — 演出向けの音素材調達
+- [[unity-build-automation]] — Unityアセット/ビルドの自動化
+- [[components-catalog]] — 会戦の艦・演出コンポーネント索引

@@ -114,3 +114,11 @@ tags: [planning]
 
 ### テスト
 `Assets/Tests/EditMode` に純ロジックのテストを追加：`GalaxyMapTests`/`StrategicFleetTests`/`GalaxyPathfinderTests`/`StrategicFleetRegistryTests`/`StrategyRules`系/`CorridorBattleTests`/`FtlBlockTests` ほか。
+
+## 関連
+- [[phase-c-core-design]] — Phase C 純ロジック設計
+- [[phase-c-late-design]] — Phase C 後期課題
+- [[windowed-concurrent-battles-design]] — C-4 並行戦線の実装
+- [[emergent-campaign-design]] — 創発キャンペーンの土台
+- [[回廊]] — 回廊グラフの概念
+- [[灯台]] — 要衝拠点の概念

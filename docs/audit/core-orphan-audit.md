@@ -86,3 +86,11 @@ tags: [audit]
 - **A-3 予算残**：`MilitaryReadinessFactor`/`DiplomacyOpinionBonus` の注入点。
 
 > 注：本監査は直接参照ベースの静的解析。**「直接参照0」＝配線候補**であり、推移的に効くもの・設計上わざと Core-only のものを含む。Tier 分けは「プレイヤー体感への近さ×設計意図」で判断した。
+
+## 関連
+- [[test-completion-plan]] — 本監査の親計画 C1
+- [[core-modules-catalog]] — Core純ロジック全索引
+- [[current-state-audit-2026-06]] — 全体状態監査の同系
+- [[late-game-performance-design]] — Tier C 非配線の根拠
+- [[wartime-logistics-design]] — Tier A 兵站の配線先設計
+- [[game-improvements]] — 配線で深さを開花させる方針

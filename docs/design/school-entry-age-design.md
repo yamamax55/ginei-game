@@ -135,3 +135,9 @@ public static bool CanAssignToFleet(Person p, int currentYear);
 ## 4. テスト（EditMode・`SchoolAgeRulesTests`／`SchoolPostingRulesTests`／`WarCollegeCareerRulesTests`）
 
 年齢チェーン整合／修業年限＝卒業−入学／陸大は現役将校（28→31・士官学校22より年長）／幼年学校は若年（13→16）／科挙は年齢制限なし（30）／軍学歴別の生年（大学校卒>士官学校卒>幼年学校卒）／既存定数の委譲一致／高専<大学 を固定。`TestHarness`（dotnet）でも回帰。
+
+## 関連
+- [[sword-honor-meritocracy-design]] — 大学校卒の出世優遇
+- [[fleet-organization-design]] — 在学中の艦隊配属ゲート
+- [[military-organization-design]] — 軍の人事/学校体系
+- [[rank-command-capacity-design]] — 階級と任官の前提

@@ -243,3 +243,11 @@ tags: [planning]
 
 <!-- 追記例： | 未 | 作品名 or テーマ：◯◯ | 着眼点 | — | -->
 <!-- 著作権注意：いずれも構造パターン/メカニクスのみ参考（固有名・文章・キャラ不使用）。既存カバー分はパイプライン Step 2 で不採用に。 -->
+
+## 関連
+- [[reference-epic-pipeline]] — 本キューを1件ずつ処理する手順
+- [[reference-epic-categories]] — 候補の分類体系
+- [[roadmap]] — 参考EPICを含む上位計画
+- [[zizhi-tongjian-reference-design]] — 処理済EPICの一例
+- [[thucydides-history-reference-design]] — 処理済EPICの一例
+- [[mahan-sea-power-reference-design]] — 処理済EPICの一例

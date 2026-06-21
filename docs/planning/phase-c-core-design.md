@@ -116,3 +116,10 @@ GalaxyScene
 
 ### 変更履歴
 - v0.1：C-1〜C-3（単一戦線シームレス1周）の実装設計。既存コード接続・段階手順・リスクを提示。**【要・作者判断】箇所は確定待ち。**
+
+## 関連
+- [[phase-c-strategy]] — 上位の戦略レイヤー方針
+- [[phase-c-late-design]] — Phase C 後半（複数戦線/銀河時間）
+- [[emergent-campaign-design]] — 戦術エンジンを共有する創発キャンペーン
+- [[planetary-battle-design]] — 回廊/惑星攻城の戦場生成
+- [[windowed-concurrent-battles-design]] — 複数戦線の同時会戦

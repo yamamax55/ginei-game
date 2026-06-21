@@ -150,3 +150,11 @@ cost        : 財政コスト（FiscalState/treasury へ）
 - 通知：`NotificationCenter`/`NotificationFeed`（#964）
 - セーブ/Web契約：`CampaignSerializer`/`CampaignSaveData`（FND-2 #495）
 - UI 基盤：`GineiUITK`＋テーマ USS（UITK 段階移行）
+
+## 関連
+- [[meyasubako-proposal-redesign-design]] — 稟議を発展させた目安箱
+- [[event-decision-triage-design]] — イベント提示と決裁の交通整理
+- [[game-introduction]] — 目安箱の世界観上の位置づけ
+- [[politics-prototype-design]] — 階級ゲートと色分けの流用元
+- [[local-autonomy-design]] — 地方の箱・知事/貴族の差別化
+- [[fiscal-year-cycle-gap-analysis]] — 執行で動く財政の接続先

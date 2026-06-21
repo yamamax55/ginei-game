@@ -26,6 +26,8 @@ namespace Ginei.Tests
             Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア・ファルケンハイト"));
             Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア・フォン・ファルケンハイト")); // 旧名
             Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア"));
+            Assert.AreEqual("ヴェルサイユ", SignatureShipRegistry.ResolveByName("コンラート・フォン・メーアブルク"));
+            Assert.AreEqual("ヴェルサイユ", SignatureShipRegistry.ResolveByName("コンラート"));
             Assert.AreEqual("", SignatureShipRegistry.ResolveByName("名もなき提督"));
         }
 

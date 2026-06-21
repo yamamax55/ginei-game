@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
+  m_Name: Konrad
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
+  admiralName: "コンラート・フォン・メーアブルク"
+  faction: 0
+  sex: 0
+  givenName: "コンラート"
+  middleName:
+  familyName: "メーアブルク"
+  nobleParticle: "フォン"
+  regnalNumber: 0
+  epithet:
+  callName: "コンラート"
+  signatureShipName: "ヴェルサイユ"
+  isProtagonist: 0
+  rankTier: 4
+  leadership: 80
+  attack: 72
+  defense: 82
+  mobility: 56
+  operation: 76
+  intelligence: 68
+  humility: 50
+  ambition: 58
+  isSpecialForces: 0
+  isTranscendent: 0
+  isHyoriHikyo: 0
+  isInnovator: 0
+  isRisingHero: 0
+  isPeerlessWarrior: 0
+  isThreeDayRuler: 0
+  isTurncoat: 0
+  virtue: 76
+  claimsImperialDescent: 0
+  isVirtuousLord: 0
+  isWarSaint: 0
+  isFierceGeneral: 0
+  isGrandTactician: 0
+  isKaiser: 0
+  isRightHand: 0
+  isMagician: 0
+  baseStrength: 2000
+  hasPreferredFormation: 1
+  preferredFormation: 4
+  staffOfficers: []
+  staffBonusRatio: 0.2
+  talents: []
+  fame: 0
+  specialty: 0
+  fatigue: 0
+  woundSeverity: 0
+  growth:
+    experience: 0
+    archetype: 0
+  personality: 2
+  personalLoyalty: 1

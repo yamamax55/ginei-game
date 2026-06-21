@@ -41,3 +41,7 @@ GeneratedAssets/
 
 # Unity crash recovery artifacts
 /Assets/_Recovery/
+
+# ポートレート生成の中間物（最終Sprite は Assets/Art/Portraits に取り込み済み）
+/Tools/portrait/staging/
+/Tools/portrait/transparent/

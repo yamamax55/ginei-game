@@ -12,9 +12,10 @@ namespace Ginei
     {
         /// <summary>全肖像で共通の画風アンカー（これを固定することで作品全体の絵柄が揃う）。</summary>
         public const string StylePreamble =
-            "masterpiece anime-style character portrait, bust shot, three-quarter view, " +
-            "space-opera military officer, neutral dark studio backdrop, soft cinematic rim lighting, " +
-            "clean lineart, painterly rendering, consistent art direction, highly detailed";
+            "vibrant polished anime style, cel-shaded, clean crisp lineart, large expressive glossy eyes, " +
+            "soft bright cinematic lighting, smooth detailed shading, visual-novel character art, " +
+            "space-opera military officer, upper-body portrait, simple soft background, " +
+            "consistent art direction, highly detailed, masterpiece";
 
         /// <summary>提督1人ぶんの生成プロンプト（英語・カンマ区切り）。null安全。</summary>
         public static string BuildPrompt(AdmiralData a)

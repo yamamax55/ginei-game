@@ -249,7 +249,7 @@ namespace Ginei
             pyramidRows = new RankPyramidRow[n];
             // 上（元帥＝index n-1）から下（二等兵＝index 0）へ並べる。
             for (int g = n - 1; g >= 0; g--)
-                pyramidRows[g] = BuildPyramidRow((MilitaryGrade)g);
+                pyramidRows[g] = BuildPyramidRow(pyramidRoot.transform, (MilitaryGrade)g);
 
             // 次階級の定員空き（脚注）
             GameObject footObj = new GameObject("PyramidFooter");
@@ -263,7 +263,7 @@ namespace Ginei
             ApplyJapaneseFont(pyramidFooter);
         }
 
-        private RankPyramidRow BuildPyramidRow(MilitaryGrade grade)
+        private RankPyramidRow BuildPyramidRow(Transform parent, MilitaryGrade grade)
         {
             int n = RankDistributionRules.GradeCount;
             // 幅：底辺(二等兵=index0)が最大、頂点(元帥=index n-1)が最小。線形に細くする＝ピラミッド型。
@@ -272,6 +272,7 @@ namespace Ginei
 
             // 行（レイアウトの子＝高さ固定・全幅）。中で帯を中央に置く。
             GameObject rowObj = new GameObject("Row_" + grade);
+            rowObj.transform.SetParent(parent, false); // ★親(pyramidRoot)へ接続＝帯が描画される
             rowObj.AddComponent<RectTransform>();
             LayoutElement le = rowObj.AddComponent<LayoutElement>();
             le.minHeight = pyramidRowHeight; le.preferredHeight = pyramidRowHeight; le.flexibleHeight = 0f;

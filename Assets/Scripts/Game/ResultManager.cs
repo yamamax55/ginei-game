@@ -17,6 +17,7 @@ namespace Ginei
         private void Start()
         {
             DisplayResults();
+            AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmResult);
         }
 
         /// <summary>

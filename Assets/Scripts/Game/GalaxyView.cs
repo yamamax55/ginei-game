@@ -246,6 +246,7 @@ namespace Ginei
             Active = this; // 観測層が国庫（資源備蓄）等のライブ状態を読むための弱参照（OnDestroy で解除）
             // 戦略マップシーンのコンテキストを設定（#107：会戦から戻った後も正しく絞られるよう再セット）
             GameInput.SetContext(InputContext.戦略);
+            AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmStrategy); // 戦略マップ BGM（②音楽）
 
             cam = Camera.main;
             if (cam == null) cam = new GameObject("GalaxyCamera").AddComponent<Camera>();

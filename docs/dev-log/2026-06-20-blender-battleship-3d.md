@@ -18,7 +18,7 @@
 
 ## 4. 成果物（PR）
 - **PR #2594**：`Assets/Art/Ships/Battleship3D.blend`（既存スプライト群と同じ `Art/Ships/` に配置）。
-- **PR #2595**：`docs/blender-to-unity-3d-pipeline.md`（制作・活用ガイド）＋ README 目次に「制作ガイド」節。
+- **PR #2595**：`docs/ops/blender-to-unity-3d-pipeline.md`（制作・活用ガイド）＋ README 目次に「制作ガイド」節。
 - 本ログ（#2596 想定）で当日分を記録。
 
 ## 5. 学び（Blender→Unityの現実）

@@ -100,7 +100,7 @@ jobs:
 
             手順:
             1. `gh issue view ${{ steps.pick.outputs.issue }}` で issue 本文・完了条件・親EPIC（あれば）を読む。
-               リンクされた設計書 docs/*-reference-design.md があれば読む。CLAUDE.md の関連節も読む。
+               リンクされた設計書 docs/reference/*-reference-design.md があれば読む。CLAUDE.md の関連節も読む。
             2. 作業ブランチを切る: `git checkout -b agent/impl-${{ steps.pick.outputs.issue }}`
             3. issue のスコープ「だけ」を実装する。CLAUDE.md の絶対規約を厳守:
                - 置き場所で所属が決まる（純ロジック→Assets/Scripts/Core・SO/IO→Data・MonoBehaviour/UI→Game）。

@@ -33,5 +33,5 @@ Core 純ロジックの急増に「盤面で何も見えない」乖離を構造
 - 観測オーバーレイ（G/J）の見た目・自動生成は実機 Play 目視が要（入力注入が環境制約のため）。
 
 ## ドキュメント
-- `docs/roadmap.md`：日付 06-11・テスト 1037・Issue 949（EPIC146）・観測層 第1層・CCX-1/6・新設参考EPIC群を反映。
+- `docs/planning/roadmap.md`：日付 06-11・テスト 1037・Issue 949（EPIC146）・観測層 第1層・CCX-1/6・新設参考EPIC群を反映。
 - CLAUDE.md：観測層節＋コンポーネント表（`CampaignObserverOverlay`/`CoreStateInspector`）は反映済み。

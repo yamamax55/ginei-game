@@ -7,7 +7,7 @@ namespace Ginei
     /// BGM と効果音を一元管理するシングルトン。DontDestroyOnLoad で永続化。
     /// Inspector で AudioClip を割り当てる。未割り当て clip は無音でエラーにならない。
     /// 未割当時は Resources から規約名（bgm_title 等）で自動ロード＝ファイルを置くだけで鳴る
-    /// （コード生成の AudioManager でも有効。導入手順は docs/audio-sourcing.md）。
+    /// （コード生成の AudioManager でも有効。導入手順は docs/ops/audio-sourcing.md）。
     /// </summary>
     public class AudioManager : MonoBehaviour
     {

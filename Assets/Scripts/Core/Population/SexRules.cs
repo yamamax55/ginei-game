@@ -5,7 +5,7 @@ namespace Ginei
     /// <summary>
     /// 性別のロジック（純ロジック・唯一の窓口）。POP の男女比（<see cref="Population.femaleShare"/>）を扱い、
     /// 偏りが出生に与える影響（番が組みにくくなる）を係数で返す。マクロ背景＝個別の交配は扱わない（タイクン化回避）。test-first。
-    /// 性的指向（ストレート/LGBTQ+）は<b>別軸の隠しパラメータ案＝検討項目（現状未実装）</b>＝<c>docs/gender-orientation-design.md</c>。
+    /// 性的指向（ストレート/LGBTQ+）は<b>別軸の隠しパラメータ案＝検討項目（現状未実装）</b>＝<c>docs/design/gender-orientation-design.md</c>。
     /// </summary>
     public static class SexRules
     {

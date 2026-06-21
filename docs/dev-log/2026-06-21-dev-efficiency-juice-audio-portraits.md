@@ -19,11 +19,11 @@ PR [#2638](https://github.com/yamamax55/ginei-game/pull/2638)（master マージ
 
 ## 3. ② 音楽・音声
 - **`AudioManager` 実用化**：Resources 自動ロード規約（`bgm_title/battle/strategy/result`・`se_*`）＝ファイルを置くだけで鳴る／BGM クロスフェード（`Easing.SmoothStep`・実時間）／Strategy・Result の BGM 枠と配線（`GalaxyView`・`ResultManager` の Start）。後方互換。
-- **`docs/audio-sourcing.md`**：無料かつ商用可のソース（Pixabay/Kenney/Sonniss=帰属不要、Musopen/IMSLP/FreePD=PDクラシック要ライセンス確認、incompetech=CC-BY帰属必須）＋銀英伝向けPD作品＋順守チェックリスト。**素材はまだ未投入**（置けば鳴る状態）。
+- **`docs/ops/audio-sourcing.md`**：無料かつ商用可のソース（Pixabay/Kenney/Sonniss=帰属不要、Musopen/IMSLP/FreePD=PDクラシック要ライセンス確認、incompetech=CC-BY帰属必須）＋銀英伝向けPD作品＋順守チェックリスト。**素材はまだ未投入**（置けば鳴る状態）。
 
 ## 4. ③ 提督ポートレート（ローカル生成パイプライン）
 - **`PortraitPromptRules`(Core・test済)**＝`AdmiralData`→生成プロンプト＋決定論シード。一貫性の核＝固定 `StylePreamble`（**承認画風＝明るいセル塗り・瞳の艶・VN風**）＋人物アーキタイプ→外見の固定写像＋名前ハッシュ(FNV-1a)シード。`AdmiralData` に `portrait`(Sprite)/`appearanceNote`/`portraitSeed` 追加（additive）。エディタ `Ginei/Export Portrait Prompts (CSV)`。
-- **ローカル環境（実機検証済み）**：ComfyUI ポータブル版を `D:\ComfyUI_windows_portable`、SDXL ベース（OpenRAIL・商用可）。導入手順=`docs/comfyui-setup.md`。RTX 3050 8GB は **`--lowvram`＋768×1024 が安定**（標準モードは OOM・`CUDA unknown error` は再起動で回復）。
+- **ローカル環境（実機検証済み）**：ComfyUI ポータブル版を `D:\ComfyUI_windows_portable`、SDXL ベース（OpenRAIL・商用可）。導入手順=`docs/ops/comfyui-setup.md`。RTX 3050 8GB は **`--lowvram`＋768×1024 が安定**（標準モードは OOM・`CUDA unknown error` は再起動で回復）。
 - **バッチ生成 `Tools/portrait/comfyui_batch.py`**：CSV→ComfyUI API(`/prompt`)→PNG。単発 `--test`／CSV一括。
 - **背景透過**：`rembg`（`uvx --from "rembg[cpu,cli]" rembg p in out`）。
 - **取り込み**：`Assets/Editor/PortraitTextureImporter.cs`（AssetPostprocessor＝`Assets/Art/Portraits/` を自動で透過Sprite化）。

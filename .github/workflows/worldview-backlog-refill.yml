@@ -26,7 +26,7 @@ jobs:
       - name: Gate and build axis matrix
         id: gate
         run: |
-          REMAIN=$(grep -c '^| 未 |' docs/reference-epic-backlog.md || echo 0)
+          REMAIN=$(grep -c '^| 未 |' docs/planning/reference-epic-backlog.md || echo 0)
           echo "backlog 未: $REMAIN"
           if [ "$REMAIN" -ge 16 ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
@@ -63,7 +63,7 @@ jobs:
           claude_args: '--allowedTools "Bash,Read,Grep,Glob,WebSearch"'
           prompt: |
             探索軸＝環境変数 AXIS、探索指示＝環境変数 HINT。この軸で「本システム（銀英伝風の星間国家戦略＋思想/歴史/経済/群像シミュ）」の欠落軸に効くネタを最大3件発掘する。
-            手順：(1)重複除外（必須）＝docs/reference-epic-backlog.md の既存行（済/未/吸収）・docs/*-reference-design.md がある題材・gh issue list --state all --label type:epic --limit 100 のタイトル・CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念、と重なるものは選ばない。(2)数合わせをしない＝確信あるものだけ（最大3件・0件可）・分野の偏りを避ける。(3)各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：| 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
+            手順：(1)重複除外（必須）＝docs/planning/reference-epic-backlog.md の既存行（済/未/吸収）・docs/reference/*-reference-design.md がある題材・gh issue list --state all --label type:epic --limit 100 のタイトル・CLAUDE.md「テスト基盤」節で既にモジュール化済みの概念、と重なるものは選ばない。(2)数合わせをしない＝確信あるものだけ（最大3件・0件可）・分野の偏りを避ける。(3)各ネタを /tmp/out/lines.txt に1行ずつ追記（mkdir -p /tmp/out してから）：| 未 | [AXISの値] 名称 | 着眼点＝欠落軸＋既存モジュール接続先 | — |
             0件なら lines.txt は作らない。issue起票・他ファイル編集・git操作はしない。著作権：固有名・教義・実在人物の表象は使わず構造のみ（宗教・人物軸は特に「風」モチーフ厳守）。
       - name: Upload axis candidates
         uses: actions/upload-artifact@v4
@@ -92,7 +92,7 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           echo 'aW1wb3J0IGdsb2IscmUKcD0iZG9jcy9yZWZlcmVuY2UtZXBpYy1iYWNrbG9nLm1kIgpsaW5lcz1vcGVuKHAsZW5jb2Rpbmc9InV0Zi04IikucmVhZCgpLnNwbGl0KCJcbiIpCmRlZiBrZXkocm93KToKICAgIGNlbGxzPVtjLnN0cmlwKCkgZm9yIGMgaW4gcm93LnN0cmlwKCkuc3RyaXAoInwiKS5zcGxpdCgifCIpXQogICAgaWYgbGVuKGNlbGxzKTwyOiByZXR1cm4gTm9uZQogICAgcmV0dXJuIHJlLnN1YihyJ15cW1teXF1dKlxdXHMqJywnJyxjZWxsc1sxXSkuc3RyaXAoKQpleGlzdGluZz1zZXQoKQpmb3IgbCBpbiBsaW5lczoKICAgIGlmIGwuc3RhcnRzd2l0aCgifCDmnKogfCIpIG9yIGwuc3RhcnRzd2l0aCgifCDmuIggfCIpIG9yIGwuc3RhcnRzd2l0aCgifCDlkLjlj44gfCIpOgogICAgICAgIGs9a2V5KGwpCiAgICAgICAgaWYgazogZXhpc3RpbmcuYWRkKGspCm5ld3Jvd3M9W10KZm9yIGYgaW4gc29ydGVkKGdsb2IuZ2xvYigiL3RtcC9kaXNjLyovbGluZXMudHh0IikpOgogICAgZm9yIGwgaW4gb3BlbihmLGVuY29kaW5nPSJ1dGYtOCIpOgogICAgICAgIGw9bC5yc3RyaXAoIlxuIikKICAgICAgICBpZiBub3QgbC5zdGFydHN3aXRoKCJ8IOacqiB8Iik6IGNvbnRpbnVlCiAgICAgICAgaz1rZXkobCkKICAgICAgICBpZiBub3QgayBvciBrIGluIGV4aXN0aW5nOiBjb250aW51ZQogICAgICAgIGV4aXN0aW5nLmFkZChrKTsgbmV3cm93cy5hcHBlbmQobCkKaWYgbmV3cm93czoKICAgIG91dD1bXTsgaW5zPUZhbHNlCiAgICBmb3IgbCBpbiBsaW5lczoKICAgICAgICBpZiBub3QgaW5zIGFuZCBsLnN0YXJ0c3dpdGgoIjwhLS0iKTogb3V0LmV4dGVuZChuZXdyb3dzKTsgaW5zPVRydWUKICAgICAgICBvdXQuYXBwZW5kKGwpCiAgICBpZiBub3QgaW5zOiBvdXQuZXh0ZW5kKG5ld3Jvd3MpCiAgICBvcGVuKHAsInciLGVuY29kaW5nPSJ1dGYtOCIpLndyaXRlKCJcbiIuam9pbihvdXQpKQogICAgcHJpbnQoImFkZGVkICVkIiVsZW4obmV3cm93cykpCmVsc2U6IHByaW50KCJhZGRlZCAwIik=' | base64 -d > /tmp/refill.py
           python3 /tmp/refill.py
-          git add docs/reference-epic-backlog.md
+          git add docs/planning/reference-epic-backlog.md
           if git diff --cached --quiet; then
             echo "no changes"
           else

@@ -6,10 +6,10 @@
 
 > 出自を分解できる **serena**（意味的参照グラフ）が前提。素の grep は「テキスト一致のノイズ」と
 > 「推移的配線（X→Y→GalaxyView）」を取りこぼすため、判定の核には必ず serena を使う。
-> 既存の手作業監査＝[docs/core-orphan-audit.md](../../docs/core-orphan-audit.md) をこのコマンドで更新・自動化する。
+> 既存の手作業監査＝[docs/audit/core-orphan-audit.md](../../docs/audit/core-orphan-audit.md) をこのコマンドで更新・自動化する。
 
 ## 出力（成果物）
-1. `docs/core-orphan-audit.md` を最新の分類で**更新**（サマリ数値＋Tier 表）。
+1. `docs/audit/core-orphan-audit.md` を最新の分類で**更新**（サマリ数値＋Tier 表）。
 2. `.claude/wire-backlog.md` に**配線候補キュー**を Tier 付きで書き出す（`core-backlog.md` の配線版。無ければ新規作成）。
 3. レポートで **Tier A の上位5件**（届けると「選択が結果を変える」体験になるもの）を理由つきで提示。
 
@@ -55,7 +55,7 @@
    1段だけ `find_referencing_symbols` で辿り、**鎖の先に Game があれば「配線済（推移）」へ訂正**する（最低限の推移チェック）。
 
 6. **記録更新**：
-   - `docs/core-orphan-audit.md` のサマリ数値（総数／Game参照率／Core島数／真の孤児数）と Tier 表を更新。
+   - `docs/audit/core-orphan-audit.md` のサマリ数値（総数／Game参照率／Core島数／真の孤児数）と Tier 表を更新。
      更新日と「serena 精査ベース（テスト・docコメント除外）」である旨を明記。
    - `.claude/wire-backlog.md` に Tier A→B の候補を `- [ ] <Rules名>｜届かない効果｜配線先(オーケストレータ)｜Tier` 形式で
      書き出す（Tier C は「配線しない（観測で背景化）」節に分けて列挙）。

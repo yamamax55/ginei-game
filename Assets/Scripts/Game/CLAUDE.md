@@ -1,7 +1,7 @@
 # Game 層メモリ（`Assets/Scripts/Game` で作業する時に自動ロード）
 
 > ルート `CLAUDE.md` が最上位。ここは MonoBehaviour/配線/UI 作業の落とし穴と安全網だけを濃縮。
-> コンポーネント詳細＝`docs/components-catalog.md`。
+> コンポーネント詳細＝`docs/catalog/components-catalog.md`。
 
 ## ★直列化トラップ（配線・調整の前に必ず）
 シーン/プレハブに置かれた MonoBehaviour の `public` 調整値は **`.unity`/`.prefab` の直列化値がスクリプト既定に勝つ**（#2548）。調整値を効かせる前に **`bash Tools/serialized-value-check.sh <ClassName> [field]`** を実行：直列化されていれば（exit 1）**そのファイル（テキストYAML）を直す**。後付けフィールドはスクリプト既定が効く。ホットスポット＝`Battle.unity`（`CameraController`/`BattleSetup`）・`FleetUnit.prefab`（`Squadron`/`FleetAI`/`FleetMovement`）。※PostToolUse hook（`Tools/hooks/`）が編集時に自動警告。

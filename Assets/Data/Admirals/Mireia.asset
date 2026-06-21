@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
+  m_Name: Mireia
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
+  admiralName: "\u30DF\u30EC\u30A4\u30A2\u30FB\u30BB\u30EB\u30A6\u30A3\u30F3"
+  faction: 1
+  givenName: "\u30DF\u30EC\u30A4\u30A2"
+  middleName: 
+  familyName: "\u30BB\u30EB\u30A6\u30A3\u30F3"
+  nobleParticle: 
+  regnalNumber: 0
+  epithet: 
+  callName: "\u30DF\u30EC\u30A4\u30A2"
+  signatureShipName: 
+  isProtagonist: 1
+  rankTier: 1
+  leadership: 68
+  attack: 52
+  defense: 70
+  mobility: 72
+  operation: 60
+  intelligence: 78
+  humility: 80
+  ambition: 45
+  isSpecialForces: 0
+  isTranscendent: 0
+  isHyoriHikyo: 0
+  isInnovator: 0
+  isRisingHero: 1
+  isPeerlessWarrior: 0
+  isThreeDayRuler: 0
+  isTurncoat: 0
+  virtue: 70
+  claimsImperialDescent: 0
+  isVirtuousLord: 0
+  isWarSaint: 0
+  isFierceGeneral: 0
+  isGrandTactician: 0
+  isKaiser: 0
+  isRightHand: 0
+  isMagician: 0
+  baseStrength: 2000
+  hasPreferredFormation: 1
+  preferredFormation: 1
+  staffOfficers: []
+  staffBonusRatio: 0.2
+  talents: []
+  fame: 0
+  specialty: 0
+  fatigue: 0
+  woundSeverity: 0
+  growth:
+    experience: 0
+    archetype: 0
+  personality: 1
+  personalLoyalty: 1

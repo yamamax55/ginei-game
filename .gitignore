@@ -18,6 +18,7 @@ GeneratedAssets/
 !.claude/agents/
 !.claude/core-backlog.md
 !.claude/playtest-findings.md
+!.claude/settings.json
 # MCP ローカル設定（マシン固有の絶対パスを含むため追跡しない）/ Serena のインデックスキャッシュ
 .mcp.json
 .serena/

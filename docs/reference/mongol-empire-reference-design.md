@@ -130,3 +130,9 @@ tags: [reference]
 `MNGL-1`（ジャムチ＝情報伝達の物理。他の分裂/合議の前提になる神経系）→ `MNGL-2`（分封＝盤面分割の手続き）→ `MNGL-3`（遠心力＝MNGL-1/2 を合成した分裂の創発＝signature）→ `MNGL-5`（クリルタイ＝分裂の抑止弁）→ `MNGL-4`（遊牧の移動中核）→ `MNGL-6`（交易安全の正ループ）→ `MNGL-7`（lore）。
 
 > 三本柱＝**①ジャムチ（情報伝達の物理 MNGL-1）②分封→遠心分裂（相続動学 MNGL-2/3）③クリルタイ合議正統性（MNGL-5）**。いずれも既存の継承/物流/諜報/内政を**後退させず接続**する additive 設計。星間スケールゆえの「広さが帝国を割る」創発を狙う。
+
+## 関連
+- [[zizhi-tongjian-reference-design]] — 統治と興亡の歴史叙述
+- [[crusades-arab-view-reference-design]] — ユーラシア広域史
+- [[mediterranean-after-rome-reference-design]] — 通行安全と秩序の真空
+- [[collapse-diamond-reference-design]] — 広さゆえの分裂と崩壊

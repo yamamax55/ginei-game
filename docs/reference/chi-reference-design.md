@@ -115,3 +115,10 @@ tags: [reference]
 `CHI-1 → CHI-2`（知のリレー＋アンチ主人公＝signature）→ `CHI-3 → CHI-4`（弾圧と地下伝承）→ `CHI-5`（パラダイム転換）→ `CHI-6`。
 
 > いずれも既存（群像/継承/研究/開示）を**後退させず接続**する additive 設計。`Organization`#812（組織の存続）・PIL（建設の継承）の隣に**知/真理という無形物の世代リレー**を置き、**主人公不在の群像史観**を足す。本作は群像劇だが、それでも提督が「主人公」になりがち——CHI は「**誰も主役ではない、君も含めて全員が真理を未来へ運ぶ中継者にすぎない。だが、そのバトンこそが歴史を作る**」という視点を与える。「君は物語の主人公ではない」が、銀英伝＝群像劇の核心を最も深い所で言い当てる。
+
+## 関連
+- [[foundation-asimov-reference-design]] — 個でなく歴史の長期力学
+- [[sapiens-reference-design]] — 共有信念の世代継承
+- [[what-is-history-reference-design]] — 歴史記述と事実の選別
+- [[voynich-reference-design]] — 解読と秘史の連鎖開示
+- [[the-crowd-lebon-reference-design]] — 弾圧と殉教の伝播

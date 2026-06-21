@@ -124,3 +124,10 @@ tags: [reference]
 `CPL-1 → CPL-2`（連産品＝化学SCM固有で最も欠落の大きい signature・横の連結）→ `CPL-3`（スプレッド＝縦の連結）→ `CPL-4 → CPL-5`（ブルウィップ→脆さ＝時間の連結・既存兵站の統合接着剤）→ `CPL-6`（連続運転の硬直）→ `CPL-7`（貯蔵不能＝脆さの増幅器）。
 
 > いずれも既存マクロ経済・兵站を**後退させず接続**する additive 設計。**カップリング＝既存物流（#92/#94/#95/#844/#982）を一つの脆い網に統合する**のが核で、新サイロを足すのではない。
+
+## 関連
+- [[das-kapital-reference-design]] — 生産・市場の経済モデル基盤
+- [[behavioral-economics-reference-design]] — 需要変動の増幅と非合理伝播
+- [[drucker-management-reference-design]] — 連続運転の硬直と組織の病
+- [[wartime-logistics-design]] — 補給線の連結と前線枯渇
+- [[late-game-performance-design]] — 連結で増えるN²とラグ回避

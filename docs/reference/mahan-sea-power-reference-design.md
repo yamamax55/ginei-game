@@ -137,3 +137,9 @@ tags: [reference]
 `MHAN-1`（シーパワー国力導出＝最も基底の欠落・他柱の土台）→ `MHAN-2`（制海権グラデーション＝盤面の核・`IsFtlBlocked` を連続化）→ `MHAN-3`（チョークポイント増幅＝要衝の型を活かす・MHAN-2 の上に乗る）→ `MHAN-4 → MHAN-5`（ドクトリン→集中＝戦略の遊び・二乗則と一致）→ `MHAN-6`（前進基地＝遠征の地理制約）→ `MHAN-7`（lore・最後にまとめて開示データ化）。
 
 > いずれも既存の戦略マクロ（`Corridor`/`StrategyRules`/`CommerceRaidingRules`/`SupplyRules`/`AutoBattleSim`/`LogisticsRules`）を**後退させず接続**する additive 設計。三本柱＝**シーパワー国力導出（MHAN-1）／制海権グラデーション（MHAN-2-3）／決戦・集中ドクトリン（MHAN-4-5）**。フェザーン#160（通商国家）・王道路線（武力でなく地理と通商で国力が決まる）に最も効く。
+
+## 関連
+- [[wartime-logistics-design]] — 補給線と作戦行動半径
+- [[modern-world-system-reference-design]] — 通商と覇権の経済構造
+- [[thucydides-history-reference-design]] — 覇権交代と海上力学
+- [[pearl-harbor-reference-design]] — 制海権と艦隊決戦

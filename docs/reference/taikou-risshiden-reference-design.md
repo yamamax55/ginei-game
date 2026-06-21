@@ -173,3 +173,10 @@ tags: [reference]
 
 > いずれも既存のマクロ人材シム（学校/席次/学閥/階級/稟議/会戦）を**後退させず接続**する additive 設計。
 > 世界シムは自走したまま、その上に**「一人の軍人を生きる」薄い一人称層**を載せる＝銀英伝＝人物駆動の核心を強化する。
+
+## 関連
+- [[sword-honor-meritocracy-design]] — 立身出世と実力主義
+- [[rank-command-capacity-design]] — 階級ラダーと昇進
+- [[dialogue-adventure-design]] — 一人称の社交と対話
+- [[canterbury-tales-reference-design]] — 人物群像と人脈
+- [[military-organization-design]] — 軍人キャリアの編制

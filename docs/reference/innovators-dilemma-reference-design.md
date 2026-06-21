@@ -131,3 +131,9 @@ tags: [reference]
 `INNO-1 → INNO-2 → INNO-3`（技術軌道の動学＝二系統→S字/供給過剰→下からの逆転＝本作の signature 三段）→ `INNO-4 → INNO-5`（“正しい経営”の硬直→資源配分の重力＝**敗北の機構**）→ `INNO-6`（両利き＝唯一の処方）→ `INNO-7`（軍事への翻訳＝勝者の呪い）→ `INNO-8`（盤面配線＋観測層追従＋lore）。
 
 > いずれも既存の研究/組織/ドクトリン層を**後退させず接続**する additive 設計。プレイヤーの決断は「投資配分」「隔離部門の設置」という高位の2レバーに限定し、敗北（正しさゆえの滅び）は創発的に立ち上がる（タイクン化回避）。
+
+## 関連
+- [[drucker-management-reference-design]] — 経営学・組織と意思決定
+- [[mythical-man-month-reference-design]] — 組織と技術開発の落とし穴
+- [[das-kapital-reference-design]] — 資本蓄積と産業の動学
+- [[modern-world-system-reference-design]] — 経済構造の盛衰

@@ -133,3 +133,10 @@ tags: [reference]
 `FOUN-1`（崩壊予測エンジン＝最も固有で欠落の大きい signature）→ `FOUN-2`（予測信頼度＝集団規模で当たり外れが決まる構造）→ `FOUN-3`（変異原＝予報を外す攪乱）→ `FOUN-4`（暗黒時代短縮＝崩壊受容の長期介入＝高位の決断）→ `FOUN-5`（周期的クライシス）→ `FOUN-6`（盤面・観測層へ配線）→ `FOUN-7`（秘匿・反射性・lore）。
 
 > いずれも既存の社会・政治シミュを**後退させず、read-only 予測層として上に乗せる** additive 設計。`CampaignState`（最上層統合）に最も効き、武力でなく予測で銀河を統べる王道路線の極北を与える。
+
+## 関連
+- [[collapse-diamond-reference-design]] — 社会崩壊の予兆と力学
+- [[modern-world-system-reference-design]] — 覇権の長期循環
+- [[sapiens-reference-design]] — マクロ社会の総論レイヤー
+- [[chi-reference-design]] — 個でなく歴史の前進
+- [[what-is-history-reference-design]] — 進歩史観と歴史の方向

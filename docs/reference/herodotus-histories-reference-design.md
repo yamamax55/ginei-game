@@ -133,3 +133,11 @@ tags: [reference]
 `HRDT-1 → HRDT-2`（出典つき証言＋勝者が書く正史＝HRDT の認識論の核・最も固有で欠落が大きい signature）→ `HRDT-3`（異文化認識＝観察が情報にも偏見にも）→ `HRDT-4`（僭主サイクル＝`DynastyRules` の対）→ `HRDT-5 → HRDT-6`（自由の士気→ヒュブリス＝戦闘と拡大に政体・運命の歯）→ 残り（HRDT-7/8＝両義神託・lore）。
 
 > いずれも既存（開示/文化/王朝/イベント/戦闘係数）を**後退させず接続**する additive 設計。`DisclosureLedger`（確定開示）と VOY（遺物解読）の隣に**出典つきで割れる事件記録**が入り、**「真実は調べれば出る」から「真実は視点で食い違い、勝者が正史を確定し、敗者の証言も残る」**という歴史記述の認識論で世界観EPICと群像劇が一段深くなる。僭主サイクル・自由の士気・ヒュブリス・両義神託が政体と戦争に運命の振り子を与えるのが最大の収穫。
+
+## 関連
+- [[thucydides-history-reference-design]] — 同じ古代史書の認識論
+- [[what-is-history-reference-design]] — 歴史記述とは何かの理論軸
+- [[crusades-arab-view-reference-design]] — 視点反転・敗者の証言
+- [[zuo-zhuan-reference-design]] — 史書の語り口と会盟
+- [[pearl-harbor-reference-design]] — ヒュブリスと戦術勝利の罠
+- [[the-crowd-lebon-reference-design]] — 自由vs専制の士気・群衆

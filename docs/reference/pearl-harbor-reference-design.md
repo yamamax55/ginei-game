@@ -122,3 +122,9 @@ tags: [reference]
 `PRL-2 → PRL-1`（窮鼠の決断＋奇襲＝開戦の核）→ `PRL-3`（戦術勝利→戦略敗北＝signature）→ `PRL-4`（速戦vs総力戦）→ 残り（PRL-5/6）。
 
 > いずれも既存（戦争/経済/諜報）を**後退させず接続**する additive 設計。SARA #1218（偶発の暴走）と対をなし、**「追い詰められた側の合理的だが破滅的な先制」**という開戦の第二類型を足す。経済戦（PRC-8/SAW）が戦争の引き金になり、奇襲が短期勝利と引き換えに大義と長期を失う——**`no-outcome-preview`（結果を予想で見せない）が最も活きる**＝勝ったはずの一撃の代償が、時間を経て破滅として現れるのが最大の収穫。
+
+## 関連
+- [[sarajevo-reference-design]] — 開戦の対類型（偶発の暴走）
+- [[thucydides-history-reference-design]] — 戦争の動機と破滅
+- [[mahan-sea-power-reference-design]] — 海軍戦略と国力差
+- [[wartime-logistics-design]] — 速戦vs総力戦の兵站

@@ -123,3 +123,10 @@ tags: [reference]
 `THUC-1`（覇権交代の恐怖＝最も固有で欠落の大きい signature・予防戦争の力学）→ `THUC-2`（力の非対称交渉＝強者の論理）→ `THUC-3`（引きずり込み＝同盟の罠）→ `THUC-4 → THUC-5`（衆愚政→将軍追放＝群衆心理の連鎖）→ 残り（THUC-6 接続のみ／THUC-7 lore）。
 
 > いずれも既存の外交・戦争・支持マクロを**後退させず接続**する additive 設計。三本柱＝**①予防戦争の力学（THUC-1） ②力の非対称交渉（THUC-2） ③衆愚政の動学（THUC-4）**。SARA（同盟連鎖）/PRL（奇襲・窮鼠）/HRDT（叙述・ヒュブリス）と棲み分け、その隙間（強者の恐怖・強者の論理・非義務の引きずり込み・群衆の翻意）を埋める。
+
+## 関連
+- [[herodotus-histories-reference-design]] — 専制と自由連合の衝突
+- [[sarajevo-reference-design]] — 偶発事件の連鎖参戦
+- [[the-crowd-lebon-reference-design]] — 衆愚政と群衆の翻意
+- [[zuo-zhuan-reference-design]] — 覇権と会盟の秩序
+- [[mahan-sea-power-reference-design]] — 覇権交代の海上力学

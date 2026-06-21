@@ -124,5 +124,9 @@ tags: [reference]
 `WSYS-1`（構造的地位＝最も固有で欠落の大きい signature・他子の土台）→ `WSYS-2`（不等価交換＝剰余移転で地位に意味を持たせる）→ `WSYS-3`（ヘゲモニー循環＝長期サイクル）→ `WSYS-4`（地位流動＝戦略目標化）→ `WSYS-5`（搾取の創発帰結＝反システム運動）→ `WSYS-6`（盤面配線＋観測層追従＝ここで初めて `CampaignState` へ接続し見えるようにする）→ `WSYS-7`（lore）。
 
 > いずれも既存マクロ経済・内政・統合層を**後退させず、その上に「世界＝経済」の構造レイヤーを被せる** additive 設計。`CampaignState` 統合層（盤面×社会の最上層）に最も効く。
-</content>
-</invoke>
+
+## 関連
+- [[das-kapital-reference-design]] — 剰余の搾取と階級
+- [[mahan-sea-power-reference-design]] — 通商と覇権の地理
+- [[foundation-asimov-reference-design]] — 覇権の長期循環
+- [[collapse-diamond-reference-design]] — 収奪と社会の崩壊

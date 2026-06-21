@@ -252,3 +252,11 @@ public static float DomesticDeploymentPenalty(CivilianControlType t, float repre
 | ポッセ・コミタタス法 | `MilitaryMayPoliceDomestic`＋`DomesticDeploymentPenalty` |
 | DOPMA（up-or-out） | `RetirementRules.ShouldUpOrOut`（既存） |
 | 州兵 Title 32/10（動員権限） | `RetirementRules.CanRecall`＋召集権者の軸（将来） |
+
+## 関連
+- [[military-organization-design]] — 部隊の階層と指揮系統
+- [[fleet-organization-design]] — 艦隊編成と指揮配属
+- [[local-autonomy-design]] — 連邦分権と中央統制
+- [[recruit-training-us-reference-design]] — 兵の養成パイプライン
+- [[nco-education-us-reference-design]] — 下士官団と軍の専業規範
+- [[mahan-sea-power-reference-design]] — 軍と国家戦略の接続

@@ -143,3 +143,10 @@ tags: [reference]
 `MGMT-1`（事業の定義＝最も固有で全ての土台）→ `MGMT-2`（目標管理＝成果 vs 実績の核）→ `MGMT-3`（知識労働者の生産性＝人の成果軸）→ `MGMT-4`（連邦分権＝自律 vs 統制）→ `MGMT-5`（成果ベース正統性＝退場）→ `MGMT-7`（官僚制の病＝省益肥大）→ `MGMT-6`（体系的廃棄）→ `MGMT-8`（lore）。
 
 > いずれも既存組織/人事ロジックを**後退させず接続**する additive 設計。**省庁#158（縦割りツリー）・HCM#992（人材）・組織#812（制度化）を「成果で測られる経営組織」へ昇格**させ、タイクン化せず**目的喪失・官僚肥大・分権の創発帰結**を生む。
+
+## 関連
+- [[innovators-dilemma-reference-design]] — 体系的廃棄とイノベーション
+- [[mythical-man-month-reference-design]] — 知識労働と組織生産性
+- [[behavioral-economics-reference-design]] — 官僚制の自己目的化と非合理
+- [[military-organization-design]] — 連邦分権と指揮系統の階層
+- [[das-kapital-reference-design]] — 成果と抽出のトレードオフ

@@ -121,3 +121,11 @@ tags: [reference]
 `CRSD-1`（同一事件の視点別価値づけ＝最も固有で欠落の大きい signature・他子の土台）→ `CRSD-2`（防衛側分裂＝戦争の構造）→ `CRSD-3`（対抗聖戦＝CRSD-2 に宗教動機）→ `CRSD-4`（接触帯＝前線のテクスチャ）→ `CRSD-5`（遺恨＝CRSD-1 の長期帰結）→ `CRSD-6`（lore＝コード新設なし・最後に物語化）。
 
 > いずれも既存の記録（HRDT/NTEF）・宗教・文化・外交を**後退させず接続**する additive 設計。HRDT（異説併存）とは「事実が割れる ⇔ 価値が割れる」で直交し、開示 FND-4 の「両面記述」を実装で支える。
+
+## 関連
+- [[herodotus-histories-reference-design]] — 勝者が書く正史・異説併存の隣
+- [[thucydides-history-reference-design]] — 史書の認識論を共有
+- [[what-is-history-reference-design]] — 歴史記述の視点性
+- [[sarajevo-reference-design]] — 同盟連鎖と動員の隣接軸
+- [[mongol-empire-reference-design]] — 侵攻と被侵攻の文明衝突
+- [[mediterranean-after-rome-reference-design]] — 文明境界の接触と遺恨

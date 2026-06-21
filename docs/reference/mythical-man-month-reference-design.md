@@ -125,3 +125,10 @@ tags: [reference]
 `MMM-1`（工数法則エンジン＝最も固有で欠落の大きい signature・以後の土台）→ `MMM-2`（ブルックスの法則＝増員の逆効果・MMM-1 直依存）→ `MMM-3`（概念の完全性＝品質の核・既存 Person/#885 活用）→ `MMM-4`（第二システム効果＝メガPILの肥大創発）→ `MMM-5`（銀の弾丸＝研究天井・最小）→ `MMM-6`（lore）。
 
 > いずれも既存の生産・組織ロジックを**後退させず接続**する additive 設計。**「投入＝成果」の線形前提に非線形の規律を与える**のが核で、造船#884・メガプロジェクトPIL・研究#123 を一段の工数エンジンで束ねる。PERF#1117（N²を増やさない）とタイクン化回避を**ゲーム内の勝ち筋（少数精鋭・概念の完全性）**へ翻訳する。
+
+## 関連
+- [[late-game-performance-design]] — N²調整コスト規律を生産工数へ適用
+- [[drucker-management-reference-design]] — 組織と工数のマネジメント論
+- [[innovators-dilemma-reference-design]] — 第二システム効果と過剰野心
+- [[pillars-of-the-earth-reference-design]] — メガプロジェクトの工数・継承
+- [[parallel-agent-workflow]] — 少数精鋭・分割並行の開発作法

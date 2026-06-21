@@ -197,3 +197,10 @@ Almagest の操作の一貫性は、**少数の共通ウィンドウ部品**を�
 
 ### 推奨着手順
 `ALM-1 → ALM-2 → ALM-3 → ALM-4`（UIシェル土台）→ `ALM-5`（評判＝最安メタ）→ `ALM-8`（特殊能力）→ `ALM-11 → ALM-12 → ALM-13`（技術→再設計→FCS.Cap）→ 残り（ALM-6/7/9/10/14/15/16）。
+
+## 関連
+- [[foundation-asimov-reference-design]] — 同系の星間国家叙述
+- [[phase-c-strategy]] — 戦略レイヤー設計の土台
+- [[corporate-workflow-strategy-ui-design]] — 戦略UIシェルの参考
+- [[fleet-organization-design]] — 艦隊編成UIの接続先
+- [[roadmap]] — 配線フェーズの位置づけ

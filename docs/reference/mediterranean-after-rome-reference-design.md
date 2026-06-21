@@ -140,3 +140,9 @@ tags: [reference]
 `PIRA-1`（海賊の発生・消長＝最も固有で全柱の土台・空白度を読む生成エンジン）→ `PIRA-2`（略奪・身代金＝海賊の signature「奪う経済」・#95 に収奪面）→ `PIRA-3`（沿岸襲撃＝海から陸への波及・脅威が実害になる）→ `PIRA-4`（討伐の集団行動問題＝なぜ海賊が栄えるかの社会動学）→ `PIRA-5`（私掠＝海賊を武器化する高位の決断）→ `PIRA-6`（海賊国家化＝無法者の昇格・招安）→ `PIRA-7`（lore・最後にまとめて開示データ化）。
 
 > いずれも既存の海洋・経済・社会マクロ（`CommerceRaidingRules`/`SeaControlRules`/`SupplyRules`/`GovernanceRules`/`CaptivityRules`/`FactionRelations`）を**後退させず接続**する additive 設計。三本柱＝**非国家アクターの生成（PIRA-1）／奪う経済＝略奪・身代金・沿岸襲撃（PIRA-2-3）／無秩序海域の社会動学＝討伐の集団行動・私掠・海賊国家化（PIRA-4-6）**。MHAN（国家の制海権）の**裏面＝制海できない海に何が湧くか**を埋め、王道路線（武力でなく秩序で海を鎮める）・フェザーン #160（交易の保護者）に効く。海賊個体のミクロ操作を作らず**海域の状態量**として抽象する＝終盤ラグ回避（PERF #1117）。
+
+## 関連
+- [[mahan-sea-power-reference-design]] — 制海権の表裏（裏面=無秩序海域）
+- [[crusades-arab-view-reference-design]] — 地中海世界の歴史叙述
+- [[mongol-empire-reference-design]] — 秩序の真空と通行安全
+- [[wartime-logistics-design]] — 通商・補給線の兵站

@@ -125,3 +125,10 @@ tags: [reference]
 `HDRN-1`（元首の主観＝最も固有で欠落の大きい signature・他issueの駆動源）→ `HDRN-2`（資質本位の指名＝主観が選ぶ対象）→ `HDRN-3`（引き際＝主観が決める“いつ”）→ `HDRN-4`（次代への創発帰結＝盤面接続の本丸）→ `HDRN-5`（回顧＝正統性＋lore）→ `HDRN-6`（lore データ入力）。
 
 > いずれも継承法#646・組織存続#812・停年#530 を**後退させず接続**する additive 設計。法形式（誰が継ぐ権利を持つか）と組織存続（カリスマの日常化）の**間に空いていた「元首個人が後継を選び、引き継ぎ、去る」過程**を埋める。
+
+## 関連
+- [[king-lear-reference-design]] — 老王の譲位と後継選びの失敗
+- [[zizhi-tongjian-reference-design]] — 治世の鑑と後継の質
+- [[sword-honor-meritocracy-design]] — 資質本位の登用・能力評価
+- [[herodotus-histories-reference-design]] — 僭主サイクルと正統性
+- [[chi-reference-design]] — 無形の達成の世代継承

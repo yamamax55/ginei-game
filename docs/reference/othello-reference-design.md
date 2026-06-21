@@ -121,3 +121,9 @@ tags: [reference]
 `OTH-1 → OTH-2`（失脚工作＋指揮班崩壊＝内側の刃の核）→ `OTH-3`（疑心の自走＝signature）→ `OTH-4`（怨恨の製造＝工作の生態系）→ `OTH-6`（露見＝カウンター）→ 残り（OTH-5/7）。
 
 > いずれも既存（諜報/人事/関係/指揮班）を**後退させず接続**する additive 設計。外への諜報（SGZ-4/SAW-3）に対する**内への刃**が揃い、「艦隊を撃たずに名将を潰す」銀英伝的な権謀（査問会・足の引っ張り合い）が制度として動く。**LEAR-3（佞臣の製造）→ OTH-4（怨恨の製造）→ OTH-1（工作実行）→ OTH-3（疑心の自走）**と、悪意の供給網が一本につながるのも収穫。
+
+## 関連
+- [[king-lear-reference-design]] — 佞臣と忠誠テストの逆選択
+- [[merchant-of-venice-reference-design]] — 異邦人の法的地位と裁判
+- [[sword-honor-meritocracy-design]] — 昇進人事と実力登用
+- [[zuo-zhuan-reference-design]] — 下剋上と内部からの簒奪

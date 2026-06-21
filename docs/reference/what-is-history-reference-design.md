@@ -130,3 +130,10 @@ tags: [reference]
 `CARR-1 → CARR-2`（現在との対話＋事実の選別＝CARR の認識論の核・最も固有で欠落が大きい signature。NTEF=捏造/HRDT=記録 の隙間を埋める）→ `CARR-3`（解釈者バイアス＝選別を歪める源泉）→ `CARR-4`（因果と偶然＝事後ナラティブが勝敗の意味を書き換える）→ `CARR-5`（進歩史観＝史観が決断を変える・最も創発が大きい）→ 残り（CARR-6 遡及評価／CARR-7 lore）。
 
 > いずれも既存（開示FND-4／捏造NTEF／記録HRDT／王朝#867／正義#918）を**後退させず接続**する additive 設計。核は**「解釈という選別行為の認識論」**＝同じ過去が現在の関心で選び直され、解釈者の立場に染まり、因果と偶然が立場で逆転し、進歩を信じる国と循環を信じる国が違う賭けに出る。NTEF（捏造＝嘘）・HRDT（記録＝出典）の隣に**CARR（解釈＝選別／嘘なしの語り直し）**が入って、「記録・真実・歴史記述」の三本柱が四本柱になり世界観EPICと群像劇が一段深くなる。
+
+## 関連
+- [[herodotus-histories-reference-design]] — 出典と異説併記の史述
+- [[thucydides-history-reference-design]] — 因果と人間本性の歴史
+- [[zizhi-tongjian-reference-design]] — 編年史と為政者の鑑
+- [[zuo-zhuan-reference-design]] — 礼と名分の歴史記述
+- [[sapiens-reference-design]] — 歴史の大局と物語

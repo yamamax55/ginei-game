@@ -27,10 +27,33 @@ namespace Ginei
         public float bodyFontSize = 20f;
         public int barWidth = 14;
 
+        [Header("階級ピラミッド（グラフィカル）")]
+        [Tooltip("最下級（二等兵）の帯の最大幅(px)。上の階級ほど細くなりピラミッド型になる")]
+        public float pyramidMaxBarWidth = 860f;
+        [Tooltip("最上級（元帥）の帯の最小幅(px)＝頂点")]
+        public float pyramidMinBarWidth = 150f;
+        [Tooltip("各階級の行の高さ(px)")]
+        public float pyramidRowHeight = 28f;
+        [Tooltip("帯の上のラベル文字サイズ")]
+        public float pyramidLabelFontSize = 16f;
+
         private GameObject overlayRoot;
         private GameObject panel;
-        private TextMeshProUGUI bodyLabel;
+        private TextMeshProUGUI bodyLabel;       // 上段テキスト（人物〜武勲）
+        private TextMeshProUGUI bodyLabelLower;  // 下段テキスト（人脈〜一代記）
+        private GameObject pyramidRoot;          // 階級ピラミッド（帯＋ラベルのグラフィカル表示）
+        private RankPyramidRow[] pyramidRows;    // 階級ごとの帯（幅は固定・人数/現在地のみ毎フレーム更新）
+        private TextMeshProUGUI pyramidFooter;   // 次階級の定員空き
         private object escWindowToken;
+
+        // 1階級ぶんの帯（色付き帯＝Image＋帯の上に重なるラベル＝TMP）。
+        private class RankPyramidRow
+        {
+            public MilitaryGrade grade;
+            public Image bar;
+            public Color baseColor;
+            public TextMeshProUGUI label;
+        }
 
         private static readonly MeritRecordRules.MeritRecordParams MeritP = MeritRecordRules.MeritRecordParams.Default;
 
@@ -63,8 +86,10 @@ namespace Ginei
         private void Update()
         {
             if (GameInput.WasPressed(GameAction.執務机切替)) Toggle();
-            if (panel != null && panel.activeSelf && bodyLabel != null)
-                bodyLabel.text = BuildDump();
+            if (panel == null || !panel.activeSelf) return;
+            if (bodyLabel != null) bodyLabel.text = BuildUpperDump();
+            if (bodyLabelLower != null) bodyLabelLower.text = BuildLowerDump();
+            UpdatePyramid();
         }
 
         public void Toggle() => SetVisible(panel != null && !panel.activeSelf);
@@ -72,9 +97,10 @@ namespace Ginei
 
         // ===== ダンプ本体 =====
 
-        private string BuildDump()
+        // 上段テキスト：人物〜武勲（この下にグラフィカルな階級ピラミッド、さらに下に下段テキストが並ぶ）。
+        private string BuildUpperDump()
         {
-            var sb = new StringBuilder(2048);
+            var sb = new StringBuilder(1536);
             sb.Append("<b>執務机</b>　階級・主命・武勲・人脈・一代記　(Alt+J で閉じる)\n");
             sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
 
@@ -131,11 +157,20 @@ namespace Ginei
                 sb.Append('\n');
             }
 
-            // 階級ピラミッド（自勢力）＝定員が昇進を律速（上ほど狭き門）
-            AppendPyramid(sb, d, me);
+            sb.Append("\n<color=#e7e0b0>◤ 階級ピラミッド（自勢力）</color>");
+            return sb.ToString();
+        }
+
+        // 下段テキスト：人脈〜一代記（グラフィカルな階級ピラミッドの下に並ぶ）。
+        private string BuildLowerDump()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d == null || d.Protagonist == null) return "";
+            Person me = d.Protagonist;
+            var sb = new StringBuilder(1024);
 
             // 人脈（君主との縁）
-            sb.Append("\n<color=#e7e0b0>◤ 人脈（君主との縁）</color>\n");
+            sb.Append("<color=#e7e0b0>◤ 人脈（君主との縁）</color>\n");
             if (d.Relations != null && d.Sovereign != null)
             {
                 float favor = PersonRelationRules.NetAffinity(d.Relations, me.id, d.Sovereign.id);
@@ -193,37 +228,151 @@ namespace Ginei
             }
         }
 
-        private void AppendPyramid(StringBuilder sb, ProtagonistCareerDirector d, Person me)
+        // ===== 階級ピラミッド（グラフィカル）=====
+        // 全階級を上（元帥＝頂点／細い）→下（二等兵＝底辺／太い）へ色付きの帯で積み、JSDF階級体系図のような
+        // ピラミッドにする。帯の幅は階級序列で固定（人数ではなく階層）＝図と同じ。人数・現在地は毎フレーム更新。
+        // 区分色：将官（赤系/青系）／士官（青）／准士官（金）／下士官（鋼）／兵卒（紺）。
+
+        private void BuildPyramid(Transform parent)
         {
-            sb.Append("\n<color=#e7e0b0>◤ 階級ピラミッド（自勢力）</color>\n");
-            if (me == null || !MilitaryRankRegistry.Has(me.faction))
-            {
-                sb.Append("  <color=#9aa7b2>（未整備）</color>\n");
-                return;
-            }
+            pyramidRoot = new GameObject("RankPyramid");
+            pyramidRoot.transform.SetParent(parent, false);
+            pyramidRoot.AddComponent<RectTransform>();
+            VerticalLayoutGroup vlg = pyramidRoot.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(0, 0, 4, 6);
+            vlg.spacing = 1f;
+            vlg.childAlignment = TextAnchor.UpperCenter; // 帯を中央寄せ＝左右対称のピラミッド
+            vlg.childControlWidth = true; vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
+
+            int n = RankDistributionRules.GradeCount;
+            pyramidRows = new RankPyramidRow[n];
+            // 上（元帥＝index n-1）から下（二等兵＝index 0）へ並べる。
+            for (int g = n - 1; g >= 0; g--)
+                pyramidRows[g] = BuildPyramidRow((MilitaryGrade)g);
+
+            // 次階級の定員空き（脚注）
+            GameObject footObj = new GameObject("PyramidFooter");
+            footObj.transform.SetParent(pyramidRoot.transform, false);
+            footObj.AddComponent<RectTransform>();
+            pyramidFooter = footObj.AddComponent<TextMeshProUGUI>();
+            pyramidFooter.fontSize = bodyFontSize * 0.8f;
+            pyramidFooter.color = new Color(0.44f, 0.54f, 0.60f);
+            pyramidFooter.alignment = TextAlignmentOptions.Center;
+            pyramidFooter.raycastTarget = false;
+            ApplyJapaneseFont(pyramidFooter);
+        }
+
+        private RankPyramidRow BuildPyramidRow(MilitaryGrade grade)
+        {
+            int n = RankDistributionRules.GradeCount;
+            // 幅：底辺(二等兵=index0)が最大、頂点(元帥=index n-1)が最小。線形に細くする＝ピラミッド型。
+            float t = n > 1 ? (float)(int)grade / (n - 1) : 0f;
+            float width = Mathf.Lerp(pyramidMaxBarWidth, pyramidMinBarWidth, t);
+
+            // 行（レイアウトの子＝高さ固定・全幅）。中で帯を中央に置く。
+            GameObject rowObj = new GameObject("Row_" + grade);
+            rowObj.AddComponent<RectTransform>();
+            LayoutElement le = rowObj.AddComponent<LayoutElement>();
+            le.minHeight = pyramidRowHeight; le.preferredHeight = pyramidRowHeight; le.flexibleHeight = 0f;
+
+            // 色付き帯（中央寄せ・幅は階級で固定）。
+            GameObject barObj = new GameObject("Bar");
+            barObj.transform.SetParent(rowObj.transform, false);
+            RectTransform barRT = barObj.AddComponent<RectTransform>();
+            barRT.anchorMin = new Vector2(0.5f, 0f);
+            barRT.anchorMax = new Vector2(0.5f, 1f);
+            barRT.pivot = new Vector2(0.5f, 0.5f);
+            barRT.sizeDelta = new Vector2(width, -2f); // 高さは行いっぱい-2px（帯どうしが密着＝ピラミッド面）
+            barRT.anchoredPosition = Vector2.zero;
+            Image bar = barObj.AddComponent<Image>();
+            Color baseColor = CategoryColor(grade);
+            bar.color = baseColor;
+
+            // ラベル（帯の上に重ねる・全幅中央＝細い頂点でも文字が切れない）。
+            GameObject lblObj = new GameObject("Label");
+            lblObj.transform.SetParent(rowObj.transform, false);
+            RectTransform lblRT = lblObj.AddComponent<RectTransform>();
+            lblRT.anchorMin = Vector2.zero; lblRT.anchorMax = Vector2.one;
+            lblRT.sizeDelta = Vector2.zero; lblRT.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI lbl = lblObj.AddComponent<TextMeshProUGUI>();
+            lbl.fontSize = pyramidLabelFontSize;
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.color = Color.white;
+            lbl.raycastTarget = false;
+            lbl.richText = true;
+            ApplyJapaneseFont(lbl);
+
+            return new RankPyramidRow { grade = grade, bar = bar, baseColor = baseColor, label = lbl };
+        }
+
+        // 毎フレーム：人数・現在地ハイライト・脚注を更新（行の生成はしない＝GC/再生成なし）。
+        private void UpdatePyramid()
+        {
+            if (pyramidRoot == null || pyramidRows == null) return;
+            var d = ProtagonistCareerDirector.Instance;
+            Person me = d?.Protagonist;
+            bool ready = me != null && MilitaryRankRegistry.Has(me.faction)
+                         && RankDistributionRules.TotalForce(MilitaryRankRegistry.Get(me.faction)) > 0;
+            pyramidRoot.SetActive(ready);
+            if (!ready) return;
+
             RankDistribution dist = MilitaryRankRegistry.Get(me.faction);
-            int total = RankDistributionRules.TotalForce(dist);
-            if (total <= 0) { sb.Append("  <color=#9aa7b2>（未整備）</color>\n"); return; }
-
             MilitaryGrade myGrade = RankDistributionRules.GradeForOfficerTier(me.rankTier);
-            // 全階級を上（元帥）から下（二等兵）へ表示＝実態を省略せず、自分の階級（現在地）も必ず出る。
-            for (int g = RankDistributionRules.GradeCount - 1; g >= 0; g--)
+            for (int i = 0; i < pyramidRows.Length; i++)
             {
-                MilitaryGrade grade = (MilitaryGrade)g;
-                bool mine = grade == myGrade;
-                sb.Append("  ");
-                sb.Append(mine ? "<color=#ffd700>★ " : "　 ");
-                sb.Append(grade.ToString()).Append("  ").Append(dist.Get(grade)).Append(" 名");
-                if (mine) sb.Append("（現在地）</color>");
-                sb.Append('\n');
+                RankPyramidRow row = pyramidRows[i];
+                if (row == null) continue;
+                bool mine = row.grade == myGrade;
+                int count = dist.Get(row.grade);
+                // 現在地は帯を金色寄りに明るく＋文字を金色＋（現在地）。
+                row.bar.color = mine ? Color.Lerp(row.baseColor, new Color(1f, 0.84f, 0.2f), 0.45f) : row.baseColor;
+                string ins = InsigniaGlyph(row.grade);
+                string nameCol = mine ? "<color=#fff0b0><b>" : "<color=#eef2f6>";
+                string tail = mine ? "　<color=#ffe07a>◀ 現在地</color></b></color>" : "</color>";
+                row.label.text = ins + " " + nameCol + row.grade.ToString()
+                    + "</color>　<color=#cfe0ee>" + count + "</color><color=#9fb3c2>名</color>"
+                    + (mine ? tail : "");
             }
 
+            int total = RankDistributionRules.TotalForce(dist);
             int nextTier = Mathf.Min(10, me.rankTier + 1);
             int[] target = RankDistributionRules.PyramidTarget(total, RankDistributionRules.PyramidParams.Default);
             int vac = RankDistributionRules.Vacancy(dist, RankDistributionRules.GradeForOfficerTier(nextTier), target);
             bool can = RankPyramidDirector.Instance != null && RankPyramidDirector.Instance.CanPromote(me.faction, nextTier);
-            sb.Append("  <color=#6f8a9a>次階級 ").Append(d.RankName(nextTier)).Append(" の定員空き ").Append(vac)
-              .Append(can ? "（昇進余地あり）" : "（狭き門＝空き待ち）").Append("</color>\n");
+            pyramidFooter.text = "次階級 <color=#cfe0ee>" + d.RankName(nextTier) + "</color> の定員空き " + vac
+                + (can ? "　<color=#8ce08c>（昇進余地あり）</color>" : "　<color=#e0a06a>（狭き門＝空き待ち）</color>");
+        }
+
+        // 区分ごとの帯色（銀英伝風のダーク基調・JSDF体系図の色帯を踏襲）。
+        private static Color CategoryColor(MilitaryGrade g)
+        {
+            int tier = RankDistributionRules.ToOfficerTier(g);
+            if (tier >= 8) return new Color(0.70f, 0.20f, 0.20f);   // 大将以上＝赤の頂点
+            if (tier >= 5) return new Color(0.32f, 0.42f, 0.64f);   // 准将〜中将＝将官の青
+            if (tier >= 1) return new Color(0.22f, 0.30f, 0.47f);   // 尉官・佐官＝士官の青
+            if (g == MilitaryGrade.准尉) return new Color(0.60f, 0.48f, 0.20f); // 准士官＝金帯
+            if (RankDistributionRules.IsNco(g)) return new Color(0.27f, 0.33f, 0.36f); // 下士官＝鋼
+            return new Color(0.16f, 0.20f, 0.29f);                  // 兵卒＝紺
+        }
+
+        // 階級章（プレースホルダ＝Unicode記号。将官=金★／士官=銀✦／准士官=◈／下士官=シェブロン«／兵卒=▮）。
+        // ★将来：Resources/RankInsignia/<grade>.png に銀英伝風スプライト（Gemini生成）を置き、TMP SpriteAsset 化して差し替える。
+        private static string InsigniaGlyph(MilitaryGrade g)
+        {
+            int tier = RankDistributionRules.ToOfficerTier(g);
+            if (tier >= 5) return "<color=#ffd24a>" + Repeat('★', tier - 4) + "</color>";   // 将官：1〜6★
+            if (tier >= 1) return "<color=#d6dde6>" + Repeat('✦', tier) + "</color>";        // 士官：1〜4✦
+            if (g == MilitaryGrade.准尉) return "<color=#e0c060>◈</color>";                   // 准士官
+            if (RankDistributionRules.IsNco(g))
+                return "<color=#c8ccd0>" + Repeat('«', (int)g - (int)MilitaryGrade.伍長 + 1) + "</color>"; // 下士官：1〜3
+            return "<color=#7e8a98>" + Repeat('▮', (int)g - (int)MilitaryGrade.二等兵 + 1) + "</color>";   // 兵卒：1〜4
+        }
+
+        private static string Repeat(char c, int n)
+        {
+            if (n <= 0) return "";
+            return new string(c, Mathf.Clamp(n, 1, 6));
         }
 
         // 会戦成長（GrowthRegistry）を反映した実効能力を1行表示（基準→実効・成長分を+表示）。
@@ -256,11 +405,19 @@ namespace Ginei
             sb.Append("</color> ").Append(v01.ToString("0.00"));
         }
 
+        // 上段テキスト・階級ピラミッド・下段テキストをまとめて即時更新（ボタン操作の直後など）。
+        private void RefreshNow()
+        {
+            if (bodyLabel != null) bodyLabel.text = BuildUpperDump();
+            if (bodyLabelLower != null) bodyLabelLower.text = BuildLowerDump();
+            UpdatePyramid();
+        }
+
         private void OnSubmitPetition()
         {
             var d = ProtagonistCareerDirector.Instance;
             if (d != null) d.SubmitPetition();
-            if (bodyLabel != null) bodyLabel.text = BuildDump();
+            RefreshNow();
         }
 
         // 岐路の実行ボタン（TKO-7・一人称の自由意志）。押すと director.ExecuteFork が開かれた進路か＋前提を確認して実行。
@@ -309,7 +466,7 @@ namespace Ginei
         {
             var d = ProtagonistCareerDirector.Instance;
             if (d != null) d.ExecuteFork(fork);
-            if (bodyLabel != null) bodyLabel.text = BuildDump();
+            RefreshNow();
         }
 
         // ===== UI 構築（RingiObserverOverlay と同型＋具申ボタン） =====
@@ -445,16 +602,25 @@ namespace Ginei
 
             scrollRect.content = contentRT;
 
-            GameObject bodyObj = new GameObject("Body");
-            bodyObj.transform.SetParent(content.transform, false);
-            bodyLabel = bodyObj.AddComponent<TextMeshProUGUI>();
-            bodyLabel.text = "";
-            bodyLabel.fontSize = bodyFontSize;
-            bodyLabel.color = new Color(0.9f, 0.93f, 0.96f);
-            bodyLabel.alignment = TextAlignmentOptions.TopLeft;
-            bodyLabel.richText = true;
-            bodyLabel.raycastTarget = false;
-            ApplyJapaneseFont(bodyLabel);
+            // 上段テキスト → グラフィカル階級ピラミッド → 下段テキスト、の順に縦に並べる。
+            bodyLabel = BuildBodyLabel(content.transform, "BodyUpper");
+            BuildPyramid(content.transform);
+            bodyLabelLower = BuildBodyLabel(content.transform, "BodyLower");
+        }
+
+        private TextMeshProUGUI BuildBodyLabel(Transform parent, string name)
+        {
+            GameObject bodyObj = new GameObject(name);
+            bodyObj.transform.SetParent(parent, false);
+            TextMeshProUGUI lbl = bodyObj.AddComponent<TextMeshProUGUI>();
+            lbl.text = "";
+            lbl.fontSize = bodyFontSize;
+            lbl.color = new Color(0.9f, 0.93f, 0.96f);
+            lbl.alignment = TextAlignmentOptions.TopLeft;
+            lbl.richText = true;
+            lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+            return lbl;
         }
 
         private static void ApplyJapaneseFont(TextMeshProUGUI tmp)

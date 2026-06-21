@@ -12,16 +12,16 @@ namespace Ginei
     {
         [Header("移動設定")]
         [Tooltip("最大前進速度 (単位/秒)")]
-        public float maxSpeed = 5f;
+        public float maxSpeed = 3.5f;
 
         [Tooltip("加速力 (単位/秒^2)")]
-        public float acceleration = 2f;
+        public float acceleration = 1.4f;
 
         [Tooltip("減速力 (単位/秒^2)")]
         public float deceleration = 4f;
 
         [Tooltip("回頭速度 (度/秒)")]
-        public float rotationSpeed = 60f;
+        public float rotationSpeed = 42f;
 
         [Tooltip("前進を開始する角度のしきい値 (度)")]
         public float faceThreshold = 10f;
@@ -80,6 +80,19 @@ namespace Ginei
         [Tooltip("ZOCスキャンの間隔（秒）。負荷軽減のため毎フレームは計算しない")]
         public float zocUpdateInterval = 0.2f;
 
+        [Header("味方どうしの重なり回避（separation・#隊列整流）")]
+        [Tooltip("味方艦隊と重なったとき離れる方向へ押し出して重なりを解消する（混雑減速とは別系統＝こちらは位置を直す）")]
+        public bool enableFriendlySeparation = true;
+        [Tooltip("味方として確保する最小すき間（占有半径の和に上乗せ）")]
+        public float separationMargin = 1f;
+        [Tooltip("重なり量を押し出し速度へ変換する強さ（大きいほど素早く離れる）")]
+        public float separationStrength = 1.5f;
+        [Tooltip("押し出しの上限速度の maxSpeed 倍（瞬間移動を防ぐ）")]
+        [Range(0.1f, 2f)]
+        public float separationMaxSpeedRatio = 1f;
+        [Tooltip("味方スキャンの間隔（秒）。負荷軽減のため毎フレームは計算しない")]
+        public float separationUpdateInterval = 0.2f;
+
         [Header("得意陣形ボーナス（#104）")]
         [Tooltip("提督の得意陣形と現在陣形が一致する間の移動・回頭速度の倍率（1.0=実質無効。例:1.15で+15%）。実効値パターン＝基準 maxSpeed/rotationSpeed は非破壊")]
         public float preferredFormationMobilityBonus = 1.15f;
@@ -115,6 +128,11 @@ namespace Ginei
         private float zocTarget = 1f;
         private float lastZocUpdate = 0f;
 
+        // 味方分離（separation）の状態。押し出しベクトルは間引き計算し、毎フレーム deltaTime ぶん適用する。
+        private Vector2 separationPush = Vector2.zero;
+        private float lastSeparationUpdate = 0f;
+        private readonly List<FleetSpacingRules.Neighbor> separationBuffer = new List<FleetSpacingRules.Neighbor>();
+
         private void Awake()
         {
             weapon = GetComponent<FleetWeapon>();
@@ -124,6 +142,7 @@ namespace Ginei
             // 全艦が同フレームに一斉計算しないよう初回タイミングを分散
             lastCongestionUpdate = -Random.Range(0f, congestionUpdateInterval);
             lastZocUpdate = -Random.Range(0f, zocUpdateInterval);
+            lastSeparationUpdate = -Random.Range(0f, separationUpdateInterval);
         }
 
         private void Update()
@@ -132,6 +151,8 @@ namespace Ginei
             {
                 MoveProcess();
             }
+            // 味方の重なり回避は移動中でなくても常時（交戦で密集した塊を解す）。
+            ApplyFriendlySeparation();
         }
 
         /// <summary>
@@ -306,6 +327,10 @@ namespace Ginei
             if (strength != null && strength.activeSpeedFactor != 1f)
                 m.Mul(Mathf.Max(0.1f, strength.activeSpeedFactor));
 
+            // 混乱（#突撃・突撃を受けた側は統制が乱れ鈍る）：機動倍率（既定1.0＝<1で低下）。
+            if (strength != null && strength.confusionMobilityFactor != 1f)
+                m.Mul(Mathf.Max(0.1f, strength.confusionMobilityFactor));
+
             // 戦場の地形（#2181・小惑星帯=減速）：その地点の機動倍率（既定1.0）。
             m.Mul(Mathf.Max(0.1f, BattleTerrain.SpeedFactorAt(transform.position)));
 
@@ -400,6 +425,62 @@ namespace Ginei
                 float denom = Mathf.Max(0.0001f, myRadius + orad);
                 congestion += overlap / denom;
             }
+        }
+
+        /// <summary>
+        /// 味方艦隊との重なりを解消する押し出しを適用する（#隊列整流）。スキャンは間引き、押し出しは毎フレーム
+        /// deltaTime ぶん適用（timeScale 追従）。混雑減速（GetCongestionFactor）が「遅くする」のに対し、
+        /// こちらは「位置を直して重ならない」役割。敵との重なり（接舷・乱戦）は対象外＝味方のみ。
+        /// </summary>
+        private void ApplyFriendlySeparation()
+        {
+            if (!enableFriendlySeparation || squadron == null || strength == null || !strength.IsAlive) return;
+
+            if (Time.time - lastSeparationUpdate >= separationUpdateInterval)
+            {
+                lastSeparationUpdate = Time.time;
+                separationPush = ComputeSeparationPush();
+            }
+            if (separationPush.sqrMagnitude < 1e-6f) return;
+
+            float maxStep = maxSpeed * Mathf.Max(0.1f, separationMaxSpeedRatio);
+            Vector2 v = Vector2.ClampMagnitude(separationPush, maxStep);
+            transform.position += (Vector3)(v * Time.deltaTime);
+
+            // 戦場境界の維持（押し出しでMAP外へ出さない）。
+            if (containInBattlefield && battlefieldRadius > 0f)
+            {
+                Vector2 center = BattleField.OriginFor(gameObject.scene);
+                Vector2 rel = (Vector2)transform.position - center;
+                if (rel.sqrMagnitude > battlefieldRadius * battlefieldRadius)
+                {
+                    Vector2 p = center + rel.normalized * battlefieldRadius;
+                    transform.position = new Vector3(p.x, p.y, transform.position.z);
+                }
+            }
+        }
+
+        /// <summary>近傍の味方旗艦（敵対しない・生存・自分以外）との重なりから押し出しベクトルを算出する。</summary>
+        private Vector2 ComputeSeparationPush()
+        {
+            squadron.GetBoundingCircle(out Vector3 myCenter, out float myRadius);
+
+            separationBuffer.Clear();
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            if (flagships == null) return Vector2.zero;
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == strength || !fs.IsAlive) continue;
+                if (FactionRelations.IsHostile(strength, fs)) continue; // 味方のみ（敵との重なりは乱戦＝対象外）
+                Squadron other = fs.GetComponent<Squadron>();
+                if (other == null) continue;
+                other.GetBoundingCircle(out Vector3 oc, out float orad);
+                separationBuffer.Add(new FleetSpacingRules.Neighbor((Vector2)oc, orad));
+            }
+
+            return FleetSpacingRules.SeparationPush((Vector2)myCenter, myRadius, separationBuffer,
+                separationMargin, separationStrength, strength.GetInstanceID());
         }
 
         /// <summary>

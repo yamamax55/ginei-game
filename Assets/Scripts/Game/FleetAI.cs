@@ -80,6 +80,12 @@ namespace Ginei
         [Tooltip("軍団隷下の艦隊が持ち場（軍団長旗艦の位置）から離れてよい最大距離。これを超えて敵を深追いしない。0=無制限（従来動作）")]
         public float corpsLeashRange = 35f;
 
+        [Header("隊列整流（前方の味方を追い越さない・#隊列整流）")]
+        [Tooltip("前進時、前方にいる味方艦隊を追い越さないよう移動先の前進成分を手前で止める")]
+        public bool avoidOvertake = true;
+        [Tooltip("前方の味方の手前で確保する間隔（占有半径とこの値の大きい方を使う）")]
+        public float overtakeKeepBehind = 4f;
+
         // 軍団指揮（BattlefieldCommandManager が毎間隔で設定・解除）。隷下は陣形を軍団長に委ね、持ち場（アンカー）から深追いしない。
         /// <summary>軍団長の指揮下にあり陣形を自己判断で切り替えない（軍団長が主導）。</summary>
         [System.NonSerialized] public bool corpsControlled;
@@ -97,6 +103,26 @@ namespace Ginei
         [System.NonSerialized] public Vector2 corpsSlotLocal;
         /// <summary>軍団の正面（度・+Y 基準）。スロットの回転と正対方向に使う。</summary>
         [System.NonSerialized] public float corpsFacingDeg;
+        /// <summary>軍団長専用：軍団が隊形を整えるまで前進を保留する（集結優先・#軍団集結）。隷下には使わない。
+        /// 整い次第／敵接近で <see cref="BattlefieldCommandManager"/> が解除し、軍団ごと前進・交戦へ移る。</summary>
+        [System.NonSerialized] public bool corpsHold;
+
+        // ── 会戦フロー②回り込み（包囲・#戦闘ドクトリン Stage3）：軍団長が後衛に与える側面回り込み命令。
+        // 数値判断は CorpsBattleFlowRules（純ロジック）が担い、ここは命令の受け皿（FleetAI が移動で消費）。
+        /// <summary>後背への回り込み（包囲）命令を受けているか（軍団長が後衛へ付与）。true の間は通常スロットでなく <see cref="flankTarget"/> へ広く回る。</summary>
+        [System.NonSerialized] public bool enveloping;
+        /// <summary>回り込み目標（敵軍団の側面・後背の広い点）。<see cref="enveloping"/> が true のとき有効。BattlefieldCommandManager が毎間隔更新。</summary>
+        [System.NonSerialized] public Vector2 flankTarget;
+
+        // ── 会戦フロー②カウンター（横腹を脅かされた側の遮蔽・#戦闘ドクトリン Stage3）。
+        /// <summary>味方軍団の横腹を突く敵へ後衛を回して遮蔽するカウンター命令を受けているか。</summary>
+        [System.NonSerialized] public bool counterScreening;
+        /// <summary>カウンター遮蔽の目標（脅威と軍団の間へ詰める点）。<see cref="counterScreening"/> が true のとき有効。</summary>
+        [System.NonSerialized] public Vector2 counterScreenTarget;
+
+        // ── 会戦フロー③決戦の投入（commit・#戦闘ドクトリン Stage3）。
+        /// <summary>軍団長が決戦を仕掛けたか＝遠距離砲撃をやめ全軍前進で間合いを詰める（BattlefieldCommandManager が設定）。</summary>
+        [System.NonSerialized] public bool decisiveCommit;
 
         private bool manualOverride;
         /// <summary>手動指示で AI 操舵を一時上書き中か（指示完了で自動的に AI へ復帰）。</summary>
@@ -250,7 +276,25 @@ if (Time.time >= nextSearchTime)
             float advantage = enemyStr > 0f ? strength.strength / enemyStr : 1f;
 
             if (BattleAiRules.TryChooseCommand(engaged, moraleRatio, advantage, out ActiveCommand cmd))
-                ActiveCommandState.Issue(strength, cmd);
+            {
+                if (ActiveCommandState.Issue(strength, cmd) && cmd == ActiveCommand.突撃)
+                    TryInflictChargeConfusion(); // 正面同士の突撃なら相手を混乱させる（#突撃）
+            }
+        }
+
+        /// <summary>
+        /// 突撃の発令に成功したとき、正面同士（互いに正対）かつ突撃間合いなら標的を混乱させる（#突撃）。
+        /// 突撃側は既存の自己バフ（攻撃/速度↑）を得て、受けた側は <see cref="ConfusionState"/> で混乱（被ダメ↑・与ダメ↓・機動↓）。
+        /// 仕掛けるかの判断は <see cref="BattleAiRules.TryChooseCommand"/>＝艦隊指揮官（軍団長能力を反映した AiSkill）による。
+        /// </summary>
+        private void TryInflictChargeConfusion()
+        {
+            if (targetEnemy == null || !targetEnemy.IsAlive) return;
+            Vector2 selfPos = transform.position;
+            Vector2 enemyPos = targetEnemy.transform.position;
+            if (!ChargeRules.InChargeRange(selfPos, enemyPos)) return;
+            if (!ChargeRules.IsHeadOn(selfPos, transform.up, enemyPos, targetEnemy.transform.up)) return;
+            ConfusionState.Inflict(targetEnemy);
         }
 
         /// <summary>
@@ -293,6 +337,11 @@ if (Time.time >= nextSearchTime)
             switch (currentState)
             {
                 case AIState.接近:
+                    // ── 会戦フロー②（#戦闘ドクトリン Stage3）：軍団長の命令で側面回り込み／カウンター遮蔽を最優先する。
+                    // 通常の接近・スロット集結より先に評価し、後衛が広く側背面へ回る／脅威を遮蔽する軌道を取る
+                    // （持ち場・ブラックホール・ZOC・追い越し制限は尊重）。
+                    if (TryEnvelopOrCounter(pos)) break;
+
                     if (weaponArc.IsInArc(targetEnemy.transform))
                     {
                         // 射程に入ったら交戦状態へ
@@ -303,6 +352,14 @@ if (Time.time >= nextSearchTime)
                         // 交戦規定（ROE・#2258）：攻撃的以外は追尾（深追い）しない。
                         // 防御的/射撃管制では前進を抑制（AdvanceFactor が0より大きければ接近するが距離は縮めすぎない）。
                         if (strength != null && !RoeRules.CanPursue(strength.stance)) break;
+
+                        // 軍団長は軍団が隊形を整えるまで前進を待つ（#軍団集結）。敵方向へ正対して待機し、
+                        // 整い次第／敵接近で BattlefieldCommandManager が corpsHold を解除＝軍団ごと前進・交戦へ移る。
+                        if (corpsHold)
+                        {
+                            movement.FaceTarget(targetEnemy.transform.position);
+                            break;
+                        }
 
                         // 軍団集結（#軍団集結）：敵が軍団（持ち場）から遠い間は独走せず、軍団長基準のスロットに就いて
                         // 軍団としてまとまって前進する（軍団長が前を率い、隷下は隊形を保って追従）。敵が持ち場へ迫れば交戦へ移る。
@@ -318,11 +375,15 @@ if (Time.time >= nextSearchTime)
                         if (avoidEnemyZoc)
                             dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
                         dest = ApplyCorpsLeash(dest); // 軍団隷下は持ち場から深追いしない（#持ち場）
+                        dest = ApplyOvertakeLimit(dest); // 前方の味方を追い越さない（#隊列整流）
                         movement.SetDestination(dest);
                     }
                     break;
 
                 case AIState.交戦:
+                    // ── 会戦フロー②（#戦闘ドクトリン Stage3）：交戦中でも回り込み命令中は射程保持でなく側面へ回り続ける。
+                    if (TryEnvelopOrCounter(transform.position)) break;
+
                     if (!weaponArc.IsInArc(targetEnemy.transform))
                     {
                         // 射程外に逃げられたら再び接近
@@ -330,52 +391,45 @@ if (Time.time >= nextSearchTime)
                     }
                     else
                     {
-                        // ── #2254 キーティング（間合い調整）──
-                        // 自部隊が速度優位を持つ場合のみ射程帯に基づいて間合いを調整する。
-                        // 速度劣位・速度情報不明のときは従来どおり FaceTarget に留める（基準値は非破壊）。
-                        bool kiting = false;
-                        FleetMovement enemyMovement = targetEnemy.GetComponent<FleetMovement>();
-                        if (enemyMovement != null && weaponArc != null && movement.maxSpeed > enemyMovement.maxSpeed)
+                        // ── 基本＝遠距離砲撃（#突撃）：preferredBand（既定=遠）の理想間合いを保って撃ち合う。──
+                        // 突撃中（速度バフ＝指揮官が突撃を決めた）／軍団の決戦投入中（③ commit）は間合いを詰めて押し込む。
+                        // それ以外は近すぎれば射界を保って下がり、遠ければ理想間合いまで寄り、適正なら停止して砲撃する。
+                        Vector2 pos2d = transform.position;
+                        Vector2 enemyPos2d = targetEnemy.transform.position;
+                        float dist = Vector2.Distance(pos2d, enemyPos2d);
+                        // 突撃発令中、または軍団長が決戦を仕掛けた（③ decisiveCommit）なら距離を詰める。
+                        bool charging = (strength != null && strength.activeSpeedFactor > 1.05f) || decisiveCommit;
+
+                        if (charging)
                         {
-                            Vector2 pos2d = transform.position;
-                            Vector2 enemyPos2d = targetEnemy.transform.position;
-                            float currentDist = Vector2.Distance(pos2d, enemyPos2d);
-
+                            // 突撃：間合いを詰めて点射界へ踏み込む（持ち場内・前方の味方は追い越さない）。
+                            Vector2 cdest = ApplyOvertakeLimit(ApplyCorpsLeash(enemyPos2d));
+                            movement.SetDestination(cdest);
+                        }
+                        else if (weaponArc != null)
+                        {
                             float idealRange = RangeBandRules.IdealRange(weaponArc.preferredBand, weaponArc.range);
-                            int direction = RangeBandRules.ApproachOrWithdraw(currentDist, idealRange, keetingDeadzone);
-
+                            int direction = RangeBandRules.ApproachOrWithdraw(dist, idealRange, keetingDeadzone);
                             if (direction > 0)
                             {
-                                movement.SetDestination(ApplyCorpsLeash(enemyPos2d)); // 遠すぎ→接近（持ち場内に留める #持ち場）
-                                kiting = true;
+                                // 遠すぎ→理想間合いまで寄る（突っ込みすぎない・持ち場/追い越し制限）。
+                                Vector2 adest = ApplyOvertakeLimit(ApplyCorpsLeash(enemyPos2d));
+                                movement.SetDestination(adest);
                             }
                             else if (direction < 0)
                             {
-                                Vector2 awayDir = (pos2d - enemyPos2d).normalized; // 近すぎ→射界を保って後退
-                                movement.SetReverseDestination(pos2d + awayDir * (idealRange - currentDist + keetingDeadzone));
-                                kiting = true;
-                            }
-                        }
-                        if (!kiting)
-                        {
-                            // 旗艦の取り囲み参加（#旗艦参加）：最大射程で待たず、配下艦の囲みに少し後ろから加わる。
-                            // 実効射程の flagshipEngageRangeRatio まで前進し、到達後は射界維持（配下艦より外側＝少し後ろ）。
-                            if (joinEncirclement && movement != null && weaponArc != null)
-                            {
-                                Vector2 pos2d = transform.position;
-                                Vector2 enemyPos2d = targetEnemy.transform.position;
-                                float dist = Vector2.Distance(pos2d, enemyPos2d);
-                                float desired = weaponArc.range * Mathf.Clamp(flagshipEngageRangeRatio, 0.3f, 1f);
-                                if (dist > desired + keetingDeadzone)
-                                    movement.SetDestination(ApplyCorpsLeash(enemyPos2d)); // まだ遠い→前進して囲みに加わる（持ち場内 #持ち場）
-                                else
-                                    movement.FaceTarget(enemyPos2d);                 // 到達→射界維持（停止）
+                                // 近すぎ→射界を保って遠距離砲撃の間合いへ後退。
+                                Vector2 awayDir = (pos2d - enemyPos2d).normalized;
+                                movement.SetReverseDestination(pos2d + awayDir * (idealRange - dist + keetingDeadzone));
                             }
                             else
                             {
-                                // 速度優位なし・デッドゾーン内・速度情報不明＝従来動作（射界維持・停止）
-                                movement.FaceTarget(targetEnemy.transform.position);
+                                movement.FaceTarget(enemyPos2d); // 適正間合い＝射界維持で砲撃
                             }
+                        }
+                        else
+                        {
+                            movement.FaceTarget(enemyPos2d);
                         }
                     }
                     break;
@@ -423,6 +477,66 @@ if (Time.time >= nextSearchTime)
             float r = corpsLeashRange;
             if (off.sqrMagnitude > r * r) return corpsAnchor + off.normalized * r;
             return dest;
+        }
+
+        private readonly List<Vector2> overtakeBuffer = new List<Vector2>();
+
+        /// <summary>
+        /// 前方の味方を追い越さないよう移動先を制限する（#隊列整流）。前進方向＝現在の目標（敵）方向。
+        /// 前方にいる味方の手前（占有半径 or overtakeKeepBehind の大きい方）で前進成分を止める＝横移動（回り込み）は妨げない。
+        /// </summary>
+        private Vector2 ApplyOvertakeLimit(Vector2 dest)
+        {
+            if (!avoidOvertake || strength == null || targetEnemy == null) return dest;
+            Vector2 pos = transform.position;
+            Vector2 fwd = (Vector2)targetEnemy.transform.position - pos;
+            if (fwd.sqrMagnitude < 1e-4f) return dest;
+
+            overtakeBuffer.Clear();
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            if (flagships == null) return dest;
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == strength || !fs.IsAlive) continue;
+                if (FactionRelations.IsHostile(strength, fs)) continue; // 味方のみ
+                overtakeBuffer.Add((Vector2)fs.transform.position);
+            }
+
+            float keep = overtakeKeepBehind;
+            if (squadron != null) keep = Mathf.Max(keep, squadron.FootprintRadius());
+            return FleetSpacingRules.LimitOvertake(pos, dest, fwd, overtakeBuffer, keep);
+        }
+
+        /// <summary>
+        /// 会戦フロー②（#戦闘ドクトリン Stage3）：軍団長から付与された回り込み命令（<see cref="enveloping"/>）か
+        /// カウンター遮蔽命令（<see cref="counterScreening"/>）があれば、その目標へ移動して true を返す。
+        /// 回り込みは敵の側背面への広い軌道、遮蔽は脅威と軍団の間へ詰める軌道。どちらも持ち場（leash）・
+        /// ブラックホール・追い越し制限を尊重する（横移動＝回り込みなので avoidOvertake は前進成分のみ抑制）。
+        /// 命令が無ければ false（呼び側は通常の接近/交戦へ）。撤退中・手動中は呼ばれない（上流でガード済み）。
+        /// </summary>
+        private bool TryEnvelopOrCounter(Vector2 pos)
+        {
+            // カウンター遮蔽を優先（横腹を突かれる脅威への対処は喫緊）。
+            if (counterScreening)
+            {
+                Vector2 dest = SteerAroundBlackHoles(pos, counterScreenTarget);
+                dest = ApplyCorpsLeash(dest);
+                movement.SetDestination(dest);
+                return true;
+            }
+            if (enveloping)
+            {
+                // 敵の正面火力を避けつつ側背面へ抜ける広い軌道。回り込み中は深追い抑制を少し緩めるため
+                // leash はかけるが追い越し制限は外す（横移動が主＝前方の味方を追い越す概念が薄い）。
+                Vector2 dest = SteerAroundBlackHoles(pos, flankTarget);
+                if (avoidEnemyZoc)
+                    dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
+                dest = ApplyCorpsLeash(dest);
+                movement.SetDestination(dest);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>軍団スロットの世界座標＝軍団長旗艦の現在位置＋軍団正面に回した局所スロット（軍団長の移動に追従）。</summary>

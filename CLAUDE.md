@@ -33,6 +33,12 @@
 - 実行時生成した `Material` は `OnDestroy` で `Destroy` してリークを防ぐ（`WeaponArc`/`FleetWeapon`/`DamagePopup` が踏襲）。
 - **★Inspector直列化の優先（再発防止・重要）**：シーン/プレハブに置かれた MonoBehaviour の `public` 調整値は、**`.unity`/`.prefab` に直列化された値が常に優先**＝**スクリプトの既定値を書き換えても効かない**（過去バグ：#2548 で `CameraController.maxZoom=300` にしたが `Battle.unity` の `maxZoom:20` が勝ち引けなかった／`FleetUnit.prefab` の `memberScale`/`spacing`/`escortCount` も同様）。**調整値を実際に効かせるときは、まず該当フィールドを `.unity`/`.prefab` で grep し、直列化されていれば“そのファイルを直す”**（テキストYAMLなので Unity 無しでも編集可）。直列化されていなければ（＝後から足したフィールド等）スクリプト既定が効く。**この grep は `Tools/serialized-value-check.sh <ClassName> [field]` に自動化済み**＝guid/`m_EditorClassIdentifier` で照合し「スクリプト既定 vs 直列化値」を並べて表示、直列化されていれば exit 1（hook/CI 判定可）。**調整値を直す配線・修正の前に必ず実行する**。主な直列化ホットスポット：`Battle.unity`（`CameraController`＝zoom/bounds・`BattleSetup`＝`spawnSeparation`）／`FleetUnit.prefab`（`Squadron`/`FleetAI`/`FleetMovement`）。
 
+## 開発動線（探索・編集・配線の効率化）
+- **探索・編集は serena-first**（接続済み・C#全インデックス）。1,375本規模で grep+全読みは割高＝`get_symbols_overview`→`find_symbol(include_body)` で**当該シンボルだけ**読み、配線状況は `find_referencing_symbols`（参照元を {Game/Core/テスト/doc} に出自分解＝素のgrepが取りこぼす推移配線・ノイズを解消）、編集は `replace_symbol_body`。Glob/Grep は発見のみ・続く精読/参照はserena。
+- **階層 CLAUDE.md**（サブツリー作業時のみ自動ロード）：`Assets/Scripts/Core/CLAUDE.md`（量産の作法）・`Assets/Scripts/Game/CLAUDE.md`（配線・直列化・compile の落とし穴）・`Assets/Tests/EditMode/CLAUDE.md`（テストの流儀）。本ルートは最上位の横断規約＋索引。
+- **配線・修正の常設ツール**：`/wire-audit`（serenaで全 *Rules を Game参照ゼロ判定しTier付け＝届くべき未配線の棚卸し）／`Tools/serialized-value-check.sh`（直列化トラップ#2548検出）。**自動ゲート**＝`Tools/hooks/`（PostToolUseで直列化警告・Stopでmeta欠落警告。配線は `.claude/settings.local.json`・手順は `Tools/hooks/README.md`）。
+- **ファンアウトのカスタムagent**：`core-wave-worker`（Core1本+テスト）／`orphan-classifier`（配線監査）／`wirer`（最小配線・安全網込み）＝`.claude/agents/`。規約を毎回貼り直さず agentType で呼ぶ。
+
 ## シーン構成とゲームフロー
 - シーンは3つ：**Title** → **Battle** → **Result**（シーン名はこの文字列。`SceneLoader.LoadScene(name)` で遷移）。
 - 起動〜会戦の流れ：

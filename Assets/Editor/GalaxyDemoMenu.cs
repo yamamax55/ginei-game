@@ -14,8 +14,10 @@ namespace Ginei
     /// </summary>
     public static class GalaxyDemoMenu
     {
+        private const string TitleScenePath = "Assets/Scenes/Title.unity";
         private const string StrategyScenePath = "Assets/Scenes/Strategy.unity";
         private const string BattleScenePath = "Assets/Scenes/Battle.unity";
+        private const string ResultScenePath = "Assets/Scenes/Result.unity";
 
         [MenuItem("Ginei/戦略マップ デモを開く")]
         public static void Open()
@@ -34,14 +36,19 @@ namespace Ginei
             Debug.Log("戦略マップ デモ：Strategy シーンを作成し Build Settings に登録しました。再生で銀河マップが動きます。\n" +
                       "・左クリック=選択／右クリック=星系へ進軍 or 回廊上で停止保持。\n" +
                       "・回廊で敵対艦隊が接触すると Battle シーンで『実会戦』になり、決着後に Strategy へ戻って結果が反映されます。\n" +
-                      "※Battle シーンの BattleSetup に fleetPrefab が割り当たっていること、Build Settings に Strategy/Battle が入っていることを確認してください。");
+                      "※Battle シーンの BattleSetup に fleetPrefab が割り当たっていること、Build Settings に Title/Strategy/Battle/Result が入っていることを確認してください。");
         }
 
         private static void RegisterBuildScenes()
         {
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            // 戦略デモから到達しうる全シーンを登録する。Title は戦略システムメニュー「タイトルへ」
+            // （StrategySystemMenu）と戦役終了（CampaignEndOverlay）が LoadScene("Title") で遷移するため必須。
+            // Result は非ハンドオフ会戦の決着先（BattleManager）＝保険。未登録だと実行時に「Build Settings に無い」で落ちる。
+            AddIfMissing(scenes, TitleScenePath);
             AddIfMissing(scenes, StrategyScenePath);
             AddIfMissing(scenes, BattleScenePath);
+            AddIfMissing(scenes, ResultScenePath);
             EditorBuildSettings.scenes = scenes.ToArray();
         }
 

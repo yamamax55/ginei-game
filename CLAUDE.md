@@ -111,7 +111,7 @@
 
 ## 既存コンポーネント（索引）
 
-> 各クラスの責務・主なAPI・依存・固定子オブジェクト名などの**詳細は [docs/components-catalog.md](docs/components-catalog.md)**。
+> 各クラスの責務・主なAPI・依存・固定子オブジェクト名などの**詳細は [docs/catalog/components-catalog.md](docs/catalog/components-catalog.md)**。
 > ここは「何が在るか」の索引のみ（現状＝正・これに合わせる）。**壊すと不具合になる依存・命名は下の専用節**に要点を残す。
 
 - **システム・管理層**：`BattleSetup`・`BattleManager`・`FleetRegistry`・`TitleManager`・`ResultManager`・`CampaignEndOverlay`・`PauseManager`・`PlaytestRunner`・`BattleDirector`・`BattleResultQueue`
@@ -194,7 +194,7 @@
 - 入力（G/J/M/N/E/L/U/B/Y/O/Q/Z/X ＋ Alt+F/Alt+P/Alt+G/Alt+B/Alt+L/Alt+D/Alt+I）は `GameInput`（#107）の `観測オーバーレイ切替`/`状態インスペクタ切替`/`軍観測切替`/`通知ログ切替`/`経済観測切替`/`法令観測切替`/`教育観測切替`/`艦艇観測切替`/`外交観測切替`/`政治観測切替`/`兵站観測切替`/`人口観測切替`/`労働観測切替`/`財政観測切替`/`生産観測切替`/`政府観測切替`/`造船観測切替`/`人物動態観測切替`/`イベント観測切替`/`稟議観測切替` に集約済み（第2弾は単一文字を使い切ったため Alt＋文字）。`HelpOverlay` にも掲載。第2層「操作化」（プレイヤーがレバーを回す）はここから手で昇格させる＝自動化しない核。
 
 ## スケーラビリティ規律（終盤ラグを生まない・PERF #1117）
-> グランドストラテジーの宿痾＝**終盤ラグ**を構造的に避ける。反面教師は Stellaris（pop単位経済が際限なく増え、毎ティック全再計算、N²相互作用、直列）。設計＝`docs/late-game-performance-design.md`。**「タイクン化回避」＝そのまま「ラグ回避」**（同じ決断の裏表）。新しい Tick系・カップリング・リストを足すときは下の5原則を必ず守る。
+> グランドストラテジーの宿痾＝**終盤ラグ**を構造的に避ける。反面教師は Stellaris（pop単位経済が際限なく増え、毎ティック全再計算、N²相互作用、直列）。設計＝`docs/design/late-game-performance-design.md`。**「タイクン化回避」＝そのまま「ラグ回避」**（同じ決断の裏表）。新しい Tick系・カップリング・リストを足すときは下の5原則を必ず守る。
 1. **個体粒度へ降りない**：pop/個艦単位の経済を作らない。集約（勢力 `FactionState`／星系・惑星 `Province`＝#767 ハイブリッド）に留める。realism 欲しさの粒度低下が終盤ラグの第一原因。
 2. **毎フレームでなく暦境界でTick**：マクロ進行は `CalendarDispatcher`（日/月/年境界）に相乗りする。`Update` で毎フレーム全再計算しない（新 CPL#1109 等も日次Tickへ）。
 3. **差分・収束・キャッシュ**：状態は小さな delta で進め（`GovernanceRules` の目標値収束）、派生/集約値（`AggregateSystem`/`GalaxyPathfinder`）は**変化時のみ**再計算してキャッシュ（`Squadron` 陣形スロット・`BeamFx` グラデの既存規律をマクロ層へ）。
@@ -215,12 +215,12 @@
 
 ## テスト基盤（EditMode）
 - アセンブリ定義は **4分割（FND-1 #496）**：`Ginei.Core`(`Assets/Scripts/Core`＝純ロジック・SO型・enum。**MonoBehaviour/シーン/シングルトン非依存**。UnityEngine 参照は可)／`Ginei.Data`(`Assets/Scripts/Data`＝`ContentDatabase`/`ScenarioData`/`SaveManager`/`CampaignSaveManager`＝データアクセス・IO層。Core を参照)／`Ginei.Game`(`Assets/Scripts/Game`＝MonoBehaviour・シーン・UI。Core/Data を参照)／`Ginei.Editor`(`Assets/Editor`・全部参照)／`Ginei.Tests.EditMode`(`Assets/Tests/EditMode`、Core/Data/Game＋`nunit.framework`参照、`defineConstraints: UNITY_INCLUDE_TESTS`)。依存は **Core←Data←Game の一方向・循環厳禁**。**新規ファイルは置き場所で所属が決まる**：純ロジック→`Core/`・SOアクセス/セーブIO→`Data/`・MonoBehaviour/UI→`Game/`。Core から `GameSettings`/`AudioManager`/`SceneLoader`/`FleetRegistry` 等の Game 型を参照しない。**`Assets/Scripts/Core` は12のドメインサブフォルダに整理済み**（`Combat`/`Economy`/`Government`/`Society`/`Personnel`/`Strategy`/`Diplomacy`/`Population`/`Foundation`/`Fleet`/`Intel`/`Time`）。`Ginei.Core.asmdef` は Core 直下に1つだけ＝サブフォルダは再帰で同一アセンブリに属し、**namespace は配置に依らずフラット `Ginei`**。新規 Core ファイルは主題に合うドメインフォルダへ置く（迷えば最も近いものへ＝配置ずれはコンパイルに無害）。
-- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode)／`TestHarness` で担保する。**波ごとの全モジュール網羅カタログは `docs/core-modules-catalog.md` に分離**（CLAUDE.md 肥大＝CI/エージェントの文脈圧迫を防ぐため。本体には規約と索引だけを残す）。新規の純ロジックを足したら必ず EditMode テストを併記し、カタログへ1行追記する。
+- **純ロジック（非 MonoBehaviour）は test-first**＝Test Runner(EditMode)／`TestHarness` で担保する。**波ごとの全モジュール網羅カタログは `docs/catalog/core-modules-catalog.md` に分離**（CLAUDE.md 肥大＝CI/エージェントの文脈圧迫を防ぐため。本体には規約と索引だけを残す）。新規の純ロジックを足したら必ず EditMode テストを併記し、カタログへ1行追記する。
 - シーン/UI/MonoBehaviour 挙動はエディタ Play で目視検証（テスト対象外）。新規の純ロジックを足したら EditMode テストを併記する。
 - **Unity 無し環境での検証＝`TestHarness/`**（リポジトリ直下・Assets外）：純ロジック＋EditModeテストを Unity スタブで `dotnet test` 実行（1020テスト・詳細は `TestHarness/README.md`）。新規 MonoBehaviour は csproj の Exclude へ、`Formation`/`ShipClass` enum を変えたら `Stubs/GineiShims.cs` も同期。クラウドセッションでは毎回ここで回帰確認する。
 
 ## 運用
-- 新コンポーネントを作ったら、`docs/components-catalog.md` の表に1行追記し、CLAUDE.md の「既存コンポーネント（索引）」にもクラス名を加える。
+- 新コンポーネントを作ったら、`docs/catalog/components-catalog.md` の表に1行追記し、CLAUDE.md の「既存コンポーネント（索引）」にもクラス名を加える。
 - 変更は Git でコミットしながら進める（権限「Don't Ask」運用のため、レビュー・巻き戻し前提）。
 - 詳細な機能ロードマップは別ファイルの「機能追加ロードマップ」を参照（必要時に手動で読み込ませる）。
-- **大きめの実装の進め方は `docs/parallel-agent-workflow.md`（標準）**：独立な広がりは disjoint 並列エージェント（2〜3体・ベースSHA明示・所有ファイル非重複・共有ホットファイルは触らせない）、配線は親が逐次。密結合（同じホットファイルを多数が編集）は並列にせず親が逐次。Core 契約を先に凍結→並列→親が配線・統合（マージ前に merge-base 検証）。
+- **大きめの実装の進め方は `docs/ops/parallel-agent-workflow.md`（標準）**：独立な広がりは disjoint 並列エージェント（2〜3体・ベースSHA明示・所有ファイル非重複・共有ホットファイルは触らせない）、配線は親が逐次。密結合（同じホットファイルを多数が編集）は並列にせず親が逐次。Core 契約を先に凍結→並列→親が配線・統合（マージ前に merge-base 検証）。

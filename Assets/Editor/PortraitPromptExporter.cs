@@ -9,7 +9,7 @@ namespace Ginei
     /// 全 <see cref="AdmiralData"/> から肖像生成プロンプト＋決定論シードを CSV に書き出すエディタツール（③アート一貫性）。
     /// 「100人の提督を一貫した画風で生成する」を手作業から作業リスト駆動へ＝<see cref="PortraitPromptRules"/> を一括適用。
     /// メニュー：Ginei/Export Portrait Prompts (CSV)。出力＝プロジェクト直下 portrait-prompts.csv。
-    /// 詳細運用は docs/portrait-pipeline.md。
+    /// 詳細運用は docs/ops/portrait-pipeline.md。
     /// </summary>
     public static class PortraitPromptExporter
     {

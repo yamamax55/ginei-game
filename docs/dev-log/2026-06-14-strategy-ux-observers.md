@@ -53,4 +53,4 @@
 
 ## ドキュメント
 - CLAUDE.md：観測層節（窓口 6→8・L/U/B）、`WindowChrome`/`UIWindowStack`/`StrategySystemMenu` のコンポーネント表、Esc 優先順位チェーンを反映。
-- `docs/late-game-performance-design.md` の規律（個体粒度へ降りない・暦境界 Tick・差分/収束/キャッシュ・N² を増やさない・シミュ LOD）を観測層シードと EMOV-5 で踏襲。
+- `docs/design/late-game-performance-design.md` の規律（個体粒度へ降りない・暦境界 Tick・差分/収束/キャッシュ・N² を増やさない・シミュ LOD）を観測層シードと EMOV-5 で踏襲。

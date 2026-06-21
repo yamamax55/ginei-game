@@ -56,7 +56,7 @@ namespace Ginei
 
         [Header("ポートレート（③アート一貫性・任意）")]
         [Tooltip("提督の肖像スプライト（任意）。未割当なら HUD 等は名前表示にフォールバック。" +
-                 "生成プロンプトは PortraitPromptRules（docs/portrait-pipeline.md）。")]
+                 "生成プロンプトは PortraitPromptRules（docs/ops/portrait-pipeline.md）。")]
         public Sprite portrait;
 
         [Tooltip("肖像生成の追加外見ヒント（英語可）。髪型/性別/年齢/特徴など。空でも能力・アーキタイプから生成される。")]

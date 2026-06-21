@@ -8,7 +8,7 @@ namespace Ginei
     /// 勢力(FactionData)アセットをワンクリック生成するエディタ拡張。
     /// メニュー「Ginei/Create Faction Data」から実行する。
     ///
-    /// 世界観バイブル(docs/worldbuilding-bible.md §2)に沿って、三大勢力
+    /// 世界観バイブル(docs/design/worldbuilding-bible.md §2)に沿って、三大勢力
     /// （王党派＝帝国／民主派＝同盟／共産主義）＋軍閥2勢力（自治領・軍閥）を、
     /// 色・思想・階級(ranks)・敵対関係(nonHostileFactions)つきで定義する（Issue #16）。
     ///

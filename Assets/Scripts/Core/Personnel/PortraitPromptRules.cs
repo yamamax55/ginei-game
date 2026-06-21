@@ -6,7 +6,7 @@ namespace Ginei
     /// 提督ポートレートの生成プロンプトを <see cref="AdmiralData"/> から組み立てる単一窓口（③アート一貫性）。
     /// 一貫性の核＝①全肖像で共通の <see cref="StylePreamble"/>（画風アンカー）②人物アーキタイプ→外見の固定写像
     /// ③名前から決定論シード（再生成しても同一人物）。ツール非依存（Gemini/Midjourney/SD いずれにも投げられる）。
-    /// 詳細な運用は docs/portrait-pipeline.md。純ロジック・test-first・基準値非破壊（読むだけ）。
+    /// 詳細な運用は docs/ops/portrait-pipeline.md。純ロジック・test-first・基準値非破壊（読むだけ）。
     /// </summary>
     public static class PortraitPromptRules
     {

@@ -524,9 +524,8 @@ namespace Ginei
 
             int m = monthCounter % 12;
             if (monthCounter % 3 == 0) RunDiplomacyTick();   // P2：外交は四半期（宣戦/講和/賠償/制裁/諜報）
-            if (m == 2)  RunSupplyChainTick();               // P1：重い生産連鎖を月割りで分散（各年1回・dt不変）
-            if (m == 6)  RunBomConsumerTick();
-            if (m == 10) RunScmPlanTick();
+            if (m == 6)  RunBomConsumerTick();               // P1：消費財BOM（食品/衣類/医薬/住宅）を年1回・dt不変。住宅は森林チェーン#2091 廃止で本Tickに統合
+            // SCM計画（MRP・#2105）は簡略化で凍結＝撤去。供給配分は RunBomConsumerTick 内の不足平滑化に集約
             monthCounter++;
         }
 

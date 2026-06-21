@@ -14,7 +14,7 @@ namespace Ginei
         [Header("攻撃設定")]
         public int damage = 100;
         [Tooltip("発砲間隔（秒）。大きいほどDPSが下がり会戦が長引く＝決着までの時間の主軸（#会戦改善）")]
-        public float fireInterval = 1.2f;
+        public float fireInterval = 1.7f;
         [Tooltip("側背面攻撃時の最大ダメージ倍率 (真後ろで最大)")]
         public float flankMultiplier = 2.0f;
         [Tooltip("武器種（#2256）：長距離砲は対旗艦↑/対配下艦↓、対小型は対配下艦↑/対旗艦↓、点防御は両方控えめ")]
@@ -431,8 +431,9 @@ namespace Ginei
             // MVP集計：与ダメージを攻撃元の旗艦に加算
             if (myStrength != null) myStrength.AddDamageDealt(finalDamage);
 
-            // ダメージポップアップ（target が生死問わず position は有効）
-            DamagePopup.Show(targetPos, finalDamage, isFlank);
+            // ダメージポップアップ（target が生死問わず position は有効）。
+            // 多数の同時発砲で氾濫しないよう、短い窓で同一標的のダメージを合算して1発に間引く（#会戦改善）。
+            DamageAccumulator.Add(target.Transform, finalDamage, isFlank, targetPos);
 
             // ビーム演出
             FireBeam(targetPos);

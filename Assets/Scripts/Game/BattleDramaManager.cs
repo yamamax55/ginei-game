@@ -32,12 +32,21 @@ namespace Ginei
         public float hitstopDuration = 0.15f;
 
         [Header("カットイン")]
-        [Tooltip("カットインテキストの表示時間（unscaled 秒）")]
+        [Tooltip("カットインテキストの表示時間（フェード除く保持時間・unscaled 秒）")]
         public float cutinDuration = 2.5f;
 
+        [Tooltip("カットインのフェードイン＋スライドイン時間（unscaled 秒）")]
+        public float fadeInTime = 0.2f;
+
+        [Tooltip("カットインのフェードアウト時間（unscaled 秒）")]
+        public float fadeOutTime = 0.25f;
+
+        [Tooltip("スライドインの横移動量（px・右からスッと入る。0 でスライドなし）")]
+        public float slideDistance = 60f;
+
         [Header("間引き")]
-        [Tooltip("演出連発を防ぐ最小クールダウン（unscaled 秒）")]
-        public float cooldown = 3.0f;
+        [Tooltip("演出連発を防ぐ最小クールダウン（unscaled 秒・フェードイン＋保持＋フェードアウトの総尺以上を推奨）")]
+        public float cooldown = 3.25f;
 
         // ===== 内部状態 =====
 
@@ -58,6 +67,14 @@ namespace Ginei
         private TextMeshProUGUI cutinText;
         private Image cutinBg;
         private Coroutine cutinRoutine;
+        private CanvasGroup cutinGroup; // フェード用（alpha 一括制御）
+        private RectTransform cutinRoot; // スライド用（帯＋テキストの親）
+
+        /// <summary>TMP 日本語フォント（初回表示ヒッチ回避のため Start で一度だけキャッシュ）。</summary>
+        private TMP_FontAsset cachedFont;
+
+        /// <summary>スライドインの基準位置（anchoredPosition の終点）。</summary>
+        private Vector2 cutinHomePos;
 
         // ===== 自動生成（BattleMomentumHud / BattleEventManager と同パターン）=====
 
@@ -85,6 +102,11 @@ namespace Ginei
             // 起動時点の既往通知は無視して、ここ以降の新着だけを対象にする。
             lastSeq = NotificationCenter.LastSeq;
             nextCheck = Time.unscaledTime + checkInterval;
+
+            // TMP フォントは初回 Resources.Load が重い＝起動時に一度だけ読んでキャッシュする
+            //（毎回の表示で読み込むと初回カットインがカクつく原因になる）。
+            cachedFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
+
             BuildCutinUI();
         }
 
@@ -271,17 +293,69 @@ namespace Ginei
 
             cutinCanvas.gameObject.SetActive(true);
 
-            // 既存コルーチンを止めて再起動（連続演出で残像が出ない）。
+            // 既存コルーチンを止めて再起動（連続演出でクリーンに最初から再生＝残像/カクつき防止）。
             if (cutinRoutine != null) StopCoroutine(cutinRoutine);
-            cutinRoutine = StartCoroutine(HideCutinAfter(cutinDuration));
+            cutinRoutine = StartCoroutine(PlayCutinRoutine());
         }
 
-        private IEnumerator HideCutinAfter(float duration)
+        /// <summary>
+        /// フェードイン＋スライドイン → 保持 → フェードアウトを unscaled 時間で再生する。
+        /// timeScale（ポーズ/ヒットストップ/倍速）に左右されず一定速度で動く。
+        /// </summary>
+        private IEnumerator PlayCutinRoutine()
         {
-            // WaitForSecondsRealtime = unscaled＝ポーズ中でも消える。
-            yield return new WaitForSecondsRealtime(Mathf.Max(0.1f, duration));
+            if (cutinGroup == null || cutinRoot == null)
+            {
+                // フォールバック（万一 CanvasGroup 未構築でも最低限の表示は保つ）。
+                yield return new WaitForSecondsRealtime(Mathf.Max(0.1f, cutinDuration));
+                if (cutinCanvas != null) cutinCanvas.gameObject.SetActive(false);
+                cutinRoutine = null;
+                yield break;
+            }
+
+            Vector2 startPos = cutinHomePos + new Vector2(slideDistance, 0f);
+
+            // ---- フェードイン＋右からスライドイン ----
+            float inDur = Mathf.Max(0.001f, fadeInTime);
+            float t = 0f;
+            while (t < inDur)
+            {
+                t += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / inDur);
+                float e = EaseOut(k); // 最後にスッと止まる気持ちよさ。
+                cutinGroup.alpha = e;
+                cutinRoot.anchoredPosition = Vector2.LerpUnclamped(startPos, cutinHomePos, e);
+                yield return null;
+            }
+            cutinGroup.alpha = 1f;
+            cutinRoot.anchoredPosition = cutinHomePos;
+
+            // ---- 保持 ----
+            float holdEnd = Time.unscaledTime + Mathf.Max(0f, cutinDuration);
+            while (Time.unscaledTime < holdEnd)
+                yield return null;
+
+            // ---- フェードアウト ----
+            float outDur = Mathf.Max(0.001f, fadeOutTime);
+            t = 0f;
+            while (t < outDur)
+            {
+                t += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / outDur);
+                cutinGroup.alpha = 1f - k;
+                yield return null;
+            }
+            cutinGroup.alpha = 0f;
+
             if (cutinCanvas != null) cutinCanvas.gameObject.SetActive(false);
             cutinRoutine = null;
+        }
+
+        /// <summary>イーズアウト（1-(1-k)^2）。スライド/フェードを自然に減速させる。</summary>
+        private static float EaseOut(float k)
+        {
+            float inv = 1f - k;
+            return 1f - inv * inv;
         }
 
         /// <summary>
@@ -301,39 +375,58 @@ namespace Ginei
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
 
+            // ---- スライド/フェード用ルート（帯＋テキストをまとめて動かす）----
+            var rootGo = new GameObject("CutinRoot");
+            rootGo.transform.SetParent(canvasGo.transform, false);
+            cutinRoot = rootGo.AddComponent<RectTransform>();
+            // 画面下 23% に横帯一杯のルート。anchoredPosition でスライドさせる。
+            cutinRoot.anchorMin = new Vector2(0f, 0.23f);
+            cutinRoot.anchorMax = new Vector2(1f, 0.23f);
+            cutinRoot.pivot     = new Vector2(0.5f, 0.5f);
+            cutinRoot.anchoredPosition = Vector2.zero;
+            cutinRoot.sizeDelta = new Vector2(0f, 70f);
+            cutinHomePos = cutinRoot.anchoredPosition; // スライドの終点を記録。
+
+            // フェード用 CanvasGroup（alpha を一括制御）。
+            cutinGroup = rootGo.AddComponent<CanvasGroup>();
+            cutinGroup.alpha = 0f;
+            cutinGroup.interactable = false;
+            cutinGroup.blocksRaycasts = false; // 盤面クリックを塞がない。
+
             // ---- 背景帯 ----
             var bgGo = new GameObject("CutinBG");
-            bgGo.transform.SetParent(canvasGo.transform, false);
+            bgGo.transform.SetParent(rootGo.transform, false);
             cutinBg = bgGo.AddComponent<Image>();
             cutinBg.color = new Color(0.15f, 0.12f, 0.02f, 0.90f);
+            cutinBg.raycastTarget = false;
 
             var bgRt = cutinBg.rectTransform;
-            // 画面下 23% の高さに横帯（左右いっぱい・縦 70px）。
-            bgRt.anchorMin = new Vector2(0f, 0.23f);
-            bgRt.anchorMax = new Vector2(1f, 0.23f);
+            // ルート（cutinRoot）一杯に広げる＝ルートをスライドさせれば帯も一緒に動く。
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
             bgRt.pivot     = new Vector2(0.5f, 0.5f);
             bgRt.anchoredPosition = Vector2.zero;
-            bgRt.sizeDelta = new Vector2(0f, 70f); // anchorMin.x=0 / anchorMax.x=1 で横幅は自動。
+            bgRt.sizeDelta = Vector2.zero;
 
             // ---- テキスト ----
             var textGo = new GameObject("CutinText");
-            textGo.transform.SetParent(canvasGo.transform, false);
+            textGo.transform.SetParent(rootGo.transform, false);
             cutinText = textGo.AddComponent<TextMeshProUGUI>();
             cutinText.fontSize  = 30;
             cutinText.fontStyle = FontStyles.Bold;
             cutinText.alignment = TextAlignmentOptions.Center;
             cutinText.color     = new Color(1f, 0.92f, 0.30f, 1f);
+            cutinText.raycastTarget = false;
 
-            // 日本語フォント（BattleEventManager と同じ解決順）。
-            var font = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
-            if (font != null) cutinText.font = font;
+            // 日本語フォント（Start でキャッシュ済み＝初回表示のヒッチを避ける）。
+            if (cachedFont != null) cutinText.font = cachedFont;
 
             var textRt = cutinText.rectTransform;
-            textRt.anchorMin = new Vector2(0f, 0.23f);
-            textRt.anchorMax = new Vector2(1f, 0.23f);
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
             textRt.pivot     = new Vector2(0.5f, 0.5f);
             textRt.anchoredPosition = Vector2.zero;
-            textRt.sizeDelta = new Vector2(0f, 70f);
+            textRt.sizeDelta = Vector2.zero;
 
             // 初期は非表示。
             canvasGo.SetActive(false);

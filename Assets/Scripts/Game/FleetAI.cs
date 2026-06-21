@@ -107,6 +107,23 @@ namespace Ginei
         /// 整い次第／敵接近で <see cref="BattlefieldCommandManager"/> が解除し、軍団ごと前進・交戦へ移る。</summary>
         [System.NonSerialized] public bool corpsHold;
 
+        // ── 会戦フロー②回り込み（包囲・#戦闘ドクトリン Stage3）：軍団長が後衛に与える側面回り込み命令。
+        // 数値判断は CorpsBattleFlowRules（純ロジック）が担い、ここは命令の受け皿（FleetAI が移動で消費）。
+        /// <summary>後背への回り込み（包囲）命令を受けているか（軍団長が後衛へ付与）。true の間は通常スロットでなく <see cref="flankTarget"/> へ広く回る。</summary>
+        [System.NonSerialized] public bool enveloping;
+        /// <summary>回り込み目標（敵軍団の側面・後背の広い点）。<see cref="enveloping"/> が true のとき有効。BattlefieldCommandManager が毎間隔更新。</summary>
+        [System.NonSerialized] public Vector2 flankTarget;
+
+        // ── 会戦フロー②カウンター（横腹を脅かされた側の遮蔽・#戦闘ドクトリン Stage3）。
+        /// <summary>味方軍団の横腹を突く敵へ後衛を回して遮蔽するカウンター命令を受けているか。</summary>
+        [System.NonSerialized] public bool counterScreening;
+        /// <summary>カウンター遮蔽の目標（脅威と軍団の間へ詰める点）。<see cref="counterScreening"/> が true のとき有効。</summary>
+        [System.NonSerialized] public Vector2 counterScreenTarget;
+
+        // ── 会戦フロー③決戦の投入（commit・#戦闘ドクトリン Stage3）。
+        /// <summary>軍団長が決戦を仕掛けたか＝遠距離砲撃をやめ全軍前進で間合いを詰める（BattlefieldCommandManager が設定）。</summary>
+        [System.NonSerialized] public bool decisiveCommit;
+
         private bool manualOverride;
         /// <summary>手動指示で AI 操舵を一時上書き中か（指示完了で自動的に AI へ復帰）。</summary>
         public bool ManualOverride => manualOverride;
@@ -320,6 +337,11 @@ if (Time.time >= nextSearchTime)
             switch (currentState)
             {
                 case AIState.接近:
+                    // ── 会戦フロー②（#戦闘ドクトリン Stage3）：軍団長の命令で側面回り込み／カウンター遮蔽を最優先する。
+                    // 通常の接近・スロット集結より先に評価し、後衛が広く側背面へ回る／脅威を遮蔽する軌道を取る
+                    // （持ち場・ブラックホール・ZOC・追い越し制限は尊重）。
+                    if (TryEnvelopOrCounter(pos)) break;
+
                     if (weaponArc.IsInArc(targetEnemy.transform))
                     {
                         // 射程に入ったら交戦状態へ
@@ -359,6 +381,9 @@ if (Time.time >= nextSearchTime)
                     break;
 
                 case AIState.交戦:
+                    // ── 会戦フロー②（#戦闘ドクトリン Stage3）：交戦中でも回り込み命令中は射程保持でなく側面へ回り続ける。
+                    if (TryEnvelopOrCounter(transform.position)) break;
+
                     if (!weaponArc.IsInArc(targetEnemy.transform))
                     {
                         // 射程外に逃げられたら再び接近
@@ -367,12 +392,13 @@ if (Time.time >= nextSearchTime)
                     else
                     {
                         // ── 基本＝遠距離砲撃（#突撃）：preferredBand（既定=遠）の理想間合いを保って撃ち合う。──
-                        // 突撃中（速度バフ＝指揮官が突撃を決めた）だけ間合いを詰めて押し込む。それ以外は近すぎれば
-                        // 射界を保って下がり、遠ければ理想間合いまで寄り、適正なら停止して砲撃する。
+                        // 突撃中（速度バフ＝指揮官が突撃を決めた）／軍団の決戦投入中（③ commit）は間合いを詰めて押し込む。
+                        // それ以外は近すぎれば射界を保って下がり、遠ければ理想間合いまで寄り、適正なら停止して砲撃する。
                         Vector2 pos2d = transform.position;
                         Vector2 enemyPos2d = targetEnemy.transform.position;
                         float dist = Vector2.Distance(pos2d, enemyPos2d);
-                        bool charging = strength != null && strength.activeSpeedFactor > 1.05f; // 突撃発令中
+                        // 突撃発令中、または軍団長が決戦を仕掛けた（③ decisiveCommit）なら距離を詰める。
+                        bool charging = (strength != null && strength.activeSpeedFactor > 1.05f) || decisiveCommit;
 
                         if (charging)
                         {
@@ -480,6 +506,37 @@ if (Time.time >= nextSearchTime)
             float keep = overtakeKeepBehind;
             if (squadron != null) keep = Mathf.Max(keep, squadron.FootprintRadius());
             return FleetSpacingRules.LimitOvertake(pos, dest, fwd, overtakeBuffer, keep);
+        }
+
+        /// <summary>
+        /// 会戦フロー②（#戦闘ドクトリン Stage3）：軍団長から付与された回り込み命令（<see cref="enveloping"/>）か
+        /// カウンター遮蔽命令（<see cref="counterScreening"/>）があれば、その目標へ移動して true を返す。
+        /// 回り込みは敵の側背面への広い軌道、遮蔽は脅威と軍団の間へ詰める軌道。どちらも持ち場（leash）・
+        /// ブラックホール・追い越し制限を尊重する（横移動＝回り込みなので avoidOvertake は前進成分のみ抑制）。
+        /// 命令が無ければ false（呼び側は通常の接近/交戦へ）。撤退中・手動中は呼ばれない（上流でガード済み）。
+        /// </summary>
+        private bool TryEnvelopOrCounter(Vector2 pos)
+        {
+            // カウンター遮蔽を優先（横腹を突かれる脅威への対処は喫緊）。
+            if (counterScreening)
+            {
+                Vector2 dest = SteerAroundBlackHoles(pos, counterScreenTarget);
+                dest = ApplyCorpsLeash(dest);
+                movement.SetDestination(dest);
+                return true;
+            }
+            if (enveloping)
+            {
+                // 敵の正面火力を避けつつ側背面へ抜ける広い軌道。回り込み中は深追い抑制を少し緩めるため
+                // leash はかけるが追い越し制限は外す（横移動が主＝前方の味方を追い越す概念が薄い）。
+                Vector2 dest = SteerAroundBlackHoles(pos, flankTarget);
+                if (avoidEnemyZoc)
+                    dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
+                dest = ApplyCorpsLeash(dest);
+                movement.SetDestination(dest);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>軍団スロットの世界座標＝軍団長旗艦の現在位置＋軍団正面に回した局所スロット（軍団長の移動に追従）。</summary>

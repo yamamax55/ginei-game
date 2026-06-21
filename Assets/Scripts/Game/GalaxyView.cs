@@ -284,7 +284,7 @@ namespace Ginei
             // さらに、潜行中に銀河の時計は止まらない＝観ていなかった他戦線は自動侵攻で決着（#586 ④⑤）。
             if (BattleHandoff.Resolved && BattleHandoff.Pending)
             {
-                // 反映前に手動会戦の場所・勝敗を控える（ApplyHandoffResult は敗者を除去するため）。
+                // 反映前に手動会戦の場所・勝敗を控える（敗者は撤退で進行元へ引き返すが念のため控える）。
                 StrategicFleet ma = reg != null ? reg.GetFleet(BattleHandoff.fleetIdA) : null;
                 StrategicFleet mb = reg != null ? reg.GetFleet(BattleHandoff.fleetIdB) : null;
                 bool haveInfo = ma != null && mb != null;
@@ -299,7 +299,8 @@ namespace Ginei
                     mSurv = BattleHandoff.survivorStrength;
                 }
 
-                if (StrategyRules.ApplyHandoffResult(reg))
+                // 敗軍は全滅でなければ進行元へ撤退（盤面に残す）し敗戦ペナルティを科す（#戦闘ドクトリン Stage4）。
+                if (StrategyRules.ApplyHandoffResultWithRetreat(reg))
                 {
                     if (haveInfo) AnnounceOutcome(new EncounterOutcome(mMin, mMax, mWin, mLose, mSurv), manual: true);
 

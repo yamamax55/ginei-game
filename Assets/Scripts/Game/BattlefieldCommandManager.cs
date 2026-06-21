@@ -38,6 +38,31 @@ namespace Ginei
         // 軍団ごとの直近の発令陣形（変化時のみ通知＝洪水回避・#軍団長の陣形変更命令）。
         private static readonly Dictionary<string, Formation> lastCorpsFormation = new Dictionary<string, Formation>();
 
+        // ── 会戦フロー（①正面→②回り込み→③決戦・#戦闘ドクトリン Stage3）の軍団ごとの進行状態 ──
+        // 数式は CorpsBattleFlowRules（純ロジック）が担い、ここは状態追跡＋FleetAI への配線。
+        private class CorpsFlowState
+        {
+            public bool enveloping;           // 回り込みを発意済み（後衛へ命令中）
+            public float envelopProgress;     // 回り込みの進捗(0..1・ManeuverEnvelopmentRules で積む)
+            public bool committed;            // 決戦を仕掛けた（③ commit・通知済み）
+            public bool retreatOrdered;       // 総退却を下令済み（Stage4・通知抑止）
+        }
+        private static readonly Dictionary<string, CorpsFlowState> flowStates = new Dictionary<string, CorpsFlowState>();
+
+        [Header("会戦フロー（#戦闘ドクトリン Stage3）")]
+        [Tooltip("後衛が回り込み（包囲）を発意する前提＝前衛が交戦に入ったとみなす敵の接近距離")]
+        public float frontEngageRange = 40f;
+        [Tooltip("回り込み目標の側面振り幅（敵軍団の側面へどれだけ広く回るか）")]
+        public float flankSwingOffset = 30f;
+        [Tooltip("回り込み目標の敵手前スタンドオフ（敵の正面火力を避ける寄り距離）")]
+        public float flankStandoff = 18f;
+        [Tooltip("回り込みの機動速度（進捗の積み上げ速さの代理値・大きいほど早く包囲が成立）")]
+        public float envelopManeuverSpeed = 12f;
+        [Tooltip("回り込みに要する基準距離（進捗= 速度×dt/距離。側面振り幅と同程度を既定とする）")]
+        public float envelopReferenceDistance = 30f;
+        [Tooltip("味方軍団の横腹を突く敵を検出するカウンター範囲（この距離内の側背面脅威に後衛を回す）")]
+        public float counterDetectRange = 45f;
+
         // 軍団スロット間隔（配下艦の非重複・#軍団集結）。spacing = 2×最大footprint＋余白、最低でも下限。
         private const float CorpsSpacingMargin = 3f;
         private const float CorpsMinSpacing = 7f;
@@ -51,19 +76,25 @@ namespace Ginei
         {
             ActingCommandLedger.Clear();   // 新しい会戦＝臨時指揮をリセット
             lastCorpsFormation.Clear();    // 軍団陣形の通知履歴もリセット
+            flowStates.Clear();            // 会戦フロー（包囲/決戦）の進行状態もリセット
         }
 
         private void OnDestroy() => ActingCommandLedger.Clear(); // 戦闘終了（シーン離脱）＝正規人事へ戻す
 
+        private float lastResolveTime;
+
         private void Update()
         {
             if (Time.time < nextResolveTime) return;
+            // 会戦フローの進捗に使う実経過（timeScale 追従＝Time.time は倍速で速く進む）。
+            float dt = lastResolveTime > 0f ? Mathf.Max(0f, Time.time - lastResolveTime) : Mathf.Max(0.1f, resolveInterval);
+            lastResolveTime = Time.time;
             nextResolveTime = Time.time + Mathf.Max(0.1f, resolveInterval);
-            ResolveActingCommands();
+            ResolveActingCommands(dt);
         }
 
         /// <summary>軍団ごとに生存旗艦から臨時指揮官を解決し、交代があれば通知する。</summary>
-        private void ResolveActingCommands()
+        private void ResolveActingCommands(float dt)
         {
             IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
             if (flagships == null) return;
@@ -96,6 +127,11 @@ namespace Ginei
 
                 // 軍団長が陣形を主導し（#持ち場・#軍団集結）、隷下艦隊に持ち場スロット（軍団長旗艦基準）を与えてまとまらせる。
                 ApplyCorpsFormationAndPost(kv.Key, list);
+
+                // 会戦フロー（①正面→②回り込み→③決戦・#戦闘ドクトリン Stage3）。敗色濃厚なら総退却（Stage4）も判断する。
+                // 退却を発令した軍団は包囲/決戦を試みない（撤退が最優先）。
+                if (!ApplyCorpsRetreat(kv.Key, list))
+                    ApplyBattleFlow(kv.Key, list, dt);
 
                 var acting = BattlefieldCommandRules.SelectActingSuccessor(candidates);
                 if (acting.id < 0) continue;
@@ -276,6 +312,266 @@ namespace Ginei
             ai.hasCorpsSlot = false;
             ai.corpsCommanderTf = null;
             ai.corpsHold = false;   // 拘束解除＝前進保留も解く（#軍団集結）
+        }
+
+        // ────────────────────────────────────────────────
+        // 会戦フロー（①正面→②回り込み→③決戦・#戦闘ドクトリン Stage3）
+        // 数式は CorpsBattleFlowRules（純ロジック・test-first）。ここは検出・状態追跡・FleetAI への配線。
+        // ────────────────────────────────────────────────
+
+        /// <summary>
+        /// 軍団の会戦フローを進める：② 前衛が交戦に入ったら、有能な軍団長が後衛を「回り込み（包囲）」へ振り（敵の側面へ広く回る）、
+        /// 横腹を突かれそうな敵には別の後衛を「カウンター遮蔽」に回す。③ 決戦の窓が開いたら全軍で間合いを詰める（commit）。
+        /// 各隷下の <see cref="FleetAI"/> の Stage3 フラグ（enveloping/flankTarget・counterScreening・decisiveCommit）を設定する。
+        /// 手動命令中（プレイヤー優先）の艦・軍団長旗艦不在では触らない。
+        /// </summary>
+        private void ApplyBattleFlow(string corpsKey, List<FleetStrength> corpsFleets, float dt)
+        {
+            // 軍団長（軍団旗艦）を探す。不在なら全フラグを解いて終了（拘束は ApplyCorpsFormationAndPost が解除済み）。
+            FleetStrength commander = null;
+            for (int i = 0; i < corpsFleets.Count; i++)
+                if (corpsFleets[i] != null && corpsFleets[i].IsCorpsFlagship) { commander = corpsFleets[i]; break; }
+            if (commander == null) { ClearFlowFlags(corpsFleets); flowStates.Remove(corpsKey); return; }
+
+            // 隷下（軍団長除く）。
+            var subs = new List<FleetStrength>();
+            for (int i = 0; i < corpsFleets.Count; i++)
+            {
+                FleetStrength f = corpsFleets[i];
+                if (f == null || f == commander) continue;
+                subs.Add(f);
+            }
+
+            FleetStrength nearest = NearestHostile(commander);
+            Vector2 anchor = commander.transform.position;
+            // 毎tickフラグをリセット（古い命令を残さない）。以降で該当艦のみ立て直す。
+            ClearFlowFlags(corpsFleets);
+            if (nearest == null) { flowStates.Remove(corpsKey); return; } // 敵不在＝フロー無し
+
+            Vector2 enemyPos = nearest.transform.position;
+            float frontDist = ((Vector2)enemyPos - anchor).magnitude;
+            bool frontEngaged = frontDist <= frontEngageRange;
+
+            // 軍団長能力（統率＋情報）と決定論 roll（人物 id ベースで安定）で回り込みの発意を判断（②）。
+            AdmiralData decider = commander.corpsCommander != null ? commander.corpsCommander : commander.admiralData;
+            int lead = decider != null ? decider.EffectiveLeadership : 50;
+            int intel = decider != null ? decider.EffectiveIntelligence : 50;
+            float ability = CorpsBattleFlowRules.CommanderAbility(lead, intel);
+
+            if (!flowStates.TryGetValue(corpsKey, out CorpsFlowState st)) { st = new CorpsFlowState(); flowStates[corpsKey] = st; }
+
+            // 後衛（敵から最も遠い隷下）を回り込み要員に充てる。先頭は前衛として正面を維持。
+            FleetStrength rearSub = FarthestFromEnemy(subs, enemyPos, commander);
+            int rearCount = rearSub != null ? 1 : 0;
+
+            // ② 回り込みの発意（一度発意したら継続）。発意は有能な軍団長のみ。
+            if (!st.enveloping)
+            {
+                float roll = DeterministicRoll(corpsKey);
+                if (CorpsBattleFlowRules.ShouldAttemptEnvelopment(frontEngaged, rearCount, ability, roll))
+                {
+                    st.enveloping = true;
+                    st.envelopProgress = 0f;
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                        $"{CommanderName(commander)}：後背への回り込みを下令（{CorpsName(commander)}）");
+                }
+            }
+
+            // 回り込み中：進捗を積み、後衛へ側面回り込み目標を与える（②）。
+            if (st.enveloping && rearSub != null)
+            {
+                st.envelopProgress = ManeuverEnvelopmentRules.EnvelopmentProgress(
+                    st.envelopProgress, envelopManeuverSpeed, envelopReferenceDistance, dt);
+
+                int side = CorpsBattleFlowRules.ChooseFlankSide(rearSub.transform.position, enemyPos, nearest.transform.up);
+                Vector2 flank = CorpsBattleFlowRules.FlankTarget(rearSub.transform.position, enemyPos, flankSwingOffset, flankStandoff, side);
+                FleetAI rai = rearSub.GetComponent<FleetAI>();
+                if (rai != null && !rai.ManualOverride)
+                {
+                    rai.enveloping = true;
+                    rai.flankTarget = flank;
+                }
+            }
+
+            // ② カウンター：味方軍団の横腹/後背を突く敵がいれば、別の後衛を脅威との間へ回して遮蔽する。
+            ApplyCounterScreen(subs, rearSub, commander, anchor);
+
+            // ③ 決戦の投入（commit）：自軍の整い・士気と敵の脆弱性（包囲進捗＋敵の疲弊）から窓を計算し、開いたら全軍前進。
+            float moraleHigh = MoraleRatio(commander);
+            float enemyRatio = StrengthRatio(nearest);
+            float concentration = Mathf.Clamp01(MoraleRatio(commander)); // 会戦中の集結度は士気で代理（隊形は集結フェーズで担保済み）
+            bool commit = CorpsBattleFlowRules.ShouldCommitDecisive(
+                concentration, 1f /*会戦中は補給充足*/, moraleHigh, st.envelopProgress, enemyRatio, out float window);
+
+            if (commit)
+            {
+                // 軍団長の前進保留を解いて全軍で間合いを詰める。
+                FleetAI cmdAi = commander.GetComponent<FleetAI>();
+                if (cmdAi != null) { cmdAi.corpsHold = false; cmdAi.decisiveCommit = true; }
+                for (int i = 0; i < subs.Count; i++)
+                {
+                    FleetAI ai = subs[i] != null ? subs[i].GetComponent<FleetAI>() : null;
+                    if (ai != null && !ai.ManualOverride) ai.decisiveCommit = true;
+                }
+                // 軍団長へ突撃の特殊指揮を発令（既存窓口＝二重実装しない）。
+                ActiveCommandState.Issue(commander, ActiveCommand.突撃);
+
+                if (!st.committed)
+                {
+                    st.committed = true;
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                        $"{CommanderName(commander)}：決戦を仕掛ける（{CorpsName(commander)}）");
+                }
+            }
+            else st.committed = false; // 窓が閉じたら次に開いたとき再通知できる
+        }
+
+        /// <summary>
+        /// 敗色濃厚なら軍団長が整然とした総退却を命じる（#戦闘ドクトリン Stage4）。軍団の兵力比と軍団長の能力
+        /// （統率で早めに退き・功名心で粘る＝<see cref="CorpsRetreatRules"/>）で判断し、発令したら軍団長＋全隷下を
+        /// <see cref="FleetAI.AIState.撤退"/> へ落として撤退線まで一緒に下がる（各個撃破を避ける）。退却を命じたら true。
+        /// 手動命令中の艦・退却済みは触らない。
+        /// </summary>
+        private bool ApplyCorpsRetreat(string corpsKey, List<FleetStrength> corpsFleets)
+        {
+            FleetStrength commander = null;
+            for (int i = 0; i < corpsFleets.Count; i++)
+                if (corpsFleets[i] != null && corpsFleets[i].IsCorpsFlagship) { commander = corpsFleets[i]; break; }
+            if (commander == null) return false;
+
+            // 軍団の集計兵力比（残/最大）。
+            int cur = 0, max = 0;
+            for (int i = 0; i < corpsFleets.Count; i++)
+            {
+                FleetStrength f = corpsFleets[i];
+                if (f == null) continue;
+                cur += Mathf.Max(0, f.strength);
+                max += Mathf.Max(1, f.maxStrength);
+            }
+            float ratio = max > 0 ? (float)cur / max : 1f;
+
+            FleetMorale cmdMorale = commander.GetComponent<FleetMorale>();
+            bool routed = cmdMorale != null && cmdMorale.IsRouted;
+            AdmiralData decider = commander.corpsCommander != null ? commander.corpsCommander : commander.admiralData;
+            int lead = decider != null ? decider.EffectiveLeadership : 50;
+            int amb = decider != null ? decider.ambition : 50;
+
+            if (!CorpsRetreatRules.ShouldOrderRetreat(ratio, routed, lead, amb)) return false;
+
+            // 総退却を発令：軍団長＋全隷下を撤退へ。手動中は尊重（プレイヤー命令を上書きしない）。
+            bool any = false;
+            for (int i = 0; i < corpsFleets.Count; i++)
+            {
+                FleetStrength f = corpsFleets[i];
+                if (f == null || !f.IsAlive) continue;
+                FleetAI ai = f.GetComponent<FleetAI>();
+                if (ai == null || ai.ManualOverride) continue;
+                ai.decisiveCommit = false; ai.enveloping = false; ai.counterScreening = false; // 決戦/包囲を解く
+                ai.corpsHold = false;
+                ai.currentState = FleetAI.AIState.撤退;
+                any = true;
+            }
+
+            if (any)
+            {
+                // 一度きり通知（軍団陣形通知と同様に変化検出）。decisiveCommit を立てない＝撤退済みフラグの代わりに flowState を使う。
+                if (!flowStates.TryGetValue(corpsKey, out CorpsFlowState st)) { st = new CorpsFlowState(); flowStates[corpsKey] = st; }
+                if (!st.retreatOrdered)
+                {
+                    st.retreatOrdered = true; // 再通知抑止
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.警告,
+                        $"{CommanderName(commander)}：敗色濃厚、{CorpsName(commander)}に整然退却を下令");
+                }
+            }
+            return any;
+        }
+
+        /// <summary>味方軍団の横腹を突く敵がいれば後衛（回り込み要員と別の1隊）を脅威との間へ回して遮蔽する（②カウンター）。</summary>
+        private void ApplyCounterScreen(List<FleetStrength> subs, FleetStrength envelopSub, FleetStrength commander, Vector2 anchor)
+        {
+            if (commander == null) return;
+            Vector2 corpsForward = (Vector2)commander.transform.up;
+
+            // 自軍団の横腹/後背を突いている敵対旗艦を探す（カウンター範囲内）。
+            FleetStrength threat = null;
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength e = flagships[i];
+                if (e == null || !e.IsAlive || e == commander) continue;
+                if (!FactionRelations.IsHostile(commander, e)) continue;
+                if (CorpsBattleFlowRules.IsBeingFlanked(anchor, corpsForward, e.transform.position, counterDetectRange))
+                { threat = e; break; }
+            }
+            if (threat == null) return;
+
+            // 遮蔽要員＝回り込み要員以外の隷下で脅威に最も近い1隊。
+            FleetStrength screen = null; float best = float.MaxValue;
+            for (int i = 0; i < subs.Count; i++)
+            {
+                FleetStrength s = subs[i];
+                if (s == null || !s.IsAlive || s == envelopSub) continue;
+                float d = ((Vector2)threat.transform.position - (Vector2)s.transform.position).sqrMagnitude;
+                if (d < best) { best = d; screen = s; }
+            }
+            if (screen == null) return;
+
+            FleetAI ai = screen.GetComponent<FleetAI>();
+            if (ai == null || ai.ManualOverride) return;
+            ai.enveloping = false; // 遮蔽は回り込みより優先
+            ai.counterScreening = true;
+            // 脅威と軍団の中間へ詰める＝横腹に蓋をする。
+            ai.counterScreenTarget = Vector2.Lerp(anchor, threat.transform.position, 0.6f);
+        }
+
+        /// <summary>全隷下の会戦フロー（Stage3）フラグを解除する（毎tickの再設定前のクリア・命令解除）。</summary>
+        private static void ClearFlowFlags(List<FleetStrength> corpsFleets)
+        {
+            for (int i = 0; i < corpsFleets.Count; i++)
+            {
+                FleetAI ai = corpsFleets[i] != null ? corpsFleets[i].GetComponent<FleetAI>() : null;
+                if (ai == null) continue;
+                ai.enveloping = false;
+                ai.counterScreening = false;
+                ai.decisiveCommit = false;
+            }
+        }
+
+        /// <summary>敵から最も遠い隷下（回り込み要員）。軍団長は除く。</summary>
+        private static FleetStrength FarthestFromEnemy(List<FleetStrength> subs, Vector2 enemyPos, FleetStrength commander)
+        {
+            FleetStrength far = null; float best = -1f;
+            for (int i = 0; i < subs.Count; i++)
+            {
+                FleetStrength s = subs[i];
+                if (s == null || !s.IsAlive || s == commander) continue;
+                float d = ((Vector2)s.transform.position - enemyPos).sqrMagnitude;
+                if (d > best) { best = d; far = s; }
+            }
+            return far;
+        }
+
+        /// <summary>士気比（0..1・士気コンポーネント無しは1）。</summary>
+        private static float MoraleRatio(FleetStrength f)
+        {
+            FleetMorale m = f != null ? f.GetComponent<FleetMorale>() : null;
+            if (m == null || m.maxMorale <= 0f) return 1f;
+            return Mathf.Clamp01(m.morale / m.maxMorale);
+        }
+
+        /// <summary>兵力比（0..1・残/最大）。</summary>
+        private static float StrengthRatio(FleetStrength f)
+        {
+            if (f == null || f.maxStrength <= 0) return 1f;
+            return Mathf.Clamp01((float)f.strength / f.maxStrength);
+        }
+
+        /// <summary>軍団キーから安定な決定論 roll（0..1）。乱数を使わず同一軍団で一定＝発意のばらつきを再現可能に。</summary>
+        private static float DeterministicRoll(string corpsKey)
+        {
+            if (string.IsNullOrEmpty(corpsKey)) return 0.5f;
+            int h = corpsKey.GetHashCode() & 0x7fffffff;
+            return (h % 1000) / 1000f;
         }
 
         /// <summary>ベクトルを Z 角(度・+Y 基準)で回す（CorpsFormation / FleetAI と同一規約）。</summary>

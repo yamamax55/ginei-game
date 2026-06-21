@@ -221,7 +221,8 @@ namespace Ginei
             // MVP集計：配下艦の与ダメージも所属旗艦の戦果に加算
             if (flagship != null) flagship.AddDamageDealt(finalDamage);
 
-            DamagePopup.Show(targetPos, finalDamage, isFlank);
+            // 同一標的のダメージを短い窓で合算し、ポップアップを間引く（多数の配下艦の同時発砲対策・#会戦改善）。
+            DamageAccumulator.Add(target.Transform, finalDamage, isFlank, targetPos);
             FireBeam(targetPos);
             AudioManager.Instance.PlayBeam();
         }

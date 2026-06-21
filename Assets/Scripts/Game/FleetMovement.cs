@@ -12,16 +12,16 @@ namespace Ginei
     {
         [Header("移動設定")]
         [Tooltip("最大前進速度 (単位/秒)")]
-        public float maxSpeed = 5f;
+        public float maxSpeed = 3.5f;
 
         [Tooltip("加速力 (単位/秒^2)")]
-        public float acceleration = 2f;
+        public float acceleration = 1.4f;
 
         [Tooltip("減速力 (単位/秒^2)")]
         public float deceleration = 4f;
 
         [Tooltip("回頭速度 (度/秒)")]
-        public float rotationSpeed = 60f;
+        public float rotationSpeed = 42f;
 
         [Tooltip("前進を開始する角度のしきい値 (度)")]
         public float faceThreshold = 10f;

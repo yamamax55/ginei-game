@@ -30,6 +30,11 @@ namespace Ginei
         [Tooltip("キャンバスのソート順（通知880より前・モーダル900+より後ろ）")]
         public int canvasSortingOrder = 884;
 
+        // 右下のミニマップ（220x220＋inset(-12,12)＝約232px四方）を避けて上に逃がす余白。
+        private const float MinimapClearance = 248f;
+        // ドラッグハンドル（タイトルバー）の高さ。
+        private const float DragHandleHeight = 26f;
+
         private readonly EventEngine engine = new EventEngine();
         private readonly DecisionQueue deck = new DecisionQueue();
         // 決裁id → 発火したイベント定義とコンテキスト（効果適用に使う）。
@@ -40,6 +45,7 @@ namespace Ginei
         // UI
         private RectTransform container;
         private GameObject deckRoot;
+        private GameObject dragHandle;
         private TMP_FontAsset jpFont;
         private string lastSignature = "";
         private readonly List<CardView> cardViews = new List<CardView>();
@@ -151,6 +157,16 @@ namespace Ginei
 
         private void EnqueueEvent(GameEventDef def, EventContext ctx)
         {
+            // 通知（選択肢0〜1＝決断を伴わない）はデスクに載せず、即時に効果を適用して通知システムへ流す。
+            // 実決断（選択肢2以上）のみデスクのカードにする。左下の NotificationFeed が下記 Push を自動表示する。
+            if (def.IsNotification)
+            {
+                if (def.choices.Count > 0) def.choices[0].Apply(ctx);
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    string.IsNullOrEmpty(def.body) ? def.title : $"{def.title}：{def.body}");
+                return;
+            }
+
             int id = nextDecisionId++;
             int defChoice = DefaultChoiceFor(def.id);
             var pd = new PendingDecision(id, def.title, SeverityFor(def),
@@ -234,8 +250,13 @@ namespace Ginei
         private void Rebuild()
         {
             cardViews.Clear();
+            // ドラッグハンドル以外を破棄（ハンドルは位置保持のため残す）。
             for (int i = container.childCount - 1; i >= 0; i--)
-                Destroy(container.GetChild(i).gameObject);
+            {
+                var c = container.GetChild(i);
+                if (c.gameObject == dragHandle) continue;
+                Destroy(c.gameObject);
+            }
 
             // 未解決のみ・新しい順（後から来たものを上に）に最大 maxVisibleCards 枚。
             int shown = 0;
@@ -247,6 +268,13 @@ namespace Ginei
                 if (d.status == DecisionStatus.新着) d.status = DecisionStatus.提示中;
                 BuildCard(d);
                 shown++;
+            }
+
+            // ハンドルは常に先頭（最下段）に保つ。カードが無い間は隠す（DecisionDeck と同様）。
+            if (dragHandle != null)
+            {
+                dragHandle.transform.SetAsFirstSibling();
+                dragHandle.SetActive(shown > 0);
             }
         }
 
@@ -334,7 +362,8 @@ namespace Ginei
             container.anchorMin = new Vector2(1f, 0f); // 右下
             container.anchorMax = new Vector2(1f, 0f);
             container.pivot = new Vector2(1f, 0f);
-            container.anchoredPosition = new Vector2(-16f, 16f);
+            // 右下はミニマップ（約232px四方）が占めるので、その上へ逃がして重ねない。
+            container.anchoredPosition = new Vector2(-16f, MinimapClearance);
             container.sizeDelta = new Vector2(cardWidth + 8f, 0f);
 
             var vlg = cont.AddComponent<VerticalLayoutGroup>();
@@ -344,6 +373,24 @@ namespace Ginei
             vlg.childForceExpandWidth = false; vlg.childForceExpandHeight = false;
             var fitter = cont.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize; // 下端から上へ積む
+
+            // ドラッグハンドル（デスク全体を自由移動）＝常にコンテナ先頭（最下段＝コーナー寄り）に置く。
+            // DecisionDeck と同様、対象はコンテナ RectTransform。カードが無い間は隠す。
+            dragHandle = new GameObject("DragHandle");
+            dragHandle.transform.SetParent(container, false);
+            var hImg = dragHandle.AddComponent<Image>();
+            hImg.color = new Color(0.12f, 0.14f, 0.18f, 0.95f);
+            var hle = dragHandle.AddComponent<LayoutElement>();
+            hle.preferredWidth = cardWidth; hle.minHeight = DragHandleHeight;
+            var drag = dragHandle.AddComponent<UIDragMove>();
+            drag.target = container;
+            var hLabel = AddLabel(dragHandle.transform, "≡ 戦術決裁デスク（ドラッグで移動）", 15f, new Color(0.7f, 0.78f, 0.86f));
+            hLabel.alignment = TextAlignmentOptions.Center;
+            var hlrt = hLabel.rectTransform; // ラベルをハンドル枠いっぱいに伸ばす（中央表示）
+            hlrt.anchorMin = Vector2.zero; hlrt.anchorMax = Vector2.one;
+            hlrt.offsetMin = Vector2.zero; hlrt.offsetMax = Vector2.zero;
+            dragHandle.transform.SetAsFirstSibling(); // VLG の先頭＝LowerRight 積みの最下段
+            dragHandle.SetActive(false);
         }
 
         private TextMeshProUGUI AddLabel(Transform parent, string text, float size, Color color)

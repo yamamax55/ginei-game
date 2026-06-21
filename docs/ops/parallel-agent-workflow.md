@@ -95,3 +95,9 @@ git worktree add ../ginei-B -b feat/orbat   master   # セッションB
 Unity エディタで開くのは1ツリーのみ・他は TestHarness で検証
 マージ経路は一本化・確認は内容で
 ```
+
+## 関連
+- [[parallel-core-fanout]] — Core量産のファンアウト並列手順
+- [[mythical-man-month-reference-design]] — 並列分担と統合コストの原典
+- [[auto-implement-workflow]] — 配線後の自動実装フロー
+- [[playtest-harness]] — Unity 無し環境での回帰検証

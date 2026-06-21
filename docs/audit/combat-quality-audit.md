@@ -63,3 +63,11 @@ tags: [audit]
 ## 6. 結論
 
 C4：**会戦の中核（提督/士気/側背面/防御/継戦）に加え、軍の質（当面は補給＝即応）が `qualityFactor` 経由で会戦ダメージに届くようになった**。合成は `ForceQualityRules`（Core・test）が単一窓口。下士官団/新兵練度は attribute（#210）で追って効かせる。
+
+## 関連
+- [[test-completion-plan]] — 本監査C4の親計画
+- [[core-orphan-audit]] — 未配線Coreの棚卸し元
+- [[wartime-logistics-design]] — 補給即応の供給源
+- [[nco-education-us-reference-design]] — 下士官団の質設計
+- [[recruit-training-us-reference-design]] — 新兵練度の出所
+- [[squadron-motion-quality-design]] — 会戦の手触り隣接領域

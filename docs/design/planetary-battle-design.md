@@ -74,3 +74,10 @@ tags: [design]
 
 ### 変更履歴
 - v0.1：惑星の戦い（回廊突破→惑星領域→侵略占領・軌道防衛・航行不能）の設計。既存の有界戦場/要塞/占領解放/内政/ZOC を流用・接続。段階手順・リスクを提示。**【要・作者判断】箇所は確定待ち。**
+
+## 関連
+- [[phase-c-core-design]] — 回廊戦闘・有界戦場の基盤
+- [[phase-c-late-design]] — 1戦場ずつ＝FleetRegistry 単一性の方針
+- [[回廊]] — 惑星領域へ至る突破路の概念
+- [[emergent-campaign-design]] — 征服ループの戦略文脈
+- [[windowed-concurrent-battles-design]] — 別フェーズ会戦の窓化基盤

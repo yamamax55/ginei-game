@@ -86,3 +86,10 @@ tags: [design]
 
 ### 変更履歴
 - v0.1：階級と提案の政治プロト設計。青赤の提案判定＋戦果→merit→昇進を、`RankSystem`/`FactionData.ranks` の上に最小フックで提示。既存フローだけで回る最小プロト→Phase C 接続。**【要・作者判断】箇所は確定待ち。**
+
+## 関連
+- [[rank-command-capacity-design]] — 階級と指揮可能規模の上位設計
+- [[sword-honor-meritocracy-design]] — 昇進ドクトリン（学閥↔実力）
+- [[meyasubako-proposal-redesign-design]] — 提案・稟議の上申回路
+- [[emergent-campaign-design]] — 階級は政体の表現として接続
+- [[campaign-save-roundtrip-gaps]] — 階級/功績の永続化

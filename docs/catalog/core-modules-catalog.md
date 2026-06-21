@@ -51,3 +51,11 @@ tags: [catalog]
 
 - **軍団の撤退判断と敗北の代償（#戦闘ドクトリン Stage4・`CorpsRetreatRules`・Core純ロジック・test-first）**：敗色濃厚なら軍団長が整然と総退却を命じ、撤退した敗者へ士気・練度低下＋将帥の声望/政治的代償を科す数値窓口。`RetreatThreshold`（統率で早めに退き・功名心 ambition で粘る＝実効撤退兵力比）／`ShouldOrderRetreat`（兵力比が実効しきい値を下回るか軍団長敗走で総退却）／`DefeatSeverity`（敗者残存×勝者比から敗北の度合い）／`MoraleLossOnDefeat`/`VeterancyAfterDefeat`/`SurvivorsAfterWithdrawal`（完敗ほど士気↓・練度希釈・撤退損耗で兵力目減り＝最低1で原隊へ帰す）／`ReputationAfterDefeat`（`CommandReputationRules.ReputationDecay` 委譲）。Game配線＝`BattlefieldCommandManager.ApplyCorpsRetreat`（軍団長＋全隷下を `FleetAI.AIState.撤退` へ落として撤退線まで一緒に下がる＝各個撃破回避）／`StrategyRules.ApplyBattleResult(…,loserSurvivor)`＋`ApplyHandoffResultWithRetreat`（撤退生存の敗者を盤面に残し原隊へ帰す＝再建可能・敗北の代償通知。loserSurvivor=0＝従来どおり敗者除去＝完全後方互換）。StrategicFleet/AdmiralData に声望/練度の直列化フィールドが無い設計のため声望/政治代償は `NotificationCenter`(人事/政治) 通知で表現。`CorpsRetreatRulesTests`/`DefeatPenaltyRetreatTests`(EditMode/TestHarness) が撤退閾値・敗北度合い・各代償・盤面保存/後方互換を固定。
 - **提督ポートレート生成 `PortraitPromptRules`（③アート一貫性・Core純ロジック・test-first）**：`AdmiralData` から肖像生成プロンプト＋決定論シードを組む単一窓口。一貫性の核＝固定 `StylePreamble`（全肖像共通の画風アンカー）＋人物アーキタイプ（`isKaiser`/`isMagician`…）→外見の固定写像＋名前ハッシュ（FNV-1a）シード（`portraitSeed`>0 で上書き）。勢力→軍服・階級→年齢/装飾・能力→表情・`appearanceNote` を合成。ツール非依存（Gemini/Midjourney/SD）。`AdmiralData` に `portrait`(Sprite)/`appearanceNote`/`portraitSeed` を追加（additive・後方互換）。エディタ `Ginei/Export Portrait Prompts (CSV)`(`PortraitPromptExporter`) で全提督を作業リスト化。`PortraitPromptRulesTests`(TestHarness) が画風アンカー常在/決定論/勢力・アーキタイプ反映/シード安定・上書き/null安全を固定。運用＝docs/ops/portrait-pipeline.md。
+
+## 関連
+- [[components-catalog]] — Game層コンポーネントの索引（姉妹カタログ）
+- [[core-orphan-audit]] — 量産Coreの未配線棚卸し
+- [[parallel-core-fanout]] — Core純ロジック量産の手順
+- [[test-completion-plan]] — EditModeテスト網羅の計画
+- [[late-game-performance-design]] — Core増殖時のスケーラビリティ規律
+- [[portrait-pipeline]] — ポートレート生成の運用

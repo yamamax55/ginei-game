@@ -60,3 +60,10 @@ tags: [design]
 - #69 配下艦の艦隊内挙動を現実的にする（クローズ済・基本実装）
 - #80 配下艦の艦種差別化（クローズ済・スロット配置は将来送り）
 - `docs/design/late-game-performance-design.md`（スケーラビリティ規律＝EMOV-5 の指針）
+
+## 関連
+- [[late-game-performance-design]] — N²回避＝EMOV-5 の指針
+- [[combat-quality-audit]] — 会戦の見た目品質の監査
+- [[planetary-battle-design]] — 配下艦運動が乗る戦術盤面
+- [[components-catalog]] — Squadron/EscortShip の責務索引
+- [[core-modules-catalog]] — EscortSlotAssignmentRules の純ロジック索引

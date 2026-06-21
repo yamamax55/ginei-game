@@ -70,3 +70,10 @@ tags: [design]
 - 純ロジック（`BattleClock` 等）は Core で test-first（TestHarness）。
 - Unity 依存（additive/RenderTexture/入力）は実機目視（各 PR にテスト観点）。
 - 触るホットファイルが多い（`FleetRegistry` 消費者）ため、Core 契約を先に凍結→消費者移行は逐次（`docs/ops/parallel-agent-workflow.md`）。
+
+## 関連
+- [[phase-c-strategy]] — 複数戦線/回廊戦闘の上位設計
+- [[phase-c-late-design]] — 並行進行の後期課題
+- [[late-game-performance-design]] — 隔離とシミュLODの規律
+- [[parallel-agent-workflow]] — ホットファイル分割の進め方
+- [[回廊]] — 会戦が起きる回廊概念

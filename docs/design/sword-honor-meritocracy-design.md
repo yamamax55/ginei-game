@@ -100,3 +100,10 @@ public static float PromotionFavor(MilitaryDegree degree, int warCollegeRank, fl
 ## 6. テスト（EditMode・`MilitarySwordHonorRulesTests`）
 
 栄誉判定（大学校卒TOP5=恩賜・上位外=星・非大学校卒=なし）／credential 順（恩賜>星>なし）／重み（学閥>実力）／**学閥主義＝低merit恩賜が高merit隊付に勝つ**（史実）／**実力主義＝俊英が追い越す**（米軍対比）／**doctrine 反転で勝敗逆転**／一括版の一致を固定。`TestHarness`（dotnet）でも回帰。
+
+## 関連
+- [[politics-prototype-design]] — 階級と昇進の上位プロト
+- [[rank-command-capacity-design]] — 階級↔指揮規模の窓口
+- [[nco-education-us-reference-design]] — 米軍型実力主義の対比元
+- [[military-organization-design]] — 軍の編制・人事構造
+- [[sapiens-reference-design]] — 学閥という虚構秩序の参照

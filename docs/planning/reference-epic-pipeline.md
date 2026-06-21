@@ -93,3 +93,10 @@ gh issue create --title "[XXX-n] <タイトル>" `
 |---|---|---|---|
 | Almagest -Overture- | #1054 | ALM-1〜16（#1055〜#1070） | [[almagest-reference-design]] |
 | 狼と香辛料 | #1071 | SAW-1〜9（#1072〜#1080） | [[spice-and-wolf-reference-design]] |
+
+## 関連
+- [[reference-epic-backlog]] — 候補作品のキュー
+- [[reference-epic-categories]] — 参考作品の分類軸
+- [[roadmap]] — §5-2 へ追記する先
+- [[worldbuilding-bible]] — 世界観の整合先
+- [[parallel-agent-workflow]] — EPIC化後の実装ファンアウト

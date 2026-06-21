@@ -359,3 +359,11 @@ tags: [planning]
 - 進め方：まず **#2589（滑らかさ）を解決 → #2590（量産）** の順。
 
 > 優先順：**8-2（会戦Core配線）→ 8-3（質の合流）→ 8-4（演出/ノブ）→ 8-5（幅）**。「Coreは増えるが盤面に出ない」乖離を配線で潰すのが会戦の最短の価値。**8-7（3D艦演出）は実験トラック＝本線の合間に。**
+
+## 関連
+- [[vertical-slice-roadmap]] — 縦スライス S1〜S6 の進捗
+- [[taikou-risshiden-reference-design]] — 一人称の人生（立身出世）の背骨
+- [[phase-c-late-design]] — Phase C 後半（並行/要塞/自動解決）
+- [[late-game-performance-design]] — 終盤スケーラビリティ規律
+- [[reference-epic-backlog]] — 世界観EPICの設計在庫
+- [[current-state-audit-2026-06]] — 設計と配線の現状監査

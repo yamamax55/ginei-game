@@ -103,3 +103,10 @@ tags: [design]
 
 ### 変更履歴
 - v0.1：戦時兵站レイヤー（L-1〜L-4）の設計＋ZOC定義。C-6・Phase Cコアへの接続、段階手順、リスクを提示。**【要・作者判断】箇所は確定待ち。**
+
+## 関連
+- [[phase-c-core-design]] — 銀河グラフ・回廊・StrategicFleet の前提基盤
+- [[phase-c-late-design]] — C-8 自動解決・要塞・並行（兵站が噛む先）
+- [[回廊]] — 補給線・通商破壊の舞台
+- [[mahan-sea-power-reference-design]] — シーレーン・通商破壊の思想的背景
+- [[chemical-scm-reference-design]] — 物流・サプライチェーンの参考設計

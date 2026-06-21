@@ -81,3 +81,11 @@ tags: [planning]
 ---
 
 > 要するに：**縦の1本はあと S5/S6 の配線だけ。** それが通れば、大量に完成している純ロジック層（GOV/LIFE/財政/造船/指揮班/外交…）はすべて「回路への接続」になり、安全に増分できる。
+
+## 関連
+- [[roadmap]] — 上位の機能ロードマップ
+- [[phase-c-strategy]] — 戦略コア（S1〜S4）の設計
+- [[core-orphan-audit]] — 「配線待ち」純ロジックの棚卸し
+- [[game-improvements]] — 一本を磨く完成方針
+- [[fiscal-year-cycle-gap-analysis]] — S5 税レバー配線のギャップ
+- [[event-decision-triage-design]] — S6 イベント提示UIの設計

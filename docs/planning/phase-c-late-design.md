@@ -89,3 +89,11 @@ tags: [planning]
 
 ### 変更履歴
 - v0.1：Phase C 後半（C-4 並行／C-7 要塞／C-8 自動解決）の設計メモ。「ライブ1戦線＋抽象N戦線」で `FleetRegistry` 大改修を回避する最小プロト方針、要塞の既存流用、自動解決の式・手動引き継ぎを提示。**【要・作者判断】箇所は確定待ち。**
+
+## 関連
+- [[phase-c-core-design]] — C-1〜C-3 の前提コア基盤
+- [[wartime-logistics-design]] — C-6 補給・ZOC・通商破壊の供給側
+- [[windowed-concurrent-battles-design]] — 複数戦線の並行表示
+- [[回廊]] — 戦線・要塞・通行ゲートの舞台
+- [[灯台]] — フェザーン型の通商回廊・拠点
+- [[phase-c-strategy]] — 戦略レイヤー全体の文脈

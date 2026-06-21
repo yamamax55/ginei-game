@@ -82,3 +82,11 @@ tags: [audit]
 ノートは、新しいアイデアで重くなっていた。でも、足取りは、来た時より軽かった。やることは、はっきりしている。冷凍庫を満たし、核を研ぐ。
 
 家に着いたら、まず、あの三十分のデモに手をつけよう。御託は、そこで終わりだ。
+
+## 関連
+- [[koei-style-dev-meeting]] — コーエー側の助言の出所
+- [[paradox-advice]] — パラドックス側の助言の出所
+- [[emergent-campaign-design]] — 崩壊から物語が生まれる設計
+- [[taikou-risshiden-reference-design]] — 人間を前に出す立志伝層
+- [[reference-epic-backlog]] — 冷凍庫のアイデア在庫
+- [[game-introduction]] — 目安箱という角度の核

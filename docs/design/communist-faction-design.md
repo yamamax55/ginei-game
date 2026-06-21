@@ -83,3 +83,10 @@ tags: [design]
 
 ### 変更履歴
 - v0.1：共産勢力の非対称設計。物量／政治将校／不退転の3本柱＋6能力の効き替え＋内部対立を、エンジン非フォークの最小フックで提示。**【要・作者判断】箇所は確定待ち。**
+
+## 関連
+- [[das-kapital-reference-design]] — 計画経済の思想源
+- [[worldbuilding-bible]] — 勢力lore/旗艦名の出所
+- [[wartime-logistics-design]] — 物量ドクトリンの兵站接続
+- [[rank-command-capacity-design]] — 党称号と指揮規模
+- [[黎明評議会]] — 共産系勢力の具体像

@@ -80,3 +80,11 @@ P2/P3 はその後、§2 の順で増分。新EPIC・新Coreドメインの追�
 ---
 
 > 要約：**回路はもう通っている。穴は「入口（導線）」と「継続（セーブ）」と「手応えの可視化」。** 新システムでなく、これらの配線・可視化・演出を埋めるのが、いま必要なこと。
+
+## 関連
+- [[game-critique]] — 学習曲線/広げすぎリスクの上位方針
+- [[game-improvements]] — 観測を操作へ/因果を物語る方針
+- [[vertical-slice-roadmap]] — S5/S6 受け入れ基準
+- [[campaign-save-roundtrip-gaps]] — セーブ未永続の詳細
+- [[combat-quality-audit]] — 会戦の質が補給しか効かない
+- [[current-state-audit-2026-06-post2476]] — 後続の現状監査

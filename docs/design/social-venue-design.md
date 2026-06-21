@@ -115,3 +115,10 @@ tags: [design]
 `SLN-1 → SLN-2 → SLN-3`（グラフ＋類型＋資格＝基盤三点セット）→ `SLN-6`（調略の舞台＝#817 に最も「効く」）→ `SLN-4 → SLN-5`（面子と噂＝事件の供給源）→ 残り（SLN-7/8/9）。
 
 > いずれも TALE-1 を土台に**後退させず接続**する additive 設計。**散在する政治・群像ロジック（調略/縁談/噂/派閥/席次）が一つの舞台で出会う**ことが最大の収穫。
+
+## 関連
+- [[canterbury-tales-reference-design]] — 親EPIC・TALE-1 社交場フレーム
+- [[dialogue-adventure-design]] — 出席時のADV化（方針転換先）
+- [[旗幟]] — 戦う前の戦い・調略が発火する場
+- [[late-game-performance-design]] — 関係グラフのN²/有界規律
+- [[emergent-campaign-design]] — 群像と政治の創発ハブ

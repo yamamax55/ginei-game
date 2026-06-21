@@ -200,3 +200,9 @@ tags: [catalog]
 | `ProtagonistCareerDirector` | 軍人立志伝の Game 層エンジン（EPIC #2477 配線・Strategy 自動生成）。主人公（`GameSettings.selectedAdmiral`）を士官学校から任官（TKO-1 `ProtagonistCareerRules`）させ、月境界（`GameClock.ElapsedSeconds`÷月秒で自前検出＝`GalaxyView` 非編集）ごとに**月次評定**（TKO-10 `MonthlyCouncilRules`）で武勲昇進（TKO-2 `MeritRecordRules`）・主命の決着を回し、君主の主命を**指揮系統で噛み砕いて**（TKO-11 `MandateCascadeRules`）末端の主人公へ落とす。達成→武勲＋恩義（TKO-3 `PersonRelationRules`）、一代記（TKO-6 `ProtagonistChronicle`）に記録＋`NotificationCenter` 通知。`SubmitPetition`＝上官への具申（TKO-4＝`PersonRingiRules.RaiseTo`→`RingiDirector.Ledger`）。状態は `static Instance` で `ProtagonistDeskOverlay` が読む。純ロジック・状態遷移は Core 窓口へ委譲（配線のみ）。 |
 | `ProtagonistDeskOverlay` | 主人公の執務机＝軍人立志伝の一人称UIシェル（TKO-8 #2485・**Alt+J**・上メニュー「執務机」）。`ProtagonistCareerDirector.Instance` から階級・拝命中の主命（君主→指揮系統→自分のMBOカスケード＋寄与率）・武勲と次の昇進・君主との人脈・一代記（新しい順）を一望（観測）。加えて**上官へ具申するボタン**（TKO-4）＝押すと稟議を起案し稟議オブザーバ（Alt+I）に起案者=自分・決裁者=上官として現れる。`RingiObserverOverlay` と同型の自動生成（Strategy/Battle）・`UIWindowStack`/`WindowChrome` 準拠。 |
 | `RankPyramidDirector` | 階級ピラミッドの Game 層配線（TKO-13 #2490・Strategy 自動生成）。勢力ごとの階級別人数（`MilitaryRankRegistry`）を初期ピラミッド（理想定員×`seedFill`＝各階級に空きを残す）で種付けし、年境界（`GameClock.ElapsedSeconds`÷年秒で自前検出＝`GalaxyView` 非編集）ごとに `RankFlowRules.TickYear`（徴募→損耗→定員空きへ昇進）で回す。`CanPromote(faction,toTier)`＝その階級に定員空きがあるか（各階級最低1枠＝最上位も到達可）＝`ProtagonistCareerDirector` の昇進**定員ゲート**（上ほど狭き門）。`static Instance`。数式・状態遷移は Core 窓口へ委譲（配線のみ・additive）。 |
+
+## 関連
+- [[core-modules-catalog]] — Core純ロジックの網羅カタログ
+- [[fleet-organization-design]] — 編制台帳コンポーネントの設計
+- [[military-organization-design]] — 梯団/階級の上位設計
+- [[late-game-performance-design]] — 集約/差分の性能規律

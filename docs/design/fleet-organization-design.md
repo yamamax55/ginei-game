@@ -136,3 +136,10 @@ tags: [design]
 - **③任務 intent** の種別セット（突破/包囲/防衛/遅滞…の粒度）と `FleetAI` へ渡す裁量度（完全自律〜半自動）。
 - 上位司令官の指揮補正の有無・強度（タイクン化回避と両立する範囲）。
 - 艦隊司令の任免を #141 の役職(Office)として扱うか、軍編制の別軸とするか（#145 文民統制と整合）。
+
+## 関連
+- [[military-organization-design]] — 軍組織の上位設計
+- [[rank-command-capacity-design]] — 階級ゲートと指揮規模
+- [[sword-honor-meritocracy-design]] — 提督配属の出世軸
+- [[school-entry-age-design]] — 在学中の配属ゲート
+- [[worldbuilding-bible]] — 番号体系/著名艦隊の正典

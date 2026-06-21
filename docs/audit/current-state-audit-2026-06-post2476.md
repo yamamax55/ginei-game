@@ -94,3 +94,10 @@ tags: [audit]
 3. P1-b（成長永続）・P2-a/b（質→戦闘・セーブ）は `Growth`/veterancy フィールド追加で連鎖的に解ける（同根）ので、P1-a の次にまとめて。
 
 > 要約：**Core も観測も執務机も通った。穴は「会戦の結果が立身出世と戦闘力へ届かない」配線。** 乱数で進む出世を、戦って勝ち取る出世へ——既存窓口への配線で目玉を生かすのが、いま必要なこと。
+
+## 関連
+- [[current-state-audit-2026-06]] — 直前の現状監査・本書の前提
+- [[core-orphan-audit]] — 届かない Core ロジックの監査
+- [[rank-command-capacity-design]] — 階級と指揮容量の立身出世土台
+- [[campaign-save-roundtrip-gaps]] — 練度/成長のセーブ往復欠落
+- [[combat-quality-audit]] — 会戦の戦果が体験へ届くかの検証

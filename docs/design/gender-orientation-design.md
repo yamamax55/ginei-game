@@ -49,3 +49,10 @@ tags: [design]
 - POP 出生死亡 `PopulationDynamicsRules`(#153)・移住 `PopulationMigrationRules`(#194)・職業 `OccupationRules`(#110)。
 - 人物 `Person`／群像（政略結婚 `MarriageRules` #647・継承 `SuccessionLawRules` #646・社交場 #1145）。
 - 世界観の表現方針（#305/#15）。
+
+## 関連
+- [[social-venue-design]] — 性的指向の効き先・社交場
+- [[dialogue-adventure-design]] — 関係/結婚イベントの一人称化
+- [[worldbuilding-bible]] — 表現方針(多様性の尊重)の出所
+- [[sapiens-reference-design]] — 人口・性別のマクロ背景参照
+- [[late-game-performance-design]] — 個別交配を作らないタイクン回避

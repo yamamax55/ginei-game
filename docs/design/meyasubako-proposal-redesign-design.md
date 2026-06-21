@@ -248,4 +248,12 @@ WF の「ワークトレイ（受信箱）／起案フォーム／決裁画面�
 - スケーラビリティ規律：終盤スケーラビリティ #1117・`AutoBattleSim`（抽象解決）
 - アンチ主人公史観：チ。#1254（真理のリレー）・`DisclosureLedger`（FND-4）
 - セーブ/Web契約：`CampaignSerializer`/`CampaignSaveData`（FND-2 #495）
+
+## 関連
+- [[corporate-workflow-strategy-ui-design]] — 母体ワークフロー（WF）
+- [[event-decision-triage-design]] — 決裁の取捨選択
+- [[politics-prototype-design]] — 政体差と政治シミュ
+- [[local-autonomy-design]] — 地方箱の中の人供給
+- [[zizhi-tongjian-reference-design]] — 諫言/越階の史観
+- [[late-game-performance-design]] — LLM-LOD/終盤ラグ規律
 - UI 基盤：`GineiUITK`＋テーマ USS（UITK 段階移行・パイロット `OrderOfBattlePanel`）

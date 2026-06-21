@@ -184,3 +184,12 @@ PS版『銀河英雄伝説』のような、宇宙を舞台にしたリアルタ
 何でもできるわけではない。けれど、目安箱に一枚の稟議書を投げ込むことで、あなたは確かに、この世界に触れることができる。
 
 それが、このゲームです。
+
+## 関連
+- [[worldbuilding-bible]] — 勢力・世界観の土台
+- [[meyasubako-proposal-redesign-design]] — 目安箱システムの設計
+- [[local-autonomy-design]] — 地方自治・貴族＝知事の論
+- [[corporate-workflow-strategy-ui-design]] — 稟議ワークフローの操作系
+- [[chi-reference-design]] — 「主人公ではない」真理のリレー
+- [[emergent-campaign-design]] — 創発する政治劇の全体像
+- [[game-improvements]] — 弱点を強みへ反転する方針

@@ -137,3 +137,11 @@ autonomy     : float 0..1（中央集権0 ↔ 封建1）            ← 軸1
 - 政体・文民統制：`Regime`/`CivilianControlRules`（#145）
 - 寡頭・実権主体：#164
 - 地方ビューUI：`SystemDetailPanel`/`SystemView`（既存・星系/惑星情報）
+
+## 関連
+- [[meyasubako-proposal-redesign-design]] — 地方箱の供給先（この設計の出口）
+- [[event-decision-triage-design]] — 地方決裁が流れる決裁デスク
+- [[封土]] — 封建・藩主＝地方権力の概念
+- [[旗幟]] — 中央への忠誠・離反の判定
+- [[星骸の諸侯]] — 諸侯型の地方権力の世界観
+- [[regime-evolution-test-and-gaps]] — 政体で替わる中の人の前提

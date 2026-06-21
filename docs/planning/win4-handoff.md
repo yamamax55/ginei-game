@@ -53,3 +53,9 @@ WIN-1〜WIN-3 完了。戦略マップから潜行すると会戦が **別シー
 - 各窓の HUD/コマンドメニュー/ミニマップ/通知がその会戦に帰属し、複数窓で重ならない。
 - 複数会戦が同時に決着しても戦略へ正しく反映（兵力換算・占領・通知）。
 - 一連の流れ（複数潜行→各々指揮→決着→戦略反映）が破綻しない。
+
+## 関連
+- [[windowed-concurrent-battles-design]] — EPIC #2567 の設計本体
+- [[components-catalog]] — BattleWindow/BattleDirector 等の索引
+- [[corporate-workflow-strategy-ui-design]] — 窓・タスクバーUIの意匠参照
+- [[emergent-campaign-design]] — 複数潜行が乗る戦略ループ

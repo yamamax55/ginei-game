@@ -77,3 +77,10 @@ await parallel(UNITS.map(u => () => agent(
 | **ファンアウト後** | **1037**（+17・全緑） |
 
 並列生成 → glob 自動包含 → `dotnet test` 一括緑、が成立。**「Core生成は並列・検証は直列1回」**が標準として機能することを確認した。
+
+## 関連
+- [[parallel-agent-workflow]] — 並列エージェント運用の上位標準
+- [[auto-implement-workflow]] — 無人実装の自動化（同系統）
+- [[playtest-harness]] — Unity無し純ロジック検証の土台
+- [[core-modules-catalog]] — 生成対象Coreの網羅カタログ
+- [[late-game-performance-design]] — 集約粒度を守る規律

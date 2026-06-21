@@ -112,3 +112,11 @@ tags: [design]
 `DLG-1 → DLG-2 → DLG-3 → DLG-4 → DLG-5`（縦に1本＝データ→文脈→効果→機会→UI でプレイ可能に）→ `DLG-6 → DLG-8` → （任意）`DLG-7`。
 
 > SLN-1〜3（関係グラフ・類型・資格）の完成が前提。**会戦RTSと対になる「社交ADV」**＝観たい場面だけ降りる二層構造で、タイクン化させずに群像劇を一人称で演じられるようにする。
+
+## 関連
+- [[social-venue-design]] — 親系譜・社交場の関係グラフ前提
+- [[event-decision-triage-design]] — EventEngine 多段会話の土台
+- [[portrait-pipeline]] — ADV のポートレート生成
+- [[late-game-performance-design]] — 観測/シミュ分離=タイクン化回避
+- [[canterbury-tales-reference-design]] — 群像挿話の語り口参照
+- [[components-catalog]] — GineiUITK/FontProvider 等の参照先

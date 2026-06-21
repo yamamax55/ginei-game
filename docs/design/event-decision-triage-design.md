@@ -153,3 +153,11 @@ elapsed    : 提示からの経過
 - 効果適用の共有：`effectKey`（`PetitionEffects`/`EventChoice` と同実体）
 - UI 基盤：`GineiUITK`＋テーマ USS（UITK 段階移行）
 - スケーラビリティ：終盤ラグ規律 #1117（有界キュー・暦境界Tick・自動解決で溜めない）
+
+## 関連
+- [[meyasubako-proposal-redesign-design]] — 目安箱の諮問/裁可が同じ右下スタックへ合流
+- [[local-autonomy-design]] — 地方箱の決裁を供給する側
+- [[corporate-workflow-strategy-ui-design]] — 例外管理のUI思想
+- [[late-game-performance-design]] — 有界キュー・暦境界Tickの規律
+- [[koei-style-dev-meeting]] — 管理は例外だけにの助言の出所
+- [[paradox-advice]] — プレイヤーを溺れさせない助言の出所

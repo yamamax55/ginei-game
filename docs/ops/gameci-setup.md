@@ -88,3 +88,9 @@ GitHub → Actions → **`unity-test`** → **Run workflow**（または PR を�
 1. **PlayMode で自動プレイテスト**：`unity-test.yml` に PlayMode ステップを足し、`PlaytestRunner` を駆動して `PlaytestReport`（バグ/改善点）をアーティファクト化。
 2. **スクショ＋ビジョン**：自動会戦中のスクショをアーティファクト化 → Claude のビジョンが視覚バグ/UX を指摘。
 3. **改善点の自動起票**：レポート＋スクショを定期レビュー → `agent-ready` issue → 自動実装へ。
+
+## 関連
+- [[playtest-harness]] — PlayMode 自動プレイテストの土台
+- [[auto-implement-workflow]] — 改善点の自動実装ループ
+- [[unity-build-automation]] — Unity ビルド自動化
+- [[playtest-loop-ops]] — プレイテスト運用ループ

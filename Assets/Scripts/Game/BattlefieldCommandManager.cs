@@ -35,7 +35,18 @@ namespace Ginei
             new GameObject("BattlefieldCommandManager").AddComponent<BattlefieldCommandManager>();
         }
 
-        private void Awake() => ActingCommandLedger.Clear(); // 新しい会戦＝臨時指揮をリセット
+        // 軍団ごとの直近の発令陣形（変化時のみ通知＝洪水回避・#軍団長の陣形変更命令）。
+        private static readonly Dictionary<string, Formation> lastCorpsFormation = new Dictionary<string, Formation>();
+
+        // 軍団スロット間隔（配下艦の非重複・#軍団集結）。spacing = 2×最大footprint＋余白、最低でも下限。
+        private const float CorpsSpacingMargin = 3f;
+        private const float CorpsMinSpacing = 7f;
+
+        private void Awake()
+        {
+            ActingCommandLedger.Clear();   // 新しい会戦＝臨時指揮をリセット
+            lastCorpsFormation.Clear();    // 軍団陣形の通知履歴もリセット
+        }
 
         private void OnDestroy() => ActingCommandLedger.Clear(); // 戦闘終了（シーン離脱）＝正規人事へ戻す
 
@@ -78,8 +89,8 @@ namespace Ginei
                 // 軍団長のバフ/デバフ（CSG）：軍団旗艦に乗艦している軍団長の統率で軍団全体の能力・士気を上下。
                 ApplyCorpsCommanderBuff(list);
 
-                // 軍団長が陣形を主導し（#持ち場）、隷下艦隊に持ち場（軍団長旗艦）を与えて深追いを抑える。
-                ApplyCorpsFormationAndPost(list);
+                // 軍団長が陣形を主導し（#持ち場・#軍団集結）、隷下艦隊に持ち場スロット（軍団長旗艦基準）を与えてまとまらせる。
+                ApplyCorpsFormationAndPost(kv.Key, list);
 
                 var acting = BattlefieldCommandRules.SelectActingSuccessor(candidates);
                 if (acting.id < 0) continue;
@@ -134,17 +145,18 @@ namespace Ginei
         /// （corpsControlled）、軍団長旗艦から離れすぎない（hasCorpsAnchor）。プレイヤー指揮の艦隊は対象外（プレイヤーが主導）。
         /// 軍団長（軍団旗艦）を喪失した軍団は拘束を解いて各自で戦う。
         /// </summary>
-        private static void ApplyCorpsFormationAndPost(List<FleetStrength> corpsFleets)
+        private static void ApplyCorpsFormationAndPost(string corpsKey, List<FleetStrength> corpsFleets)
         {
             // 軍団長（軍団旗艦＝軍団長乗艦）を探す。
             FleetStrength commander = null;
             for (int i = 0; i < corpsFleets.Count; i++)
                 if (corpsFleets[i] != null && corpsFleets[i].IsCorpsFlagship) { commander = corpsFleets[i]; break; }
 
-            // 軍団長不在（旗艦喪失）：拘束を解いて各艦隊は自律行動へ戻す。
+            // 軍団長不在（旗艦喪失）：拘束を解いて各艦隊は自律行動へ戻す。次の再編で再通知できるよう履歴も消す。
             if (commander == null)
             {
                 for (int i = 0; i < corpsFleets.Count; i++) ReleaseFromCorps(corpsFleets[i]);
+                lastCorpsFormation.Remove(corpsKey);
                 return;
             }
 
@@ -153,46 +165,78 @@ namespace Ginei
             if (cmdAi != null && cmdAi.playerCommanded)
             {
                 for (int i = 0; i < corpsFleets.Count; i++) ReleaseFromCorps(corpsFleets[i]);
+                lastCorpsFormation.Remove(corpsKey);
                 return;
             }
 
-            // 軍団の総兵力 vs 近傍の敵兵力 → 推奨陣形（軍団長の能力で判断）。
-            float corpsOwn = 0f;
+            // AI 隷下（軍団長・プレイヤー指揮艦を除く）を集める。プレイヤー指揮艦は拘束を解く。
+            var subs = new List<FleetStrength>();
             for (int i = 0; i < corpsFleets.Count; i++)
-                if (corpsFleets[i] != null) corpsOwn += Mathf.Max(0f, corpsFleets[i].strength);
-            float enemyStr = NearestHostileStrength(commander);
+            {
+                FleetStrength f = corpsFleets[i];
+                if (f == null || f == commander) continue;
+                FleetAI ai = f.GetComponent<FleetAI>();
+                if (ai != null && ai.playerCommanded) { ReleaseFromCorps(f); continue; }
+                subs.Add(f);
+            }
+
+            // 軍団の総兵力 vs 近傍の敵兵力 → 推奨陣形（軍団長の能力で判断）。
+            float corpsOwn = Mathf.Max(0f, commander.strength);
+            for (int i = 0; i < subs.Count; i++) corpsOwn += Mathf.Max(0f, subs[i].strength);
+            FleetStrength nearest = NearestHostile(commander);
+            float enemyStr = nearest != null ? Mathf.Max(1f, nearest.strength) : 1f;
             FleetMorale cmdMorale = commander.GetComponent<FleetMorale>();
             bool routed = cmdMorale != null && cmdMorale.IsRouted;
             AdmiralData decider = commander.corpsCommander != null ? commander.corpsCommander : commander.admiralData;
             Formation rec = FormationDoctrineRules.RecommendFormation(corpsOwn, enemyStr, routed, decider);
 
+            // 軍団スロット間隔（#軍団集結 非重複）：隣の艦隊の配下艦と重ならないよう、各艦隊の占有半径から決める。
+            float maxFoot = FootprintOf(commander);
+            for (int i = 0; i < subs.Count; i++) maxFoot = Mathf.Max(maxFoot, FootprintOf(subs[i]));
+            float spacing = Mathf.Max(CorpsMinSpacing, 2f * maxFoot + CorpsSpacingMargin);
+
+            // 軍団の正面（敵方向）と、軍団スロット（軍団長を含む全艦隊ぶん）。ジオメトリは Core に委譲。
+            float facingDeg = FacingDeg(commander, nearest);
+            int fleetCount = subs.Count + 1;
+            List<CorpsSlot> slots = CorpsFormationRules.ComputeSlots(fleetCount, rec, spacing);
+            Vector2 commanderLocal = Vector2.zero;
+            for (int i = 0; i < slots.Count; i++) if (slots[i].commander) { commanderLocal = slots[i].localPos; break; }
             Vector2 anchor = commander.transform.position;
-            for (int i = 0; i < corpsFleets.Count; i++)
+
+            // 軍団長：陣形を発令し、隊を率いる（スロット拘束なし）。
+            Squadron cSq = commander.GetComponent<Squadron>();
+            if (cSq != null) cSq.TryChangeFormation(rec);
+            if (cmdAi != null) { cmdAi.corpsControlled = true; cmdAi.hasCorpsAnchor = false; cmdAi.hasCorpsSlot = false; }
+
+            // 隷下：軍団長が陣形を発令し、軍団長基準のスロットへ就かせる（非接敵時はスロット集結・接敵時は持ち場内で交戦）。
+            int ci = 0;
+            for (int i = 0; i < slots.Count && ci < subs.Count; i++)
             {
-                FleetStrength f = corpsFleets[i];
-                if (f == null) continue;
-                FleetAI ai = f.GetComponent<FleetAI>();
-                if (ai != null && ai.playerCommanded) { ReleaseFromCorps(f); continue; } // 隷下でもプレイヤー指揮艦は対象外
+                if (slots[i].commander) continue;
+                FleetStrength sub = subs[ci]; ci++;
+                Squadron sq = sub.GetComponent<Squadron>();
+                if (sq != null) sq.TryChangeFormation(rec); // 各艦隊の配下艦陣形（スキルポイント消費・#陣形コスト）
 
-                // 軍団長が陣形を発令（各艦隊が自分のスキルポイントで実行＝戦闘中は重い／不足なら据え置き）。
-                Squadron sq = f.GetComponent<Squadron>();
-                if (sq != null) sq.TryChangeFormation(rec);
-
+                FleetAI ai = sub.GetComponent<FleetAI>();
                 if (ai == null) continue;
-                ai.corpsControlled = true;                 // 陣形は軍団長に委ねる（自己判断で切り替えない）
-                if (f == commander)
-                {
-                    ai.hasCorpsAnchor = false;             // 軍団長旗艦は隊を率いるので拘束しない
-                }
-                else
-                {
-                    ai.hasCorpsAnchor = true;              // 隷下は持ち場（軍団長旗艦）から離れすぎない
-                    ai.corpsAnchor = anchor;
-                }
+                ai.corpsControlled = true;
+                ai.hasCorpsAnchor = true; ai.corpsAnchor = anchor;     // 持ち場（深追い抑制）
+                ai.hasCorpsSlot = true;                                // 軍団スロット集結（#軍団集結）
+                ai.corpsCommanderTf = commander.transform;
+                ai.corpsSlotLocal = slots[i].localPos - commanderLocal; // 軍団長を原点とした局所スロット
+                ai.corpsFacingDeg = facingDeg;
+            }
+
+            // 軍団長の陣形変更命令を通知（変化時のみ＝洪水回避・#軍団長の陣形変更命令）。会戦開始の初回も発火する。
+            if (!lastCorpsFormation.TryGetValue(corpsKey, out Formation prev) || prev != rec)
+            {
+                lastCorpsFormation[corpsKey] = rec;
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    $"{CommanderName(commander)}：軍団を{rec}に再編し集結を命令（{CorpsName(commander)}・{fleetCount}隊）");
             }
         }
 
-        /// <summary>軍団指揮の拘束を解く（陣形の自己判断・自律行動へ戻す）。</summary>
+        /// <summary>軍団指揮の拘束を解く（陣形の自己判断・自律行動へ戻す＝スロット集結も解除）。</summary>
         private static void ReleaseFromCorps(FleetStrength f)
         {
             if (f == null) return;
@@ -200,15 +244,24 @@ namespace Ginei
             if (ai == null) return;
             ai.corpsControlled = false;
             ai.hasCorpsAnchor = false;
+            ai.hasCorpsSlot = false;
+            ai.corpsCommanderTf = null;
         }
 
-        /// <summary>軍団長に最も近い敵対旗艦の兵力（推奨陣形の相手兵力に使う）。敵不在は自軍同等扱いの 1。</summary>
-        private static float NearestHostileStrength(FleetStrength commander)
+        /// <summary>艦隊の配下艦占有半径（無ければ0）。軍団スロット間隔の非重複に使う。</summary>
+        private static float FootprintOf(FleetStrength f)
         {
-            if (commander == null) return 1f;
+            Squadron sq = f != null ? f.GetComponent<Squadron>() : null;
+            return sq != null ? sq.FootprintRadius() : 0f;
+        }
+
+        /// <summary>軍団長に最も近い敵対旗艦（推奨陣形の相手兵力・軍団正面に使う）。敵不在は null。</summary>
+        private static FleetStrength NearestHostile(FleetStrength commander)
+        {
+            if (commander == null) return null;
             IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
             float best = float.MaxValue;
-            float enemyStr = 1f;
+            FleetStrength nearest = null;
             Vector2 pos = commander.transform.position;
             for (int i = 0; i < flagships.Count; i++)
             {
@@ -216,10 +269,35 @@ namespace Ginei
                 if (e == null || e == commander || !e.IsAlive) continue;
                 if (!FactionRelations.IsHostile(commander, e)) continue;
                 float d = ((Vector2)e.transform.position - pos).sqrMagnitude;
-                if (d < best) { best = d; enemyStr = Mathf.Max(1f, e.strength); }
+                if (d < best) { best = d; nearest = e; }
             }
-            return enemyStr;
+            return nearest;
         }
+
+        /// <summary>軍団の正面（度・+Y 基準）＝軍団長→最寄り敵。敵不在は軍団長の現在の向き。CorpsFormation と同一規約。</summary>
+        private static float FacingDeg(FleetStrength cmd, FleetStrength enemy)
+        {
+            Vector2 dir = enemy != null
+                ? ((Vector2)enemy.transform.position - (Vector2)cmd.transform.position)
+                : (Vector2)cmd.transform.up;
+            if (dir.sqrMagnitude < 1e-4f) dir = Vector2.up;
+            return Vector2.SignedAngle(Vector2.up, dir.normalized);
+        }
+
+        /// <summary>軍団長名（乗艦している軍団長＞艦長＞表示名）。通知の主語に使う。</summary>
+        private static string CommanderName(FleetStrength commander)
+        {
+            if (commander == null) return "軍団長";
+            if (commander.corpsCommander != null && !string.IsNullOrEmpty(commander.corpsCommander.admiralName))
+                return commander.corpsCommander.admiralName;
+            if (commander.admiralData != null && !string.IsNullOrEmpty(commander.admiralData.admiralName))
+                return commander.admiralData.admiralName;
+            return string.IsNullOrEmpty(commander.admiralName) ? "軍団長" : commander.admiralName;
+        }
+
+        /// <summary>軍団名（無ければ臨時軍団）。</summary>
+        private static string CorpsName(FleetStrength commander)
+            => (commander != null && !string.IsNullOrEmpty(commander.corpsName)) ? commander.corpsName : "臨時軍団";
 
         private static FleetStrength FindById(List<FleetStrength> list, int instanceId)
         {

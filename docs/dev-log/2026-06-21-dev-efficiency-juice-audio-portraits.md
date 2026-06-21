@@ -48,3 +48,10 @@ PR [#2638](https://github.com/yamamax55/ginei-game/pull/2638)（master マージ
   - 評価：同一10体で u2net vs isnet-anime vs RMBG-2.0 を比較し、髪・肩・装飾の抜けで決める。
 - Game層/Editor の C# 変更は **Unity を開いてコンパイル確認**（dotnet 非対象）→ 通れば AssetPostprocessor で透過Sprite化・`AdmiralData.portrait` へ割当可能。
 - 音声素材の投入（Kenney=SE／Pixabay・Musopen=BGM）。残り juice 移行（`FleetStrength.Flash` は多レンダラ＝据え置き中）。実提督への一括ポートレート割当。
+
+## 関連
+- [[portrait-pipeline]] — 提督ポートレート生成の全体像
+- [[comfyui-setup]] — ローカル生成環境の手順
+- [[audio-sourcing]] — 無料商用可の音声素材源
+- [[parallel-core-fanout]] — サブエージェント量産の動線
+- [[2026-06-20-blender-battleship-3d]] — 直前のローカルアセット生成

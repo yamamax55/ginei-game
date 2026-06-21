@@ -119,3 +119,10 @@ tags: [meeting]
 | 規律 | 終盤ラグ規律を死守。粒度低下の誘惑を却下 |
 | コミュニティ | 開発日誌を即開始。バックログを拡張ロードマップとして公開 |
 | 永続性 | mod対応・データ駆動を活かし、負けを面白く演出 |
+
+## 関連
+- [[koei-style-dev-meeting]] — 同じ山の別斜面の助言
+- [[meyasubako-proposal-redesign-design]] — 心臓＝目安箱の核
+- [[late-game-performance-design]] — 終盤ラグ規律の死守
+- [[emergent-campaign-design]] — 物語生成装置の設計
+- [[dev-blog]] — 開発日誌でコミュニティ育成

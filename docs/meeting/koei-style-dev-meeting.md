@@ -141,3 +141,10 @@ tags: [meeting]
 
 ## 次回
 - 三十分デモを全員で実プレイ。「もう一回やりたいか」だけを問う。
+
+## 関連
+- [[paradox-advice]] — 同じ助言を別斜面から
+- [[meyasubako-proposal-redesign-design]] — 核＝目安箱の稟議
+- [[game-introduction]] — 面白さの核の入口
+- [[late-game-performance-design]] — 面白くないリアルを捨てる
+- [[emergent-campaign-design]] — 数字を物語に変える

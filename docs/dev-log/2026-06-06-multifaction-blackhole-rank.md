@@ -50,3 +50,9 @@ tags: [dev-log]
 ## 運用メモ
 - 全変更を feature ブランチ→PR→squash マージで進行（master 直push は初回のみ）。
 - セッションを跨ぐとローカルが別ブランチに戻ることがあったため、ブランチ作成前に必ず `git checkout master && git pull` を徹底。
+
+## 関連
+- [[rank-command-capacity-design]] — 階級準拠の指揮統率
+- [[2026-06-08-naming-rank-protagonist-hud]] — 階級・主人公の続き
+- [[communist-faction-design]] — 多勢力イデオロギー設計
+- [[components-catalog]] — FactionData/FleetAI 等の詳細

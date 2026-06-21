@@ -129,3 +129,11 @@ tags: [meeting]
 
 ## 次回
 - デモ完走率の初期データを持ち寄り、ストアページの第一稿をレビュー。
+
+## 関連
+- [[game-introduction]] — ゲームの単一約束の素材
+- [[emergent-campaign-design]] — 創発する物語の生成基盤
+- [[meyasubako-proposal-redesign-design]] — 「目安箱」訴求の中身
+- [[vertical-slice-roadmap]] — 30分デモ（縦スライス）
+- [[paradox-advice]] — ナラティブ戦略の助言
+- [[koei-style-dev-meeting]] — 群像SLGの作法

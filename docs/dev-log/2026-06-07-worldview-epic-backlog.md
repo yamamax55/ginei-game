@@ -39,3 +39,10 @@ tags: [dev-log]
 
 ## 運用メモ
 - 設計は issue（EPIC＋子）に集約。実装着手時に各issueを参照して翻訳する。
+
+## 関連
+- [[reference-epic-backlog]] — 参考作品EPIC化の積み上げ
+- [[reference-epic-categories]] — 反面教師/人間賛歌の軸
+- [[reference-epic-pipeline]] — EPIC化の定型工程
+- [[worldbuilding-bible]] — 抽出した構造の世界観化
+- [[emergent-campaign-design]] — 物語進行への翻訳先

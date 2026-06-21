@@ -59,3 +59,11 @@ tags: [dev-log]
 ## ドキュメント
 - CLAUDE.md：観測層節（窓口 6→8・L/U/B）、`WindowChrome`/`UIWindowStack`/`StrategySystemMenu` のコンポーネント表、Esc 優先順位チェーンを反映。
 - `docs/design/late-game-performance-design.md` の規律（個体粒度へ降りない・暦境界 Tick・差分/収束/キャッシュ・N² を増やさない・シミュ LOD）を観測層シードと EMOV-5 で踏襲。
+
+## 関連
+- [[2026-06-11-observer-layer-cleanup]] — 直前の観測層整理
+- [[2026-06-10-time-fleet-notification]] — 戦略基盤の前段
+- [[late-game-performance-design]] — 観測解像度とシミュ規律
+- [[squadron-motion-quality-design]] — 配下艦の運動品質
+- [[corporate-workflow-strategy-ui-design]] — 戦略UI/ウィンドウの思想
+- [[gameci-setup]] — CI/可視化playtestの地ならし

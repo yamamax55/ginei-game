@@ -1,0 +1,2 @@
+# シェルスクリプトは常に LF（cloud Linux で CRLF だと bash が壊れる）
+*.sh text eol=lf

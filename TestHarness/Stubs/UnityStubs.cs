@@ -36,6 +36,9 @@ namespace UnityEngine
         public static T CreateInstance<T>() where T : ScriptableObject, new() => new T();
     }
 
+    // 画像参照のスタブ（純ロジックは中身を触らない＝コンパイルを通すための最小実装）。
+    public class Sprite : Object { }
+
     // ----- Debug -----
     public static class Debug
     {

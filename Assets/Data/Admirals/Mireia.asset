@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
   admiralName: "\u30DF\u30EC\u30A4\u30A2\u30FB\u30BB\u30EB\u30A6\u30A3\u30F3"
   faction: 1
+  sex: 1
   givenName: "\u30DF\u30EC\u30A4\u30A2"
   middleName: 
   familyName: "\u30BB\u30EB\u30A6\u30A3\u30F3"

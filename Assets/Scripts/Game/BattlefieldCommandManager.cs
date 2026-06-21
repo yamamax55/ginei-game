@@ -147,8 +147,9 @@ namespace Ginei
         /// 軍団長が陣形を主導し、隷下艦隊に「持ち場」（軍団長旗艦の位置）を与える（#持ち場）。
         /// 軍団全体の兵力と近傍の敵兵力から <see cref="FormationDoctrineRules"/> で推奨陣形を決め、軍団長が
         /// 各艦隊へ発令する（陣形変更は各艦隊の指揮スキルポイントを消費＝#陣形コスト）。隷下は陣形を自己判断せず
-        /// （corpsControlled）、軍団長旗艦から離れすぎない（hasCorpsAnchor）。プレイヤー指揮の艦隊は対象外（プレイヤーが主導）。
-        /// 軍団長（軍団旗艦）を喪失した軍団は拘束を解いて各自で戦う。
+        /// （corpsControlled）、軍団長旗艦から離れすぎない（hasCorpsAnchor）。<b>プレイヤー軍団も開始時は自動集結する</b>
+        /// （#軍団集結 設計：開始時は自動集結／命令で上書き）。ただし手動命令中（manualOverride）の艦はこの tick は触らず
+        /// プレイヤー命令を優先する（命令完了で AI＝集結へ復帰）。軍団長（軍団旗艦）を喪失した軍団は拘束を解いて各自で戦う。
         /// </summary>
         private static void ApplyCorpsFormationAndPost(string corpsKey, List<FleetStrength> corpsFleets)
         {
@@ -165,23 +166,15 @@ namespace Ginei
                 return;
             }
 
-            // プレイヤー指揮の軍団はプレイヤーが主導する（自動の陣形/持ち場を被せない）。
             FleetAI cmdAi = commander.GetComponent<FleetAI>();
-            if (cmdAi != null && cmdAi.playerCommanded)
-            {
-                for (int i = 0; i < corpsFleets.Count; i++) ReleaseFromCorps(corpsFleets[i]);
-                lastCorpsFormation.Remove(corpsKey);
-                return;
-            }
 
-            // AI 隷下（軍団長・プレイヤー指揮艦を除く）を集める。プレイヤー指揮艦は拘束を解く。
+            // 隷下（軍団長を除く）を集める。プレイヤー軍団も対象＝開始時は自動集結する（#軍団集結 設計：
+            // 開始時は自動集結／命令で上書き）。手動命令中（manualOverride）の艦は下のループ/保留判定で個別に除外する。
             var subs = new List<FleetStrength>();
             for (int i = 0; i < corpsFleets.Count; i++)
             {
                 FleetStrength f = corpsFleets[i];
                 if (f == null || f == commander) continue;
-                FleetAI ai = f.GetComponent<FleetAI>();
-                if (ai != null && ai.playerCommanded) { ReleaseFromCorps(f); continue; }
                 subs.Add(f);
             }
 
@@ -208,9 +201,10 @@ namespace Ginei
             for (int i = 0; i < slots.Count; i++) if (slots[i].commander) { commanderLocal = slots[i].localPos; break; }
             Vector2 anchor = commander.transform.position;
 
-            // 軍団長：陣形を発令し、隊を率いる（スロット拘束なし）。
+            // 軍団長：陣形を発令し、隊を率いる（スロット拘束なし）。手動命令中はプレイヤー優先で陣形を被せない。
+            bool cmdManual = cmdAi != null && cmdAi.ManualOverride;
             Squadron cSq = commander.GetComponent<Squadron>();
-            if (cSq != null) cSq.TryChangeFormation(rec);
+            if (cSq != null && !cmdManual) cSq.TryChangeFormation(rec);
             if (cmdAi != null) { cmdAi.corpsControlled = true; cmdAi.hasCorpsAnchor = false; cmdAi.hasCorpsSlot = false; }
 
             // 隷下：軍団長が陣形を発令し、軍団長基準のスロットへ就かせる（非接敵時はスロット集結・接敵時は持ち場内で交戦）。
@@ -221,6 +215,11 @@ namespace Ginei
             {
                 if (slots[i].commander) continue;
                 FleetStrength sub = subs[ci]; ci++;
+
+                // 手動命令中の隷下はプレイヤー優先＝この tick は陣形/スロットを被せず、隊形の整い判定からも除く。
+                FleetAI ai = sub.GetComponent<FleetAI>();
+                if (ai != null && ai.ManualOverride) continue;
+
                 Squadron sq = sub.GetComponent<Squadron>();
                 if (sq != null) sq.TryChangeFormation(rec); // 各艦隊の配下艦陣形（スキルポイント消費・#陣形コスト）
 
@@ -229,7 +228,6 @@ namespace Ginei
                 float errSqr = ((Vector2)sub.transform.position - slotWorld).sqrMagnitude;
                 if (errSqr > maxSlotErrorSqr) maxSlotErrorSqr = errSqr;
 
-                FleetAI ai = sub.GetComponent<FleetAI>();
                 if (ai == null) continue;
                 ai.corpsControlled = true;
                 ai.hasCorpsAnchor = true; ai.corpsAnchor = anchor;     // 持ち場（深追い抑制）
@@ -244,11 +242,18 @@ namespace Ginei
             // 軍団ごとまとまって前進・交戦する。隷下がいない（単艦隊）軍団は待たない（従来どおり前進）。
             if (cmdAi != null)
             {
-                float formTol = Mathf.Max(spacing * CorpsFormTolerance, CorpsFormMinTolerance);
-                bool formed = subs.Count == 0 || maxSlotErrorSqr <= formTol * formTol;
-                bool enemyNear = nearest != null
-                    && ((Vector2)nearest.transform.position - anchor).sqrMagnitude <= CorpsFormUpAbortRange * CorpsFormUpAbortRange;
-                cmdAi.corpsHold = subs.Count > 0 && !formed && !enemyNear;
+                if (cmdManual)
+                {
+                    cmdAi.corpsHold = false; // 手動命令中はプレイヤー優先（保留しない＝命令どおり動かす）
+                }
+                else
+                {
+                    float formTol = Mathf.Max(spacing * CorpsFormTolerance, CorpsFormMinTolerance);
+                    bool formed = subs.Count == 0 || maxSlotErrorSqr <= formTol * formTol;
+                    bool enemyNear = nearest != null
+                        && ((Vector2)nearest.transform.position - anchor).sqrMagnitude <= CorpsFormUpAbortRange * CorpsFormUpAbortRange;
+                    cmdAi.corpsHold = subs.Count > 0 && !formed && !enemyNear;
+                }
             }
 
             // 軍団長の陣形変更命令を通知（変化時のみ＝洪水回避・#軍団長の陣形変更命令）。会戦開始の初回も発火する。

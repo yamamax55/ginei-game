@@ -124,3 +124,10 @@ tags: [reference]
 `HUIZ-1 → HUIZ-2`（形骸化＋理想と現実の乖離＝中世の秋の signature・最も固有で欠落の大きい二本）→ `HUIZ-4`（威信ストック＝形骸化と浪費が食い潰す対象を先に立てる）→ `HUIZ-3`（顕示的浪費＝財政へ接続）→ `HUIZ-5`（終末気分）→ `HUIZ-6`（新様式の萌芽）→ `HUIZ-7`（lore）。
 
 > いずれも既存の衰退/正統性/財政/儀礼を**後退させず接続**する additive 設計。ZUO（機能する礼＝分裂期の秩序装置）の**対をなす極**として**形骸化した礼**を担い、`DynastyRules.腐敗`を**「数値の劣化」から“形式と機能の乖離”という質の劣化へ深める**のが最大の収穫。**衰退する銀河帝国＝まさに「銀河の秋」**という本作の題材そのものに、爛熟・形骸化・過去の遺産で延命という質感を与える。
+
+## 関連
+- [[pillars-of-the-earth-reference-design]] — 同じ中世末期の大事業と群像
+- [[canterbury-tales-reference-design]] — 中世末期の社会と理想の空洞化
+- [[collapse-diamond-reference-design]] — 文明の衰退と崩壊の動学
+- [[zuo-zhuan-reference-design]] — 機能する礼の威信（対をなす極）
+- [[king-lear-reference-design]] — 様式と権威の崩落

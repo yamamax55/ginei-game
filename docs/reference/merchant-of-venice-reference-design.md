@@ -122,3 +122,10 @@ tags: [reference]
 `VEN-1 → VEN-2`（契約＋裁判＝法のミドルレイヤーの核）→ `VEN-3`（文言と衡平＝裁判に遊びを入れる）→ `VEN-6`（執行信頼性→通商＝フェザーンに効く）→ `VEN-5 → VEN-4` → `VEN-7`。
 
 > いずれも既存（銀行/条約/資産/宗教/文化）を**後退させず接続**する additive 設計。**「私人間の約束を国家が執行する」ミドルレイヤー**が入ることで、法治→通商→繁栄（フェザーン#160）と、法の不平等→資本逃避・報復（#843/#194）の両面が制度として動き出す。文才（`CivilAptitude`）に**軍才と対になる見せ場（法廷）**を与えるのも収穫。
+
+## 関連
+- [[othello-reference-design]] — シェイクスピア・差別と猜疑
+- [[king-lear-reference-design]] — シェイクスピア・契約と裏切り
+- [[das-kapital-reference-design]] — 金融と利子の経済
+- [[behavioral-economics-reference-design]] — 契約と意思決定の非合理
+- [[waning-middle-ages-reference-design]] — 中世の金融と差別

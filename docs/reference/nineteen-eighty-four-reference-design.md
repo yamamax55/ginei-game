@@ -127,3 +127,9 @@ tags: [reference]
 `NTEF-1`（歴史改竄＝最も固有で欠落の大きい signature・`DisclosureRules` の鏡像）→ `NTEF-2`（二重思考＝改竄の帰結を住民認知へ落とし `CampaignState` へ接続・観測層追従）→ `NTEF-3`（監視の萎縮＝既存 `SecurityRules` 拡張で軽量）→ `NTEF-4`（恒久敵＝`WarGoalRules` 拡張で結束へ）→ `NTEF-5`（lore＝最後にデータ入力）。
 
 > いずれも既存の弾圧（`SecurityRules`）・開示（`DisclosureRules`）・希望（`HopeRules`）を**後退させず接続**する additive 設計。核は**「真実乖離度」という単一のマクロ軸**＝短期は極めて安定だが乖離が蓄積し崩壊が突発する（収奪モデル `ExtractiveDecay` の認知版）。マイクロ操作を増やさず、高位の決断→エンジン駆動→創発帰結に徹する。
+
+## 関連
+- [[the-crowd-lebon-reference-design]] — 群衆操作と監視の萎縮
+- [[das-kapital-reference-design]] — 統制と抽出の長期崩壊
+- [[what-is-history-reference-design]] — 記録の選別と歴史改竄
+- [[zizhi-tongjian-reference-design]] — 記録と統治の認識論

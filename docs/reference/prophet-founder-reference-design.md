@@ -113,3 +113,10 @@ tags: [reference]
 `PRPH-1 → PRPH-2`（カリスマの創出＋死による分裂＝signature・#812 と一対）→ `PRPH-3`（移住建国）→ `PRPH-4`（政教軍一体）→ 残り（PRPH-5/6）。
 
 > いずれも既存（宗教/カリスマ/継承/建国）を**後退させず接続**する additive 設計。**#812（カリスマの日常化＝死後の存続）の前段＝創始フェーズ**を埋め、コーラン #313（信仰の内容）に対する**創始者の人物軸**を足す。世襲でも実力でもない**第三の正統性＝啓示的カリスマ**と、**その非制度性ゆえに死が分裂を生む**という、一代の英雄が興した国の宿命を最大スケールで描けるのが収穫。
+
+## 関連
+- [[mongol-empire-reference-design]] — 一代の建国とカリスマ継承
+- [[crusades-arab-view-reference-design]] — 啓示宗教と聖戦の視座
+- [[sapiens-reference-design]] — 宗教という想像の共同体
+- [[foundation-asimov-reference-design]] — 預言と組織の長期存続
+- [[mediterranean-after-rome-reference-design]] — 宗教と帝国後の再編

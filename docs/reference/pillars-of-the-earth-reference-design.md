@@ -144,3 +144,10 @@ tags: [reference]
 `PIL-1 → PIL-2`（メガプロジェクト＝最も固有で欠落の大きい signature・背骨）→ `PIL-3`（技術は人に宿る＝群像×研究の接続）→ `PIL-6`（継承戦争＝既存カスケードの最大活用）→ `PIL-4 → PIL-5`（利権→都市成長＝内政の物語）→ `PIL-7 → PIL-8`（キャリア・lore）。
 
 > いずれも既存モジュールを**後退させず接続**する additive 設計。TIME（暦）・#163（財政）・#812（継承）・#817（関ヶ原）・FND-4（秘史）を**数十年スケールで一本に束ねる結節点**として効く。
+
+## 関連
+- [[mythical-man-month-reference-design]] — 大事業の工数法則・統括設計者
+- [[waning-middle-ages-reference-design]] — 同じ中世末期の文化と衰退
+- [[canterbury-tales-reference-design]] — 中世群像の社会階層
+- [[spice-and-wolf-reference-design]] — 大事業が育てる市場・交易
+- [[king-lear-reference-design]] — 継承戦争と内戦の旗幟

@@ -131,3 +131,9 @@ tags: [reference]
 `GGS-1`（賦存生成＝最も固有で欠落の大きい signature・盤面の不均等の出所）→ `GGS-2`（伝播の異方性＝拡散場の基盤）→ `GGS-3`（研究/文化を拡散場へ接続＝既存モジュールの活用）→ `GGS-6`（障壁＝GGS-2 の係数拡張で最小）→ `GGS-4`（疫病＝拡散場の負伝播応用）→ `GGS-5`（賦存→拡散の連鎖＝創発の結節）→ `GGS-7`（lore）。
 
 > いずれも既存（G-1 #118・`ResearchRules`・`CultureRules`・`ColonizationRules`・`GovernanceRules`・`LogisticsRules`）を**後退させず接続**する additive 設計。**盤面の不均等を地理から生成し、その不均等が伝播を方向づける**——を一本の拡散場で束ねる結節点。PIL-3（人スケール伝播）と直交し、創発キャンペーン #117（地理→政体）の入力になる。
+
+## 関連
+- [[collapse-diamond-reference-design]] — 同著者・環境と社会
+- [[sapiens-reference-design]] — 人類史の大局視座
+- [[modern-world-system-reference-design]] — 不均等な地理と経済
+- [[emergent-campaign-design]] — 地理を生成する創発銀河

@@ -130,3 +130,9 @@ public static class RecruitTrainingRules {
 ## 6. テスト（EditMode・`RecruitTrainingRulesTests`）
 
 募集（基準/動員で増減・訓練枠で上限）／脱落率（教官・厳選で↓・動員で↑）／修了者数（合成一致）／練度（最大/床/動員低下）／訓練所要（短縮＋下限）／軍の質の委譲一致／**質 vs 量**（厳選は少数精鋭・総力戦は頭数だが練度↓）を固定。`TestHarness`（dotnet）でも回帰。
+
+## 関連
+- [[nco-education-us-reference-design]] — 下士官団の育成エンジン
+- [[military-government-us-reference-design]] — 軍政と動員の統制
+- [[military-organization-design]] — 養成した兵の部隊編入
+- [[school-entry-age-design]] — 教育チェーンと選抜基準

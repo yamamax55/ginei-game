@@ -127,3 +127,11 @@ tags: [reference]
 `BEH-1 → BEH-2`（統一スタック＋プロスペクト＝基盤）→ `BEH-3 → BEH-4`（既存の確証/サンクコストを集約）→ `BEH-6`（群集＝市場と士気に効く）→ 残り（BEH-5/7/8）。
 
 > いずれも既存（係数/決断/市場/AI）を**後退させず接続**する additive 設計。**既存の非合理EPID群（OTH-3/SARA-6/PRL-3）の"総論"**として、あらゆる意思決定に「人間らしい愚かさ」を一元的に注入する横断基盤になる。バックログのカーネマン『ファスト&スロー』(二重過程)・ル・ボン『群衆心理』は本EPICの一部として吸収される。**名将でも判断を誤り、民衆は扇動され、同盟は雪崩を打つ**——銀英伝の非合理を、統一された一つのレイヤーで説明できるのが最大の収穫。
+
+## 関連
+- [[the-crowd-lebon-reference-design]] — 群集心理が本EPICに吸収
+- [[das-kapital-reference-design]] — 古典経済学の合理人前提を共に問う
+- [[drucker-management-reference-design]] — 意思決定論の対照軸
+- [[pearl-harbor-reference-design]] — 過信と近視眼の非合理
+- [[innovators-dilemma-reference-design]] — 合理的判断が招く失敗
+- [[late-game-performance-design]] — N²回避規律を係数一元化で共有

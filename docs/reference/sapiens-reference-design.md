@@ -130,3 +130,10 @@ tags: [reference]
 `SAPI-1`（共有虚構と協力規模＝最も固有で欠落の大きい signature・既存協力に上限と梃子）→ `SAPI-2`（想像上の秩序スタック＝制度横断の信認＝総論レイヤーの核・各制度を束ねる）→ `SAPI-3`（貨幣の信認＝SAWと相補）→ `SAPI-4`（信念の相転移＝崩壊の統一）→ `SAPI-5`（物語の生産＝高位レバー）→ 残り（SAPI-6 不可逆な進歩／SAPI-7 lore）。
 
 > いずれも既存（宗教/正統性/貨幣/協力/組織/開示）を**後退させず横断接続**する additive 設計。SAPI の収穫は、点在する制度ロジックを貫く**「共有された虚構＝大規模協力の共通基盤」という総論レイヤー**を一本入れること——`CombatModifiers`#106 が戦闘係数を、`CampaignState` が社会シミュを束ねたのと同型の、**信念の統合層**。武力でなく**共有された物語で銀河を束ねる**という王道路線の理論的背骨になる。
+
+## 関連
+- [[guns-germs-steel-reference-design]] — 文明の大規模力学
+- [[the-crowd-lebon-reference-design]] — 共有信念と群衆心理
+- [[behavioral-economics-reference-design]] — 貨幣信認と非合理
+- [[modern-world-system-reference-design]] — マクロ社会の構造レイヤー
+- [[chi-reference-design]] — 無形物の世代継承

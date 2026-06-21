@@ -123,3 +123,9 @@ tags: [reference]
 `CRWD-1`（群衆化の相転移＝全ての土台・他が乗る創発主体）→ `CRWD-2`（断言/反復/感染＝群衆を動かす時間動学）→ `CRWD-3`（威光＝指導者の磁力。CRWD-1/2 の効果に乗る）→ `CRWD-4`（恐慌の空間カスケード＝会戦への即効・最も体感が強い）→ `CRWD-5`（易変・一斉反転＝CRWD-1〜4 の上に乗る挙動）→ `CRWD-6`（lore・最後・コード不要）。
 
 > いずれも既存の士気/社会シミュを**後退させず接続**する additive 設計。CRWD-1〜3/5 は純ロジックを TestHarness/EditMode で先に固定し盤面配線は後段（純ロジックのまま後方互換）、CRWD-4 は会戦の `FleetMorale` へ実効値パターンで反映（基準非破壊）。新 state を盤面へ接続する子は完了条件に**観測層追従**（`CoreStateInspector` 用語集＋必要なら `Register`）を含める。
+
+## 関連
+- [[behavioral-economics-reference-design]] — 模倣の雪崩と個人バイアス
+- [[nineteen-eighty-four-reference-design]] — 監視と大衆統制
+- [[sarajevo-reference-design]] — 群衆と恐慌の連鎖反応
+- [[king-lear-reference-design]] — 指導者の威光と非連続崩壊

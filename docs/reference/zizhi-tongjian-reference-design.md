@@ -127,3 +127,11 @@ tags: [reference]
 `ZTGJ-1 → ZTGJ-2`（成敗の事例台帳＋先例の引き当て＝鑑の学習ループの核・最も固有で欠落が大きい signature）→ `ZTGJ-3`（納諫の度量＝MEYASU/LEAR の届いた後の受容度）→ `ZTGJ-4`（才徳の鑑識＝用人のジレンマ）→ `ZTGJ-5`（編年史索引＝引き当ての高速化・PERF）→ 残り（ZTGJ-6/7＝教訓の正義観・lore）。
 
 > いずれも既存（決裁デスク/イベント/人物/開示/正統性）を**後退させず接続**する additive 設計。`DecisionQueue`（決裁デスク）の隣に**「先例を引き当てて決断に添え、結果を成敗の教訓として蓄積し次の助言へ回す」鑑の学習ループ**が入り、**「決断は孤立せず歴史に学ぶ」**という資治通鑑的世界が動く。HRDT（記録の認識論＝真実は視点で割れる）の隣に ZTGJ（記録の活用＝割れる記録から教訓を引き決断に効かせる）が並び、**記録↔活用**で住み分ける。納諫の度量と才徳の鑑識が君臣関係に「容れる度量」と「用人の罠」を与えるのが最大の収穫。
+
+## 関連
+- [[zuo-zhuan-reference-design]] — 編年史と君臣の成敗
+- [[what-is-history-reference-design]] — 記録の選別と歴史叙述
+- [[herodotus-histories-reference-design]] — 事例の問い合わせ可能な台帳
+- [[thucydides-history-reference-design]] — 成敗の教訓と分析史
+- [[event-decision-triage-design]] — 決裁デスクへの先例添付
+- [[drucker-management-reference-design]] — 成果による組織の学習

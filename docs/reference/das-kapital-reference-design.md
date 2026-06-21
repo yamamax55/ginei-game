@@ -129,3 +129,10 @@ tags: [reference]
 `CAPI-1`（剰余価値＝富の起点を内生化＝全ての上流）→ `CAPI-2`（利潤率低下→恐慌の周期＝着眼点①の核）→ `CAPI-3`（集積/集中＝着眼点②、恐慌と連動）→ `CAPI-4`（産業予備軍＝賃金規律）→ `CAPI-5`（階級の生成＝着眼点③、#17/#110 の背骨）→ `CAPI-6`（本源的蓄積＝起点接続）→ `CAPI-7`（lore）。
 
 > いずれも既存マクロ経済・階級ロジックを**後退させず接続**する additive 設計。**搾取率→利潤率低下→恐慌→集中→予備軍→階級意識→革命**という一本の運動法則で、#17 共産勢力と #110 Pop階級に「なぜ生まれ革命に向かうか」の理論的背骨を与える。
+
+## 関連
+- [[behavioral-economics-reference-design]] — 経済思想・人間の非合理
+- [[communist-faction-design]] — 共産勢力・階級と革命
+- [[modern-world-system-reference-design]] — 資本と中心周縁の搾取
+- [[drucker-management-reference-design]] — 資本と組織経営の対比
+- [[merchant-of-venice-reference-design]] — 利子と金融の倫理

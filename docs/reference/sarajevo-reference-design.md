@@ -116,3 +116,9 @@ tags: [reference]
 `SARA-1 → SARA-2`（点火＋連鎖＝カスケードの核）→ `SARA-3`（最後通牒）→ `SARA-4`（動員圧力）→ `SARA-5`（危機管理）→ `SARA-6`。
 
 > いずれも既存（外交/同盟/戦争）を**後退させず接続**する additive 設計。SGZ-1/ZUO-2/DIP が描く**秩序の維持**に対し、SARA は**その秩序が一撃で雪崩を打つ崩壊**を足す＝危機管理の失敗。バックログ『八月の砲声』（動員の自動性）の**引き金側**を担い、両者で七月危機の全体が動く。**「封じ込められたはずの小さな火種を見逃すと、構造が勝手に大戦を起こす」**——プレイヤーが望まなくても戦争が起きうる緊張が、戦略レイヤーに入るのが最大の収穫。
+
+## 関連
+- [[pearl-harbor-reference-design]] — 開戦の対類型（意図的先制）
+- [[thucydides-history-reference-design]] — 同盟連鎖と開戦の構造
+- [[zuo-zhuan-reference-design]] — 会盟・名分と多国間秩序
+- [[herodotus-histories-reference-design]] — 大戦に至る危機の叙述

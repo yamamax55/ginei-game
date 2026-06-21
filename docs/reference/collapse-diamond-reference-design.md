@@ -136,3 +136,9 @@ tags: [reference]
 `CLPS-1`（環境ストック＝最も固有で欠落の大きい signature・全ての土台）→ `CLPS-2`（収容力＝人口連結）→ `CLPS-3`（崩壊合流＝既存の崩壊判定へ外因経路）→ `CLPS-4`（自制レバー＝勝ち筋を入れて初めて意味を持つ）→ `CLPS-5`（エリート隔離＝なぜ自制しないか）→ `CLPS-6`（5因子診断＝複合の可視化）→ `CLPS-7`（lore＋孤立接続＝コード新設なし）。
 
 > いずれも既存の社会・政治・兵站ロジックを**後退させず接続**する additive 設計。`Province`#109（惑星内政）と `FactionStateRules`（勢力崩壊）の間に**環境という外因層**を1枚敷き、崩壊を「人間内因の単因」から「環境×社会の複合」へ深める。**自制という我慢の勝ち筋**を入れることで、収奪一辺倒でない戦略の幅を生む。
+
+## 関連
+- [[guns-germs-steel-reference-design]] — 同著者・環境決定論
+- [[sapiens-reference-design]] — 文明と環境の長期視座
+- [[modern-world-system-reference-design]] — 体制崩壊の経済構造
+- [[late-game-performance-design]] — 集約で崩壊を創発させる規律

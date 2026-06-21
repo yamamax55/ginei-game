@@ -120,3 +120,10 @@ tags: [reference]
 `LEAR-1 → LEAR-2`（生前退位＋権威侵食＝signature）→ `LEAR-3`（逆選択＝MKV の前段）→ `LEAR-5`（戦後分裂＝外交に効く）→ `LEAR-4` → 残り（LEAR-6/7）。
 
 > いずれも既存（継承/権力/佞臣/同盟）の**時間軸の空白＝「生前・試験・戦後」**を埋める additive 設計。**「権力の渡し方を間違えると、生きているうちに国が壊れる」**——皇帝の老い（加齢#151/#152 は配線済み）が「いつ・どう渡すか」という戦略的決断になるのが最大の収穫。
+
+## 関連
+- [[othello-reference-design]] — 讒言と忠誠の逆選択
+- [[merchant-of-venice-reference-design]] — 法廷劇と債務の群像
+- [[canterbury-tales-reference-design]] — 階層をまたぐ群像劇
+- [[zuo-zhuan-reference-design]] — 権威の空洞化と下剋上
+- [[regime-evolution-test-and-gaps]] — 継承と政体の移行

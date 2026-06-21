@@ -131,3 +131,10 @@ tags: [reference]
 `SAW-1 → SAW-2`（通貨改鋳＝最も固有で欠落の大きい signature）→ `SAW-3`（情報の非対称＝諜報に経済価値）→ `SAW-4 → SAW-5`（裁定→コーナリング＝市場動学）→ `SAW-7`（信仰×経済）→ 残り（SAW-6/8/9）。
 
 > いずれも既存マクロ経済を**後退させず接続**する additive 設計。フェザーン#160（商社国家）に最も効く。
+
+## 関連
+- [[merchant-of-venice-reference-design]] — 商人・信用・為替手形の人間スケール
+- [[das-kapital-reference-design]] — 通貨と価値の経済思想
+- [[behavioral-economics-reference-design]] — 情報非対称と相場の非合理
+- [[chemical-scm-reference-design]] — 交易・調達・物流の系譜
+- [[pillars-of-the-earth-reference-design]] — 大事業が育てる市場の成立

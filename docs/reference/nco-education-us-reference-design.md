@@ -133,3 +133,10 @@ public static class NcoEducationRules {
 ## 6. テスト（EditMode・`NcoEducationRulesTests`）
 
 STEP（教育が昇進の前提）／PME 選抜（上ほど狭き門・枠と候補で律速）／下士官団の質（ラダー到達で上昇）／厚み（理想比正規化）／背骨倍率（厚み×質の両立が必要・下士官枯渇は倍率1.0）／自律（厚く質高い時のみ）／**損耗の質**（ベテランほど経験喪失大・現在質で頭打ち）／希薄化／再建年数を固定。`TestHarness`（dotnet）でも回帰。
+
+## 関連
+- [[recruit-training-us-reference-design]] — 米軍・兵の養成（別系統）
+- [[military-government-us-reference-design]] — 米軍制度の参考系
+- [[military-organization-design]] — 軍の階層と編制
+- [[sword-honor-meritocracy-design]] — 軍の階級と実力主義
+- [[mahan-sea-power-reference-design]] — 軍事ドクトリンと組織

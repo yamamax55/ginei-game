@@ -115,3 +115,8 @@ tags: [reference]
 `VOY-1 → VOY-2`（漸進解読＋競合仮説＝不確実開示の核）→ `VOY-3`（誤読の罠＝signature）→ `VOY-4`（来歴・真贋）→ 残り（VOY-5/6）。
 
 > いずれも既存（開示/研究/諜報）を**後退させず接続**する additive 設計。`DisclosureLedger` の確定開示の隣に**「不確実・競合・誤読しうる解読」**を置くことで、秘史#450・世界観EPICが**「真実は調べれば出る」から「真実は不確かで解釈は争い解なしもありうる」**という認識論的に豊かなものになる。**ホーガン『星を継ぐもの』（科学的推理で秘史を解く）の影**＝謎→仮説→検証→（時に誤読）→開示の連鎖が、世界観の背骨として動き出すのが最大の収穫。
+
+## 関連
+- [[foundation-asimov-reference-design]] — 秘史・知の開示
+- [[herodotus-histories-reference-design]] — 来歴と真贋の探究
+- [[what-is-history-reference-design]] — 歴史認識の不確実性

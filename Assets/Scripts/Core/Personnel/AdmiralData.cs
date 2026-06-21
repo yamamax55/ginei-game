@@ -51,6 +51,17 @@ namespace Ginei
                  "既定 false＝従来どおり（後方互換）。判定は ProtagonistRules を参照すること")]
         public bool isProtagonist = false;
 
+        [Header("ポートレート（③アート一貫性・任意）")]
+        [Tooltip("提督の肖像スプライト（任意）。未割当なら HUD 等は名前表示にフォールバック。" +
+                 "生成プロンプトは PortraitPromptRules（docs/portrait-pipeline.md）。")]
+        public Sprite portrait;
+
+        [Tooltip("肖像生成の追加外見ヒント（英語可）。髪型/性別/年齢/特徴など。空でも能力・アーキタイプから生成される。")]
+        public string appearanceNote = "";
+
+        [Tooltip("肖像生成の固定シード（>0で固定＝再生成しても同一人物。0＝名前から決定論的に導出）。")]
+        public int portraitSeed = 0;
+
         [Header("階級（#14・任意）")]
         [Tooltip("階級の序列 tier（所属勢力の階級表 FactionData.ranks から名称を解決）。" +
                  "0＝未設定＝HUDに階級を出さない（後方互換）。欠番tierは直近tierへ丸め（RankSystem.ResolveRankName）。" +

@@ -6,7 +6,7 @@ tags: [design]
 # 目安箱＝越階の諫言回路 — 提案システム再設計（EPIC #MEYASU）
 
 > 戦略レイヤーの意思決定操作（提案システム）を、**「プレイヤー＝目安箱という越階の諫言回路」**へ再設計する。
-> 既存の社内ワークフロー設計 [`corporate-workflow-strategy-ui-design.md`](corporate-workflow-strategy-ui-design.md)（WF-1〜5）の **大型アップグレード**。WF の状態機械（`WorkflowRules`/`Proposal`）を**作り直さず、その上に**「プレイヤーの立ち位置の確定」「LLMによる稟議生成・決裁」「個人ごとの信認」「建白の伝播」を足す。
+> 既存の社内ワークフロー設計 [[corporate-workflow-strategy-ui-design]]（WF-1〜5）の **大型アップグレード**。WF の状態機械（`WorkflowRules`/`Proposal`）を**作り直さず、その上に**「プレイヤーの立ち位置の確定」「LLMによる稟議生成・決裁」「個人ごとの信認」「建白の伝播」を足す。
 > 状態：設計メモ（実装未着手）。数値・創作裁定は【要・作者判断】。
 
 ---
@@ -236,7 +236,7 @@ WF の「ワークトレイ（受信箱）／起案フォーム／決裁画面�
 ---
 
 ## 9. 接続する既存システム（再掲・並行新設しない）
-- 母体ワークフロー：`WorkflowRules`/`Proposal`/効果レジストリ（[`corporate-workflow-strategy-ui-design.md`](corporate-workflow-strategy-ui-design.md)・WF-1〜5）
+- 母体ワークフロー：`WorkflowRules`/`Proposal`/効果レジストリ（[[corporate-workflow-strategy-ui-design]]・WF-1〜5）
 - 提案権限・役職・省庁・閥：`OfficeRules`/`GovernmentRegistry`（#142/#144）・`MinistryRules`（#158）・`CareerPipelineRules.CliqueBond`
 - 借り物の権威・正統性・天命：`ConsentRules`/`Polity`（#836）・`Regime`/`DynastyRules`（#867）
 - 文民統制・政体差：`CivilianControlRules`（#145）・`ConstitutionRules`/`MagnaCartaRules`・`PartyRules`（#159）

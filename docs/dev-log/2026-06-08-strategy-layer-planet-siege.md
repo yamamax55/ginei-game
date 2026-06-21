@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発日記 2026-06-08
 
 > 旧 GitHub Issue #774（documentation）から dev-log へ移設（2026-06-21）。タスクではなく作業ログ。

@@ -1,3 +1,8 @@
+---
+type: index
+tags: [index]
+---
+
 # docs/ — 設計ドキュメント目次
 
 > 本作（銀英伝“風”オリジナルの戦術艦隊戦→戦略/政治レイヤー拡張）の設計書を一覧する。
@@ -9,55 +14,55 @@
 
 | フォルダ | 内容 | 索引 |
 |---|---|---|
-| `design/` | ゲーム設計（各機能の設計書） | [_index](design/_index.md) |
-| `reference/` | 参考作品分析（`*-reference-design`） | [_index](reference/_index.md) |
-| `planning/` | 計画・ロードマップ・EPICパイプライン | [_index](planning/_index.md) |
-| `audit/` | 監査・現状分析・ギャップ | [_index](audit/_index.md) |
-| `ops/` | 開発運用・CI・パイプライン | [_index](ops/_index.md) |
-| `catalog/` | カタログ・索引（components/core-modules） | [_index](catalog/_index.md) |
-| `meeting/` | 会議・覚書 | [_index](meeting/_index.md) |
-| `lore/` | 世界観Vault（物語・人物・設定『星骸の諸侯』） | [README](lore/README.md) |
+| `design/` | ゲーム設計（各機能の設計書） | [[design/_index]] |
+| `reference/` | 参考作品分析（`*-reference-design`） | [[reference/_index]] |
+| `planning/` | 計画・ロードマップ・EPICパイプライン | [[planning/_index]] |
+| `audit/` | 監査・現状分析・ギャップ | [[audit/_index]] |
+| `ops/` | 開発運用・CI・パイプライン | [[ops/_index]] |
+| `catalog/` | カタログ・索引（components/core-modules） | [[catalog/_index]] |
+| `meeting/` | 会議・覚書 | [[meeting/_index]] |
+| `lore/` | 世界観Vault（物語・人物・設定『星骸の諸侯』） | [[lore/README]] |
 | `dev-log/` | 日次の開発ログ | — |
 
 ## 設計書一覧
 
 | ドキュメント | 概要 | 対応Issue | 状態 |
 |---|---|---|---|
-| [`worldbuilding-bible.md`](design/worldbuilding-bible.md) | 世界観バイブル（数百年後設定／4勢力／命名／年表／未発見宙域／階級ラダー） | #15 | PR #89 |
-| [`phase-c-strategy.md`](planning/phase-c-strategy.md) | Phase C 戦略レイヤー **上位方針**（シームレス戦略↔戦術・銀河グラフ・回廊戦闘） | EPIC #33 | master 済 |
-| [`phase-c-core-design.md`](planning/phase-c-core-design.md) | Phase C **コア実装設計**（C-1 グラフ＋時間制ワープ／C-2 ズーム切替／C-3 有界回廊戦闘） | #34 #35 #36 | PR #97 |
-| [`phase-c-late-design.md`](planning/phase-c-late-design.md) | Phase C **後半設計**（C-4 リアルタイム並行・複数戦線／C-7 要塞／C-8 自動解決） | #37〜#41 | PR #103 |
-| [`wartime-logistics-design.md`](design/wartime-logistics-design.md) | **戦時兵站**（L-1 資源／L-2 補給線／L-3 通商破壊／L-4 人口・徴募）＋**ZOC定義** | EPIC #92・#93〜#96・ZOC #100 | PR #98 |
-| [`communist-faction-design.md`](design/communist-faction-design.md) | **共産勢力の非対称設計**（物量／政治将校／不退転＋内部対立。エンジン非フォーク） | #17 | PR #99 |
-| [`politics-prototype-design.md`](design/politics-prototype-design.md) | **政治プロト：階級と提案**（青=可決可能/赤=不相応・戦果→merit→昇進） | EPIC #14 | PR #101 |
-| [`emergent-campaign-design.md`](design/emergent-campaign-design.md) | **創発キャンペーン**（モード併存・地理/歴史/地政学から政体創発・1惑星/フォグ・チョーク保証） | EPIC #117・#118〜#121／内政 #109 | PR #122 |
-| [`planetary-battle-design.md`](design/planetary-battle-design.md) | **惑星の戦い**（回廊突破→惑星領域→侵略値で占領・軌道防衛=アルテミスの首飾り・航行不能領域） | EPIC #131・#132〜#135 | PR #136 |
-| [`fleet-organization-design.md`](design/fleet-organization-design.md) | **艦隊編制基盤**（艦隊番号=第13艦隊・提督配属・永久欠番／軍団→軍集団梯団・直轄部隊集中投資・任務戦術） | EPIC #148・#146/#147／政府 #141 | PR 新規 |
-| [`corporate-workflow-strategy-ui-design.md`](design/corporate-workflow-strategy-ui-design.md) | **社内ワークフロー風 戦略UI**（稟議＝起案→合議→決裁→執行→通知。UITK第一・埋め込みブラウザは最後の手段。政体で稟議が変わる） | EPIC #14・#142/#144/#145/#158/#116 | 設計メモ |
-| [`social-venue-design.md`](design/social-venue-design.md) | **社交場 深堀り**（場の類型×関係グラフ×席次/噂/調略/縁談＝政治・群像ロジックが発火する「物理的な場」。TALE-1 #1083 の実装深化） | EPIC #1145・SLN-1〜9（#1146〜#1154） | 設計メモ |
-| [`dialogue-adventure-design.md`](design/dialogue-adventure-design.md) | **社交場の対話アドベンチャー**（プレイヤー出席時のみADV化＝タイクン回避・会話ノードグラフ・効果は既存窓口のみ。SLN #1145 の操作面） | EPIC #1156・DLG-1〜8（#1157〜#1164） | 設計メモ |
-| [`roadmap.md`](planning/roadmap.md) | **ロードマップ**（現Issueベースの実装計画・依存・推奨スプリント） | — | PR #105 |
+| [[worldbuilding-bible]] | 世界観バイブル（数百年後設定／4勢力／命名／年表／未発見宙域／階級ラダー） | #15 | PR #89 |
+| [[phase-c-strategy]] | Phase C 戦略レイヤー **上位方針**（シームレス戦略↔戦術・銀河グラフ・回廊戦闘） | EPIC #33 | master 済 |
+| [[phase-c-core-design]] | Phase C **コア実装設計**（C-1 グラフ＋時間制ワープ／C-2 ズーム切替／C-3 有界回廊戦闘） | #34 #35 #36 | PR #97 |
+| [[phase-c-late-design]] | Phase C **後半設計**（C-4 リアルタイム並行・複数戦線／C-7 要塞／C-8 自動解決） | #37〜#41 | PR #103 |
+| [[wartime-logistics-design]] | **戦時兵站**（L-1 資源／L-2 補給線／L-3 通商破壊／L-4 人口・徴募）＋**ZOC定義** | EPIC #92・#93〜#96・ZOC #100 | PR #98 |
+| [[communist-faction-design]] | **共産勢力の非対称設計**（物量／政治将校／不退転＋内部対立。エンジン非フォーク） | #17 | PR #99 |
+| [[politics-prototype-design]] | **政治プロト：階級と提案**（青=可決可能/赤=不相応・戦果→merit→昇進） | EPIC #14 | PR #101 |
+| [[emergent-campaign-design]] | **創発キャンペーン**（モード併存・地理/歴史/地政学から政体創発・1惑星/フォグ・チョーク保証） | EPIC #117・#118〜#121／内政 #109 | PR #122 |
+| [[planetary-battle-design]] | **惑星の戦い**（回廊突破→惑星領域→侵略値で占領・軌道防衛=アルテミスの首飾り・航行不能領域） | EPIC #131・#132〜#135 | PR #136 |
+| [[fleet-organization-design]] | **艦隊編制基盤**（艦隊番号=第13艦隊・提督配属・永久欠番／軍団→軍集団梯団・直轄部隊集中投資・任務戦術） | EPIC #148・#146/#147／政府 #141 | PR 新規 |
+| [[corporate-workflow-strategy-ui-design]] | **社内ワークフロー風 戦略UI**（稟議＝起案→合議→決裁→執行→通知。UITK第一・埋め込みブラウザは最後の手段。政体で稟議が変わる） | EPIC #14・#142/#144/#145/#158/#116 | 設計メモ |
+| [[social-venue-design]] | **社交場 深堀り**（場の類型×関係グラフ×席次/噂/調略/縁談＝政治・群像ロジックが発火する「物理的な場」。TALE-1 #1083 の実装深化） | EPIC #1145・SLN-1〜9（#1146〜#1154） | 設計メモ |
+| [[dialogue-adventure-design]] | **社交場の対話アドベンチャー**（プレイヤー出席時のみADV化＝タイクン回避・会話ノードグラフ・効果は既存窓口のみ。SLN #1145 の操作面） | EPIC #1156・DLG-1〜8（#1157〜#1164） | 設計メモ |
+| [[roadmap]] | **ロードマップ**（現Issueベースの実装計画・依存・推奨スプリント） | — | PR #105 |
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。
 
 ## 参考EPIC（世界観のイシュー化・連続パイプライン）
-- [`reference-epic-pipeline.md`](planning/reference-epic-pipeline.md) — **標準手順**（調査→欠落軸分析→設計書→EPIC＋子issue起票→roadmap追記→コミットの7ステップ）。スキル `/worldview-epic` で実行。
-- [`reference-epic-backlog.md`](planning/reference-epic-backlog.md) — 候補キュー（思いついたら1行追記、`/worldview-epic 次` が上から処理）。
-- 出荷実例：[`almagest-reference-design.md`](reference/almagest-reference-design.md)（EPIC #1054・ALM-1〜16）／[`spice-and-wolf-reference-design.md`](reference/spice-and-wolf-reference-design.md)（EPIC #1071・SAW-1〜9）。
+- [[reference-epic-pipeline]] — **標準手順**（調査→欠落軸分析→設計書→EPIC＋子issue起票→roadmap追記→コミットの7ステップ）。スキル `/worldview-epic` で実行。
+- [[reference-epic-backlog]] — 候補キュー（思いついたら1行追記、`/worldview-epic 次` が上から処理）。
+- 出荷実例：[[almagest-reference-design]]（EPIC #1054・ALM-1〜16）／[[spice-and-wolf-reference-design]]（EPIC #1071・SAW-1〜9）。
 
 ## 自動化（留守中でも実装が前進する）
-- [`auto-implement-workflow.md`](ops/auto-implement-workflow.md) — **自動実装ワークフロー**（`agent-ready` ラベルの issue を拾い→実装→TestHarness検証→draft PR）。`worldview-epic`（設計＋issue化）の実装版。安全装置・向き不向き・調整ポイントを記載。
-- [`playtest-harness.md`](ops/playtest-harness.md) — **自動プレイテストharness**（AI対AIで会戦を速回し→不変条件で所見＝バグ/改善点を機械判定→JSONレポート）。Core判定(`PlaytestInvariants`)＋Game殻(`PlaytestRunner`)。GameCI(headless Unity)で無人実行する土台。
-- [`gameci-setup.md`](ops/gameci-setup.md) — **GameCI セットアップ**（headless Unity を GitHub Actions で動かす）。ローカルの `Unity_lic.ulf` を `UNITY_LICENSE` Secret に貼る現行手順＋`unity-test` ワークフロー。Game層のコンパイル＋Unityテストを無人検証する。
-- [`unity-build-automation.md`](ops/unity-build-automation.md) — **Unity Build Automation 調査**（GameCIの**ライセンス不要**な代替）。`.ulf` が取れない間でも実Unityで EditMode/PlayMode テストを回せる。ダッシュボード設定＋GameCIとのトレードオフ。
+- [[auto-implement-workflow]] — **自動実装ワークフロー**（`agent-ready` ラベルの issue を拾い→実装→TestHarness検証→draft PR）。`worldview-epic`（設計＋issue化）の実装版。安全装置・向き不向き・調整ポイントを記載。
+- [[playtest-harness]] — **自動プレイテストharness**（AI対AIで会戦を速回し→不変条件で所見＝バグ/改善点を機械判定→JSONレポート）。Core判定(`PlaytestInvariants`)＋Game殻(`PlaytestRunner`)。GameCI(headless Unity)で無人実行する土台。
+- [[gameci-setup]] — **GameCI セットアップ**（headless Unity を GitHub Actions で動かす）。ローカルの `Unity_lic.ulf` を `UNITY_LICENSE` Secret に貼る現行手順＋`unity-test` ワークフロー。Game層のコンパイル＋Unityテストを無人検証する。
+- [[unity-build-automation]] — **Unity Build Automation 調査**（GameCIの**ライセンス不要**な代替）。`.ulf` が取れない間でも実Unityで EditMode/PlayMode テストを回せる。ダッシュボード設定＋GameCIとのトレードオフ。
 
 ## 制作ガイド（アート/アセット）
-- [`blender-to-unity-3d-pipeline.md`](ops/blender-to-unity-3d-pipeline.md) — **Blender→Unity 3Dモデル制作・活用ガイド**（艦船モデルの設計／FBX・glTF書き出し／URPマテリアル／アニメ＝噴射VFX・砲塔スクリプト・ボーン／**ゲーム画面に重ねるムービー**＝透過コーデック・WebM vs パックアルファ・`timeScale=0`での負荷干渉回避）。実例：`Assets/Art/Ships/Battleship3D.blend`（PR #2594）。
+- [[blender-to-unity-3d-pipeline]] — **Blender→Unity 3Dモデル制作・活用ガイド**（艦船モデルの設計／FBX・glTF書き出し／URPマテリアル／アニメ＝噴射VFX・砲塔スクリプト・ボーン／**ゲーム画面に重ねるムービー**＝透過コーデック・WebM vs パックアルファ・`timeScale=0`での負荷干渉回避）。実例：`Assets/Art/Ships/Battleship3D.blend`（PR #2594）。
 
 ## 開発ログ（dev-log/）
-- [`2026-06-08-beam-visual-audio.md`](./dev-log/2026-06-08-beam-visual-audio.md) — ビーム演出・音の一元化（`BeamFx`）。
-- [`2026-06-10-time-fleet-notification.md`](./dev-log/2026-06-10-time-fleet-notification.md) — **統一時間 TIME-1〜7（#946/#959）／艦隊編成プール（#148/#884）／通知システム（#964）** を配線。詳細は `CLAUDE.md` の「時間・暦・通知システム」「艦隊編成プール」節。
-- [`2026-06-20-blender-battleship-3d.md`](./dev-log/2026-06-20-blender-battleship-3d.md) — **Blender MCPで戦艦を3D化**（流線型化・高さ3倍・噴射パーティクル／約600パーツ）。成果は PR #2594（`Battleship3D.blend`）＋ PR #2595（`blender-to-unity-3d-pipeline.md`）。Blender→Unityの落とし穴（パーティクル/手続き材質は持ち出せない・重ねムービーの透過）を整理。
+- [[2026-06-08-beam-visual-audio]] — ビーム演出・音の一元化（`BeamFx`）。
+- [[2026-06-10-time-fleet-notification]] — **統一時間 TIME-1〜7（#946/#959）／艦隊編成プール（#148/#884）／通知システム（#964）** を配線。詳細は `CLAUDE.md` の「時間・暦・通知システム」「艦隊編成プール」節。
+- [[2026-06-20-blender-battleship-3d]] — **Blender MCPで戦艦を3D化**（流線型化・高さ3倍・噴射パーティクル／約600パーツ）。成果は PR #2594（`Battleship3D.blend`）＋ PR #2595（`blender-to-unity-3d-pipeline.md`）。Blender→Unityの落とし穴（パーティクル/手続き材質は持ち出せない・重ねムービーの透過）を整理。
 
 ## 推奨の読む順
 1. **世界観**：`worldbuilding-bible.md`（勢力・命名・年表の前提）

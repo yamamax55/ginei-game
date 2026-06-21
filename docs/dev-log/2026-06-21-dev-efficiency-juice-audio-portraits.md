@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 2026-06-21 開発効率化基盤＋手触り/音声/提督ポートレート（ローカル生成）
 
 PR [#2638](https://github.com/yamamax55/ginei-game/pull/2638)（master マージ済み・merge `0f4d559b`）。TestHarness 全8801緑。

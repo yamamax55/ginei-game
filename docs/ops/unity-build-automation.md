@@ -6,7 +6,7 @@ tags: [ops]
 # Unity Build Automation（UBA）調査 — ライセンス不要で実Unityテストを回す
 
 > 背景：GameCI は Personal の `.ulf` が要るが、Unity が Personal の手動アクティベーションを廃止し、
-> `.ulf` は「サインイン済みマシン」からしか取れない（[gameci-setup.md](gameci-setup.md) 参照）。
+> `.ulf` は「サインイン済みマシン」からしか取れない（[[gameci-setup]] 参照）。
 > ローカル Unity マシンに触れない間の代替として **Unity Cloud の Build Automation（UBA）** を調査した。
 
 ## 結論：UBA は使える（ライセンス不要）
@@ -45,7 +45,7 @@ tags: [ops]
 UBA でも GameCI でも「AI対AIで会戦を回してバグ/改善点を検査」が回る（PlayMode 用 asmdef が要る）。これは GameCI へ移っても無駄にならない。
 
 ### フェーズ3以降
-スクショ＋ビジョン（視覚バグ/UX）→ 改善点を `agent-ready` issue → 自動実装（[auto-implement-workflow.md](auto-implement-workflow.md)）へ一周。
+スクショ＋ビジョン（視覚バグ/UX）→ 改善点を `agent-ready` issue → 自動実装（[[auto-implement-workflow]]）へ一周。
 
 ## 出典
 - [Unit tests • Build Automation • Unity Docs](https://docs.unity.com/en-us/build-automation/reference/unit-tests)

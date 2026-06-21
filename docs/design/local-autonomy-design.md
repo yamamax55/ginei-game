@@ -127,7 +127,7 @@ autonomy     : float 0..1（中央集権0 ↔ 封建1）            ← 軸1
 ---
 
 ## 7. 接続する既存システム（並行新設しない）
-- 提案システム（出口）：目安箱 EPIC #1296（MEYASU・地方箱）・[`meyasubako-proposal-redesign-design.md`](meyasubako-proposal-redesign-design.md)
+- 提案システム（出口）：目安箱 EPIC #1296（MEYASU・地方箱）・[[meyasubako-proposal-redesign-design]]
 - 地方権力者台帳：`GovernmentRegistry`（方面/星系スコープ総督・#142/#144）・`Office.scope`
 - 封建・反乱・門地：`FeudalRules`/`Fief`（#168/#169）
 - 選挙：`LeadershipElectionRules`（#165 総裁選の流用）

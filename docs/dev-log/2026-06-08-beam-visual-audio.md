@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発ログ 2026-06-08 — ビーム表示と発砲音の改善
 
 関連PR: [#762](https://github.com/yamamax55/ginei-game/pull/762)（master へマージ済み）

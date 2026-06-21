@@ -9,7 +9,7 @@ tags: [audit]
 >
 > 「いま必要なこと」を決めるための現状監査。新システムを足す前に、**すでにある1ループが実機でどこまで気持ちよく通るか／どこが壊れ・物足りないか**をコードで裏取りした記録。
 > 検証＝配線コードの直接確認（推測でなく file:line で裏取り）。回帰テストは CI の TestHarness ループ（毎時）が担保（本コンテナに dotnet 無し）。
-> 上位の方針は [`game-critique.md`](game-critique.md) / [`game-improvements.md`](game-improvements.md) / [`vertical-slice-roadmap.md`](../planning/vertical-slice-roadmap.md)。
+> 上位の方針は [[game-critique]] / [[game-improvements]] / [[vertical-slice-roadmap]]。
 
 ---
 

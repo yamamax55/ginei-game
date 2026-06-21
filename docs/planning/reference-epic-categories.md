@@ -5,8 +5,8 @@ tags: [planning]
 
 # 参考EPIC 探索軸（multi-modal 発掘の定義）
 
-> 自動補充ループ（`worldview-backlog-refill.yml`）が、**この表の各軸を並列に**掘って [`reference-epic-backlog.md`](reference-epic-backlog.md) へネタを供給する。
-> 各軸のエージェントは**互いの守備範囲を知らないまま**（blind）発掘する＝[`parallel-core-fanout.md`](../ops/parallel-core-fanout.md) の multi-modal sweep。だから「名著」1軸では出てこない、自分の概念外のネタが入る。
+> 自動補充ループ（`worldview-backlog-refill.yml`）が、**この表の各軸を並列に**掘って [[reference-epic-backlog]] へネタを供給する。
+> 各軸のエージェントは**互いの守備範囲を知らないまま**（blind）発掘する＝[[parallel-core-fanout]] の multi-modal sweep。だから「名著」1軸では出てこない、自分の概念外のネタが入る。
 > **拡張点**：軸を増やしたければこの表に1行足すだけ。次の補充サイクルから新軸が並列に掘り始める（例「建築」「料理」「疫病」「音楽」を足す等）。
 > バックログの名称列に `[軸名] 名称` の形でプレフィックスを付ける（無印＝名著・後方互換）。
 

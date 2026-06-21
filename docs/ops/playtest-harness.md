@@ -59,5 +59,5 @@ Unity -batchmode -nographics -projectPath . \
 > 初回はエディタ Play で挙動を目視確認してから GameCI へ載せること。
 
 ## 関連
-- [`auto-implement-workflow.md`](auto-implement-workflow.md) … 自動実装（4のレポートを issue 化→自動実装に接続できる）。
+- [[auto-implement-workflow]] … 自動実装（4のレポートを issue 化→自動実装に接続できる）。
 - `TestHarness/README.md` … 判定ロジックの Unity 無し検証。

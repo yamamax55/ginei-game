@@ -345,13 +345,14 @@ namespace Ginei
             GameObject insObj = new GameObject("Insignia");
             insObj.transform.SetParent(barObj.transform, false);
             RectTransform insRT = insObj.AddComponent<RectTransform>();
-            float insSize = pyramidRowHeight - 6f;
-            // 帯の中央高さでの左辺（midW/2）の内側に置く＝台形の傾斜に沿って収まる。
+            // 台形は上に向かって細くなる。アイコンを帯からはみ出させない（被り防止）ため、
+            // 配置・サイズとも台形の最も狭い上辺(topW)を基準にする＝全高で帯の内側に収まる。
+            float insSize = Mathf.Min(pyramidRowHeight - 6f, topW - 8f);
             insRT.anchorMin = new Vector2(0.5f, 0.5f);
             insRT.anchorMax = new Vector2(0.5f, 0.5f);
             insRT.pivot = new Vector2(0f, 0.5f);
             insRT.sizeDelta = new Vector2(insSize, insSize);
-            insRT.anchoredPosition = new Vector2(-midW * 0.5f + 4f, 0f);
+            insRT.anchoredPosition = new Vector2(-topW * 0.5f + 4f, 0f);
             Image insImg = insObj.AddComponent<Image>();
             insImg.raycastTarget = false;
             insImg.preserveAspect = true;

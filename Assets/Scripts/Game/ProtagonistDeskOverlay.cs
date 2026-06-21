@@ -36,6 +36,8 @@ namespace Ginei
         public float pyramidRowHeight = 28f;
         [Tooltip("帯の上のラベル文字サイズ")]
         public float pyramidLabelFontSize = 16f;
+        [Tooltip("階級章を画像で帯内に表示する最小の帯上辺幅(px)。これより細い帯ではラベル文字と被るため、画像をやめてラベル先頭にインライン記号で出す")]
+        public float pyramidInsigniaMinBandWidth = 160f;
 
         private GameObject overlayRoot;
         private GameObject panel;
@@ -64,6 +66,7 @@ namespace Ginei
             public Color baseColor;
             public TextMeshProUGUI label;
             public Image insignia; // 階級章スプライト（Gemini生成）。無ければ非表示＝ラベルのUnicode記号にフォールバック
+            public bool insigniaInline; // 細い帯＝画像をやめラベル先頭にインライン記号で出す（中央ラベルとの被り防止）
         }
 
         // 階級章スプライトのキャッシュ（"帝国/元帥" 等のキー→Sprite。Resources.Load の連打回避）。
@@ -372,7 +375,9 @@ namespace Ginei
             lbl.richText = true;
             ApplyJapaneseFont(lbl);
 
-            return new RankPyramidRow { grade = grade, bar = bar, baseColor = baseColor, label = lbl, insignia = insImg };
+            // 帯が細すぎて画像だと中央ラベルと被る階級（頂点付近）は、画像をやめてラベル先頭のインライン記号で出す。
+            bool insigniaInline = topW < pyramidInsigniaMinBandWidth;
+            return new RankPyramidRow { grade = grade, bar = bar, baseColor = baseColor, label = lbl, insignia = insImg, insigniaInline = insigniaInline };
         }
 
         // 毎フレーム：人数・現在地ハイライト・脚注を更新（行の生成はしない＝GC/再生成なし）。
@@ -401,7 +406,8 @@ namespace Ginei
                 // 現在地は帯を金色寄りに明るく＋文字を金色＋（現在地）。
                 row.bar.color = mine ? Color.Lerp(row.baseColor, new Color(1f, 0.84f, 0.2f), 0.45f) : row.baseColor;
                 // 階級章：勢力別スプライト（Gemini生成）があれば画像で出し、無ければラベルのUnicode記号で代替。
-                Sprite sprite = LoadInsignia(me.faction, row.grade);
+                // ただし細い帯（頂点付近）は画像をやめ、ラベル先頭のインライン記号にして中央ラベルとの被りを防ぐ。
+                Sprite sprite = row.insigniaInline ? null : LoadInsignia(me.faction, row.grade);
                 if (row.insignia != null)
                 {
                     row.insignia.enabled = sprite != null;

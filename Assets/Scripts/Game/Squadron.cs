@@ -47,9 +47,9 @@ namespace Ginei
         [Header("陣形設定")]
         public Formation currentFormation = Formation.紡錘陣;
 
+        // 陣形変更は提督の指揮スキルポイントを消費する（多用を抑制）。プール上限・回復は統率に比例し、
+        // 戦闘中はコストが重い。数値は Core の FormationChangeCostRules.Params に委譲（基準非破壊）。
         [Header("陣形変更コスト（指揮スキルポイント・#陣形コスト）")]
-        [Tooltip("陣形変更は提督の指揮スキルポイントを消費する（多用を抑制）。プール上限・回復は統率に比例し、" +
-                 "戦闘中はコストが重い。数値は Core の FormationChangeCostRules.Params に委譲（基準非破壊）。")]
         [Tooltip("非戦闘時の1回あたりコスト")]
         public float formationPeaceCost = 25f;
         [Tooltip("戦闘中のコスト倍率（>1＝重い。戦闘中の陣形変更は指揮系統が乱れる）")]
@@ -452,6 +452,24 @@ namespace Ginei
         {
             EnsureSlots();
             return new List<Vector2>(cachedSlots);
+        }
+
+        /// <summary>
+        /// 配下艦群の占有半径（旗艦中心から最も外側の配下艦スロットまでの距離・実効間隔込み）。
+        /// 軍団陣形（CorpsFormation/BattlefieldCommandManager）が艦隊間隔を決める際に、隣の艦隊の配下艦と
+        /// 重ならない間隔（≒2×この半径＋余白）を取るために参照する。旗艦 root スケールは1前提（CLAUDE.md）。
+        /// </summary>
+        public float FootprintRadius()
+        {
+            EnsureSlots();
+            float maxR = 0f;
+            float sf = Mathf.Max(0.1f, spacingFactor);
+            for (int i = 0; i < cachedSlots.Count; i++)
+            {
+                float r = cachedSlots[i].magnitude * sf;
+                if (r > maxR) maxR = r;
+            }
+            return maxR;
         }
 
         /// <summary>配下艦スプライトの流用元 Sprite（プレビュー用）。無ければ null。</summary>

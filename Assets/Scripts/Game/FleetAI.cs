@@ -88,6 +88,16 @@ namespace Ginei
         /// <summary>持ち場のアンカー座標（軍団長旗艦の位置）。<see cref="hasCorpsAnchor"/> が true のとき有効。</summary>
         [System.NonSerialized] public Vector2 corpsAnchor;
 
+        // 軍団陣形スロット（#軍団集結）：会戦開始時や非接敵時、隷下は敵を独走せず軍団長基準のスロットに就いて「軍団ごとにまとまる」。
+        /// <summary>軍団陣形スロットが割り当てられているか（隷下のみ true・軍団長旗艦は false）。</summary>
+        [System.NonSerialized] public bool hasCorpsSlot;
+        /// <summary>スロットの基準＝軍団長旗艦（移動に追従する）。</summary>
+        [System.NonSerialized] public Transform corpsCommanderTf;
+        /// <summary>軍団長基準のスロット局所座標（回転前・軍団長スロットを原点とする）。</summary>
+        [System.NonSerialized] public Vector2 corpsSlotLocal;
+        /// <summary>軍団の正面（度・+Y 基準）。スロットの回転と正対方向に使う。</summary>
+        [System.NonSerialized] public float corpsFacingDeg;
+
         private bool manualOverride;
         /// <summary>手動指示で AI 操舵を一時上書き中か（指示完了で自動的に AI へ復帰）。</summary>
         public bool ManualOverride => manualOverride;
@@ -294,6 +304,14 @@ if (Time.time >= nextSearchTime)
                         // 防御的/射撃管制では前進を抑制（AdvanceFactor が0より大きければ接近するが距離は縮めすぎない）。
                         if (strength != null && !RoeRules.CanPursue(strength.stance)) break;
 
+                        // 軍団集結（#軍団集結）：敵が軍団（持ち場）から遠い間は独走せず、軍団長基準のスロットに就いて
+                        // 軍団としてまとまって前進する（軍団長が前を率い、隷下は隊形を保って追従）。敵が持ち場へ迫れば交戦へ移る。
+                        if (hasCorpsSlot && corpsCommanderTf != null && !EnemyNearCorps())
+                        {
+                            movement.SetDestination(CorpsSlotWorld(), corpsFacingDeg);
+                            break;
+                        }
+
                         // 敵に向かって移動（進路上のブラックホールは迂回）。
                         // 進路上の「交戦対象以外」の敵ZOCは避ける（対象のZOCは意図して踏み込むので無視）。
                         Vector2 dest = SteerAroundBlackHoles(pos, targetEnemy.transform.position);
@@ -405,6 +423,30 @@ if (Time.time >= nextSearchTime)
             float r = corpsLeashRange;
             if (off.sqrMagnitude > r * r) return corpsAnchor + off.normalized * r;
             return dest;
+        }
+
+        /// <summary>軍団スロットの世界座標＝軍団長旗艦の現在位置＋軍団正面に回した局所スロット（軍団長の移動に追従）。</summary>
+        private Vector2 CorpsSlotWorld()
+        {
+            Vector2 baseP = corpsCommanderTf != null ? (Vector2)corpsCommanderTf.position : corpsAnchor;
+            return baseP + RotateVec(corpsSlotLocal, corpsFacingDeg);
+        }
+
+        /// <summary>敵（現在の目標）が軍団の持ち場（軍団長旗艦）から交戦圏（corpsLeashRange）内にいるか。内なら交戦・外なら集結。</summary>
+        private bool EnemyNearCorps()
+        {
+            if (targetEnemy == null || !targetEnemy.IsAlive) return false;
+            if (corpsLeashRange <= 0f) return true; // リーシュ無効＝常に交戦（従来寄り）
+            Vector2 anchor = corpsCommanderTf != null ? (Vector2)corpsCommanderTf.position
+                : (hasCorpsAnchor ? corpsAnchor : (Vector2)transform.position);
+            return ((Vector2)targetEnemy.transform.position - anchor).sqrMagnitude <= corpsLeashRange * corpsLeashRange;
+        }
+
+        /// <summary>ベクトルを Z 角(度・+Y 基準)で回す（CorpsFormation と同一規約）。</summary>
+        private static Vector2 RotateVec(Vector2 v, float deg)
+        {
+            float r = deg * Mathf.Deg2Rad, c = Mathf.Cos(r), s = Mathf.Sin(r);
+            return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
         }
 
         /// <summary>

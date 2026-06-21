@@ -260,7 +260,7 @@ namespace Ginei
                     pendingAttackName = hoverFlag.admiralName;
                     EndAttackTargeting();
 
-                    CommandMenu menu = Object.FindAnyObjectByType<CommandMenu>();
+                    CommandMenu menu = BattleWindowUI.FindInSceneOrAny<CommandMenu>(gameObject.scene);
                     if (menu != null) menu.OpenAttackTypeMenu(Mouse.current.position.ReadValue());
                     else ConfirmPendingAttack(false); // メニューが無ければ通常攻撃にフォールバック
                 }
@@ -438,7 +438,7 @@ namespace Ginei
 
             // 攻撃対象を画面に一定時間表示
             string kind = useMissile ? "ミサイル攻撃" : "通常攻撃";
-            FleetHUDManager hud = Object.FindAnyObjectByType<FleetHUDManager>();
+            FleetHUDManager hud = BattleWindowUI.FindInSceneOrAny<FleetHUDManager>(gameObject.scene);
             if (hud != null) hud.ShowMessage($"攻撃対象：{targetName}艦隊（{kind}）", 2.5f);
 
             Debug.Log($"攻撃命令を発令しました（目標艦隊: {targetName} / {kind}）。");
@@ -926,7 +926,7 @@ namespace Ginei
         /// <summary>HUD へグループ操作の通知を出す（無ければログのみ）。</summary>
         private void ShowGroupMessage(string msg)
         {
-            FleetHUDManager hud = Object.FindAnyObjectByType<FleetHUDManager>();
+            FleetHUDManager hud = BattleWindowUI.FindInSceneOrAny<FleetHUDManager>(gameObject.scene);
             if (hud != null) hud.ShowMessage(msg, 1.5f);
             Debug.Log(msg);
         }
@@ -937,7 +937,7 @@ namespace Ginei
         private void OpenCommandMenu()
         {
             if (Mouse.current == null) return;
-            CommandMenu menu = Object.FindAnyObjectByType<CommandMenu>();
+            CommandMenu menu = BattleWindowUI.FindInSceneOrAny<CommandMenu>(gameObject.scene);
             if (menu != null)
             {
                 menu.OpenMenu(Mouse.current.position.ReadValue());

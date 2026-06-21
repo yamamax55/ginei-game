@@ -15,7 +15,10 @@ namespace Ginei
     /// 生成・直列ロード・オフセット割当・フォーカス・結果反映は <see cref="BattleDirector"/> が司る。
     /// 入力は <see cref="BattleViewport"/>（フォーカス窓のみ）が画面→会戦ワールドへ変換する。
     /// 既存のフルスクリーン会戦は <c>GameSettings.windowedBattles=false</c> で従来どおり（後方互換）。
-    /// 既知の制限：HUD/コマンドメニュー/通知は全画面オーバーレイ／一時停止は全体時間に効く（WIN-4 で対応）。
+    /// 会戦 UI の窓内帰属（WIN-4 #2571）：HUD/コマンドメニュー/ミニマップは <see cref="BattleWindowUI"/> 経由で
+    /// この窓の <c>BattleUIRoot</c>（RawImage 矩形・RectMask2D クリップ）へ親替えされ、複数窓で重ならない。
+    /// 通知は <see cref="NotificationFeed"/> が単一（戦略シーンに1つ）なので重複なし。一時停止/倍速は統一クロック
+    /// （<see cref="BattleDirector"/>）が全会戦を駆動し、会戦ごとの <see cref="PauseManager"/> は窓モードで抑止される。
     /// </summary>
     public class BattleWindow : MonoBehaviour
     {
@@ -31,6 +34,7 @@ namespace Ginei
         private RectTransform windowRT;
         private RawImage mapImage;
         private RectTransform mapRT;
+        private RectTransform battleUIRoot; // 窓内の会戦UI親（RawImage矩形に重なる・RectMask2Dでクリップ・WIN-4）
         private RenderTexture rt;
         private Camera battleCam;
         private Scene battleScene;
@@ -99,6 +103,7 @@ namespace Ginei
             if (!isOpen) return;
             isOpen = false;
 
+            if (battleScene.IsValid()) BattleWindowUI.Unregister(battleScene); // 窓 UI 親矩形の登録を外す（WIN-4）
             if (battleCam != null) { battleCam.targetTexture = null; battleCam = null; }
             if (sceneLoaded && battleScene.IsValid())
                 SceneLoader.Instance.UnloadSceneAdditive(battleScene);
@@ -133,6 +138,9 @@ namespace Ginei
             // 会戦シーンに含まれる EventSystem を無効化（戦略シーンの1つに統一）。
             // additive ロードで EventSystem が複数になると「2 event systems」警告が大量に出て uGUI 入力が競合する。
             DisableSceneEventSystems(scene);
+
+            // この会戦シーンの UI（HUD/コマンド/ミニマップ）が自分の窓内へ親替えできるよう、窓 UI 親矩形を登録（WIN-4）。
+            if (sceneLoaded && battleUIRoot != null) BattleWindowUI.Register(battleScene, battleUIRoot);
 
             onLoaded?.Invoke(this);
         }
@@ -230,6 +238,15 @@ namespace Ginei
             mapImage = mapGo.AddComponent<RawImage>();
             mapImage.color = Color.white;
             mapImage.raycastTarget = false;
+
+            // 窓内の会戦UI親（RawImage と同矩形・はみ出しは RectMask2D で窓内にクリップ）。
+            // 会戦シーンの HUD/コマンドメニュー/ミニマップ（フルスクリーンに描く Canvas）はここへ親替えされ、
+            // 窓に追従して移動・拡縮し、複数窓で重ならない（WIN-4 #2571）。BattleUIRoot は RawImage の子＝RT の上に描く。
+            GameObject uiRootGo = new GameObject("BattleUIRoot", typeof(RectTransform));
+            uiRootGo.transform.SetParent(mapGo.transform, false);
+            battleUIRoot = uiRootGo.GetComponent<RectTransform>();
+            StretchFull(battleUIRoot);
+            uiRootGo.AddComponent<RectMask2D>();
 
             BuildResizeGrip(win.transform);
 

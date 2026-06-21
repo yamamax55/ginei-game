@@ -56,14 +56,18 @@ namespace Ginei
         private TextMeshProUGUI rankWindowBody;
         private object rankWindowEscToken;
 
-        // 1階級ぶんの帯（色付き帯＝Image＋帯の上に重なるラベル＝TMP）。
+        // 1階級ぶんの帯（色付き帯＝Image＋階級章スプライト＝Image＋帯の上に重なるラベル＝TMP）。
         private class RankPyramidRow
         {
             public MilitaryGrade grade;
             public Image bar;
             public Color baseColor;
             public TextMeshProUGUI label;
+            public Image insignia; // 階級章スプライト（Gemini生成）。無ければ非表示＝ラベルのUnicode記号にフォールバック
         }
+
+        // 階級章スプライトのキャッシュ（"帝国/元帥" 等のキー→Sprite。Resources.Load の連打回避）。
+        private readonly Dictionary<string, Sprite> insigniaCache = new Dictionary<string, Sprite>();
 
         // ネームド士官1名（OOB司令／艦隊台帳の司令・副提督・参謀／主人公）。
         private struct NamedOfficer
@@ -329,6 +333,21 @@ namespace Ginei
             MilitaryGrade captured = grade;
             barBtn.onClick.AddListener(() => OpenRankWindow(captured));
 
+            // 階級章スプライト（帯の左端に配置）。既定は非表示＝スプライトが見つかった時だけ UpdatePyramid で出す。
+            GameObject insObj = new GameObject("Insignia");
+            insObj.transform.SetParent(barObj.transform, false);
+            RectTransform insRT = insObj.AddComponent<RectTransform>();
+            float insSize = pyramidRowHeight - 6f;
+            insRT.anchorMin = new Vector2(0f, 0.5f);
+            insRT.anchorMax = new Vector2(0f, 0.5f);
+            insRT.pivot = new Vector2(0f, 0.5f);
+            insRT.sizeDelta = new Vector2(insSize, insSize);
+            insRT.anchoredPosition = new Vector2(4f, 0f);
+            Image insImg = insObj.AddComponent<Image>();
+            insImg.raycastTarget = false;
+            insImg.preserveAspect = true;
+            insImg.enabled = false;
+
             // ラベル（帯の上に重ねる・全幅中央＝細い頂点でも文字が切れない）。
             GameObject lblObj = new GameObject("Label");
             lblObj.transform.SetParent(rowObj.transform, false);
@@ -343,7 +362,7 @@ namespace Ginei
             lbl.richText = true;
             ApplyJapaneseFont(lbl);
 
-            return new RankPyramidRow { grade = grade, bar = bar, baseColor = baseColor, label = lbl };
+            return new RankPyramidRow { grade = grade, bar = bar, baseColor = baseColor, label = lbl, insignia = insImg };
         }
 
         // 毎フレーム：人数・現在地ハイライト・脚注を更新（行の生成はしない＝GC/再生成なし）。
@@ -371,7 +390,14 @@ namespace Ginei
                 int count = tier >= 1 ? namedCountByTier[tier] : dist.Get(row.grade);
                 // 現在地は帯を金色寄りに明るく＋文字を金色＋（現在地）。
                 row.bar.color = mine ? Color.Lerp(row.baseColor, new Color(1f, 0.84f, 0.2f), 0.45f) : row.baseColor;
-                string ins = InsigniaGlyph(row.grade);
+                // 階級章：勢力別スプライト（Gemini生成）があれば画像で出し、無ければラベルのUnicode記号で代替。
+                Sprite sprite = LoadInsignia(me.faction, row.grade);
+                if (row.insignia != null)
+                {
+                    row.insignia.enabled = sprite != null;
+                    if (sprite != null) row.insignia.sprite = sprite;
+                }
+                string ins = sprite != null ? "" : InsigniaGlyph(row.grade);
                 string nameCol = mine ? "<color=#fff0b0><b>" : "<color=#eef2f6>";
                 string tail = mine ? "　<color=#ffe07a>◀ 現在地</color></b></color>" : "</color>";
                 row.label.text = ins + " " + nameCol + row.grade.ToString()
@@ -417,6 +443,18 @@ namespace Ginei
         {
             if (n <= 0) return "";
             return new string(c, Mathf.Clamp(n, 1, 6));
+        }
+
+        // 勢力別の階級章スプライトを読む（Resources/RankInsignia/<勢力>/<階級>.png＝Gemini生成）。
+        // 例：Resources/RankInsignia/帝国/元帥.png ／ Resources/RankInsignia/同盟/中将.png。
+        // 見つからなければ null（→ラベルのUnicode記号にフォールバック）。結果はキャッシュ（null も）。
+        private Sprite LoadInsignia(Faction faction, MilitaryGrade grade)
+        {
+            string key = faction + "/" + grade;
+            if (insigniaCache.TryGetValue(key, out var cached)) return cached;
+            Sprite s = Resources.Load<Sprite>("RankInsignia/" + key);
+            insigniaCache[key] = s;
+            return s;
         }
 
         // ===== ネームド人物の集約（OOB司令＋艦隊台帳の司令/副提督/参謀＋主人公）=====

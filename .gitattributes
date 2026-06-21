@@ -1,2 +1,7 @@
 # シェルスクリプトは常に LF（cloud Linux で CRLF だと bash が壊れる）
 *.sh text eol=lf
+
+# 設定資料 Vault（Obsidian）の Markdown は常に LF。
+# Windows の Obsidian が開くたびに改行コードを書き換えて pull が衝突するのを防ぐ。
+docs/lore/**/*.md text eol=lf
+docs/lore/*.md     text eol=lf

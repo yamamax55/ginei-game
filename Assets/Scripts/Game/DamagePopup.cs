@@ -18,9 +18,16 @@ namespace Ginei
         [Tooltip("側背面ボーナスと判定する倍率の閾値")]
         public float flankThreshold = 1.3f;
 
+        [Tooltip("出現ポップの時間 (秒)。0以下で無効")]
+        public float popInDuration = 0.15f;
+
+        [Tooltip("出現ポップの開始スケール率 (1へ行き過ぎて収まる)")]
+        public float popInFrom = 0.5f;
+
         private TextMesh textMesh;
         private MeshRenderer meshRenderer;
         private Material mat;
+        private LabelZoomScaler scaler;
 
         // 大量ヒット時の出しすぎ防止：同時表示数の上限。超過分は間引く（生成しない）。
         // 多数の配下艦が同時に撃つため、可読性優先で控えめにする。
@@ -119,7 +126,7 @@ namespace Ginei
             mat = meshRenderer.material;
 
             // 文字サイズをズームに追従させ、画面上での見かけ大きさを一定に保つ（重なり軽減・可読性）
-            LabelZoomScaler scaler = gameObject.AddComponent<LabelZoomScaler>();
+            scaler = gameObject.AddComponent<LabelZoomScaler>();
             scaler.Configure(Vector3.one, ReferenceOrthoSize);
 
             StartCoroutine(Animate());
@@ -135,6 +142,21 @@ namespace Ginei
                 // timeScale に追従（倍速時は速く消え、発射ペースと同期して溜まらない）
                 elapsed += Time.deltaTime;
                 float t = elapsed / lifetime;
+
+                // 出現ポップ（Easing.OutBack 経由）。LabelZoomScaler が localScale を占有するため
+                // localScale でなく baseScale を動かして協調させる（ズーム追従を壊さない）。
+                if (scaler != null)
+                {
+                    if (popInDuration > 0f && elapsed < popInDuration)
+                    {
+                        float pt = Easing.OutBack(Mathf.Clamp01(elapsed / popInDuration));
+                        scaler.baseScale = Vector3.one * Mathf.LerpUnclamped(popInFrom, 1f, pt);
+                    }
+                    else if (scaler.baseScale != Vector3.one)
+                    {
+                        scaler.baseScale = Vector3.one; // ポップ後は基準へ戻す（定常サイズは不変）
+                    }
+                }
 
                 // 上へ浮上
                 transform.position += Vector3.up * riseSpeed * Time.deltaTime;

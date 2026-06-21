@@ -1,7 +1,11 @@
 ---
 type: audit
-tags: [audit]
+status: superseded
+superseded_by: current-state-audit-2026-06-21
+tags: [audit, 失効]
 ---
+
+> ⛔ **失効（参照非推奨）**。本書が赤とした P1（会戦→武勲・主命成否／提督XP永続）は **2026-06-21 時点で master に配線済み**。現状は最新の [[current-state-audit-2026-06-21]] を参照（過去ログとして保存）。
 
 # 現状再監査 — #2476（軍人立身出世 TKO-1〜13）マージ後（2026-06-18）
 

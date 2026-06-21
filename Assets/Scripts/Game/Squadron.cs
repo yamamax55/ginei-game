@@ -47,9 +47,9 @@ namespace Ginei
         [Header("陣形設定")]
         public Formation currentFormation = Formation.紡錘陣;
 
+        // 陣形変更は提督の指揮スキルポイントを消費する（多用を抑制）。プール上限・回復は統率に比例し、
+        // 戦闘中はコストが重い。数値は Core の FormationChangeCostRules.Params に委譲（基準非破壊）。
         [Header("陣形変更コスト（指揮スキルポイント・#陣形コスト）")]
-        [Tooltip("陣形変更は提督の指揮スキルポイントを消費する（多用を抑制）。プール上限・回復は統率に比例し、" +
-                 "戦闘中はコストが重い。数値は Core の FormationChangeCostRules.Params に委譲（基準非破壊）。")]
         [Tooltip("非戦闘時の1回あたりコスト")]
         public float formationPeaceCost = 25f;
         [Tooltip("戦闘中のコスト倍率（>1＝重い。戦闘中の陣形変更は指揮系統が乱れる）")]

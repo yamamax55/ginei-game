@@ -404,6 +404,35 @@ namespace Ginei
             f.shieldIntegrity = FortressRules.ShieldAfterHit(f.shieldIntegrity, Mathf.Max(0f, repulseShieldLoss));
         }
 
+        /// <summary>兵糧攻めの守備漸減の既定：1日あたり守備の3%＋下限50（必ず0へ到達して開城する＝難攻不落も封鎖で落ちる）。</summary>
+        public const float FortressStarveDailyFraction = 0.03f;
+        public const float FortressStarveDailyFloor = 50f;
+
+        /// <summary>
+        /// 兵糧攻め（補給遮断）で要塞守備を1tick分すり減らす（#40 戦略・銀英伝＝難攻不落も封鎖で落とす）。
+        /// 力攻めでは落ちない要塞も、補給線を断って攻囲を続ければ守備が尽きて<b>開城</b>する＝正面でなく策略・
+        /// 持久で落とす道。besieged（補給遮断下で攻囲継続中）でなければ何もしない。守備が0に達したら
+        /// controlsCorridor を解いて回廊を開ける（所有は不変＝占領は別途・停泊で発生）。落城したら true。
+        /// 乱数なし・決定論。日次Tick（<paramref name="days"/>=1）から呼ぶ。
+        /// </summary>
+        public static bool TickFortressSiegeAttrition(Fortress f, bool besieged, float days)
+            => TickFortressSiegeAttrition(f, besieged, days, FortressStarveDailyFraction, FortressStarveDailyFloor);
+
+        /// <summary><inheritdoc cref="TickFortressSiegeAttrition(Fortress,bool,float)"/></summary>
+        public static bool TickFortressSiegeAttrition(Fortress f, bool besieged, float days, float dailyFraction, float dailyFloor)
+        {
+            if (f == null || !besieged || f.garrisonStrength <= 0f) return false;
+            float d = Mathf.Max(0f, days);
+            float loss = (Mathf.Max(0f, dailyFraction) * f.garrisonStrength + Mathf.Max(0f, dailyFloor)) * d;
+            f.garrisonStrength = Mathf.Max(0f, f.garrisonStrength - loss);
+            if (f.garrisonStrength <= 0f)
+            {
+                f.controlsCorridor = false; // 兵糧尽きて開城＝回廊が開く（所有は停泊占領で別途移る）
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// 指定星系の占領を解決する。停泊中の艦隊が1勢力のみで、その勢力が現所有者と敵対していれば
         /// 所有権をその勢力へ移す。複数勢力が居る（＝戦闘案件）／無人／同一勢力なら何もしない。

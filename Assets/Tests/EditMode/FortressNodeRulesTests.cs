@@ -125,5 +125,48 @@ namespace Ginei.Tests
         {
             Assert.DoesNotThrow(() => StrategyRules.ApplyFortressBattleResult(null, Faction.同盟, true));
         }
+
+        // ── 兵糧攻め（補給遮断の守備漸減）：TickFortressSiegeAttrition（#40）──
+
+        [Test]
+        public void Starve_ErodesGarrison_WhenBesieged()
+        {
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            bool fell = StrategyRules.TickFortressSiegeAttrition(f, besieged: true, days: 1f);
+            Assert.IsFalse(fell);                              // 1日では落ちない
+            Assert.AreEqual(920f, f.garrisonStrength, 1e-3f); // 1000 - (0.03×1000 + 50) = 920
+            Assert.IsTrue(f.controlsCorridor);                // まだ封鎖継続
+        }
+
+        [Test]
+        public void Starve_NoChange_WhenNotBesieged()
+        {
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            bool fell = StrategyRules.TickFortressSiegeAttrition(f, besieged: false, days: 30f);
+            Assert.IsFalse(fell);
+            Assert.AreEqual(1000f, f.garrisonStrength, 1e-3f); // 補給が通る＝減らない
+        }
+
+        [Test]
+        public void Starve_EventuallyFalls_OpensCorridor()
+        {
+            // 難攻不落（力攻め不可）でも封鎖を続ければ兵糧が尽きて開城する＝銀英伝の落とし方。
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            bool fell = false;
+            for (int day = 0; day < 200 && !fell; day++)
+                fell = StrategyRules.TickFortressSiegeAttrition(f, besieged: true, days: 1f);
+            Assert.IsTrue(fell);                               // いつかは落城
+            Assert.AreEqual(0f, f.garrisonStrength, 1e-3f);    // 守備が尽きる
+            Assert.IsFalse(f.controlsCorridor);                // 回廊が開く
+            Assert.AreEqual(Faction.帝国, f.owner);            // 所有は不変（占領は停泊で別途）
+        }
+
+        [Test]
+        public void Starve_NullOrEmpty_NoThrowNoFall()
+        {
+            Assert.DoesNotThrow(() => StrategyRules.TickFortressSiegeAttrition(null, true, 1f));
+            var empty = new Fortress(0f, 100f, 1f, true) { owner = Faction.帝国 };
+            Assert.IsFalse(StrategyRules.TickFortressSiegeAttrition(empty, true, 1f)); // 既に守備0＝落城扱いしない
+        }
     }
 }

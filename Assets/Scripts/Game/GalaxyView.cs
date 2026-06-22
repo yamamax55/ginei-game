@@ -515,6 +515,7 @@ namespace Ginei
             TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
             RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
+            RunFortressSiegeTick(1f); // 兵糧攻め（#40）：封鎖された要塞の守備が日々すり減り、いつか開城する
             RunDailyStockTick();     // 株価は日次で動く（#株価日次）：収益/配当は月次のまま価格だけ細かく収束
         }
 
@@ -1034,6 +1035,50 @@ namespace Ginei
                 captured ? $"{fname} を制圧した（回廊が開通）" : $"{fname} の攻略に失敗＝難攻不落（撤退）");
 
             BattleHandoff.Clear(); // 受け渡しを完結（攻城の ApplySiegeResult と同じ後始末）
+        }
+
+        /// <summary>
+        /// 兵糧攻め（#40・銀英伝＝難攻不落も封鎖で落とす）：要塞に敵対する艦隊が回廊で攻囲を続けている要塞の
+        /// 守備を日次ですり減らす（<see cref="StrategyRules.TickFortressSiegeAttrition"/>）。守備が尽きれば開城＝
+        /// 封鎖が解け、攻囲側の固着を解いて回廊を開通する（所有移転は停泊占領で別途）。日次Tickから days=1 で呼ぶ。
+        /// </summary>
+        private void RunFortressSiegeTick(float days)
+        {
+            if (map == null || map.corridors == null || reg == null || reg.fleets == null) return;
+
+            for (int ci = 0; ci < map.corridors.Count; ci++)
+            {
+                Corridor c = map.corridors[ci];
+                if (c == null || c.fortress == null || c.fortress.garrisonStrength <= 0f) continue;
+
+                int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
+                bool besieged = false;
+                for (int fi = 0; fi < reg.fleets.Count; fi++)
+                {
+                    StrategicFleet f = reg.fleets[fi];
+                    if (f == null || !f.IsOnCorridor) continue;
+                    if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) continue;
+                    if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
+                    if (!StrategyRules.IsFortressBlocked(c, f.faction)) continue; // 要塞に敵対＝攻囲側
+                    besieged = true; break;
+                }
+                if (!besieged) continue;
+
+                if (StrategyRules.TickFortressSiegeAttrition(c.fortress, true, days))
+                {
+                    // 開城＝攻囲側の固着を解いて回廊を開通させる。
+                    for (int fi = 0; fi < reg.fleets.Count; fi++)
+                    {
+                        StrategicFleet f = reg.fleets[fi];
+                        if (f == null || !f.IsOnCorridor) continue;
+                        if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) continue;
+                        if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
+                        f.engaged = false;
+                    }
+                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
+                        $"{c.fortress.fortressName}（{c.fortress.owner}）が兵糧攻めで開城した（回廊が開通）");
+                }
+            }
         }
 
         /// <summary>力攻めの残存兵力を攻撃側艦隊へ原兵力比で按分し、0以下は盤面から除去する。</summary>

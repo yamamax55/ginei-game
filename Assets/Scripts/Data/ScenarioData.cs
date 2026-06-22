@@ -20,6 +20,8 @@ namespace Ginei
         護衛,      // 護衛対象(targetAdmiral)を timeLimit 秒守り切れば勝利。喪失で敗北
         突破,      // 指定勢力(objectiveFaction)の旗艦が戦場端(battlefieldRadius)へ到達したら勝利（離脱成功）
         拠点保持,  // 指定勢力(objectiveFaction)が objectivePoint を objectiveRadius 内で holdDuration 秒保持したら勝利
+        要塞攻略,  // 防衛側(objectiveFaction)の要塞を制圧（コア破壊 or 全砲台沈黙）で攻撃側勝利。timeLimit 超過で攻略失敗＝守備側勝利(#78)
+        要塞防衛,  // 防衛側(objectiveFaction)の要塞が timeLimit まで生存で守備側勝利。要塞陥落で攻撃側勝利(#78)
     }
 
     [CreateAssetMenu(fileName = "NewScenario", menuName = "Ginei/Scenario Data")]
@@ -58,6 +60,10 @@ namespace Ginei
         [Header("出撃艦隊")]
         [Tooltip("この会戦に登場する全艦隊のエントリ（帝国・同盟を混在させてよい）")]
         public List<FleetEntry> fleets = new List<FleetEntry>();
+
+        [Header("要塞（固定拠点・#76-78）")]
+        [Tooltip("この会戦に配置する要塞のエントリ（イゼルローン型の固定拠点）。要塞攻略/要塞防衛の対象")]
+        public List<FortressEntry> fortresses = new List<FortressEntry>();
 
         /// <summary>現在の会戦で使用中のシナリオ（BattleSetup が解決時に設定）。BattleManager 等が参照する。</summary>
         public static ScenarioData ActiveScenario { get; set; }
@@ -119,6 +125,34 @@ namespace Ginei
 
             [Tooltip("増援の到着遅延（秒・game-time。0＝開戦時から在場＝従来動作。>0で戦場端から時間差投入 #2182）")]
             public float reinforcementDelay = 0f;
+        }
+
+        /// <summary>
+        /// 1つの要塞（固定拠点）の配置定義（#78）。BattleSetup が FortressUnit を生成・配置する。
+        /// </summary>
+        [System.Serializable]
+        public class FortressEntry
+        {
+            [Tooltip("所属勢力（FactionData 未指定時に使う旧 enum）")]
+            public Faction faction = Faction.帝国;
+
+            [Tooltip("所属勢力データ（多勢力対応。割り当てると enum より優先）")]
+            public FactionData factionData;
+
+            [Tooltip("配置位置（XY平面。艦隊と同じく spawnSeparation 倍で原点から離す）")]
+            public Vector2 position = Vector2.zero;
+
+            [Tooltip("要塞名（頭上ラベル）。空なら「要塞」")]
+            public string fortressName = "要塞";
+
+            [Tooltip("外周砲台の数（規模）。0以下なら FortressUnit 既定")]
+            public int turretCount = 8;
+
+            [Tooltip("コアの耐久（規模＝耐久倍率）。0以下なら FortressUnit 既定")]
+            public int coreStrength = 9000;
+
+            [Tooltip("チャージ式の主砲（#77 トールハンマー型）を装備するか")]
+            public bool hasMainCannon = true;
         }
     }
 }

@@ -64,6 +64,7 @@ namespace Ginei
             //    （windowed 判定がどう転んでも自シーン以外には触れない＝複数同時会戦の安全策）。
             //    フルスクリーン会戦でも「自シーン＝Battle の全艦」なので従来と同義。
             FleetRegistry.ClearScene(gameObject.scene);
+            FortressRegistry.ClearScene(gameObject.scene); // 要塞在庫も自シーン分をクリア（#78）
 
             // FleetRoster/OrderOfBattle/ShipNameRegistry は static 単一の台帳。フルスクリーン会戦では会戦ごとに
             // 作り直すが、ウィンドウ化会戦（複数同時・戦略マップ同居）で全クリアすると戦略や他会戦の台帳を壊すため、
@@ -120,6 +121,9 @@ namespace Ginei
                 GameObject fleet = SpawnFleet(entry, playerFaction);
                 if (fleet != null) spawnedFleets.Add(fleet);
             }
+
+            // 3.5 要塞（固定拠点・#78）を配置
+            SpawnFortresses(scenario);
 
             // 4. 両軍が互いに正対するよう初期の向きを設定
             OrientFleetsToEnemy(spawnedFleets);
@@ -414,6 +418,27 @@ namespace Ginei
             string admiralName = entry.admiral != null ? entry.admiral.admiralName : "Unknown";
             fleet.name = $"Fleet_{entry.faction}_{admiralName}";
             return fleet;
+        }
+
+        /// <summary>
+        /// シナリオの要塞エントリ（#78）から固定拠点を生成・配置する。位置は艦隊と同じく spawnSeparation 倍で原点から離す。
+        /// </summary>
+        private void SpawnFortresses(ScenarioData scenario)
+        {
+            if (scenario == null || scenario.fortresses == null) return;
+            foreach (var entry in scenario.fortresses)
+            {
+                if (entry == null) continue;
+                Vector3 pos = new Vector3(entry.position.x, entry.position.y, 0f) * spawnSeparation;
+                GameObject go = new GameObject("Fortress");
+                go.transform.position = pos;
+                FortressUnit fortress = go.AddComponent<FortressUnit>();
+                fortress.hasMainCannon = entry.hasMainCannon;
+                int turretCount = entry.turretCount > 0 ? entry.turretCount : -1;
+                int coreStrength = entry.coreStrength > 0 ? entry.coreStrength : -1;
+                fortress.Setup(entry.faction, entry.factionData, entry.fortressName, turretCount, coreStrength);
+                go.name = $"Fortress_{fortress.Faction}_{fortress.FortressName}";
+            }
         }
 
         /// <summary>

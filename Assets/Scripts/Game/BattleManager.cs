@@ -31,6 +31,7 @@ namespace Ginei
         private Faction vipFaction;              // 旗艦撃破/護衛の対象VIPの陣営（開始時に解決）
         private bool vipResolved = false;        // VIPの陣営を解決できたか
         private float holdAccum = 0f;            // 拠点保持の連続保持秒数（#2259）
+        private bool fortressVictoryArmed = false; // 要塞攻略/要塞防衛：開始時に対象要塞が居たか（無ければ即決着を防ぐ・#78）
 
         /// <summary>
         /// この会戦シーンに属する旗艦のみ（WIN-2 #2569 隔離の核）。ウィンドウ化会戦は会戦ごとに別シーンへ
@@ -411,6 +412,48 @@ namespace Ginei
                 }
             }
 
+            // --- 要塞攻略：防衛側(objectiveFaction)の要塞を制圧（コア破壊 or 全砲台沈黙）で攻撃側勝利（#78）---
+            if (cond == VictoryCondition.要塞攻略 && activeScenario != null && fortressVictoryArmed)
+            {
+                Faction defender = activeScenario.objectiveFaction;
+                Faction attacker = Opposite(defender);
+                if (!AnyResistingFortress(defender))
+                {
+                    winner = attacker;
+                    reason = "要塞を制圧した（コア破壊／全砲台沈黙）";
+                    winnerRep = FindLivingFlagshipByLegacy(attacker);
+                    return true;
+                }
+                if (activeScenario.timeLimit > 0f && battleElapsed >= activeScenario.timeLimit)
+                {
+                    winner = defender;
+                    reason = "要塞を守り抜いた（攻略失敗）";
+                    winnerRep = FindLivingFlagshipByLegacy(defender);
+                    return true;
+                }
+            }
+
+            // --- 要塞防衛：防衛側(objectiveFaction)の要塞が timeLimit まで生存で守備側勝利。陥落で攻撃側勝利（#78）---
+            if (cond == VictoryCondition.要塞防衛 && activeScenario != null && fortressVictoryArmed)
+            {
+                Faction defender = activeScenario.objectiveFaction;
+                Faction attacker = Opposite(defender);
+                if (!AnyAliveFortress(defender))
+                {
+                    winner = attacker;
+                    reason = "要塞を陥落させた";
+                    winnerRep = FindLivingFlagshipByLegacy(attacker);
+                    return true;
+                }
+                if (activeScenario.timeLimit > 0f && battleElapsed >= activeScenario.timeLimit)
+                {
+                    winner = defender;
+                    reason = "要塞防衛成功（制限時間まで要塞生存）";
+                    winnerRep = FindLivingFlagshipByLegacy(defender);
+                    return true;
+                }
+            }
+
             // --- 殲滅／押し出し（全条件共通の終了条件・多勢力対応）：敵対する旗艦ペアが残っていない ---
             // 「押し出し勝ち」（#戦闘ドクトリン Stage4）もここで成立する：一方の戦闘艦隊が全て撤退線を越えて
             // 離脱（BeginRetreat で IsAlive=false・レジストリ除外）／敗走すると、敵対ペアが消える＝盤上に残る側の
@@ -459,6 +502,60 @@ namespace Ginei
                 vipFaction = (vipFlag != null) ? LegacyOf(vipFlag) : activeScenario.targetAdmiral.faction;
                 vipResolved = true;
             }
+
+            // 要塞攻略/要塞防衛：開始時に防衛側の要塞が実在するときだけ評価を有効化（要塞ゼロでの即決着を防ぐ）。
+            fortressVictoryArmed = false;
+            if (activeScenario != null
+                && (activeScenario.victoryCondition == VictoryCondition.要塞攻略
+                    || activeScenario.victoryCondition == VictoryCondition.要塞防衛))
+            {
+                fortressVictoryArmed = AnyAliveFortress(activeScenario.objectiveFaction);
+            }
+        }
+
+        /// <summary>この会戦シーンに、まだ抗戦中の要塞（生存かつ稼働砲台あり）が指定勢力に1つでもあるか（#78 要塞攻略の制圧判定）。</summary>
+        private bool AnyResistingFortress(Faction defender)
+        {
+            IReadOnlyList<FortressUnit> all = FortressRegistry.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FortressUnit f = all[i];
+                if (f == null || f.gameObject.scene != gameObject.scene) continue;
+                if (f.Faction == defender && f.IsAlive && f.ActiveTurretCount > 0) return true;
+            }
+            return false;
+        }
+
+        /// <summary>要塞の損害サマリ（#78・Result 表示用）。生存要塞は残存砲台/コア%、全滅していて開始時に在ったなら「陥落」。要塞無しは空。</summary>
+        private string BuildFortressSummary()
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            IReadOnlyList<FortressUnit> all = FortressRegistry.All;
+            int listed = 0;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FortressUnit f = all[i];
+                if (f == null || f.gameObject.scene != gameObject.scene || !f.IsAlive) continue;
+                if (listed > 0) sb.Append('\n');
+                sb.Append($"{f.FortressName}  残存砲台: {f.ActiveTurretCount}/{f.TurretCount}　コア: {Mathf.RoundToInt(f.CoreRatio * 100f)}%");
+                listed++;
+            }
+            if (listed > 0) return sb.ToString();
+            if (fortressVictoryArmed) return "要塞は陥落した";
+            return "";
+        }
+
+        /// <summary>この会戦シーンに、生存中の要塞が指定勢力に1つでもあるか（#78 要塞防衛の陥落判定）。</summary>
+        private bool AnyAliveFortress(Faction defender)
+        {
+            IReadOnlyList<FortressUnit> all = FortressRegistry.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FortressUnit f = all[i];
+                if (f == null || f.gameObject.scene != gameObject.scene) continue;
+                if (f.Faction == defender && f.IsAlive) return true;
+            }
+            return false;
         }
 
         /// <summary>指定 AdmiralData を持つ生存旗艦を探す（退却・破棄済みは登録外なので見つからない＝撃破扱い）。</summary>
@@ -696,6 +793,9 @@ namespace Ginei
 
             // 勝因（勝利条件の評価結果）
             settings.victoryReason = string.IsNullOrEmpty(reason) ? "敵旗艦全滅" : reason;
+
+            // 要塞の損害サマリ（#78・要塞会戦のみ。要塞が無ければ空）
+            settings.fortressSummary = BuildFortressSummary();
 
             // 勢力名キー別の戦績（多勢力対応。ResultManager が勢力数可変で表示）
             RecordFactionStats(settings);

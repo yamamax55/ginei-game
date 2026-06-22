@@ -174,6 +174,34 @@ namespace Ginei
                 Entry(reinhard, Faction.帝国, fEmpire, new Vector2(7f, 0f), Formation.紡錘陣, 1, reinforcementDelay: 30f), // 時間差の本隊投入
             }, objectiveFaction: Faction.同盟);
 
+            // 6) 要塞攻略戦（#78）：攻め手＝同盟（プレイヤーが同盟を選べば攻城側）。帝国のイゼルローン要塞を
+            //    制限時間内に制圧（コア破壊 or 全砲台沈黙）すれば勝利。要塞は駐留艦隊(キルヒアイス隊)が守る。
+            //    要塞主砲を避けて懐に潜り込み、砲台を削って死角から攻める攻防。objectiveFaction=帝国(守備＝要塞所有)。
+            CreateScenario("イゼルローン要塞攻略戦", VictoryCondition.要塞攻略, 240f, null, new List<ScenarioData.FleetEntry>
+            {
+                Entry(kircheis, Faction.帝国, fEmpire, new Vector2(2.5f, 0f), Formation.円陣, 2),      // 要塞駐留艦隊（守備）
+                Entry(yang, Faction.同盟, fAlliance, new Vector2(-9f, 2f), Formation.鶴翼陣, 13),       // 攻城（プレイヤー想定）
+                Entry(attenborough, Faction.同盟, fAlliance, new Vector2(-9f, -2f), Formation.横陣, 14),
+            }, objectiveFaction: Faction.帝国, fortresses: new List<ScenarioData.FortressEntry>
+            {
+                Fortress(Faction.帝国, fEmpire, new Vector2(0f, 0f), "イゼルローン要塞", 12, 14000),
+            });
+
+            // 7) 要塞防衛戦（#78）：守り手＝帝国（プレイヤーが帝国を選べば守備側）。同盟の攻勢から自要塞を
+            //    制限時間(180秒)守り切れば勝利。要塞が陥落すると敗北。攻撃側(同盟)はAIが要塞へ寄せる(攻城)。
+            //    objectiveFaction=帝国(守備＝要塞所有)。
+            CreateScenario("ガイエスブルク要塞防衛戦", VictoryCondition.要塞防衛, 180f, null, new List<ScenarioData.FleetEntry>
+            {
+                Entry(reuental, Faction.帝国, fEmpire, new Vector2(2.5f, 1.5f), Formation.円陣, 4),     // 守備（プレイヤー想定）
+                Entry(mittermeyer, Faction.帝国, fEmpire, new Vector2(2.5f, -1.5f), Formation.方陣, 3),
+                Entry(yang, Faction.同盟, fAlliance, new Vector2(-9f, 2f), Formation.鶴翼陣, 13),        // 攻勢（AIが要塞へ寄せる）
+                Entry(bucock, Faction.同盟, fAlliance, new Vector2(-9f, 0f), Formation.横陣, 5),
+                Entry(attenborough, Faction.同盟, fAlliance, new Vector2(-9f, -2f), Formation.紡錘陣, 14),
+            }, objectiveFaction: Faction.帝国, fortresses: new List<ScenarioData.FortressEntry>
+            {
+                Fortress(Faction.帝国, fEmpire, new Vector2(0f, 0f), "ガイエスブルク要塞", 12, 14000),
+            });
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -181,7 +209,7 @@ namespace Ginei
             string note = factionsMissing
                 ? " ※FactionData(Empire/Alliance)が未生成のため enum 動作（色/敵対は既定）。多勢力の色・敵対を効かせるには先に『Ginei/Create Faction Data』を実行してください。"
                 : "";
-            Debug.Log("Ginei: サンプルシナリオ5本と提督アセットを生成しました（殲滅×4／時間防衛＋増援×1）。" +
+            Debug.Log("Ginei: サンプルシナリオ7本と提督アセットを生成しました（殲滅×4／時間防衛＋増援×1／要塞攻略×1／要塞防衛×1 #78）。" +
                 "現状機能を反映＝多勢力FactionData／構造化姓名#523／専用旗艦／アーキタイプ(覇王/半身/魔術師)／性格#2311／得意戦型#2307／武名#2304／特技#特技／増援#2182。" +
                 "※既存の Admirals/*.asset は能力を尊重しつつ姓名・性格・特技・旗艦・階級を再生成で更新します。" + note);
         }
@@ -297,7 +325,7 @@ namespace Ginei
 
         private static void CreateScenario(string scenarioName, VictoryCondition vc,
             float timeLimit, AdmiralData targetAdmiral, List<ScenarioData.FleetEntry> fleets,
-            Faction objectiveFaction = Faction.同盟)
+            Faction objectiveFaction = Faction.同盟, List<ScenarioData.FortressEntry> fortresses = null)
         {
             string path = $"{ScenarioDir}/{scenarioName}.asset";
             ScenarioData s = AssetDatabase.LoadAssetAtPath<ScenarioData>(path);
@@ -310,9 +338,26 @@ namespace Ginei
             s.timeLimit = timeLimit;
             s.targetAdmiral = targetAdmiral;
             s.fleets = fleets;
+            s.fortresses = fortresses ?? new List<ScenarioData.FortressEntry>(); // #78：要塞（無ければ空＝再生成で消える）
 
             if (isNew) AssetDatabase.CreateAsset(s, path);
             else EditorUtility.SetDirty(s);
+        }
+
+        /// <summary>要塞エントリ（#78）。位置・規模（砲台数/耐久）・主砲の有無を指定。</summary>
+        private static ScenarioData.FortressEntry Fortress(Faction faction, FactionData factionData,
+            Vector2 pos, string name, int turretCount = 12, int coreStrength = 14000, bool mainCannon = true)
+        {
+            return new ScenarioData.FortressEntry
+            {
+                faction = faction,
+                factionData = factionData,
+                position = pos,
+                fortressName = name,
+                turretCount = turretCount,
+                coreStrength = coreStrength,
+                hasMainCannon = mainCannon,
+            };
         }
 
         /// <summary>"Assets/A/B" を順に作成（既存はスキップ）。</summary>

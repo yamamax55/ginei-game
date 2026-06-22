@@ -27,6 +27,7 @@ tags: [index]
 | 政治家（議員・党人） | `_政治家テンプレート.md` | 人望・弁舌・政党・支持率（`PoliticianRules`）・選挙 |
 | 技術者（テクノクラート） | `_技術者テンプレート.md` | 専門才（研究/工学/企画/生産）・学歴・研究（`ResearchRules`/`TechCatalog`） |
 | 商人（民間・在野＝その他） | `_商人テンプレート.md` | 商才（運営=経営/情報=商機）・人望（交渉）・財産（`wealth`/`financialTrait`/`NamedAsset`）・事業（`TradingHouse`/`Enterprise`） |
+| 聖職者（宗教・別格＝その他） | `_聖職者テンプレート.md` | 統率（説教）・文才（神学/教学）・徳・信仰（`Religion`/`ReligionCatalog`/`TheocracyRules`）→ [[設定/信仰]] |
 
 - `勢力/` … 帝国・同盟・諸侯などの勢力設定
 - `星系/` … 星系・惑星・回廊などの地理

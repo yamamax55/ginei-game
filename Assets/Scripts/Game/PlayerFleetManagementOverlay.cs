@@ -170,10 +170,27 @@ namespace Ginei
                     $"私財が足りません（慰労費 {cost:#,0}／所持 {me.wealth:#,0}）");
                 return;
             }
+            long wealthBefore = (long)me.wealth;
             me.wealth -= cost; // 私有財産の現金を消費（実状態変更）
             int gain = FleetReliefRules.MoraleGain(rp);
+            RecordOpeningIfNeeded(wealthBefore);
+            BookkeepingRules.PostRelief(PersonalLedgerStore.Ledger, CurrentMonth(), cost, $"{sel.DisplayName} 慰労");
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{sel.DisplayName} を私財 {cost:#,0} で慰労（士気＋{gain}・残私財 {me.wealth:#,0}）");
+        }
+
+        /// <summary>暦の月インデックス（統一クロックの経過秒÷月秒・60×30=1800）。クロック無しは0。</summary>
+        private static int CurrentMonth()
+        {
+            GameClock clock = StrategySession.Clock;
+            return clock == null ? 0 : Mathf.FloorToInt((float)clock.ElapsedSeconds / (60f * 30f));
+        }
+
+        /// <summary>仕訳帳が空なら、取引前の現金で期首残高を建てる（複式簿記の貸借を成立させる起点）。</summary>
+        private static void RecordOpeningIfNeeded(long cashBefore)
+        {
+            if (!PersonalLedgerStore.HasEntries)
+                BookkeepingRules.PostOpeningCash(PersonalLedgerStore.Ledger, CurrentMonth(), cashBefore);
         }
 
         private void ChangePurchaseQty(int delta)
@@ -206,6 +223,8 @@ namespace Ginei
             }
             int cash = PrivateFleetPurchaseRules.CashPortion(cost, me.wealth);
             int borrow = PrivateFleetPurchaseRules.BorrowPortion(cost, me.wealth);
+            int commissionFee = PrivateFleetPurchaseRules.Commission(purchaseQty, pp.unitPrice, commission);
+            long wealthBefore = (long)me.wealth;
             me.wealth -= cash;            // 私財から支払い
             me.personalDebt += borrow;    // 不足分は借金（私財担保）
             me.privateSoldiers += purchaseQty; // 私兵として保有（FleetPool には入れない）
@@ -213,7 +232,12 @@ namespace Ginei
             // 商人の口銭は商社の利益（在席時）。
             var gv = GalaxyView.Active;
             TradingHouse th = gv != null ? gv.GetTradingHouse(PlayerFaction()) : null;
-            if (th != null) th.capital += PrivateFleetPurchaseRules.Commission(purchaseQty, pp.unitPrice, commission);
+            if (th != null) th.capital += commissionFee;
+
+            // 複式簿記へ記帳：私兵(資産)＋口銭(費用) を 現金/借入金 で賄う（私有財産の移動を月次で追える）。
+            RecordOpeningIfNeeded(wealthBefore);
+            BookkeepingRules.PostShipPurchase(PersonalLedgerStore.Ledger, CurrentMonth(),
+                cost - commissionFee, commissionFee, cash, borrow, $"私兵艦艇 {purchaseQty:#,0} 隻 購入");
 
             NotificationCenter.Push(NotificationCategory.建艦, NotificationSeverity.情報,
                 $"商人を介して艦艇 {purchaseQty:#,0} 隻を私兵として購入（私財 {cash:#,0}／借入 {borrow:#,0}・残私財 {me.wealth:#,0}・個人負債 {me.personalDebt:#,0}・私兵計 {me.privateSoldiers:#,0}）");

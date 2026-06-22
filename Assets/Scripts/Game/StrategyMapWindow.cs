@@ -291,6 +291,10 @@ namespace Ginei
             MakeBarButton(cmd.transform, "艦隊管理", 110f,
                 () => UnityEngine.Object.FindAnyObjectByType<PlayerFleetManagementOverlay>()?.Toggle());
 
+            // 家計簿（主人公の私有財産の移動を複式簿記で月次に観測する統計）を上メニューへ。
+            MakeBarButton(cmd.transform, "家計簿", 96f,
+                () => UnityEngine.Object.FindAnyObjectByType<PersonalBookkeepingOverlay>()?.Toggle());
+
             // 上メニューの集約：25個のボタンを「観測」1個に畳み、タブ化したウィンドウ（内政/経済/軍事/政治/
             // システムの5タブ）から各オブザーバを開く。既存ウィンドウ・単一文字ショートカット（G/J/M/…）は不変。
             MakeBarButton(cmd.transform, "観測 ▾", 132f, ToggleObserverWindow);

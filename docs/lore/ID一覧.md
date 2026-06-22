@@ -22,6 +22,10 @@ tags: [index, ID, 識別子]
 | 会戦 | **BAT** | [[会戦/_テンプレート\|会戦]] | `ScenarioData` |
 | 星系 | **SYS** | [[星系/_テンプレート\|星系]] | `StarSystem.id` |
 | 旗艦 | **SHP** | [[旗艦/_テンプレート\|旗艦]] | `ShipNameRegistry` / `signatureShipName` |
+| 政党 | **PTY** | [[組織/_政党テンプレート\|政党]] | `Party` / `PartyRules` / `PoliticsState` |
+| 企業 | **COM** | [[組織/_企業テンプレート\|企業]] | `Enterprise` / `TradingHouse` / `Bank` / `Listing` |
+| 家門 | **HOU** | [[組織/_家門テンプレート\|家門]] | `DynastyRules` / `SuccessionRules` / 血縁グラフ |
+| 回廊 | **COR** | [[回廊/_テンプレート\|回廊]] | `GalaxyMap` の `Corridor` / `GalaxyPathfinder` |
 
 ## 採番済み
 
@@ -383,3 +387,7 @@ tags: [index, ID, 識別子]
 - SHP：次は **SHP-013**
 - BAT：次は **BAT-001**
 - SYS：次は **SYS-001**
+- PTY：次は **PTY-001**
+- COM：次は **COM-001**
+- HOU：次は **HOU-001**
+- COR：次は **COR-001**

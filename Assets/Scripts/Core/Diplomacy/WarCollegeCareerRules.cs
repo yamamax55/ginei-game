@@ -32,7 +32,7 @@ namespace Ginei
         public const int MaxEnrollAge = 33;   // 上限（中堅将校まで＝老将は行かない）
         public const int AnnualIntakePerFaction = 1;        // 年次の入校枠（勢力ごと）
         public const int PromotionsPerFactionPerYear = 1;   // 年次の昇進枠（勢力ごと）
-        public const int EliteTierCeiling = 9;              // エリート街道の上限tier（元帥10 は別格）
+        public const int EliteTierCeiling = 11;             // エリート街道の上限tier（上級大将＝元帥12 は別格）
 
         /// <summary>大学校へ入校できる候補か＝現役（生存・自由）・大学校未修了・在学中でない・入校適齢。</summary>
         public static bool CanEnroll(Person p, int year)

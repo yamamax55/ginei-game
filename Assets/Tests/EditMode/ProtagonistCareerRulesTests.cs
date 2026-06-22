@@ -37,8 +37,8 @@ namespace Ginei.Tests
             Assert.IsTrue(outcome.commissioned, "首席は任官する");
             Assert.AreEqual(MilitaryDegree.大学校卒, outcome.degree, "最上位は大学校卒（参謀）");
             Assert.AreEqual(1, outcome.hammockNumber, "首席のハンモック=1");
-            // InitialTier(1)=6 ＋ 大学校卒ボーナス2 = 8
-            Assert.AreEqual(8, outcome.rankTier);
+            // InitialTier(1)=8 ＋ 大学校卒ボーナス2 = 10
+            Assert.AreEqual(10, outcome.rankTier);
             Assert.AreEqual(10, outcome.classSize);
         }
 
@@ -70,7 +70,7 @@ namespace Ginei.Tests
             Assert.IsTrue(outcome.commissioned);
             Assert.AreEqual(MilitaryDegree.士官学校卒, outcome.degree);
             Assert.AreEqual(2, outcome.hammockNumber);
-            Assert.AreEqual(6, outcome.rankTier); // InitialTier(2)=6
+            Assert.AreEqual(8, outcome.rankTier); // InitialTier(2)=8
         }
 
         [Test]

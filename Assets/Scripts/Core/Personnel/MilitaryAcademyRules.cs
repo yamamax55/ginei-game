@@ -62,13 +62,13 @@ namespace Ginei
 
         /// <summary>
         /// 士官学校卒の<b>初任階級 tier</b>（立身出世の起点・TKO-12 #2489）。士官学校卒＝<b>少尉(1)</b>、大学校卒（参謀・恩賜の軍刀組）＝
-        /// <b>大尉(2)</b> から（fast-track）。任官しない（退校/幼年学校卒）は 0。准将(5＝艦隊指揮の下限)以降は武勲・年功で昇る
+        /// <b>大尉(3)</b> から（fast-track）。任官しない（退校/幼年学校卒）は 0。准将(7＝艦隊指揮の下限)以降は武勲・年功で昇る
         /// （<see cref="RankSystem.FullLadderName"/> の尉官/佐官ラダーを月次評定で段階昇進）。<paramref name="hammockNumber"/> は将来の
         /// 微調整用（首席の上乗せ等）に受けるが現状は学歴のみで決める。
         /// </summary>
         public static int CommissionTier(MilitaryDegree degree, int hammockNumber)
         {
-            if (degree == MilitaryDegree.大学校卒) return 2;   // 大尉から（参謀街道）
+            if (degree == MilitaryDegree.大学校卒) return 3;   // 大尉から（参謀街道）
             if (degree == MilitaryDegree.士官学校卒) return 1; // 少尉
             return 0; // 未任官（退校/幼年学校卒）
         }

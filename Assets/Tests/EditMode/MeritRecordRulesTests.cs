@@ -20,11 +20,11 @@ namespace Ginei.Tests
             var f = ScriptableObject.CreateInstance<FactionData>();
             f.ranks = new List<FactionData.RankEntry>
             {
-                new FactionData.RankEntry(5, "准将"),
-                new FactionData.RankEntry(6, "少将"),
-                new FactionData.RankEntry(7, "中将"),
-                new FactionData.RankEntry(8, "大将"),
-                new FactionData.RankEntry(10, "元帥"),
+                new FactionData.RankEntry(7, "准将"),
+                new FactionData.RankEntry(8, "少将"),
+                new FactionData.RankEntry(9, "中将"),
+                new FactionData.RankEntry(10, "大将"),
+                new FactionData.RankEntry(12, "元帥"),
             };
             return f;
         }
@@ -63,8 +63,8 @@ namespace Ginei.Tests
         {
             var f = Faction();
             var rec = new MeritRecord(1) { points = 120f }; // 2段
-            // 准将(5) から 2段 → 少将(6) → 中将(7)
-            Assert.AreEqual(7, MeritRecordRules.PromotedTier(f, 5, rec, P));
+            // 准将(7) から 2段 → 少将(8) → 中将(9)
+            Assert.AreEqual(9, MeritRecordRules.PromotedTier(f, 7, rec, P));
         }
 
         [Test]
@@ -72,7 +72,7 @@ namespace Ginei.Tests
         {
             var f = Faction();
             var rec = new MeritRecord(1); // 0点
-            Assert.AreEqual(6, MeritRecordRules.PromotedTier(f, 6, rec, P), "功績0は年功ベースのまま");
+            Assert.AreEqual(8, MeritRecordRules.PromotedTier(f, 8, rec, P), "功績0は年功ベースのまま");
         }
 
         [Test]
@@ -80,10 +80,10 @@ namespace Ginei.Tests
         {
             var f = Faction();
             var rec = new MeritRecord(1) { points = 1000f }; // 20段ぶん
-            // 大将(8) から上は元帥(10) のみ＝1段で頭打ち
-            Assert.AreEqual(10, MeritRecordRules.PromotedTier(f, 8, rec, P));
-            // 既に元帥(10) なら据え置き
-            Assert.AreEqual(10, MeritRecordRules.PromotedTier(f, 10, rec, P));
+            // 大将(10) から上は元帥(12) のみ＝1段で頭打ち
+            Assert.AreEqual(12, MeritRecordRules.PromotedTier(f, 10, rec, P));
+            // 既に元帥(12) なら据え置き
+            Assert.AreEqual(12, MeritRecordRules.PromotedTier(f, 12, rec, P));
         }
 
         [Test]
@@ -99,20 +99,20 @@ namespace Ginei.Tests
         {
             var f = Faction();
             var rec = new MeritRecord(1) { points = 120f }; // 2段
-            int tier = 5;
+            int tier = 7;
 
             Assert.IsTrue(MeritRecordRules.TryApplyPromotion(f, tier, rec, P, out tier));
-            Assert.AreEqual(6, tier);
+            Assert.AreEqual(8, tier);
             Assert.AreEqual(1, rec.meritPromotionsApplied);
             Assert.IsTrue(MeritRecordRules.HasPendingPromotion(rec, P));
 
             Assert.IsTrue(MeritRecordRules.TryApplyPromotion(f, tier, rec, P, out tier));
-            Assert.AreEqual(7, tier);
+            Assert.AreEqual(9, tier);
             Assert.AreEqual(2, rec.meritPromotionsApplied);
             Assert.IsFalse(MeritRecordRules.HasPendingPromotion(rec, P));
 
             Assert.IsFalse(MeritRecordRules.TryApplyPromotion(f, tier, rec, P, out tier), "残段なしは昇進しない");
-            Assert.AreEqual(7, tier);
+            Assert.AreEqual(9, tier);
         }
     }
 }

@@ -11,15 +11,15 @@ namespace Ginei.Tests
     /// </summary>
     public class BureaucracyCareerRulesTests
     {
-        private static Person Civil(int id, int op, int intel, int rankTier = 4, int gradYear = 0)
+        private static Person Civil(int id, int op, int intel, int rankTier = 6, int gradYear = 0)
             => new Person(id, "文官" + id, Faction.帝国, PersonRole.文民)
                { operation = op, intelligence = intel, rankTier = rankTier, graduationYear = gradYear };
 
         [Test]
         public void InitialCourtRank_HighOfficeIsNoble_CommonerBelowWall()
         {
-            Assert.AreEqual(CourtRank.従五位下, BureaucracyCareerRules.InitialCourtRank(Civil(1, 0, 0, rankTier: 8)));
-            Assert.AreEqual(CourtRank.正六位上, BureaucracyCareerRules.InitialCourtRank(Civil(1, 0, 0, rankTier: 7)));
+            Assert.AreEqual(CourtRank.従五位下, BureaucracyCareerRules.InitialCourtRank(Civil(1, 0, 0, rankTier: 10)));
+            Assert.AreEqual(CourtRank.正六位上, BureaucracyCareerRules.InitialCourtRank(Civil(1, 0, 0, rankTier: 9)));
             Assert.AreEqual(CourtRank.正八位上, BureaucracyCareerRules.InitialCourtRank(Civil(1, 0, 0, rankTier: 0)));
             // 進士級(7)は五位の壁の下、高官(8)は貴族
             Assert.IsFalse(JapaneseCourtRankRules.IsNobility(CourtRank.正六位上));
@@ -29,7 +29,7 @@ namespace Ginei.Tests
         [Test]
         public void TickYear_SeedsRankAndMerit_AndPromotesCompetent()
         {
-            var roster = new List<Person> { Civil(1, 80, 80, rankTier: 4, gradYear: 790) };
+            var roster = new List<Person> { Civil(1, 80, 80, rankTier: 6, gradYear: 790) };
             var changes = new List<BureaucracyCareerRules.CareerChange>();
             BureaucracyCareerRules.TickYear(roster, courtAuthority: 0.3f, currentYear: 800, CP.Default, changes);
 
@@ -47,7 +47,7 @@ namespace Ginei.Tests
             // 正六位上の俊英（高能力・清廉・長勤）＝上上を取る
             Person Talent()
             {
-                var t = Civil(1, 95, 95, rankTier: 7, gradYear: 780);
+                var t = Civil(1, 95, 95, rankTier: 9, gradYear: 780);
                 t.courtRank = CourtRank.正六位上;
                 t.merit = new OfficialMerit(1, 1f);
                 return t;
@@ -71,7 +71,7 @@ namespace Ginei.Tests
         [Test]
         public void TickYear_PoorOfficial_IsDemoted()
         {
-            var p = Civil(1, 0, 0, rankTier: 3);
+            var p = Civil(1, 0, 0, rankTier: 4);
             p.courtRank = CourtRank.正七位上;
             p.merit = new OfficialMerit(1, 0f); // 無能・汚職＝下下
             var roster = new List<Person> { p };

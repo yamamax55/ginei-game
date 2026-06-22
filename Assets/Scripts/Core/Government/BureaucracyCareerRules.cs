@@ -52,13 +52,14 @@ namespace Ginei
         {
             if (p == null) return CourtRank.無位;
             int t = p.rankTier;
-            if (t >= 8) return CourtRank.従五位下; // 高官登用＝いきなり貴族（蔭位の最上相当）
-            if (t == 7) return CourtRank.正六位上; // 進士級＝五位の壁の直下
-            if (t == 6) return CourtRank.正六位下;
-            if (t == 5) return CourtRank.従六位上;
-            if (t == 4) return CourtRank.従六位下;
-            if (t == 3) return CourtRank.正七位上;
-            return CourtRank.正八位上;             // 一般出身
+            if (t >= 10) return CourtRank.従五位下; // 大将級＝高官登用＝いきなり貴族（蔭位の最上相当）
+            if (t == 9) return CourtRank.正六位上;  // 中将＝進士級＝五位の壁の直下
+            if (t == 8) return CourtRank.正六位下;  // 少将
+            if (t == 7) return CourtRank.従六位上;  // 准将
+            if (t == 6) return CourtRank.従六位下;  // 大佐
+            if (t == 5) return CourtRank.正七位上;  // 中佐
+            if (t == 4) return CourtRank.正七位上;  // 少佐
+            return CourtRank.正八位上;              // 大尉以下（尉官・一般出身）
         }
 
         /// <summary>勤続年数（考課の「績」）。卒業年が分かればそこから、無ければ1年扱い。</summary>

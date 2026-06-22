@@ -150,8 +150,8 @@ namespace Ginei.Tests
         public void SelectForOffice_PrefersMeritWhenTiersEqual()
         {
             var prm = AP.Default;
-            var good = new Person(1, "良吏", Faction.帝国, PersonRole.文民) { rankTier = 7, birthYear = 780 };
-            var poor = new Person(2, "凡吏", Faction.帝国, PersonRole.文民) { rankTier = 7, birthYear = 780 };
+            var good = new Person(1, "良吏", Faction.帝国, PersonRole.文民) { rankTier = 9, birthYear = 780 };
+            var poor = new Person(2, "凡吏", Faction.帝国, PersonRole.文民) { rankTier = 9, birthYear = 780 };
             var merits = new System.Collections.Generic.Dictionary<int, OfficialMerit>
             {
                 { 1, new OfficialMerit(1) },
@@ -161,7 +161,7 @@ namespace Ginei.Tests
             for (int i = 0; i < 3; i++) MeritEvaluationRules.Record(merits[2], MeritRating.下下);
 
             var chosen = CivilServiceRules.SelectForOffice(
-                new[] { good, poor }, requiredTier: 6,
+                new[] { good, poor }, requiredTier: 8,
                 p => merits.TryGetValue(p.id, out var m) ? m : null, prm);
             Assert.AreSame(good, chosen);
         }
@@ -170,11 +170,11 @@ namespace Ginei.Tests
         public void SelectForOffice_RespectsRankGate_AndAvailability()
         {
             var prm = AP.Default;
-            var underranked = new Person(1, "下位", Faction.同盟, PersonRole.文民) { rankTier = 4 };
-            var captive = new Person(2, "捕虜", Faction.同盟, PersonRole.文民) { rankTier = 8, captiveStatus = CaptiveStatus.捕虜 };
-            var ok = new Person(3, "適任", Faction.同盟, PersonRole.文民) { rankTier = 6 };
+            var underranked = new Person(1, "下位", Faction.同盟, PersonRole.文民) { rankTier = 6 };
+            var captive = new Person(2, "捕虜", Faction.同盟, PersonRole.文民) { rankTier = 10, captiveStatus = CaptiveStatus.捕虜 };
+            var ok = new Person(3, "適任", Faction.同盟, PersonRole.文民) { rankTier = 8 };
             var chosen = CivilServiceRules.SelectForOffice(
-                new[] { underranked, captive, ok }, requiredTier: 6, p => null, prm);
+                new[] { underranked, captive, ok }, requiredTier: 8, p => null, prm);
             Assert.AreSame(ok, chosen);
         }
 
@@ -182,8 +182,8 @@ namespace Ginei.Tests
         public void SelectForOffice_NoEligible_ReturnsNull()
         {
             var prm = AP.Default;
-            var lone = new Person(1, "下位", Faction.帝国, PersonRole.文民) { rankTier = 3 };
-            Assert.IsNull(CivilServiceRules.SelectForOffice(new[] { lone }, requiredTier: 7, p => null, prm));
+            var lone = new Person(1, "下位", Faction.帝国, PersonRole.文民) { rankTier = 4 };
+            Assert.IsNull(CivilServiceRules.SelectForOffice(new[] { lone }, requiredTier: 9, p => null, prm));
         }
 
         // ---- 位階（CourtRank / JapaneseCourtRankRules） ----

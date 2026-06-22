@@ -21,15 +21,15 @@ namespace Ginei.Tests
             var f = ScriptableObject.CreateInstance<FactionData>();
             f.ranks = new List<FactionData.RankEntry>
             {
-                new FactionData.RankEntry(5, "准将"), new FactionData.RankEntry(6, "少将"),
-                new FactionData.RankEntry(7, "中将"), new FactionData.RankEntry(8, "大将"),
-                new FactionData.RankEntry(10, "元帥"),
+                new FactionData.RankEntry(7, "准将"), new FactionData.RankEntry(8, "少将"),
+                new FactionData.RankEntry(9, "中将"), new FactionData.RankEntry(10, "大将"),
+                new FactionData.RankEntry(12, "元帥"),
             };
             return f;
         }
 
-        private static Person Lord() => new Person(1, "君主", Faction.帝国, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
-        private static Person Hero(int tier = 5) => new Person(2, "主人公", Faction.帝国, PersonRole.軍人) { rankTier = tier };
+        private static Person Lord() => new Person(1, "君主", Faction.帝国, PersonRole.軍人) { isSovereign = true, rankTier = 12 };
+        private static Person Hero(int tier = 7) => new Person(2, "主人公", Faction.帝国, PersonRole.軍人) { rankTier = tier };
 
         // 連続値を返す roll 源。
         private static Func<float> Rolls(params float[] vals)
@@ -59,14 +59,14 @@ namespace Ginei.Tests
         [Test]
         public void PendingMeritPromotion_AppliedOneStepPerCouncil()
         {
-            var hero = Hero(5);
+            var hero = Hero(7);
             var merit = new MeritRecord(2) { points = 120f }; // 2段ぶん
             var outcome = MonthlyCouncilRules.Hold(hero, merit, MakeFaction(), null, Lord(),
                 currentMonth: 1, newMandateId: 99, roll: Rolls(0.9f), meritPrm: EP, mandatePrm: MP, councilPrm: CP);
 
             Assert.IsTrue(outcome.promoted);
-            Assert.AreEqual(6, outcome.newRankTier, "准将→少将（1段のみ＝ペース制御）");
-            Assert.AreEqual(6, hero.rankTier);
+            Assert.AreEqual(8, outcome.newRankTier, "准将→少将（1段のみ＝ペース制御）");
+            Assert.AreEqual(8, hero.rankTier);
             Assert.AreEqual(1, merit.meritPromotionsApplied);
             Assert.IsTrue(MeritRecordRules.HasPendingPromotion(merit, EP), "残り1段は翌月へ");
         }

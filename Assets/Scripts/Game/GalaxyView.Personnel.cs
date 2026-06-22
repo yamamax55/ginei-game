@@ -39,10 +39,10 @@ namespace Ginei
                 int y = campaignYear;
                 int id = 1;
                 // 各勢力：壮年（当面は死ににくい）＋老齢（老衰しうる）
-                commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 8 });
-                commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 8 });
-                commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 7 });
-                commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
+                commanders.Add(new Person(id++, "ミッターマイアー", Faction.帝国, PersonRole.軍人) { birthYear = y - 39, rankTier = 10 });
+                commanders.Add(new Person(id++, "メックリンガー", Faction.帝国, PersonRole.軍人) { birthYear = y - 79, rankTier = 10 });
+                commanders.Add(new Person(id++, "アッテンボロー", Faction.同盟, PersonRole.軍人) { birthYear = y - 41, rankTier = 9 });
+                commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 11 });
                 id = SeedFoundingYouth(id, y); // 世代交代ループの種＝結婚適齢の若者（男女）
                 id = SeedDemoCivilService(id, y); // 指導者/政治家/文官/官僚/技術者をシード（人事観測層のテスト）
                 nextPersonId = id; // 卒業生はこの続き番号で採番
@@ -488,15 +488,15 @@ namespace Ginei
             {
                 Person c = commanders[i];
                 if (c == null || c.IsDeceased) continue;
-                if (c.rankTier < 7) continue;                                  // 中将以上の将官が対象
+                if (c.rankTier < 9) continue;                                  // 中将以上の将官が対象
                 if (MedalRegistry.Count(c.id) >= MaxMedalsPerCommander) continue; // 上限
 
                 // 階級が高いほど叙勲されやすい（決定論抽選）。
                 float roll = Mathf.Abs(Mathf.Sin(c.id * 12.9898f + campaignYear * 78.233f));
                 roll -= Mathf.Floor(roll);
-                if (roll > c.rankTier / 20f) continue;
+                if (roll > c.rankTier / 24f) continue;
 
-                MedalKind kind = c.rankTier >= 9 ? MedalKind.勲功章 : MedalKind.武功章;
+                MedalKind kind = c.rankTier >= 11 ? MedalKind.勲功章 : MedalKind.武功章;
                 float merit = Mathf.Clamp(c.rankTier * 10f, 0f, 100f);
                 Decoration d = MedalRegistry.Award(c.id, kind, merit, campaignYear, $"{c.name} の武勲");
 

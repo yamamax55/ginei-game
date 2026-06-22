@@ -84,16 +84,16 @@ namespace Ginei.Tests
             var unit = FleetRoster.CreateFleet(Faction.帝国, 1);
 
             // 階級ゲート無し（requiredTier=0）：非null提督なら配属可
-            Assert.IsTrue(FleetRoster.AssignAdmiral(unit, Admiral(5)));
+            Assert.IsTrue(FleetRoster.AssignAdmiral(unit, Admiral(7)));
             Assert.IsTrue(unit.HasAdmiral);
 
             // ゲートあり：tier 不足は配属拒否（現状維持）
-            var low = Admiral(5);
-            Assert.IsFalse(FleetRoster.AssignAdmiral(unit, low, requiredTier: 7));
+            var low = Admiral(7);
+            Assert.IsFalse(FleetRoster.AssignAdmiral(unit, low, requiredTier: 9));
 
             // tier 充足は配属可
-            var high = Admiral(7);
-            Assert.IsTrue(FleetRoster.AssignAdmiral(unit, high, requiredTier: 7));
+            var high = Admiral(9);
+            Assert.IsTrue(FleetRoster.AssignAdmiral(unit, high, requiredTier: 9));
             Assert.AreSame(high, unit.assignedAdmiral);
 
             // null 提督は不可
@@ -111,34 +111,34 @@ namespace Ginei.Tests
             unit.baseStrength = 20000; // 大将の指揮限界(15000)超＝上級大将/元帥級が要る
 
             // 階級ゲート無し(0)でも、指揮可能規模を超える階級は配属不可
-            Assert.IsFalse(FleetRoster.CanAssign(Admiral(8), unit));   // 大将 cap15000 < 20000
-            Assert.IsFalse(FleetRoster.AssignAdmiral(unit, Admiral(8)));
+            Assert.IsFalse(FleetRoster.CanAssign(Admiral(10), unit));   // 大将 cap15000 < 20000
+            Assert.IsFalse(FleetRoster.AssignAdmiral(unit, Admiral(10)));
             Assert.IsFalse(unit.HasAdmiral);
 
             // 規模を満たす階級は配属可
-            Assert.IsTrue(FleetRoster.CanAssign(Admiral(9), unit));    // 上級大将 cap30000 >= 20000
-            Assert.IsTrue(FleetRoster.AssignAdmiral(unit, Admiral(9)));
-            Assert.AreEqual(9, unit.assignedAdmiral.rankTier);
+            Assert.IsTrue(FleetRoster.CanAssign(Admiral(11), unit));    // 上級大将 cap30000 >= 20000
+            Assert.IsTrue(FleetRoster.AssignAdmiral(unit, Admiral(11)));
+            Assert.AreEqual(11, unit.assignedAdmiral.rankTier);
 
             // 規模を満たしても階級ゲート(requiredTier)が優先（両方必要）
-            Assert.IsFalse(FleetRoster.CanAssign(Admiral(9), unit, requiredTier: 10));
+            Assert.IsFalse(FleetRoster.CanAssign(Admiral(11), unit, requiredTier: 12));
 
             // baseStrength=0 の艦隊は規模0扱い＝准将でも通る（後方互換）
             var small = FleetRoster.CreateFleet(Faction.帝国, 2);
-            Assert.IsTrue(FleetRoster.CanAssign(Admiral(5), small));
-            Assert.IsTrue(FleetRoster.AssignAdmiral(small, Admiral(5)));
+            Assert.IsTrue(FleetRoster.CanAssign(Admiral(7), small));
+            Assert.IsTrue(FleetRoster.AssignAdmiral(small, Admiral(7)));
         }
 
         [Test]
         public void Unassign_And_Reassign()
         {
             var unit = FleetRoster.CreateFleet(Faction.帝国, 2);
-            var a = Admiral(8);
+            var a = Admiral(10);
             FleetRoster.AssignAdmiral(unit, a);
             FleetRoster.Unassign(unit);
             Assert.IsFalse(unit.HasAdmiral);
 
-            var b = Admiral(8);
+            var b = Admiral(10);
             Assert.IsTrue(FleetRoster.ReassignAdmiral(unit, b));
             Assert.AreSame(b, unit.assignedAdmiral);
         }
@@ -189,11 +189,11 @@ namespace Ginei.Tests
         public void CanAssign_RankGate_BoundaryIsInclusive()
         {
             // tier == requiredTier はちょうど可（>= の境界）
-            Assert.IsTrue(FleetRoster.CanAssign(Admiral(7), 7));
+            Assert.IsTrue(FleetRoster.CanAssign(Admiral(9), 9));
             // 1 だけ不足は不可
-            Assert.IsFalse(FleetRoster.CanAssign(Admiral(6), 7));
+            Assert.IsFalse(FleetRoster.CanAssign(Admiral(8), 9));
             // 1 上回るのは当然可
-            Assert.IsTrue(FleetRoster.CanAssign(Admiral(8), 7));
+            Assert.IsTrue(FleetRoster.CanAssign(Admiral(10), 9));
             // null 提督は常に不可
             Assert.IsFalse(FleetRoster.CanAssign(null, 0));
         }

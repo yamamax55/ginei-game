@@ -176,7 +176,7 @@ namespace Ginei.Tests
             c.states.Add(fs);
             var reg = new StrategicFleetRegistry(c.map);
             reg.Add(new StrategicFleet(1, 0, Faction.帝国, 1f) { strength = 50 });
-            var people = new System.Collections.Generic.List<Person> { new Person(9, "提督", Faction.帝国, PersonRole.軍人) { rankTier = 8 } };
+            var people = new System.Collections.Generic.List<Person> { new Person(9, "提督", Faction.帝国, PersonRole.軍人) { rankTier = 10 } };
 
             var save = CampaignSerializer.ToSaveData(c);
             CampaignSerializer.WritePeople(save, people);

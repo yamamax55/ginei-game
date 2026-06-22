@@ -30,7 +30,7 @@ namespace Ginei.Tests
             // 提督データから（階級5・統率50→俸給30）
             var a = ScriptableObject.CreateInstance<AdmiralData>();
             a.staffOfficers = new AdmiralData[0];
-            a.rankTier = 5; a.leadership = 50;
+            a.rankTier = 7; a.leadership = 50;
             Assert.AreEqual(30f, WageRules.PersonSalary(a, s), 1e-3f);
             Assert.AreEqual(0f, WageRules.PersonSalary((AdmiralData)null, s), 1e-3f);
         }

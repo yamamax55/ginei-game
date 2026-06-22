@@ -70,9 +70,9 @@ namespace Ginei.Tests
         [Test]
         public void Graduate_TierBonusCappedAtEliteCeiling()
         {
-            var p = Off(1, Faction.帝国, 80, Y - 31, tier: 8, spu: Y);
+            var p = Off(1, Faction.帝国, 80, Y - 31, tier: 10, spu: Y);
             WarCollegeCareerRules.Graduate(p, 1);
-            Assert.AreEqual(WarCollegeCareerRules.EliteTierCeiling, p.rankTier); // 8+2=10 → 9 で頭打ち
+            Assert.AreEqual(WarCollegeCareerRules.EliteTierCeiling, p.rankTier); // 10+2=12 → 11 で頭打ち
         }
 
         // ===== 年次 Tick：卒業で軍才順に席次＝恩賜判定 =====

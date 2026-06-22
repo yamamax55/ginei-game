@@ -19,9 +19,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: e30a09c3b60c6324196a1ccfefab0a87, type: 2}
   legacyFaction: 0
   ranks:
-  - tier: 6
-    rankName: "\u968A\u9577"
   - tier: 8
-    rankName: "\u5C06\u8ECD"
+    rankName: "\u968A\u9577"
   - tier: 10
+    rankName: "\u5C06\u8ECD"
+  - tier: 12
     rankName: "\u7DCF\u5E25"

@@ -18,15 +18,15 @@ MonoBehaviour:
   nonHostileFactions: []
   legacyFaction: 0
   ranks:
-  - tier: 5
-    rankName: "\u51C6\u5C06"
-  - tier: 6
-    rankName: "\u5C11\u5C06"
   - tier: 7
-    rankName: "\u4E2D\u5C06"
+    rankName: "\u51C6\u5C06"
   - tier: 8
-    rankName: "\u5927\u5C06"
+    rankName: "\u5C11\u5C06"
   - tier: 9
-    rankName: "\u4E0A\u7D1A\u5927\u5C06"
+    rankName: "\u4E2D\u5C06"
   - tier: 10
+    rankName: "\u5927\u5C06"
+  - tier: 11
+    rankName: "\u4E0A\u7D1A\u5927\u5C06"
+  - tier: 12
     rankName: "\u5143\u5E25"

@@ -16,11 +16,11 @@ namespace Ginei.Tests
             f.factionName = name;
             f.ranks = new List<FactionData.RankEntry>
             {
-                new FactionData.RankEntry(5, "准将"),
-                new FactionData.RankEntry(6, "少将"),
-                new FactionData.RankEntry(7, "中将"),
-                new FactionData.RankEntry(8, "大将"),
-                new FactionData.RankEntry(10, "元帥"),
+                new FactionData.RankEntry(7, "准将"),
+                new FactionData.RankEntry(8, "少将"),
+                new FactionData.RankEntry(9, "中将"),
+                new FactionData.RankEntry(10, "大将"),
+                new FactionData.RankEntry(12, "元帥"),
             };
             return f;
         }
@@ -28,19 +28,19 @@ namespace Ginei.Tests
         [Test]
         public void GetRankName_ExistingTier_ReturnsName()
         {
-            Assert.AreEqual("大将", MakeFaction("A").GetRankName(8));
+            Assert.AreEqual("大将", MakeFaction("A").GetRankName(10));
         }
 
         [Test]
         public void GetRankName_MissingTier_ReturnsEmpty()
         {
-            Assert.AreEqual("", MakeFaction("A").GetRankName(9));
+            Assert.AreEqual("", MakeFaction("A").GetRankName(11)); // 上級大将は欠番
         }
 
         [Test]
         public void GetTier_KnownName_ReturnsTier()
         {
-            Assert.AreEqual(10, MakeFaction("A").GetTier("元帥"));
+            Assert.AreEqual(12, MakeFaction("A").GetTier("元帥"));
         }
 
         [Test]
@@ -52,7 +52,7 @@ namespace Ginei.Tests
         [Test]
         public void HighestTier_ReturnsLargest()
         {
-            Assert.AreEqual(10, MakeFaction("A").HighestTier());
+            Assert.AreEqual(12, MakeFaction("A").HighestTier());
         }
 
         [Test]

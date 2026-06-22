@@ -13,10 +13,10 @@ namespace Ginei.Tests
         [Test]
         public void Derive_RankBranchAndQualifications()
         {
-            // 軍人・中将(7)・SOF・参謀 → 階級章+兵科章+特殊作戦徽章+参謀徽章＝4枚。
-            var b = BadgeRules.Derive(7, PersonRole.軍人, isSpecialForces: true, isStaff: true);
+            // 軍人・中将(9)・SOF・参謀 → 階級章+兵科章+特殊作戦徽章+参謀徽章＝4枚。
+            var b = BadgeRules.Derive(9, PersonRole.軍人, isSpecialForces: true, isStaff: true);
             Assert.AreEqual(4, b.Count);
-            Assert.IsTrue(b.Exists(x => x.kind == BadgeKind.階級章 && x.tier == 7));
+            Assert.IsTrue(b.Exists(x => x.kind == BadgeKind.階級章 && x.tier == 9));
             Assert.IsTrue(b.Exists(x => x.kind == BadgeKind.兵科章));
             Assert.IsTrue(b.Exists(x => x.kind == BadgeKind.技能章 && x.name == "特殊作戦徽章"));
             Assert.IsTrue(b.Exists(x => x.kind == BadgeKind.技能章 && x.name == "参謀徽章"));

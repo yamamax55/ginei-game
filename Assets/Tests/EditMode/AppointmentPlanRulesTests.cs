@@ -23,7 +23,7 @@ namespace Ginei.Tests
             };
         }
 
-        private static Person Soldier(int id, int leadership, int attack = 50, int rankTier = 6)
+        private static Person Soldier(int id, int leadership, int attack = 50, int rankTier = 8)
         {
             return new Person(id, "武" + id, Faction.同盟, PersonRole.軍人)
             {
@@ -56,8 +56,8 @@ namespace Ginei.Tests
         [Test]
         public void FitForOffice_RankTooLowReturnsZero()
         {
-            Person lowRank = Soldier(1, 90, rankTier: 3);
-            Office mil = MilitaryOffice(10, requiredTier: 6);
+            Person lowRank = Soldier(1, 90, rankTier: 4);
+            Office mil = MilitaryOffice(10, requiredTier: 8);
             Assert.AreEqual(0f, AppointmentPlanRules.FitForOffice(lowRank, mil), 1e-6f);
         }
 

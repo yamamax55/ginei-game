@@ -22,7 +22,7 @@ namespace Ginei
             var heir = new Person(newId, string.IsNullOrEmpty(heirName) ? "世継ぎ" : heirName, f, PersonRole.軍人)
             {
                 birthYear = birthYear,
-                rankTier = Mathf.Max(1, OriginRules.CommissionFloor(origin)), // 出自の初任段から出仕（貴族2/王家3）
+                rankTier = Mathf.Max(1, OriginRules.CommissionFloor(origin)), // 出自の初任段から出仕（貴族3/王家4）
             };
             if (predecessor != null)
             {

@@ -21,7 +21,7 @@ namespace Ginei.Tests
         {
             GovernmentRegistry.Clear();
             var office = new Office(1, "宇宙艦隊司令長官", OfficeScope.国家, OfficeDomain.軍事)
-            { militaryOnly = true, requiredTier = 8 };
+            { militaryOnly = true, requiredTier = 10 };
 
             var a = Officer(1, Faction.帝国, 9); // 現職（大将級以上）
             var b = Officer(2, Faction.帝国, 8); // 後任有資格
@@ -40,7 +40,7 @@ namespace Ginei.Tests
         {
             GovernmentRegistry.Clear();
             var office = new Office(2, "司令長官", OfficeScope.国家, OfficeDomain.軍事)
-            { militaryOnly = true, requiredTier = 8 };
+            { militaryOnly = true, requiredTier = 10 };
             var a = Officer(1, Faction.同盟, 8);
             GovernmentRegistry.TryAppoint(Faction.同盟, office, a);
             a.deathYear = Y;

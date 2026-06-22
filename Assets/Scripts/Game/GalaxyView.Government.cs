@@ -112,7 +112,7 @@ namespace Ginei
             {
                 Faction fac = DemoFactions[f];
                 var office = new Office(900 + f, $"{fac}宇宙艦隊司令長官", OfficeScope.国家, OfficeDomain.軍事)
-                { militaryOnly = true, requiredTier = 8 };
+                { militaryOnly = true, requiredTier = 10 }; // 大将以上
                 commandOffices[f] = office;
                 VacancyRules.FillVacancy(fac, office, ActiveCommanders(fac)); // 初任命
             }
@@ -398,8 +398,8 @@ namespace Ginei
             for (int i = 0; i < commanders.Count; i++)
             {
                 Person c = commanders[i];
-                if (c != null && c.IsAvailable && c.serviceStatus == ServiceStatus.現役 && c.rankTier < 8)
-                    pool.Add(c); // 最高位は捕らえにくい＝中堅以下
+                if (c != null && c.IsAvailable && c.serviceStatus == ServiceStatus.現役 && c.rankTier < 10)
+                    pool.Add(c); // 最高位は捕らえにくい＝中堅以下（大将未満）
             }
             if (pool.Count == 0) return;
             Person target = pool[(int)(DetRoll(campaignYear, NextRollSeed()) * pool.Count) % pool.Count];

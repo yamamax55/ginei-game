@@ -18,13 +18,13 @@ MonoBehaviour:
   nonHostileFactions: []
   legacyFaction: 0
   ranks:
-  - tier: 5
-    rankName: "\u51C6\u53F8\u4EE4\u5B98"
-  - tier: 6
-    rankName: "\u53F8\u4EE4\u5B98"
   - tier: 7
-    rankName: "\u4E0A\u7D1A\u53F8\u4EE4\u5B98"
+    rankName: "\u51C6\u53F8\u4EE4\u5B98"
   - tier: 8
-    rankName: "\u8ECD\u53F8\u4EE4\u5B98"
+    rankName: "\u53F8\u4EE4\u5B98"
+  - tier: 9
+    rankName: "\u4E0A\u7D1A\u53F8\u4EE4\u5B98"
   - tier: 10
+    rankName: "\u8ECD\u53F8\u4EE4\u5B98"
+  - tier: 12
     rankName: "\u7DCF\u53F8\u4EE4\u5B98"

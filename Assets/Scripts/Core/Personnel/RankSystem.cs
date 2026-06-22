@@ -54,7 +54,7 @@ namespace Ginei
         /// <summary>
         /// 指定 tier をその勢力に「存在する」 tier へ丸める。
         /// 完全一致があればそのまま。無ければ直近下位、それも無ければ直近上位。
-        /// （例：tier 9＝上級大将を持たない同盟では大将(8)へスナップ）
+        /// （例：tier 11＝上級大将を持たない同盟では大将(10)へスナップ）
         /// 階級が一つも無ければ tier をそのまま返す。
         /// </summary>
         public static int ResolveTier(FactionData faction, int tier)
@@ -92,18 +92,18 @@ namespace Ginei
 
         /// <summary>
         /// 既定ラダーの階級名（FactionData が無い／階級表を持たない艦のフォールバック）。
-        /// 准将5/少将6/中将7/大将8/上級大将9/元帥10。範囲外は空文字。
+        /// 准将7/少将8/中将9/大将10/上級大将11/元帥12（将官＝完全12段ラダーの上6段）。範囲外は空文字。
         /// </summary>
         public static string DefaultRankName(int tier)
         {
             switch (tier)
             {
-                case 5: return "准将";
-                case 6: return "少将";
-                case 7: return "中将";
-                case 8: return "大将";
-                case 9: return "上級大将";
-                case 10: return "元帥";
+                case 7: return "准将";
+                case 8: return "少将";
+                case 9: return "中将";
+                case 10: return "大将";
+                case 11: return "上級大将";
+                case 12: return "元帥";
                 default: return string.Empty;
             }
         }
@@ -121,19 +121,21 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 立身出世の<b>完全ラダー</b>名（TKO-12 #2489）。尉官/佐官（少尉1/大尉2/少佐3/大佐4）＋将官（5-10＝<see cref="DefaultRankName"/>）。
-        /// 軍人立志伝の昇進路（少尉→准将→元帥）の表示用。<b>将官専用フォールバック <see cref="DefaultRankName"/> は不変</b>
-        /// （5未満は空のまま＝既存テスト保持）＝ここは尉官/佐官を足した別窓口。範囲外（≤0/&gt;10）は空文字。
+        /// 立身出世の<b>完全12段ラダー</b>名（TKO-12 #2489）。尉官（少尉1/中尉2/大尉3）＋佐官（少佐4/中佐5/大佐6）＋将官（7-12＝<see cref="DefaultRankName"/>）。
+        /// 軍人立志伝の昇進路（少尉→准将→元帥）の表示用。<b>将官専用フォールバック <see cref="DefaultRankName"/> は将官（7-12）のみ</b>
+        /// （7未満は空＝将官名に尉官を混ぜない）＝ここは尉官/佐官を足した別窓口。範囲外（≤0/&gt;12）は空文字。
         /// </summary>
         public static string FullLadderName(int tier)
         {
             switch (tier)
             {
                 case 1: return "少尉";
-                case 2: return "大尉";
-                case 3: return "少佐";
-                case 4: return "大佐";
-                default: return DefaultRankName(tier); // 5准将〜10元帥（将官）
+                case 2: return "中尉";
+                case 3: return "大尉";
+                case 4: return "少佐";
+                case 5: return "中佐";
+                case 6: return "大佐";
+                default: return DefaultRankName(tier); // 7准将〜12元帥（将官）
             }
         }
 

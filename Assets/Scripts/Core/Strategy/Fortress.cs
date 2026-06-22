@@ -15,6 +15,8 @@ namespace Ginei
         public float shieldIntegrity;    // 反射シールドの健全度 0..1（液体金属鏡）
         public float mainGunPower;       // 主砲（広域砲＝トゥール・ハンマー型）の威力
         public bool controlsCorridor;    // この要塞が回廊通過を扼すか
+        public Faction owner = Faction.帝国; // 所有勢力（#40 戦略ノード化＝この勢力に敵対する艦隊の通過を封じる）
+        public string fortressName = "要塞"; // 表示名（戦略マップのラベル・潜行会戦の名称）
 
         public Fortress() { shieldIntegrity = 1f; controlsCorridor = true; }
 

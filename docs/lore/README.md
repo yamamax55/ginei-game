@@ -28,6 +28,8 @@ tags: [index]
 | 技術者（テクノクラート） | `_技術者テンプレート.md` | 専門才（研究/工学/企画/生産）・学歴・研究（`ResearchRules`/`TechCatalog`） |
 | 商人（民間・在野＝その他） | `_商人テンプレート.md` | 商才（運営=経営/情報=商機）・人望（交渉）・財産（`wealth`/`financialTrait`/`NamedAsset`）・事業（`TradingHouse`/`Enterprise`） |
 | 聖職者（宗教・別格＝その他） | `_聖職者テンプレート.md` | 統率（説教）・文才（神学/教学）・徳・信仰（`Religion`/`ReligionCatalog`/`TheocracyRules`）→ [[設定/信仰]] |
+| 開拓者・探検家（辺境＝その他） | `_開拓者テンプレート.md` | 情報（観測・探査）・機動・体質・回廊開削/植民（`ExplorationRules`/`ColonizationRules`/`FrontierRules`） |
+| 傭兵・海賊（不正規＝その他） | `_傭兵テンプレート.md` | 攻撃・機動（奇襲）・統率・金で動く忠誠（`MercenaryBand`/`PiracyRules`/`FreebooterRules`/`CommerceRaidingRules`） |
 
 - `勢力/` … 帝国・同盟・諸侯などの勢力設定
 - `星系/` … 星系・惑星・回廊などの地理

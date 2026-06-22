@@ -91,6 +91,7 @@ for fac in FAC_ORDER:
 - 接続回廊：{cor}
 - 役職体系：[[{fac}の役職]]
 - 軍編成：[[{fac}の軍編成]]
+- 内政：[[{fac}の内政]]
 
 ### 組織
 {oblock}

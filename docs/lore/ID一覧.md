@@ -27,6 +27,7 @@ tags: [index, ID, 識別子]
 | 家門 | **HOU** | [[組織/_家門テンプレート\|家門]] | `DynastyRules` / `SuccessionRules` / 血縁グラフ |
 | 回廊 | **COR** | [[回廊/_テンプレート\|回廊]] | `GalaxyMap` の `Corridor` / `GalaxyPathfinder` |
 | 通貨 | **CUR** | [[通貨/_テンプレート\|通貨]] | `CurrencyState` / `CurrencyRules` / `CurrencyNames` |
+| 惑星 | **PLA** | [[惑星/_テンプレート\|惑星]] | `Planet` / `Province` / `PlanetSiegeRules` |
 
 ## 採番済み
 
@@ -493,6 +494,11 @@ tags: [index, ID, 識別子]
 | CUR-004 | [[兵団ルーブル]] | [[鉄環兵団]]（戦時インフレ・弱体） |
 | CUR-005 | [[灯心フラン]] | [[灯心自由市ファロス]]（最強硬貨・基軸） |
 
+### 惑星（PLA）
+| ID | ノート | 星系・備考 |
+|---|---|---|
+| （未） | | 各勢力の首星（アマテラス/ワタツミ/オオクニヌシ/スサノオ/ツクヨミ）から起票予定 |
+
 ## 次番（採番カウンタ）
 - PER：次は **PER-313**
 - FAC：次は **FAC-006**
@@ -504,3 +510,4 @@ tags: [index, ID, 識別子]
 - HOU：次は **HOU-006**
 - COR：次は **COR-008**
 - CUR：次は **CUR-006**
+- PLA：次は **PLA-001**

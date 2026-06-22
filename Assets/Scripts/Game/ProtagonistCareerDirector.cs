@@ -421,13 +421,29 @@ namespace Ginei
 
         /// <summary>主人公が直属の上官へ建白を起案・具申する（TKO-4）。稟議在庫へ載せ、稟議オブザーバ（Alt+I）に
         /// 起案者＝主人公・決裁者＝上官として現れる。資格（下位→上位・同勢力）は <see cref="PersonRingiRules"/> が判定。</summary>
-        public bool SubmitPetition()
+        public bool SubmitPetition() => SubmitPetition($"{Protagonist?.name}の建白", "career.petition");
+
+        /// <summary>
+        /// 自艦隊への予算増額を上官へ具申する（TKO-4 の具体例）。増額は自分の階級の指揮可能規模を基準に算出し、
+        /// effectKey に直列化（<see cref="FleetBudgetPetitionRules"/>）して稟議へ載せる＝採用時に decode して反映できる。
+        /// </summary>
+        public bool SubmitFleetBudgetPetition()
+        {
+            if (Protagonist == null) return false;
+            int budgetBase = CommandCapacityRules.MaxStrengthForTier(Protagonist.rankTier);
+            int amount = FleetBudgetPetitionRules.RecommendedIncrease(budgetBase);
+            string key = FleetBudgetPetitionRules.EncodeEffectKey(0, amount); // 番号0＝自艦隊
+            return SubmitPetition($"自艦隊への予算増額（{amount:#,0}）の具申", key);
+        }
+
+        /// <summary>建白を起案して上官（序列内）へ提出する共通処理。title/effectKey で具申内容を変える。</summary>
+        public bool SubmitPetition(string title, string effectKey)
         {
             if (Protagonist == null) return false;
             Person superior = DirectSuperior();
             if (superior == null) { Push(NotificationSeverity.注意, "具申できる上官がいません"); return false; }
             int id = RingiDirector.Ledger.NextId();
-            Petition pet = PersonRingiRules.RaiseTo(id, $"{Protagonist.name}の建白", Protagonist, superior, "career.petition");
+            Petition pet = PersonRingiRules.RaiseTo(id, title, Protagonist, superior, effectKey);
             if (pet == null) { Push(NotificationSeverity.注意, "具申の資格がありません（上官でない）"); return false; }
             RingiDirector.Ledger.Add(pet);
             pendingPetitions++; // 月次評定で上官（序列内）が裁可する＝結実すれば建白採用の武勲（P1-d）

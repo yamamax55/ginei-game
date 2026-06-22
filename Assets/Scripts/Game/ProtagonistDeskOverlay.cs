@@ -711,6 +711,13 @@ namespace Ginei
             RefreshNow();
         }
 
+        private void OnSubmitFleetBudgetPetition()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.SubmitFleetBudgetPetition();
+            RefreshNow();
+        }
+
         // 岐路の実行ボタン（TKO-7・一人称の自由意志）。押すと director.ExecuteFork が開かれた進路か＋前提を確認して実行。
         private void BuildForkButtons(Transform parent)
         {
@@ -815,6 +822,7 @@ namespace Ginei
 
             WindowChrome.AddTitleBarLayout(frameRT, "執務机", () => SetVisible(false));
             BuildPetitionButton(frame.transform);
+            BuildFleetBudgetPetitionButton(frame.transform);
             BuildForkButtons(frame.transform);
             BuildScrollBody(frame.transform);
         }
@@ -842,6 +850,34 @@ namespace Ginei
             lbl.alignment = TextAlignmentOptions.Center;
             lbl.fontSize = 18f;
             lbl.color = new Color(0.92f, 0.95f, 1f);
+            lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+        }
+
+        /// <summary>自艦隊への予算増額を上官へ具申するボタン（TKO-4 の具体例＝effectKey に直列化して稟議へ）。</summary>
+        private void BuildFleetBudgetPetitionButton(Transform parent)
+        {
+            GameObject go = new GameObject("SubmitFleetBudgetPetitionButton");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = 42f; le.preferredHeight = 42f;
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.20f, 0.34f, 0.30f, 1f);
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(OnSubmitFleetBudgetPetition);
+
+            GameObject lblGo = new GameObject("Label");
+            lblGo.transform.SetParent(go.transform, false);
+            RectTransform lrt = lblGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.sizeDelta = Vector2.zero; lrt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI lbl = lblGo.AddComponent<TextMeshProUGUI>();
+            lbl.text = "自艦隊への予算増額を具申する";
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.fontSize = 18f;
+            lbl.color = new Color(0.9f, 1f, 0.95f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
         }

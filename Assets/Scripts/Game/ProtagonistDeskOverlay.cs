@@ -48,6 +48,15 @@ namespace Ginei
         private TextMeshProUGUI pyramidFooter;   // 次階級の定員空き
         private object escWindowToken;
 
+        // 階級ゲート対象の具申ボタン（階級で活性/非活性が変わる）。
+        private sealed class GatedPetition
+        {
+            public Button btn; public Image img; public TextMeshProUGUI lbl;
+            public string baseText; public PetitionCategory category; public Color onColor;
+        }
+        private readonly System.Collections.Generic.List<GatedPetition> gatedPetitions = new System.Collections.Generic.List<GatedPetition>();
+        private static readonly Color GateDisabledColor = new Color(0.16f, 0.17f, 0.19f, 1f);
+
         // 士官段（少尉1〜元帥10）のネームド人数を毎フレーム数えるための再利用バッファ（GC回避）。
         private readonly int[] namedCountByTier = new int[11];
         private readonly HashSet<object> namedDedup = new HashSet<object>();
@@ -120,6 +129,7 @@ namespace Ginei
             if (bodyLabel != null) bodyLabel.text = BuildUpperDump();
             if (bodyLabelLower != null) bodyLabelLower.text = BuildLowerDump();
             UpdatePyramid();
+            UpdatePetitionGates();
         }
 
         public void Toggle() => SetVisible(panel != null && !panel.activeSelf);
@@ -907,6 +917,7 @@ namespace Ginei
             lbl.color = new Color(0.9f, 1f, 0.95f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
+            RegisterGated(btn, img, lbl, "自艦隊への予算増額を具申する", PetitionCategory.予算);
         }
 
         /// <summary>自艦隊の根拠地（母港/展開拠点）の変更を上官へ具申するボタン（TKO-4＝effectKey に直列化して稟議へ）。</summary>
@@ -935,6 +946,30 @@ namespace Ginei
             lbl.color = new Color(0.9f, 0.96f, 1f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
+            RegisterGated(btn, img, lbl, "自艦隊の根拠地変更を具申する", PetitionCategory.作戦);
+        }
+
+        /// <summary>階級ゲート対象ボタンを登録（onColor は現在の色＝活性時の色）。</summary>
+        private void RegisterGated(Button btn, Image img, TextMeshProUGUI lbl, string baseText, PetitionCategory category)
+        {
+            gatedPetitions.Add(new GatedPetition { btn = btn, img = img, lbl = lbl, baseText = baseText, category = category, onColor = img != null ? img.color : Color.gray });
+        }
+
+        /// <summary>階級で出せない具申ボタンを非活性＋「要○○」表示にする（昇進で動的に解禁）。</summary>
+        private void UpdatePetitionGates()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            int tier = (d != null && d.Protagonist != null) ? d.Protagonist.rankTier : 0;
+            for (int i = 0; i < gatedPetitions.Count; i++)
+            {
+                GatedPetition gp = gatedPetitions[i];
+                bool can = PetitionRankRules.CanRaise(gp.category, tier);
+                if (gp.btn != null) gp.btn.interactable = can;
+                if (gp.img != null) gp.img.color = can ? gp.onColor : GateDisabledColor;
+                if (gp.lbl != null)
+                    gp.lbl.text = can ? gp.baseText
+                        : gp.baseText + $"（要 {RankSystem.ResolveRankNameOrDefault(null, PetitionRankRules.MinTier(gp.category))}）";
+            }
         }
 
         /// <summary>上官へ賄賂を送るボタン（私財から支出＝親愛↑だが露見すると逆効果）。</summary>

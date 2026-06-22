@@ -452,6 +452,7 @@ namespace Ginei
         public bool SubmitFleetBudgetPetition()
         {
             if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.予算)) return false;
             int budgetBase = CommandCapacityRules.MaxStrengthForTier(Protagonist.rankTier);
             int amount = FleetBudgetPetitionRules.RecommendedIncrease(budgetBase);
             string key = FleetBudgetPetitionRules.EncodeEffectKey(0, amount); // 番号0＝自艦隊
@@ -465,8 +466,21 @@ namespace Ginei
         public bool SubmitFleetBasePetition()
         {
             if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.作戦)) return false;
             string key = FleetBasePetitionRules.EncodeEffectKey(0, FleetBasePetitionRules.UnspecifiedSystem); // 番号0＝自艦隊・星系一任
             return SubmitPetition("自艦隊の根拠地変更（前線寄りへ）の具申", key);
+        }
+
+        /// <summary>その区分の具申を今の階級で出せるか（出せなければ通知）。UI も <see cref="PetitionRankRules"/> で同判定。</summary>
+        public bool CanRaiseCategory(PetitionCategory category)
+            => Protagonist != null && PetitionRankRules.CanRaise(category, Protagonist.rankTier);
+
+        private bool RankGateOk(PetitionCategory category)
+        {
+            if (CanRaiseCategory(category)) return true;
+            int need = PetitionRankRules.MinTier(category);
+            Push(NotificationSeverity.注意, $"その具申はあなたの階級では出せません（要 {RankName(need)}）");
+            return false;
         }
 
         /// <summary>

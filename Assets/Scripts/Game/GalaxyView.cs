@@ -963,8 +963,11 @@ namespace Ginei
                     continue; // プレイヤーは潜行で解決する＝ここでは力攻めしない
                 }
 
-                // AI 勢力：従来どおり力攻めを自動解決する。
+                // AI 勢力：力攻めで落とせる見込み（圧倒的戦力）があるときだけ強襲する。難攻不落なら無駄に
+                // 損耗せず封鎖を維持＝兵糧攻め（RunFortressSiegeTick）で守備を枯らす（#40 AI 改善＝壁に
+                // 艦隊を投げ捨てない）。力攻め不能の間はその場で攻囲を続け、守備が尽きれば開城する。
                 if (!doAssault) continue;
+                if (!FortressRules.CaptureFeasibleByForce(c.fortress, total)) continue;
                 Faction attacker = fortressAttackers[0].faction;
                 Faction defender = c.fortress.owner;
                 string fname = c.fortress.fortressName;

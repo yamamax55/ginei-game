@@ -15,6 +15,8 @@ tags: [ops]
 
 加えて勢力（軍服）・階級（年齢/装飾）・能力（表情）・`appearanceNote`（髪型/性別/特徴の手動ヒント）を合成。
 
+**勢力の制服は `PortraitUniformCatalog`（Core）に集約**＝勢力ごとに固定の「制服クローズ」を持ち、同一勢力の全人物で同じ制服文を使う（勢力内で制服が揃う）。`AdmiralData.factionName`（多勢力名・例「黎明評議会」）で引き、未登録/空なら `faction`(enum＝帝国/同盟) 既定へフォールバック（後方互換）。判別キー＝黎明=白×紺×翼徽章／碧晶=白×翡翠緑×金刺繍／灯心自由市ファロス=白×紺＋金の袖線／自由港同位体=白×赤／鉄環兵団=灰緑×赤×鉄十字。新勢力の制服はカタログへ1行足すだけ（プロンプト側の二重定義をしない）。
+
 ## データ側（実装済み）
 - `AdmiralData.portrait`(Sprite)…割当した肖像。`appearanceNote`(string)…外見ヒント。`portraitSeed`(int)…固定シード（0=名前から導出）。
 - `PortraitPromptRules.BuildPrompt(admiral)` / `DeriveSeed(admiral)`…生成プロンプトとシードの単一窓口。

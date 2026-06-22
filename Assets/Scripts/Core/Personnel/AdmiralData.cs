@@ -20,6 +20,10 @@ namespace Ginei
         public string admiralName = "提督名";
         public Faction faction;
 
+        [Tooltip("多勢力の所属名（FactionData.factionName 相当。例：黎明評議会）。空なら faction(enum) で解決＝後方互換。" +
+                 "肖像の勢力制服解決（PortraitUniformCatalog）等に利用")]
+        public string factionName = "";
+
         [Tooltip("性別。既定＝男性（後方互換）。肖像生成・呼称・人物表示に利用")]
         public Sex sex = Sex.男性;
 

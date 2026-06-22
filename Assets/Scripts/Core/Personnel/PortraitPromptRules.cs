@@ -25,7 +25,7 @@ namespace Ginei
             var parts = new List<string> { StylePreamble };
             parts.Add("portrait of " + Subject(a));
 
-            string faction = FactionLook(a.faction);
+            string faction = FactionLook(a);
             if (!string.IsNullOrEmpty(faction)) parts.Add(faction);
 
             string rank = RankBearing(a.rankTier);
@@ -63,6 +63,14 @@ namespace Ginei
             string n = a.FullName;
             if (string.IsNullOrEmpty(n)) n = a.admiralName;
             return n ?? "";
+        }
+
+        /// <summary>勢力の制服句。多勢力名（factionName）を優先し、無ければ enum 既定へフォールバック（後方互換）。</summary>
+        private static string FactionLook(AdmiralData a)
+        {
+            string byName = PortraitUniformCatalog.For(a.factionName);
+            if (!string.IsNullOrEmpty(byName)) return byName;
+            return FactionLook(a.faction);
         }
 
         private static string FactionLook(Faction f)

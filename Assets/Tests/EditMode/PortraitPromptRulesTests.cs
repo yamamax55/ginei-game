@@ -44,6 +44,36 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void Prompt_ReflectsFactionName_OverEnum()
+        {
+            // factionName があれば多勢力の制服を使い、enum 既定より優先する
+            var a = A(); a.faction = Faction.帝国; a.factionName = "黎明評議会";
+            string p = PortraitPromptRules.BuildPrompt(a);
+            Assert.IsTrue(p.Contains("Dawn Council"), "factionName の勢力制服を採用");
+            Assert.IsFalse(p.Contains("imperial dress"), "enum 既定（帝国軍服）にフォールバックしない");
+        }
+
+        [Test]
+        public void Prompt_FallsBackToEnum_WhenFactionNameUnknownOrEmpty()
+        {
+            var empty = A(); empty.faction = Faction.同盟; empty.factionName = "";
+            Assert.IsTrue(PortraitPromptRules.BuildPrompt(empty).Contains("republican"),
+                "factionName 空なら enum で解決（後方互換）");
+            var unknown = A(); unknown.faction = Faction.帝国; unknown.factionName = "存在しない勢力";
+            Assert.IsTrue(PortraitPromptRules.BuildPrompt(unknown).Contains("imperial"),
+                "未登録の factionName は enum へフォールバック");
+        }
+
+        [Test]
+        public void UniformCatalog_AllFactionsRegistered()
+        {
+            foreach (var name in new[] { "黎明評議会", "碧晶公国", "自由港同位体", "灯心自由市ファロス", "鉄環兵団" })
+                Assert.IsTrue(PortraitUniformCatalog.Has(name), name + " の制服が登録されている");
+            Assert.IsNull(PortraitUniformCatalog.For(""), "空は null");
+            Assert.IsNull(PortraitUniformCatalog.For("未登録"), "未登録は null");
+        }
+
+        [Test]
         public void Prompt_ReflectsArchetype()
         {
             var a = A("ラインハルト"); a.isKaiser = true;

@@ -436,6 +436,17 @@ namespace Ginei
             return SubmitPetition($"自艦隊への予算増額（{amount:#,0}）の具申", key);
         }
 
+        /// <summary>
+        /// 自艦隊の根拠地（母港/展開拠点）の変更を上官へ具申する（TKO-4）。具体的な星系は司令部一任（前線寄りへ）として
+        /// effectKey に直列化（<see cref="FleetBasePetitionRules"/>）し、採用時に decode して反映できる。
+        /// </summary>
+        public bool SubmitFleetBasePetition()
+        {
+            if (Protagonist == null) return false;
+            string key = FleetBasePetitionRules.EncodeEffectKey(0, FleetBasePetitionRules.UnspecifiedSystem); // 番号0＝自艦隊・星系一任
+            return SubmitPetition("自艦隊の根拠地変更（前線寄りへ）の具申", key);
+        }
+
         /// <summary>建白を起案して上官（序列内）へ提出する共通処理。title/effectKey で具申内容を変える。</summary>
         public bool SubmitPetition(string title, string effectKey)
         {

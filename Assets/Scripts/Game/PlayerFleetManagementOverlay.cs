@@ -35,7 +35,7 @@ namespace Ginei
         private TMP_FontAsset jpFont;
 
         // 発令フッター（割り当て予算内で「やること」を決める操作・#操作化）。
-        private const float FooterHeight = 124f;
+        private const float FooterHeight = 164f;
         private static readonly FleetTask[] TaskOrder = { FleetTask.補給, FleetTask.訓練, FleetTask.整備, FleetTask.哨戒, FleetTask.休養 };
         private static readonly Color IdleBtn = new Color(0.13f, 0.16f, 0.22f, 1f);
         private static readonly Color OnBtn = new Color(0.30f, 0.55f, 0.85f, 1f);
@@ -51,6 +51,10 @@ namespace Ginei
         private readonly Image[] taskBtnImgs = new Image[5];
         private Image issueBtnImg;
         private Image reliefBtnImg; // 私財で慰労
+        private Image purchaseBtnImg; // 商人から私兵艦艇を購入
+        private TextMeshProUGUI purchaseLabel;
+        private int purchaseQty = 500;
+        private const int PurchaseStep = 250, PurchaseMin = 250, PurchaseMax = 5000;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -172,6 +176,49 @@ namespace Ginei
                 $"{sel.DisplayName} を私財 {cost:#,0} で慰労（士気＋{gain}・残私財 {me.wealth:#,0}）");
         }
 
+        private void ChangePurchaseQty(int delta)
+            => purchaseQty = Mathf.Clamp(purchaseQty + delta, PurchaseMin, PurchaseMax);
+
+        private static float MerchantCommission()
+        {
+            var gv = GalaxyView.Active;
+            TradingHouse th = gv != null ? gv.GetTradingHouse(PlayerFaction()) : null;
+            return th != null ? th.commissionRate : TradingHouseRules.DefaultCommissionRate;
+        }
+
+        /// <summary>商人（商社）を介して艦艇を購入し主人公の私兵にする。私財から支払い、不足分は私財担保の借金で賄う。</summary>
+        private void PurchasePrivateFleet()
+        {
+            Person me = ProtagonistCareerDirector.Instance != null ? ProtagonistCareerDirector.Instance.Protagonist : null;
+            if (me == null)
+            {
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, "私財の出所（主人公）がいません＝購入できません");
+                return;
+            }
+            var pp = ShipPurchaseParams.Default;
+            float commission = MerchantCommission();
+            int cost = PrivateFleetPurchaseRules.TotalCost(purchaseQty, pp.unitPrice, commission);
+            if (!PrivateFleetPurchaseRules.CanPurchase(cost, me.wealth, me.personalDebt, me.wealth, pp))
+            {
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                    $"私財・与信が足りません（費用 {cost:#,0}／私財 {me.wealth:#,0}／与信残 {PrivateFleetPurchaseRules.CreditLimit(me.wealth, pp) - me.personalDebt:#,0}）");
+                return;
+            }
+            int cash = PrivateFleetPurchaseRules.CashPortion(cost, me.wealth);
+            int borrow = PrivateFleetPurchaseRules.BorrowPortion(cost, me.wealth);
+            me.wealth -= cash;            // 私財から支払い
+            me.personalDebt += borrow;    // 不足分は借金（私財担保）
+            me.privateSoldiers += purchaseQty; // 私兵として保有（FleetPool には入れない）
+
+            // 商人の口銭は商社の利益（在席時）。
+            var gv = GalaxyView.Active;
+            TradingHouse th = gv != null ? gv.GetTradingHouse(PlayerFaction()) : null;
+            if (th != null) th.capital += PrivateFleetPurchaseRules.Commission(purchaseQty, pp.unitPrice, commission);
+
+            NotificationCenter.Push(NotificationCategory.建艦, NotificationSeverity.情報,
+                $"商人を介して艦艇 {purchaseQty:#,0} 隻を私兵として購入（私財 {cash:#,0}／借入 {borrow:#,0}・残私財 {me.wealth:#,0}・個人負債 {me.personalDebt:#,0}・私兵計 {me.privateSoldiers:#,0}）");
+        }
+
         private void RefreshFooter()
         {
             if (fleetLabel == null || budgetLabel == null) return;
@@ -185,6 +232,7 @@ namespace Ginei
                 for (int i = 0; i < taskBtnImgs.Length; i++) if (taskBtnImgs[i] != null) taskBtnImgs[i].color = OffBtn;
                 if (issueBtnImg != null) issueBtnImg.color = OffBtn;
                 if (reliefBtnImg != null) reliefBtnImg.color = OffBtn;
+                RefreshPurchaseRow(); // 購入は艦隊選択に依らない（私兵）ので現役艦隊なしでも更新
                 return;
             }
 
@@ -217,6 +265,28 @@ namespace Ginei
                 issueBtnImg.color = (chosen.Count > 0 && afford) ? OkBtn : OffBtn;
             if (reliefBtnImg != null)
                 reliefBtnImg.color = canRelief ? OkBtn : OffBtn;
+
+            RefreshPurchaseRow();
+        }
+
+        /// <summary>商人購入行（私兵）の表示更新＝数量・費用・口銭・私兵/負債・与信。艦隊選択とは独立。</summary>
+        private void RefreshPurchaseRow()
+        {
+            if (purchaseLabel == null) return;
+            Person me = ProtagonistCareerDirector.Instance != null ? ProtagonistCareerDirector.Instance.Protagonist : null;
+            var pp = ShipPurchaseParams.Default;
+            float commission = MerchantCommission();
+            int cost = PrivateFleetPurchaseRules.TotalCost(purchaseQty, pp.unitPrice, commission);
+            if (me == null)
+            {
+                purchaseLabel.text = $"私兵購入 {purchaseQty:#,0} 隻 費用 {cost:#,0}（口銭 {commission * 100f:0.#}%）　｜　主人公なし";
+                if (purchaseBtnImg != null) purchaseBtnImg.color = OffBtn;
+                return;
+            }
+            bool can = PrivateFleetPurchaseRules.CanPurchase(cost, me.wealth, me.personalDebt, me.wealth, pp);
+            float creditLeft = PrivateFleetPurchaseRules.CreditLimit(me.wealth, pp) - me.personalDebt;
+            purchaseLabel.text = $"私兵 {me.privateSoldiers:#,0}・負債 {me.personalDebt:#,0}　｜　購入 {purchaseQty:#,0} 隻 費用 {cost:#,0}（口銭 {commission * 100f:0.#}%・与信残 {creditLeft:#,0}）";
+            if (purchaseBtnImg != null) purchaseBtnImg.color = can ? OkBtn : OffBtn;
         }
 
         public void Toggle() { SetVisible(root != null && !root.activeSelf); }
@@ -290,7 +360,7 @@ namespace Ginei
             else if (totalActive > shown || (fleets != null && fleets.Count > shown))
                 sb.Append("\n<color=#8aa0b0>…他 ").Append(fleets.Count - shown).Append(" 隊</color>");
 
-            sb.Append("\n\n<color=#6f8a9a>※ 下の欄で、選んだ艦隊の割り当て予算内で「やること」を発令／主人公の私財で慰労できる（再配置・司令任命の操作化は後段）。全勢力の在庫は艦艇(B)、編制ツリーは軍事(M)へ。</color>");
+            sb.Append("\n\n<color=#6f8a9a>※ 下の欄で、選んだ艦隊に予算内で発令／私財で慰労、また商人から私兵艦艇を購入（私財・私財担保の借金）できる（再配置・司令任命の操作化は後段）。全勢力の在庫は艦艇(B)、編制ツリーは軍事(M)へ。</color>");
             return sb.ToString();
         }
 
@@ -419,6 +489,13 @@ namespace Ginei
             budgetLabel = MakeFlexLabel(row3.transform, "");
             MakeFooterButton(row3.transform, "私財で慰労", 130f, ReliefFleet, out reliefBtnImg);
             MakeFooterButton(row3.transform, "発令", 120f, IssueOrders, out issueBtnImg);
+
+            // 行4：商人から私兵艦艇を購入（私財支出・不足は私財担保の借金）。
+            var row4 = MakeRow(footer.transform);
+            purchaseLabel = MakeFlexLabel(row4.transform, "");
+            MakeFooterButton(row4.transform, "－", 44f, () => ChangePurchaseQty(-PurchaseStep), out _);
+            MakeFooterButton(row4.transform, "＋", 44f, () => ChangePurchaseQty(PurchaseStep), out _);
+            MakeFooterButton(row4.transform, "私兵を購入", 130f, PurchasePrivateFleet, out purchaseBtnImg);
         }
 
         private GameObject MakeRow(Transform parent)

@@ -49,6 +49,12 @@ namespace Ginei
         /// <summary>個人の財産（PFIN-4・#2056・既定0）。俸給#1969 から特性に応じて貯金/投資で積み上がる（<see cref="PersonFinanceTickRules.TickYear"/>）。</summary>
         public float wealth = 0f;
 
+        /// <summary>個人負債（私財担保の借金・既定0）。商人を介した私兵艦艇の購入などで増える（<see cref="PrivateFleetPurchaseRules"/>）。</summary>
+        public float personalDebt = 0f;
+
+        /// <summary>私兵（個人保有の艦艇・既定0）。私財/借金で購入した艦艇＝勢力の総艦艇プール（<see cref="FleetPool"/>）とは別の個人戦力。</summary>
+        public int privateSoldiers = 0;
+
         // --- 人物ライフサイクル（LIFE-1/2/4 #151/#152/#154） ---
         public int birthYear;                                   // 生年（0=未設定＝加齢しない）
         public int deathYear;                                   // 没年（0=存命）

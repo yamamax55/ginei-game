@@ -93,6 +93,7 @@ for fac in FAC_ORDER:
 - 軍編成：[[{fac}の軍編成]]
 - 内政：[[{fac}の内政]]
 - 外交：[[{fac}の外交]]
+- 法令：[[{fac}の法令]]
 
 ### 組織
 {oblock}

@@ -179,9 +179,9 @@ namespace Ginei
             //    要塞主砲を避けて懐に潜り込み、砲台を削って死角から攻める攻防。objectiveFaction=帝国(守備＝要塞所有)。
             CreateScenario("イゼルローン要塞攻略戦", VictoryCondition.要塞攻略, 240f, null, new List<ScenarioData.FleetEntry>
             {
-                Entry(kircheis, Faction.帝国, fEmpire, new Vector2(2.5f, 0f), Formation.円陣, 2),      // 要塞駐留艦隊（守備）
-                Entry(yang, Faction.同盟, fAlliance, new Vector2(-9f, 2f), Formation.鶴翼陣, 13),       // 攻城（プレイヤー想定）
-                Entry(attenborough, Faction.同盟, fAlliance, new Vector2(-9f, -2f), Formation.横陣, 14),
+                Entry(kircheis, Faction.帝国, fEmpire, new Vector2(3.5f, 0f), Formation.円陣, 2),      // 要塞駐留艦隊（守備）
+                Entry(yang, Faction.同盟, fAlliance, new Vector2(-5f, 1.6f), Formation.鶴翼陣, 13),     // 攻城（要塞主砲の射界帯に入る間合いで開始）
+                Entry(attenborough, Faction.同盟, fAlliance, new Vector2(-5f, -1.6f), Formation.横陣, 14),
             }, objectiveFaction: Faction.帝国, fortresses: new List<ScenarioData.FortressEntry>
             {
                 Fortress(Faction.帝国, fEmpire, new Vector2(0f, 0f), "イゼルローン要塞", 12, 14000),
@@ -192,11 +192,11 @@ namespace Ginei
             //    objectiveFaction=帝国(守備＝要塞所有)。
             CreateScenario("ガイエスブルク要塞防衛戦", VictoryCondition.要塞防衛, 180f, null, new List<ScenarioData.FleetEntry>
             {
-                Entry(reuental, Faction.帝国, fEmpire, new Vector2(2.5f, 1.5f), Formation.円陣, 4),     // 守備（プレイヤー想定）
-                Entry(mittermeyer, Faction.帝国, fEmpire, new Vector2(2.5f, -1.5f), Formation.方陣, 3),
-                Entry(yang, Faction.同盟, fAlliance, new Vector2(-9f, 2f), Formation.鶴翼陣, 13),        // 攻勢（AIが要塞へ寄せる）
-                Entry(bucock, Faction.同盟, fAlliance, new Vector2(-9f, 0f), Formation.横陣, 5),
-                Entry(attenborough, Faction.同盟, fAlliance, new Vector2(-9f, -2f), Formation.紡錘陣, 14),
+                Entry(reuental, Faction.帝国, fEmpire, new Vector2(3.2f, 1.4f), Formation.円陣, 4),     // 守備（プレイヤー想定）
+                Entry(mittermeyer, Faction.帝国, fEmpire, new Vector2(3.2f, -1.4f), Formation.方陣, 3),
+                Entry(yang, Faction.同盟, fAlliance, new Vector2(-5f, 1.8f), Formation.鶴翼陣, 13),      // 攻勢（要塞主砲の射界帯に入る間合いで開始）
+                Entry(bucock, Faction.同盟, fAlliance, new Vector2(-5f, 0f), Formation.横陣, 5),
+                Entry(attenborough, Faction.同盟, fAlliance, new Vector2(-5f, -1.8f), Formation.紡錘陣, 14),
             }, objectiveFaction: Faction.帝国, fortresses: new List<ScenarioData.FortressEntry>
             {
                 Fortress(Faction.帝国, fEmpire, new Vector2(0f, 0f), "ガイエスブルク要塞", 12, 14000),

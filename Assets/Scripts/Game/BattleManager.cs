@@ -461,6 +461,21 @@ namespace Ginei
             if (!HasHostilePair(Flagships))
             {
                 winnerRep = DetermineWinner(Flagships);
+
+                // 要塞会戦（#78）：防衛側の要塞が健在な間は「旗艦全滅」で決着させない＝攻撃側は要塞を制圧する必要がある
+                // （駐留艦隊を倒しただけでは攻略にならない）。ただし攻撃側が壊滅して守備側だけが残ったなら決着してよい。
+                if (fortressVictoryArmed && activeScenario != null && AnyAliveFortress(activeScenario.objectiveFaction))
+                {
+                    Faction defender = activeScenario.objectiveFaction;
+                    Faction annWinner = winnerRep != null ? LegacyOf(winnerRep) : defender;
+                    if (annWinner != defender)
+                    {
+                        // 攻撃側が旗艦戦で勝っても要塞が残る限り未決着＝攻城を続行（要塞条件 or timeLimit で決着）。
+                        winnerRep = null;
+                        return false;
+                    }
+                }
+
                 if (winnerRep == null)
                 {
                     winner = Faction.同盟; // 全旗艦喪失＝便宜上の勝者

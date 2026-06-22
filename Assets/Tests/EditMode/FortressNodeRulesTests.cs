@@ -85,5 +85,45 @@ namespace Ginei.Tests
             Assert.Less(f.garrisonStrength, before); // 守備が目減り
             Assert.Greater(f.garrisonStrength, 0f);  // ただし即全滅はしない
         }
+
+        // ── 戦術潜行（実会戦）の決着反映：ApplyFortressBattleResult（#40 次スライス）──
+
+        [Test]
+        public void TacticalResult_Captured_FallsAndTransfers()
+        {
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            StrategyRules.ApplyFortressBattleResult(f, Faction.同盟, captured: true);
+            Assert.AreEqual(0f, f.garrisonStrength, 1e-3f); // 守備全滅＝陥落
+            Assert.IsFalse(f.controlsCorridor);             // 通過開放
+            Assert.AreEqual(Faction.同盟, f.owner);         // 所有移転
+            Assert.IsFalse(StrategyRules.IsFortressBlocked(
+                new Corridor(0, 1, 1f, CorridorType.要衝) { fortress = f }, Faction.同盟)); // もう封じない
+        }
+
+        [Test]
+        public void TacticalResult_Repelled_SurvivesButShieldErodes()
+        {
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            StrategyRules.ApplyFortressBattleResult(f, Faction.同盟, captured: false); // 既定 repulseShieldLoss=0.2
+            Assert.AreEqual(1000f, f.garrisonStrength, 1e-3f); // 守備は健在（撃退）
+            Assert.IsTrue(f.controlsCorridor);                 // まだ封鎖継続
+            Assert.AreEqual(Faction.帝国, f.owner);            // 所有は不変
+            Assert.AreEqual(0.8f, f.shieldIntegrity, 1e-4f);   // 戦術会戦で叩かれシールド目減り（段階攻略）
+        }
+
+        [Test]
+        public void TacticalResult_RepeatedRepulse_ShieldClampsAtZero()
+        {
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            for (int i = 0; i < 10; i++) StrategyRules.ApplyFortressBattleResult(f, Faction.同盟, captured: false);
+            Assert.AreEqual(0f, f.shieldIntegrity, 1e-4f); // シールドは0で下げ止まり（負にならない）
+            Assert.IsTrue(f.controlsCorridor);             // シールド0でも守備が残れば封鎖は続く
+        }
+
+        [Test]
+        public void TacticalResult_NullFortress_NoThrow()
+        {
+            Assert.DoesNotThrow(() => StrategyRules.ApplyFortressBattleResult(null, Faction.同盟, true));
+        }
     }
 }

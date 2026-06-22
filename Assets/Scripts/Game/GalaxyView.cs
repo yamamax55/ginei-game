@@ -317,6 +317,9 @@ namespace Ginei
 
             // 惑星攻城の戦術マップでの進捗を惑星へ書き戻す（#131）
             if (BattleHandoff.siegeResolved) ApplySiegeResult();
+
+            // 回廊要塞の攻略戦（#40 戦術潜行）の結果を回廊の要塞・攻撃側艦隊へ反映する。
+            if (BattleHandoff.fortressResolved) ApplyFortressResult();
         }
 
         private void Update()
@@ -898,6 +901,9 @@ namespace Ginei
         private float fortressAssaultTimer = 0f;
         private const float FortressAssaultInterval = 4f; // 力攻め判定の間隔（game-秒）。毎フレーム解決して瞬殺しない
         private readonly List<StrategicFleet> fortressAttackers = new List<StrategicFleet>();
+        // プレイヤーが要塞に封鎖された回廊の通知済みキー（封鎖が解けたら外して再封鎖で再通知）。
+        private readonly HashSet<long> notifiedFortressBlockades = new HashSet<long>();
+        private readonly HashSet<long> fortressBlockadeScratch = new HashSet<long>();
 
         /// <summary>
         /// 回廊要塞（#40）の封鎖と力攻めを進める。要塞で封鎖された回廊上にいる敵対艦隊を固着（前進停止＝
@@ -908,10 +914,13 @@ namespace Ginei
         private void TickFortressBlockades(float dt)
         {
             if (map == null || map.corridors == null || reg == null || reg.fleets == null) return;
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
 
             bool doAssault = false;
             fortressAssaultTimer += dt;
             if (fortressAssaultTimer >= FortressAssaultInterval) { fortressAssaultTimer = 0f; doAssault = true; }
+
+            fortressBlockadeScratch.Clear();
 
             for (int ci = 0; ci < map.corridors.Count; ci++)
             {
@@ -921,6 +930,7 @@ namespace Ginei
                 int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
                 fortressAttackers.Clear();
                 int total = 0;
+                bool playerInvolved = false;
                 for (int fi = 0; fi < reg.fleets.Count; fi++)
                 {
                     StrategicFleet f = reg.fleets[fi];
@@ -931,9 +941,29 @@ namespace Ginei
                     f.engaged = true; // 固着＝前進停止（封鎖＝通れない）
                     fortressAttackers.Add(f);
                     total += Mathf.Max(0, f.strength);
+                    if (f.faction == player) playerInvolved = true;
                 }
-                if (fortressAttackers.Count == 0 || !doAssault || total <= 0) continue;
+                if (fortressAttackers.Count == 0 || total <= 0) continue;
 
+                long key = CorridorKey(min, max);
+
+                // プレイヤーが阻まれている＝自動解決せず「攻略戦へ潜行」させる（#40 次スライス）。通知は一度だけ。
+                if (playerInvolved)
+                {
+                    fortressBlockadeScratch.Add(key);
+                    if (!notifiedFortressBlockades.Contains(key))
+                    {
+                        notifiedFortressBlockades.Add(key);
+                        long seq = NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.警告,
+                            $"要塞に阻まれた：{c.fortress.fortressName}（ダブルクリックで攻略戦へ潜行）");
+                        int a = min, b = max; // クロージャ用にキャプチャ
+                        NotificationActionRegistry.Register(seq, () => DescendFortressByCorridor(a, b));
+                    }
+                    continue; // プレイヤーは潜行で解決する＝ここでは力攻めしない
+                }
+
+                // AI 勢力：従来どおり力攻めを自動解決する。
+                if (!doAssault) continue;
                 Faction attacker = fortressAttackers[0].faction;
                 Faction defender = c.fortress.owner;
                 string fname = c.fortress.fortressName;
@@ -952,6 +982,58 @@ namespace Ginei
                         $"{fname}（{defender}）の攻略に失敗＝難攻不落（{attacker} 軍が損害）");
                 }
             }
+
+            // 封鎖が解けた回廊は通知済みから外す（再封鎖で再通知）。
+            notifiedFortressBlockades.RemoveWhere(k => !fortressBlockadeScratch.Contains(k));
+        }
+
+        /// <summary>
+        /// 回廊要塞の攻略戦（#40 戦術潜行）から戻った結果を反映する。戦術会戦の帰結（制圧/撃退）を回廊の要塞へ
+        /// 反映（<see cref="StrategyRules.ApplyFortressBattleResult"/>）し、攻撃側艦隊の残存を会戦結果の兵力へ合わせる。
+        /// 制圧なら固着を解いて回廊を開通させ、撃退なら封鎖が続く（再潜行/兵糧攻めで段階的に脆くなる）。
+        /// </summary>
+        private void ApplyFortressResult()
+        {
+            BattleHandoff.fortressResolved = false; // 二重反映防止（先に下ろす）
+            if (map == null || reg == null) return;
+
+            Corridor c = map.GetCorridor(BattleHandoff.fortressSysA, BattleHandoff.fortressSysB);
+            if (c == null || c.fortress == null) return;
+
+            Faction attacker = BattleHandoff.fortressAttacker;
+            bool captured = BattleHandoff.fortressResultCaptured;
+            int survivor = BattleHandoff.fortressResultAttackerSurvivor;
+            string fname = c.fortress.fortressName;
+
+            // 要塞へ戦術会戦の帰結を反映（制圧＝陥落・所有移転／撃退＝健在・シールド目減り）。
+            StrategyRules.ApplyFortressBattleResult(c.fortress, attacker, captured);
+
+            // 攻撃側艦隊（この回廊で要塞に阻まれていた潜行勢力）の残存兵力を会戦結果へ合わせる。
+            int min = Mathf.Min(BattleHandoff.fortressSysA, BattleHandoff.fortressSysB);
+            int max = Mathf.Max(BattleHandoff.fortressSysA, BattleHandoff.fortressSysB);
+            fortressAttackers.Clear();
+            int total = 0;
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || !f.IsOnCorridor || f.faction != attacker) continue;
+                if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) continue;
+                if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
+                fortressAttackers.Add(f);
+                total += Mathf.Max(0, f.strength);
+            }
+            if (total > 0) ScaleAndCullAttackers(fortressAttackers, Mathf.Clamp(survivor, 0, total), total);
+
+            // 制圧で封鎖が解けたら固着を解除＝前進を再開（回廊が開通）。
+            if (captured)
+                for (int i = 0; i < fortressAttackers.Count; i++)
+                    if (fortressAttackers[i] != null) fortressAttackers[i].engaged = false;
+
+            NotificationCenter.Push(captured ? NotificationCategory.占領 : NotificationCategory.戦闘,
+                NotificationSeverity.警告,
+                captured ? $"{fname} を制圧した（回廊が開通）" : $"{fname} の攻略に失敗＝難攻不落（撤退）");
+
+            BattleHandoff.Clear(); // 受け渡しを完結（攻城の ApplySiegeResult と同じ後始末）
         }
 
         /// <summary>力攻めの残存兵力を攻撃側艦隊へ原兵力比で按分し、0以下は盤面から除去する。</summary>

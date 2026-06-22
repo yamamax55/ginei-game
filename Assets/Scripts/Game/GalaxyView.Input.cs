@@ -166,7 +166,7 @@ namespace Ginei
                     {
                         // ダブルクリック（ドラッグなし）＝回廊潜行＞星系上の艦隊戦＞攻城突入＞システムビュー（短絡＝先に成立した1つだけ）
                         Vector2 w = WorldMouse();
-                        bool _ = TryDescend(w) || TryDescendSystemBattle(w) || TryDescendPlanet(w) || TryEnterSystem(w);
+                        bool _ = TryDescend(w) || TryDescendFortress(w) || TryDescendSystemBattle(w) || TryDescendPlanet(w) || TryEnterSystem(w);
                         lastClickTime = -1f; // 3連クリックで連鎖しないようリセット
                     }
                     else
@@ -433,6 +433,54 @@ namespace Ginei
         {
             if (!NearestCorridor(w, out Corridor c, out _, out float d) || d > 0.6f) return false;
             return DescendCorridorBySystems(c.aId, c.bId);
+        }
+
+        /// <summary>
+        /// クリック位置に「要塞で封鎖された回廊」があれば、その要塞攻略戦（FortressUnit 戦）へ潜行する（#40 次スライス）。
+        /// 自動解決の TryDescend（交戦中の艦隊ペア）に続けて評価する＝要塞封鎖は艦隊ペアでなく Fortress が相手。
+        /// </summary>
+        private bool TryDescendFortress(Vector2 w)
+        {
+            if (map == null) return false;
+            if (!NearestCorridor(w, out Corridor c, out _, out float d) || d > 0.6f) return false;
+            if (c == null || c.fortress == null) return false;
+            return DescendFortressByCorridor(c.aId, c.bId);
+        }
+
+        /// <summary>
+        /// 指定回廊（星系 sysA–sysB）の要塞へ潜行＝攻略戦（FortressUnit 戦・#40）を開始する。接敵通知のダブルクリックや
+        /// 盤面ダブルクリックから呼ぶ。プレイヤー艦隊が要塞に封鎖されていなければ false。戦略シーン以外では何もしない。
+        /// 攻撃側＝この回廊で要塞に阻まれているプレイヤー艦隊の合計兵力。守備側＝要塞所有勢力。戻ったとき
+        /// <see cref="GalaxyView"/> が結果（制圧/撃退・攻撃側残存）を回廊の要塞・艦隊へ反映する。
+        /// </summary>
+        public bool DescendFortressByCorridor(int sysA, int sysB)
+        {
+            if (reg == null || map == null) return false;
+            if (SceneManager.GetActiveScene().name != "Strategy") return false;
+            Corridor c = map.GetCorridor(sysA, sysB);
+            if (c == null || c.fortress == null) return false;
+
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.帝国;
+            if (!StrategyRules.IsFortressBlocked(c, player)) return false; // プレイヤーが阻まれている要塞だけ潜行可
+
+            int min = Mathf.Min(sysA, sysB), max = Mathf.Max(sysA, sysB);
+            int total = 0;
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || !f.IsOnCorridor || f.faction != player) continue;
+                if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) continue;
+                if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
+                total += Mathf.Max(0, f.strength);
+            }
+            if (total <= 0) return false;
+
+            Faction defender = c.fortress.owner;
+            BattleHandoff.battleLabel = $"{c.fortress.fortressName} 攻略戦";
+            BattleHandoff.QueueFortressSiege(min, max, c.fortress.fortressName, defender, player, total,
+                c.fortress.garrisonStrength, c.fortress.shieldIntegrity, c.fortress.mainGunPower > 0f, "Strategy");
+            LaunchBattleScene();
+            return true;
         }
 
         /// <summary>

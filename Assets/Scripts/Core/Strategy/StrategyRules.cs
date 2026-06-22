@@ -380,6 +380,31 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 戦術潜行（実会戦＝FortressUnit 戦・#76-78）の決着を戦略の回廊要塞へ反映する（#40 次スライス）。
+        /// 自動解決の <see cref="AssaultFortress"/> が力攻め比で決めるのに対し、こちらは<b>戦術会戦の帰結</b>
+        /// （プレイヤーがコア破壊／砲台沈黙まで攻略できたか）を直接反映する唯一の窓口。乱数なし・決定論。
+        /// <list type="bullet">
+        /// <item><b>制圧</b>（captured）：守備0・通過開放・所有を攻撃側へ移転（陥落）。</item>
+        /// <item><b>撃退</b>（!captured）：要塞は健在のまま、戦術会戦で受けた打撃ぶんシールドが
+        /// <paramref name="repulseShieldLoss"/> 目減りする＝再潜行/兵糧攻めで段階的に脆くなる素地を残す。</item>
+        /// </list>
+        /// 攻撃側艦隊の残存兵力は呼び出し側（GalaxyView）が会戦の生存戦力から按分する（ここでは要塞だけを更新）。
+        /// </summary>
+        public static void ApplyFortressBattleResult(Fortress f, Faction attacker, bool captured, float repulseShieldLoss = 0.2f)
+        {
+            if (f == null) return;
+            if (captured)
+            {
+                f.garrisonStrength = 0f;
+                f.controlsCorridor = false;
+                f.owner = attacker;
+                return;
+            }
+            // 撃退：要塞は持ちこたえるが、潜行で叩かれたぶんシールドが削れる（次の攻略が楽になる＝段階攻略）。
+            f.shieldIntegrity = FortressRules.ShieldAfterHit(f.shieldIntegrity, Mathf.Max(0f, repulseShieldLoss));
+        }
+
+        /// <summary>
         /// 指定星系の占領を解決する。停泊中の艦隊が1勢力のみで、その勢力が現所有者と敵対していれば
         /// 所有権をその勢力へ移す。複数勢力が居る（＝戦闘案件）／無人／同一勢力なら何もしない。
         /// フリップしたら true。

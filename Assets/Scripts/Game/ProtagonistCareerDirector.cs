@@ -62,6 +62,7 @@ namespace Ginei
         private float grievance;    // 不満（主命失敗で増・達成で減）＝岐路判定 CareerForkRules 用
         private int fame;           // 武名（ADM-3 #2304・戦功で上がり政界転身の資本に・RenownRules）
         private int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可＝序列内・MEYASU の決裁デスクは通さない）
+        private readonly List<string> pendingPetitionKeys = new List<string>(); // 未裁可の具申の effectKey（採用で TryDecode→効果適用）
         private bool retired;       // 下野（TKO-7 岐路）＝月次ループを止める
         private int ageMonths;      // 主人公の年齢（月）＝加齢/老衰死・継承の駆動（LifecycleRules）
         private bool ready;
@@ -209,14 +210,35 @@ namespace Ginei
                 float pf2 = (Relations != null && Sovereign != null)
                     ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
                 float adoptChance = Mathf.Clamp01(0.35f + pf2 * 0.4f); // 上官との関係が良いほど拾われる
-                int adopted = 0;
-                for (int i = 0; i < pendingPetitions; i++) if (Random.value < adoptChance) adopted++;
+                int adopted = 0, budgetAdopted = 0, baseAdopted = 0;
+                long budgetBefore = ProtagonistGrantStore.Grants.fleetBudgetGrant;
+                for (int i = 0; i < pendingPetitions; i++)
+                {
+                    if (Random.value >= adoptChance) continue;
+                    adopted++;
+                    // 採用された具申を decode して実際の効果へ反映（記帳だけ→効く）。keys 不足分（旧セーブ）は汎用建白。
+                    string key = i < pendingPetitionKeys.Count ? pendingPetitionKeys[i] : "";
+                    PetitionEffect eff = PetitionEffectRules.Apply(ProtagonistGrantStore.Grants, key);
+                    if (eff == PetitionEffect.予算増額) budgetAdopted++;
+                    else if (eff == PetitionEffect.根拠地変更) baseAdopted++;
+                }
                 pendingPetitions = 0;
+                pendingPetitionKeys.Clear();
                 if (adopted > 0)
                 {
                     MeritRecordRules.Record(Merit, ExploitKind.建白採用, adopted, MeritP);
                     ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.武勲, $"建白{adopted}件が容れられた");
                     Push(NotificationSeverity.情報, $"［建白採用］具申{adopted}件が上官に容れられ武勲を得た");
+                    if (budgetAdopted > 0)
+                    {
+                        long delta = ProtagonistGrantStore.Grants.fleetBudgetGrant - budgetBefore;
+                        Push(NotificationSeverity.情報, $"［予算拝領］運用予算枠 +{delta:#,0}（累計 {ProtagonistGrantStore.Grants.fleetBudgetGrant:#,0}）");
+                    }
+                    if (baseAdopted > 0)
+                    {
+                        int sys = ProtagonistGrantStore.Grants.fleetBaseSystemId;
+                        Push(NotificationSeverity.情報, sys >= 0 ? $"［根拠地変更］根拠地が星系 {sys} に改められた" : "［根拠地変更］根拠地の変更が容れられた（司令部一任）");
+                    }
                 }
             }
 
@@ -245,7 +267,7 @@ namespace Ginei
                 ?? new Person(SovereignId, "君主", enemy, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
             Merit = new MeritRecord(ProtagonistId);
             fame = Mathf.RoundToInt(fame * 0.5f); SyncFameToRegistry(); // 旧友の信は失う
-            grievance = 0f; pendingPetitions = 0; ActiveMandate = null; retired = false;
+            grievance = 0f; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear(); ActiveMandate = null; retired = false;
             Relations = new PersonRelationGraph();
             PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.1f); // 新主君とは薄い縁から
             var gs = GameSettings.Instance;
@@ -273,7 +295,7 @@ namespace Ginei
             }
             Protagonist.isSovereign = true; // 自ら主君に
             Sovereign = Protagonist;
-            ActiveMandate = null; retired = false; grievance = 0f; pendingPetitions = 0;
+            ActiveMandate = null; retired = false; grievance = 0f; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear();
             var gs = GameSettings.Instance;
             if (gs != null) gs.playerFactionData = newFaction; // プレイヤーは独立勢力を率いる
             ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, $"独立（{home} で旗揚げ・{newFaction.factionName}）");
@@ -361,7 +383,7 @@ namespace Ginei
                 Person heir = ProtagonistHeirRules.CreateHeir(Protagonist, Origin, ProtagonistId, Protagonist.name + "の世継ぎ", EnrollYear + age);
                 Protagonist = heir;
                 Merit = new MeritRecord(ProtagonistId);
-                fame = 0; grievance = 0f; pendingPetitions = 0; retired = false;
+                fame = 0; grievance = 0f; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear(); retired = false;
                 ActiveMandate = null;
                 ageMonths = StartAgeMonths;
                 SyncFameToRegistry(); // 世継ぎは武名も一から（会戦の鼓舞もリセット）
@@ -505,6 +527,7 @@ namespace Ginei
             if (pet == null) { Push(NotificationSeverity.注意, "具申の資格がありません（上官でない）"); return false; }
             RingiDirector.Ledger.Add(pet);
             pendingPetitions++; // 月次評定で上官（序列内）が裁可する＝結実すれば建白採用の武勲（P1-d）
+            pendingPetitionKeys.Add(effectKey ?? ""); // 採用時に decode して効果適用するため effectKey を控える
             Push(NotificationSeverity.情報, $"［具申］{superior.CharacterName} へ建白を提出（稟議 Alt+I で確認・月次評定で裁可）");
             return true;
         }
@@ -604,7 +627,7 @@ namespace Ginei
         {
             // 戦果インボックスを新戦役ぶんでリセット（前のプレイの残留を持ち込まない）。
             pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
-            grievance = 0f; fame = 0; pendingPetitions = 0; retired = false; ageMonths = StartAgeMonths;
+            grievance = 0f; fame = 0; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear(); retired = false; ageMonths = StartAgeMonths;
 
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;

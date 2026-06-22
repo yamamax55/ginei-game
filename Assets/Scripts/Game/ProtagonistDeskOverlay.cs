@@ -164,6 +164,17 @@ namespace Ginei
             AppendStat(sb, "防御", me.defense, g);
             AppendStat(sb, "機動", me.mobility, g);
 
+            // 具申で勝ち取った成果（採用された具申が実際に反映される＝記帳だけでなく効く）。
+            PetitionGrants grants = ProtagonistGrantStore.Grants;
+            if (grants != null && (grants.fleetBudgetGrant > 0 || grants.fleetBaseSystemId >= 0))
+            {
+                sb.Append("\n<color=#e7e0b0>◤ 具申の成果（拝領）</color>\n");
+                if (grants.fleetBudgetGrant > 0)
+                    sb.Append("  <color=#9aa7b2>運用予算枠</color> <color=#a0e0a0>+").Append(grants.fleetBudgetGrant.ToString("#,0")).Append("</color>\n");
+                if (grants.fleetBaseSystemId >= 0)
+                    sb.Append("  <color=#9aa7b2>根拠地</color> <color=#9ad0ff>星系 ").Append(grants.fleetBaseSystemId).Append("</color>\n");
+            }
+
             // 主命（カスケード）
             sb.Append("\n<color=#e7e0b0>◤ 主命（君主 → 指揮系統 → あなた）</color>\n");
             SovereignMandate m = d.ActiveMandate;

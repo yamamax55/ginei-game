@@ -287,6 +287,10 @@ namespace Ginei
             MakeBarButton(cmd.transform, "執務机", 110f,
                 () => UnityEngine.Object.FindAnyObjectByType<ProtagonistDeskOverlay>()?.Toggle());
 
+            // 社交場（各勢力の提督・要人が集う顔見せの場・観測専用）を上メニューへ。執務机（自席）の隣に置く。
+            MakeBarButton(cmd.transform, "社交場", 110f,
+                () => UnityEngine.Object.FindAnyObjectByType<SocialVenueOverlay>()?.Toggle());
+
             // 上メニューの集約：25個のボタンを「観測」1個に畳み、タブ化したウィンドウ（内政/経済/軍事/政治/
             // システムの5タブ）から各オブザーバを開く。既存ウィンドウ・単一文字ショートカット（G/J/M/…）は不変。
             MakeBarButton(cmd.transform, "観測 ▾", 132f, ToggleObserverWindow);

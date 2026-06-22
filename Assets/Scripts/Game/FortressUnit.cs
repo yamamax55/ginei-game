@@ -40,6 +40,10 @@ namespace Ginei
         [Tooltip("砲台1基の1発ダメージ")]
         public int turretDamage = 28;
 
+        [Header("主砲（#77・トールハンマー型）")]
+        [Tooltip("チャージ式の超長射程・最小射程つき主砲を1門装備するか")]
+        public bool hasMainCannon = true;
+
         [Header("ビジュアル")]
         [Tooltip("コアの表示半径（ワールド単位）")]
         public float coreVisualRadius = 1.6f;
@@ -107,6 +111,10 @@ namespace Ginei
             Color color = ResolveColor();
             BuildVisuals(color);
             BuildTurrets(color);
+
+            // 主砲（#77）：同一GameObjectに装備（RequireComponent(FortressUnit) を満たす）。
+            if (hasMainCannon && GetComponent<FortressMainCannon>() == null)
+                gameObject.AddComponent<FortressMainCannon>();
 
             FleetRegistry.Register(this);   // 攻撃対象（IShipTarget）として索敵に載せる
             FortressRegistry.Register(this); // 勝敗判定・攻城目標の照会用

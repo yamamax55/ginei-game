@@ -226,7 +226,8 @@ namespace Ginei
                     else if (PirateHuntPetitionRules.IsPiratePetition(key)) { pirateAdopted++; fame = RenownRules.Gain(fame, PirateHuntPetitionRules.FameReward); } // 海賊掃討で武名↑
                     else if (CareerPetitionRules.TryDecodeReinforce(key, out int rein)) { FleetPool.Add(pf, rein); reinforceAdopted += rein; } // 増援＝艦艇プール増
                     else if (CareerPetitionRules.IsHonor(key)) { honorAdopted++; fame = RenownRules.Gain(fame, CareerPetitionRules.HonorFameReward); } // 恩賞＝武名↑
-                    else if (CareerPetitionRules.IsTaxCut(key)) { if (ApplyTaxCut()) taxAdopted++; } // 減税＝自勢力の税率↓
+                    else if (CareerPetitionRules.IsTaxCut(key)) { if (ApplyTaxDelta(-CareerPetitionRules.TaxCutAmount)) taxAdopted++; } // 減税＝税率↓
+                    else if (CareerPetitionRules.IsTaxHike(key)) { if (ApplyTaxDelta(CareerPetitionRules.TaxHikeAmount)) taxAdopted++; } // 増税＝税率↑
                     else if (CareerPetitionRules.IsClear(key)) { grievance = Mathf.Max(0f, grievance - CareerPetitionRules.ClearGrievanceAmount); clearAdopted++; } // 名誉回復＝不満↓
                 }
                 pendingPetitions = 0;
@@ -253,7 +254,7 @@ namespace Ginei
                     }
                     if (reinforceAdopted > 0) Push(NotificationSeverity.情報, $"［増援］艦艇プールへ {reinforceAdopted:#,0} 隻の増援が認められた");
                     if (honorAdopted > 0) Push(NotificationSeverity.情報, $"［恩賞］部下への論功行賞が容れられ武名が上がった（武名 {fame}）");
-                    if (taxAdopted > 0) Push(NotificationSeverity.情報, "［減税］減税の建言が容れられ税率が下がった");
+                    if (taxAdopted > 0) Push(NotificationSeverity.情報, "［税制］税の建言が容れられ税率が改められた");
                     if (clearAdopted > 0) Push(NotificationSeverity.情報, "［名誉回復］嘆願が容れられ不満が和らいだ");
                 }
             }
@@ -520,6 +521,14 @@ namespace Ginei
             return SubmitPetition("減税の建言", CareerPetitionRules.TaxCutKey);
         }
 
+        /// <summary>増税の建言（政治ゲート）。採用で自勢力の税率が上がる（戦費調達）。</summary>
+        public bool SubmitTaxHikePetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.政治)) return false;
+            return SubmitPetition("増税の建言（戦費調達）", CareerPetitionRules.TaxHikeKey);
+        }
+
         /// <summary>名誉回復の嘆願（個人・階級不問）。採用で不満が和らぐ。</summary>
         public bool SubmitClearPetition()
         {
@@ -539,14 +548,14 @@ namespace Ginei
         public float EstimateAdoptChance()
             => PetitionFatigueRules.EffectiveAdoptChance(BaseAdoptChance(), pendingPetitions, PetitionFatigueParams.Default);
 
-        /// <summary>減税の建言が容れられたとき、自勢力の税率を下げる（0..1クランプ）。戦役状態が無ければ false。</summary>
-        private bool ApplyTaxCut()
+        /// <summary>税の建言が容れられたとき、自勢力の税率を delta ぶん増減する（0..1クランプ）。戦役状態が無ければ false。</summary>
+        private bool ApplyTaxDelta(float delta)
         {
             var camp = StrategySession.Campaign;
             if (camp == null) return false;
             FactionState fs = CampaignRules.GetState(camp, pf);
             if (fs == null || fs.fiscal == null) return false;
-            fs.fiscal.taxRate = Mathf.Clamp(fs.fiscal.taxRate - CareerPetitionRules.TaxCutAmount, 0f, 1f);
+            fs.fiscal.taxRate = Mathf.Clamp(fs.fiscal.taxRate + delta, 0f, 1f);
             return true;
         }
 

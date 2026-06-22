@@ -34,6 +34,11 @@ namespace Ginei
         public const float TaxCutAmount = 0.02f;
         public static bool IsTaxCut(string key) => key == TaxCutKey;
 
+        // ── 増税の建言（政治ゲート）：採用で自勢力の税率↑（戦費調達・国庫は潤うが民心の負担） ──
+        public const string TaxHikeKey = "gov.taxhike";
+        public const float TaxHikeAmount = 0.02f;
+        public static bool IsTaxHike(string key) => key == TaxHikeKey;
+
         // ── 名誉回復の嘆願（個人）：採用で不満↓ ──
         public const string ClearKey = "self.clear";
         public const float ClearGrievanceAmount = 20f;

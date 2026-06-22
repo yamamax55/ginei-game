@@ -28,6 +28,9 @@ namespace Ginei.Tests
 
             Assert.IsTrue(CareerPetitionRules.IsTaxCut("gov.taxcut"));
             Assert.AreEqual(0.02f, CareerPetitionRules.TaxCutAmount, 1e-4f);
+            Assert.IsTrue(CareerPetitionRules.IsTaxHike("gov.taxhike"));
+            Assert.IsFalse(CareerPetitionRules.IsTaxHike("gov.taxcut"));
+            Assert.AreEqual(0.02f, CareerPetitionRules.TaxHikeAmount, 1e-4f);
 
             Assert.IsTrue(CareerPetitionRules.IsClear("self.clear"));
             Assert.AreEqual(20f, CareerPetitionRules.ClearGrievanceAmount, 1e-4f);

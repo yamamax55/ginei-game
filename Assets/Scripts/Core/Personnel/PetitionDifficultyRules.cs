@@ -30,7 +30,7 @@ namespace Ginei
             if (PirateHuntPetitionRules.IsPiratePetition(effectKey)) return PetitionCategory.海賊狩り;
             if (CareerPetitionRules.IsReinforce(effectKey)) return PetitionCategory.予算;
             if (CareerPetitionRules.IsHonor(effectKey)) return PetitionCategory.人事;
-            if (CareerPetitionRules.IsTaxCut(effectKey)) return PetitionCategory.政治;
+            if (CareerPetitionRules.IsTaxCut(effectKey) || CareerPetitionRules.IsTaxHike(effectKey)) return PetitionCategory.政治;
             return PetitionCategory.建白; // 名誉回復(self.clear)・汎用建白(career.petition)
         }
     }

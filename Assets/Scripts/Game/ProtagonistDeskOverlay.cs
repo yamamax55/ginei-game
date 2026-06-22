@@ -795,6 +795,13 @@ namespace Ginei
             RefreshNow();
         }
 
+        private void OnSubmitTaxHike()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.SubmitTaxHikePetition();
+            RefreshNow();
+        }
+
         private void OnSubmitClear()
         {
             var d = ProtagonistCareerDirector.Instance;
@@ -921,6 +928,8 @@ namespace Ginei
                 new Color(0.30f, 0.26f, 0.34f, 1f), OnSubmitHonor, PetitionCategory.人事, gated: true);
             AddPetitionButton(petitions.transform, "TaxCutPetitionButton", "減税の建言",
                 new Color(0.26f, 0.30f, 0.22f, 1f), OnSubmitTaxCut, PetitionCategory.政治, gated: true);
+            AddPetitionButton(petitions.transform, "TaxHikePetitionButton", "増税の建言（戦費調達）",
+                new Color(0.32f, 0.28f, 0.20f, 1f), OnSubmitTaxHike, PetitionCategory.政治, gated: true);
             AddPetitionButton(petitions.transform, "ClearPetitionButton", "名誉回復の嘆願",
                 new Color(0.30f, 0.24f, 0.22f, 1f), OnSubmitClear, PetitionCategory.建白, gated: false);
             petitionEmptyLabel = BuildPetitionEmptyLabel(petitions.transform);

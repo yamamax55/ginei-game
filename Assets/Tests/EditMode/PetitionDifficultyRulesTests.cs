@@ -28,6 +28,7 @@ namespace Ginei.Tests
             Assert.AreEqual(PetitionCategory.予算, PetitionDifficultyRules.CategoryOf("fleet.reinforce:3000"));
             Assert.AreEqual(PetitionCategory.人事, PetitionDifficultyRules.CategoryOf("hr.honor"));
             Assert.AreEqual(PetitionCategory.政治, PetitionDifficultyRules.CategoryOf("gov.taxcut"));
+            Assert.AreEqual(PetitionCategory.政治, PetitionDifficultyRules.CategoryOf("gov.taxhike"));
             Assert.AreEqual(PetitionCategory.建白, PetitionDifficultyRules.CategoryOf("self.clear"));
             Assert.AreEqual(PetitionCategory.建白, PetitionDifficultyRules.CategoryOf("career.petition"));
             Assert.AreEqual(PetitionCategory.建白, PetitionDifficultyRules.CategoryOf(null));

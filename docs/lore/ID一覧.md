@@ -72,4 +72,3 @@ tags: [index, ID, 識別子]
 - SHP：次は **SHP-008**
 - BAT：次は **BAT-001**
 - SYS：次は **SYS-001**
-- SHP：次は **SHP-004**

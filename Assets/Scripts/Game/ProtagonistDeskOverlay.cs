@@ -57,6 +57,17 @@ namespace Ginei
         private readonly System.Collections.Generic.List<GatedPetition> gatedPetitions = new System.Collections.Generic.List<GatedPetition>();
         private static readonly Color GateDisabledColor = new Color(0.16f, 0.17f, 0.19f, 1f);
 
+        // 具申のカテゴリ化UI（タブ：軍事/人事/政治/個人）。
+        private sealed class PetitionButtonRef { public GameObject go; public PetitionTab tab; }
+        private readonly System.Collections.Generic.List<PetitionButtonRef> petitionButtons = new System.Collections.Generic.List<PetitionButtonRef>();
+        private static readonly PetitionTab[] PetitionTabs = { PetitionTab.軍事, PetitionTab.人事, PetitionTab.政治, PetitionTab.個人 };
+        private readonly System.Collections.Generic.List<Image> petitionTabBgs = new System.Collections.Generic.List<Image>();
+        private readonly System.Collections.Generic.List<TextMeshProUGUI> petitionTabTexts = new System.Collections.Generic.List<TextMeshProUGUI>();
+        private PetitionTab activePetitionTab = PetitionTab.軍事;
+        private TextMeshProUGUI petitionEmptyLabel;
+        private static readonly Color TabOnColor = new Color(0.27f, 0.45f, 0.68f, 1f);
+        private static readonly Color TabOffColor = new Color(0.16f, 0.21f, 0.30f, 1f);
+
         // 士官段（少尉1〜元帥10）のネームド人数を毎フレーム数えるための再利用バッファ（GC回避）。
         private readonly int[] namedCountByTier = new int[11];
         private readonly HashSet<object> namedDedup = new HashSet<object>();
@@ -863,13 +874,111 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             WindowChrome.AddTitleBarLayout(frameRT, "執務机", () => SetVisible(false));
-            BuildPetitionButton(frame.transform);
-            BuildPiratePetitionButton(frame.transform);
-            BuildFleetBudgetPetitionButton(frame.transform);
-            BuildFleetBasePetitionButton(frame.transform);
-            BuildBribeButton(frame.transform);
+
+            // 具申はカテゴリ化（タブ）＝数が増えても見やすい。タブ→対象ボタンのみ表示。
+            BuildPetitionTabBar(frame.transform);
+            GameObject petitions = BuildPetitionContainer(frame.transform);
+            BuildPetitionButton(petitions.transform);            // 個人（汎用建白）
+            BuildPiratePetitionButton(petitions.transform);      // 軍事
+            BuildFleetBudgetPetitionButton(petitions.transform); // 軍事
+            BuildFleetBasePetitionButton(petitions.transform);   // 軍事
+            BuildBribeButton(petitions.transform);               // 個人
+            petitionEmptyLabel = BuildPetitionEmptyLabel(petitions.transform);
+
             BuildForkButtons(frame.transform);
             BuildScrollBody(frame.transform);
+
+            SetPetitionTab(PetitionTab.軍事);
+        }
+
+        /// <summary>具申タブバー（軍事/人事/政治/個人）。押すとそのタブの具申だけ表示する。</summary>
+        private void BuildPetitionTabBar(Transform parent)
+        {
+            GameObject bar = new GameObject("PetitionTabBar");
+            bar.transform.SetParent(parent, false);
+            bar.AddComponent<RectTransform>();
+            LayoutElement le = bar.AddComponent<LayoutElement>();
+            le.minHeight = 30f; le.preferredHeight = 30f;
+            HorizontalLayoutGroup hlg = bar.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 4f;
+            hlg.childControlWidth = true; hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = true; hlg.childForceExpandHeight = true;
+
+            for (int i = 0; i < PetitionTabs.Length; i++)
+            {
+                PetitionTab tab = PetitionTabs[i];
+                GameObject go = new GameObject("Tab_" + tab);
+                go.transform.SetParent(bar.transform, false);
+                Image img = go.AddComponent<Image>();
+                img.color = TabOffColor;
+                Button btn = go.AddComponent<Button>();
+                btn.targetGraphic = img;
+                btn.transition = UnityEngine.UI.Selectable.Transition.None;
+                btn.onClick.AddListener(() => SetPetitionTab(tab));
+
+                GameObject t = new GameObject("Text");
+                t.transform.SetParent(go.transform, false);
+                RectTransform trt = t.AddComponent<RectTransform>();
+                trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one; trt.sizeDelta = Vector2.zero;
+                TextMeshProUGUI lbl = t.AddComponent<TextMeshProUGUI>();
+                lbl.text = tab.ToString(); lbl.fontSize = 15f; lbl.alignment = TextAlignmentOptions.Center;
+                lbl.color = new Color(0.85f, 0.9f, 0.96f); lbl.raycastTarget = false;
+                ApplyJapaneseFont(lbl);
+
+                petitionTabBgs.Add(img);
+                petitionTabTexts.Add(lbl);
+            }
+        }
+
+        /// <summary>具申ボタンを縦に積むコンテナ（タブで中身を出し分ける）。</summary>
+        private GameObject BuildPetitionContainer(Transform parent)
+        {
+            GameObject container = new GameObject("PetitionContainer");
+            container.transform.SetParent(parent, false);
+            container.AddComponent<RectTransform>();
+            VerticalLayoutGroup vlg = container.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 6f;
+            vlg.childControlWidth = true; vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
+            return container;
+        }
+
+        private TextMeshProUGUI BuildPetitionEmptyLabel(Transform parent)
+        {
+            GameObject go = new GameObject("PetitionEmpty");
+            go.transform.SetParent(parent, false);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = 38f; le.preferredHeight = 38f;
+            TextMeshProUGUI lbl = go.AddComponent<TextMeshProUGUI>();
+            lbl.text = "（この区分で出せる具申はありません）";
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.fontSize = 15f;
+            lbl.color = new Color(0.6f, 0.66f, 0.74f);
+            lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+            return lbl;
+        }
+
+        private void RegisterPetitionButton(GameObject go, PetitionTab tab)
+            => petitionButtons.Add(new PetitionButtonRef { go = go, tab = tab });
+
+        /// <summary>タブを切り替え＝そのタブの具申だけ表示。空タブはプレースホルダを出す。</summary>
+        private void SetPetitionTab(PetitionTab tab)
+        {
+            activePetitionTab = tab;
+            int shown = 0;
+            for (int i = 0; i < petitionButtons.Count; i++)
+            {
+                bool match = petitionButtons[i].tab == tab;
+                if (petitionButtons[i].go != null) petitionButtons[i].go.SetActive(match);
+                if (match) shown++;
+            }
+            if (petitionEmptyLabel != null) petitionEmptyLabel.gameObject.SetActive(shown == 0);
+            for (int i = 0; i < petitionTabBgs.Count; i++)
+            {
+                bool active = i < PetitionTabs.Length && PetitionTabs[i] == tab;
+                if (petitionTabBgs[i] != null) petitionTabBgs[i].color = active ? TabOnColor : TabOffColor;
+            }
         }
 
         private void BuildPetitionButton(Transform parent)
@@ -897,6 +1006,7 @@ namespace Ginei
             lbl.color = new Color(0.92f, 0.95f, 1f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
+            RegisterPetitionButton(go, PetitionTab.個人); // 汎用建白＝個人タブ
         }
 
         /// <summary>自艦隊への予算増額を上官へ具申するボタン（TKO-4 の具体例＝effectKey に直列化して稟議へ）。</summary>
@@ -925,7 +1035,7 @@ namespace Ginei
             lbl.color = new Color(0.9f, 1f, 0.95f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
-            RegisterGated(btn, img, lbl, "自艦隊への予算増額を具申する", PetitionCategory.予算);
+            RegisterGated(go, btn, img, lbl, "自艦隊への予算増額を具申する", PetitionCategory.予算);
         }
 
         /// <summary>自艦隊の根拠地（母港/展開拠点）の変更を上官へ具申するボタン（TKO-4＝effectKey に直列化して稟議へ）。</summary>
@@ -954,7 +1064,7 @@ namespace Ginei
             lbl.color = new Color(0.9f, 0.96f, 1f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
-            RegisterGated(btn, img, lbl, "自艦隊の根拠地変更を具申する", PetitionCategory.作戦);
+            RegisterGated(go, btn, img, lbl, "自艦隊の根拠地変更を具申する", PetitionCategory.作戦);
         }
 
         /// <summary>海賊狩りを上官へ具申するボタン（少尉/大尉＝下級士官専用の腕試し）。</summary>
@@ -983,13 +1093,14 @@ namespace Ginei
             lbl.color = new Color(1f, 0.96f, 0.86f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
-            RegisterGated(btn, img, lbl, "海賊狩りを具申する", PetitionCategory.海賊狩り);
+            RegisterGated(go, btn, img, lbl, "海賊狩りを具申する", PetitionCategory.海賊狩り);
         }
 
-        /// <summary>階級ゲート対象ボタンを登録（onColor は現在の色＝活性時の色）。</summary>
-        private void RegisterGated(Button btn, Image img, TextMeshProUGUI lbl, string baseText, PetitionCategory category)
+        /// <summary>階級ゲート対象ボタンを登録（onColor は現在の色＝活性時の色）＋タブ分類も登録。</summary>
+        private void RegisterGated(GameObject go, Button btn, Image img, TextMeshProUGUI lbl, string baseText, PetitionCategory category)
         {
             gatedPetitions.Add(new GatedPetition { btn = btn, img = img, lbl = lbl, baseText = baseText, category = category, onColor = img != null ? img.color : Color.gray });
+            RegisterPetitionButton(go, PetitionTabRules.TabOf(category));
         }
 
         /// <summary>階級で出せない具申ボタンを非活性＋「要○○」表示にする（昇進で動的に解禁）。</summary>
@@ -1044,6 +1155,7 @@ namespace Ginei
             lbl.color = new Color(1f, 0.95f, 0.85f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
+            RegisterPetitionButton(go, PetitionTab.個人); // 賄賂＝裏の個人施策＝個人タブ
         }
 
         private void BuildScrollBody(Transform parent)

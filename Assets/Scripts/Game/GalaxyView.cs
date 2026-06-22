@@ -977,8 +977,11 @@ namespace Ginei
                 if (r.captured)
                 {
                     for (int i = 0; i < fortressAttackers.Count; i++) fortressAttackers[i].engaged = false; // 固着解除＝前進再開
+                    int reward = FortressRules.CaptureReward(c.fortress); // 居住要塞の蓄えを接収（#765）
+                    if (reward > 0) FleetPool.Add(attacker, reward);
                     NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
-                        $"{fname} を {attacker} が制圧した（回廊が開通）");
+                        reward > 0 ? $"{fname} を {attacker} が制圧・接収（艦艇+{reward}）"
+                                   : $"{fname} を {attacker} が制圧した（回廊が開通）");
                 }
                 else
                 {
@@ -1029,14 +1032,20 @@ namespace Ginei
             }
             if (total > 0) ScaleAndCullAttackers(fortressAttackers, Mathf.Clamp(survivor, 0, total), total);
 
-            // 制圧で封鎖が解けたら固着を解除＝前進を再開（回廊が開通）。
+            // 制圧で封鎖が解けたら固着を解除＝前進を再開（回廊が開通）＋居住要塞の蓄えを接収（#765）。
+            int reward = 0;
             if (captured)
+            {
                 for (int i = 0; i < fortressAttackers.Count; i++)
                     if (fortressAttackers[i] != null) fortressAttackers[i].engaged = false;
+                reward = FortressRules.CaptureReward(c.fortress);
+                if (reward > 0) FleetPool.Add(attacker, reward);
+            }
 
             NotificationCenter.Push(captured ? NotificationCategory.占領 : NotificationCategory.戦闘,
                 NotificationSeverity.警告,
-                captured ? $"{fname} を制圧した（回廊が開通）" : $"{fname} の攻略に失敗＝難攻不落（撤退）");
+                captured ? (reward > 0 ? $"{fname} を制圧・接収した（回廊開通／艦艇+{reward}）" : $"{fname} を制圧した（回廊が開通）")
+                         : $"{fname} の攻略に失敗＝難攻不落（撤退）");
 
             BattleHandoff.Clear(); // 受け渡しを完結（攻城の ApplySiegeResult と同じ後始末）
         }
@@ -1078,6 +1087,12 @@ namespace Ginei
                     bool supplied = (sa != null && sa.owner == c.fortress.owner)
                                  || (sb != null && sb.owner == c.fortress.owner);
                     StrategyRules.TickFortressGarrisonRegen(c.fortress, supplied, days);
+                    // 居住可能要塞（#765）：補給下では拠点の産業が所有勢力の艦艇プールへ供給する（イゼルローン＝建艦拠点）。
+                    if (supplied)
+                    {
+                        int prod = FortressRules.GarrisonProduction(c.fortress, days);
+                        if (prod > 0) FleetPool.Add(c.fortress.owner, prod);
+                    }
                     continue;
                 }
 

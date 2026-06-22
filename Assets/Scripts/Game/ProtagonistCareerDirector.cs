@@ -214,10 +214,12 @@ namespace Ginei
                 long budgetBefore = ProtagonistGrantStore.Grants.fleetBudgetGrant;
                 for (int i = 0; i < pendingPetitions; i++)
                 {
-                    if (Random.value >= adoptChance) continue;
+                    string key = i < pendingPetitionKeys.Count ? pendingPetitionKeys[i] : "";
+                    // 案件ごとの難度（政治/人事ほど通りにくい）を採用率へ掛ける。
+                    float keyChance = adoptChance * PetitionDifficultyRules.AdoptMultiplier(PetitionDifficultyRules.CategoryOf(key));
+                    if (Random.value >= Mathf.Clamp01(keyChance)) continue;
                     adopted++;
                     // 採用された具申を decode して実際の効果へ反映（記帳だけ→効く）。keys 不足分（旧セーブ）は汎用建白。
-                    string key = i < pendingPetitionKeys.Count ? pendingPetitionKeys[i] : "";
                     PetitionEffect eff = PetitionEffectRules.Apply(ProtagonistGrantStore.Grants, key);
                     if (eff == PetitionEffect.予算増額) budgetAdopted++;
                     else if (eff == PetitionEffect.根拠地変更) baseAdopted++;

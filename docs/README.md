@@ -21,6 +21,7 @@
 | [`corporate-workflow-strategy-ui-design.md`](./corporate-workflow-strategy-ui-design.md) | **社内ワークフロー風 戦略UI**（稟議＝起案→合議→決裁→執行→通知。UITK第一・埋め込みブラウザは最後の手段。政体で稟議が変わる） | EPIC #14・#142/#144/#145/#158/#116 | 設計メモ |
 | [`social-venue-design.md`](./social-venue-design.md) | **社交場 深堀り**（場の類型×関係グラフ×席次/噂/調略/縁談＝政治・群像ロジックが発火する「物理的な場」。TALE-1 #1083 の実装深化） | EPIC #1145・SLN-1〜9（#1146〜#1154） | 設計メモ |
 | [`dialogue-adventure-design.md`](./dialogue-adventure-design.md) | **社交場の対話アドベンチャー**（プレイヤー出席時のみADV化＝タイクン回避・会話ノードグラフ・効果は既存窓口のみ。SLN #1145 の操作面） | EPIC #1156・DLG-1〜8（#1157〜#1164） | 設計メモ |
+| [`officer-headcount-design.md`](./officer-headcount-design.md) | **適正士官数**（AI連携前提のスパン＆レイヤー＝人間のみ155名→AI連携34名へスリム化・3フェーズ移行・`CommandCapacityRules`/`RankSystem`へ接続） | RANKCMD #1710 関連 | 方針メモ |
 | [`roadmap.md`](./roadmap.md) | **ロードマップ**（現Issueベースの実装計画・依存・推奨スプリント） | — | PR #105 |
 
 > 「PR #NN」は本目次作成時点で未マージのもの。各 PR がマージされるとリンクが解決する。

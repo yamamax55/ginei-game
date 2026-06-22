@@ -50,6 +50,7 @@ namespace Ginei
         private TextMeshProUGUI budgetLabel;
         private readonly Image[] taskBtnImgs = new Image[5];
         private Image issueBtnImg;
+        private Image reliefBtnImg; // 私財で慰労
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -142,6 +143,35 @@ namespace Ginei
                 if (chosen.Contains(TaskOrder[i])) chosenScratch.Add(TaskOrder[i]);
         }
 
+        /// <summary>主人公の私有財産（現金）で選択中の艦隊を慰労する＝私財から慰労費を支払い士気を上げる。</summary>
+        private void ReliefFleet()
+        {
+            var act = ActiveFleets();
+            if (act.Count == 0) return;
+            selectedIdx = Mathf.Clamp(selectedIdx, 0, act.Count - 1);
+            FleetUnitData sel = act[selectedIdx];
+            int strength = FleetStrength(sel);
+            var rp = FleetReliefParams.Default;
+
+            Person me = ProtagonistCareerDirector.Instance != null ? ProtagonistCareerDirector.Instance.Protagonist : null;
+            if (me == null)
+            {
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意, "私財の出所（主人公）がいません＝慰労できません");
+                return;
+            }
+            int cost = FleetReliefRules.Cost(strength, rp);
+            if (!FleetReliefRules.CanAfford(me.wealth, strength, rp))
+            {
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                    $"私財が足りません（慰労費 {cost:#,0}／所持 {me.wealth:#,0}）");
+                return;
+            }
+            me.wealth -= cost; // 私有財産の現金を消費（実状態変更）
+            int gain = FleetReliefRules.MoraleGain(rp);
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{sel.DisplayName} を私財 {cost:#,0} で慰労（士気＋{gain}・残私財 {me.wealth:#,0}）");
+        }
+
         private void RefreshFooter()
         {
             if (fleetLabel == null || budgetLabel == null) return;
@@ -154,6 +184,7 @@ namespace Ginei
                 budgetLabel.text = "";
                 for (int i = 0; i < taskBtnImgs.Length; i++) if (taskBtnImgs[i] != null) taskBtnImgs[i].color = OffBtn;
                 if (issueBtnImg != null) issueBtnImg.color = OffBtn;
+                if (reliefBtnImg != null) reliefBtnImg.color = OffBtn;
                 return;
             }
 
@@ -168,7 +199,15 @@ namespace Ginei
 
             fleetLabel.text = $"<color=#bfe9c0>{sel.DisplayName}</color>　兵力 {strength:#,0}　({selectedIdx + 1}/{act.Count})";
             string remCol = rem < 0 ? "#ff8080" : "#bfe9c0";
-            budgetLabel.text = $"予算 {budget:#,0}　使用 {used:#,0}　残 <color={remCol}>{rem:#,0}</color>";
+
+            // 私財（主人公の現金）と慰労費。
+            Person me = ProtagonistCareerDirector.Instance != null ? ProtagonistCareerDirector.Instance.Protagonist : null;
+            int reliefCost = FleetReliefRules.Cost(strength, FleetReliefParams.Default);
+            bool canRelief = me != null && FleetReliefRules.CanAfford(me.wealth, strength, FleetReliefParams.Default);
+            string privatePart = me != null
+                ? $"　｜　私財 {me.wealth:#,0}・慰労費 {reliefCost:#,0}"
+                : "　｜　私財 -（主人公なし）";
+            budgetLabel.text = $"予算 {budget:#,0}　使用 {used:#,0}　残 <color={remCol}>{rem:#,0}</color>{privatePart}";
 
             for (int i = 0; i < TaskOrder.Length; i++)
                 if (taskBtnImgs[i] != null)
@@ -176,6 +215,8 @@ namespace Ginei
 
             if (issueBtnImg != null)
                 issueBtnImg.color = (chosen.Count > 0 && afford) ? OkBtn : OffBtn;
+            if (reliefBtnImg != null)
+                reliefBtnImg.color = canRelief ? OkBtn : OffBtn;
         }
 
         public void Toggle() { SetVisible(root != null && !root.activeSelf); }
@@ -249,7 +290,7 @@ namespace Ginei
             else if (totalActive > shown || (fleets != null && fleets.Count > shown))
                 sb.Append("\n<color=#8aa0b0>…他 ").Append(fleets.Count - shown).Append(" 隊</color>");
 
-            sb.Append("\n\n<color=#6f8a9a>※ 下の発令欄で、選んだ艦隊の割り当て予算内で「やること」を決められる（再配置・司令任命の操作化は後段）。全勢力の在庫は艦艇(B)、編制ツリーは軍事(M)へ。</color>");
+            sb.Append("\n\n<color=#6f8a9a>※ 下の欄で、選んだ艦隊の割り当て予算内で「やること」を発令／主人公の私財で慰労できる（再配置・司令任命の操作化は後段）。全勢力の在庫は艦艇(B)、編制ツリーは軍事(M)へ。</color>");
             return sb.ToString();
         }
 
@@ -376,6 +417,7 @@ namespace Ginei
             // 行3：予算表示＋発令。
             var row3 = MakeRow(footer.transform);
             budgetLabel = MakeFlexLabel(row3.transform, "");
+            MakeFooterButton(row3.transform, "私財で慰労", 130f, ReliefFleet, out reliefBtnImg);
             MakeFooterButton(row3.transform, "発令", 120f, IssueOrders, out issueBtnImg);
         }
 

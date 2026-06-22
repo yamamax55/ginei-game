@@ -176,6 +176,9 @@ namespace Ginei
             sb.Append("  <color=#9aa7b2>武名</color> ");
             AppendBar(sb, Mathf.Clamp01(d.Fame / 100f), "#d0b060");
             sb.Append("　<color=#6f8a9a>(政界転身の資本)</color>\n");
+            sb.Append("  <color=#9aa7b2>具申の採用見込み</color> <color=#a0e0a0>")
+              .Append(Mathf.RoundToInt(d.EstimateAdoptChance() * 100f)).Append("%</color>")
+              .Append("　<color=#6f8a9a>(上官との関係で上下・賄賂で改善)</color>\n");
 
             // 能力（会戦成長 P1-b を反映した実効値＝基準＋GrowthRegistry）
             Growth g = d.HeroGrowth;
@@ -771,6 +774,34 @@ namespace Ginei
             RefreshNow();
         }
 
+        private void OnSubmitReinforce()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.SubmitReinforcePetition();
+            RefreshNow();
+        }
+
+        private void OnSubmitHonor()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.SubmitHonorPetition();
+            RefreshNow();
+        }
+
+        private void OnSubmitTaxCut()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.SubmitTaxCutPetition();
+            RefreshNow();
+        }
+
+        private void OnSubmitClear()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.SubmitClearPetition();
+            RefreshNow();
+        }
+
         // 岐路の実行ボタン（TKO-7・一人称の自由意志）。押すと director.ExecuteFork が開かれた進路か＋前提を確認して実行。
         private void BuildForkButtons(Transform parent)
         {
@@ -883,6 +914,15 @@ namespace Ginei
             BuildFleetBudgetPetitionButton(petitions.transform); // 軍事
             BuildFleetBasePetitionButton(petitions.transform);   // 軍事
             BuildBribeButton(petitions.transform);               // 個人
+            // 拡充スライス：軍事＝増援要請／人事＝恩賞／政治＝減税／個人＝名誉回復（各々が採用で実効果）。
+            AddPetitionButton(petitions.transform, "ReinforcePetitionButton", "増援要請を具申する",
+                new Color(0.20f, 0.30f, 0.34f, 1f), OnSubmitReinforce, PetitionCategory.予算, gated: true);
+            AddPetitionButton(petitions.transform, "HonorPetitionButton", "恩賞の上申（部下の論功行賞）",
+                new Color(0.30f, 0.26f, 0.34f, 1f), OnSubmitHonor, PetitionCategory.人事, gated: true);
+            AddPetitionButton(petitions.transform, "TaxCutPetitionButton", "減税の建言",
+                new Color(0.26f, 0.30f, 0.22f, 1f), OnSubmitTaxCut, PetitionCategory.政治, gated: true);
+            AddPetitionButton(petitions.transform, "ClearPetitionButton", "名誉回復の嘆願",
+                new Color(0.30f, 0.24f, 0.22f, 1f), OnSubmitClear, PetitionCategory.建白, gated: false);
             petitionEmptyLabel = BuildPetitionEmptyLabel(petitions.transform);
 
             BuildForkButtons(frame.transform);
@@ -961,6 +1001,35 @@ namespace Ginei
 
         private void RegisterPetitionButton(GameObject go, PetitionTab tab)
             => petitionButtons.Add(new PetitionButtonRef { go = go, tab = tab });
+
+        /// <summary>具申ボタンを汎用生成（gated＝階級ゲート登録／非gated＝区分のタブへ登録）。拡充スライスの量産用。</summary>
+        private void AddPetitionButton(Transform parent, string name, string label, Color color,
+            System.Action onClick, PetitionCategory category, bool gated)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = 42f; le.preferredHeight = 42f;
+            Image img = go.AddComponent<Image>();
+            img.color = color;
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => onClick());
+
+            GameObject lblGo = new GameObject("Label");
+            lblGo.transform.SetParent(go.transform, false);
+            RectTransform lrt = lblGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.sizeDelta = Vector2.zero; lrt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI lbl = lblGo.AddComponent<TextMeshProUGUI>();
+            lbl.text = label; lbl.alignment = TextAlignmentOptions.Center; lbl.fontSize = 18f;
+            lbl.color = new Color(0.92f, 0.95f, 1f); lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+
+            if (gated) RegisterGated(go, btn, img, lbl, label, category);
+            else RegisterPetitionButton(go, PetitionTabRules.TabOf(category));
+        }
 
         /// <summary>タブを切り替え＝そのタブの具申だけ表示。空タブはプレースホルダを出す。</summary>
         private void SetPetitionTab(PetitionTab tab)

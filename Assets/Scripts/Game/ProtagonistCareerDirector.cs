@@ -211,6 +211,7 @@ namespace Ginei
                     ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
                 float adoptChance = Mathf.Clamp01(0.35f + pf2 * 0.4f); // 上官との関係が良いほど拾われる
                 int adopted = 0, budgetAdopted = 0, baseAdopted = 0, pirateAdopted = 0;
+                int reinforceAdopted = 0, honorAdopted = 0, taxAdopted = 0, clearAdopted = 0;
                 long budgetBefore = ProtagonistGrantStore.Grants.fleetBudgetGrant;
                 for (int i = 0; i < pendingPetitions; i++)
                 {
@@ -222,6 +223,10 @@ namespace Ginei
                     if (eff == PetitionEffect.予算増額) budgetAdopted++;
                     else if (eff == PetitionEffect.根拠地変更) baseAdopted++;
                     else if (PirateHuntPetitionRules.IsPiratePetition(key)) { pirateAdopted++; fame = RenownRules.Gain(fame, PirateHuntPetitionRules.FameReward); } // 海賊掃討で武名↑
+                    else if (CareerPetitionRules.TryDecodeReinforce(key, out int rein)) { FleetPool.Add(pf, rein); reinforceAdopted += rein; } // 増援＝艦艇プール増
+                    else if (CareerPetitionRules.IsHonor(key)) { honorAdopted++; fame = RenownRules.Gain(fame, CareerPetitionRules.HonorFameReward); } // 恩賞＝武名↑
+                    else if (CareerPetitionRules.IsTaxCut(key)) { if (ApplyTaxCut()) taxAdopted++; } // 減税＝自勢力の税率↓
+                    else if (CareerPetitionRules.IsClear(key)) { grievance = Mathf.Max(0f, grievance - CareerPetitionRules.ClearGrievanceAmount); clearAdopted++; } // 名誉回復＝不満↓
                 }
                 pendingPetitions = 0;
                 pendingPetitionKeys.Clear();
@@ -245,6 +250,10 @@ namespace Ginei
                         ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.武勲, "海賊を掃討し武名を上げた");
                         Push(NotificationSeverity.情報, $"［海賊狩り］海賊を掃討し武名を上げた（武名 {fame}）");
                     }
+                    if (reinforceAdopted > 0) Push(NotificationSeverity.情報, $"［増援］艦艇プールへ {reinforceAdopted:#,0} 隻の増援が認められた");
+                    if (honorAdopted > 0) Push(NotificationSeverity.情報, $"［恩賞］部下への論功行賞が容れられ武名が上がった（武名 {fame}）");
+                    if (taxAdopted > 0) Push(NotificationSeverity.情報, "［減税］減税の建言が容れられ税率が下がった");
+                    if (clearAdopted > 0) Push(NotificationSeverity.情報, "［名誉回復］嘆願が容れられ不満が和らいだ");
                 }
             }
 
@@ -483,6 +492,57 @@ namespace Ginei
             if (Protagonist == null) return false;
             if (!RankGateOk(PetitionCategory.海賊狩り)) return false;
             return SubmitPetition("海賊狩りの具申", PirateHuntPetitionRules.EffectKey);
+        }
+
+        /// <summary>増援要請（軍事・予算ゲート）。自分の指揮可能規模に応じた増援を具申＝採用で艦艇プールが増える。</summary>
+        public bool SubmitReinforcePetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.予算)) return false;
+            int amount = CareerPetitionRules.RecommendReinforce(CommandCapacityRules.MaxStrengthForTier(Protagonist.rankTier));
+            return SubmitPetition($"増援要請（{amount:#,0}隻）の具申", CareerPetitionRules.EncodeReinforce(amount));
+        }
+
+        /// <summary>恩賞の上申（人事ゲート）＝部下への論功行賞。採用で自分の武名が上がる。</summary>
+        public bool SubmitHonorPetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.人事)) return false;
+            return SubmitPetition("恩賞の上申（部下への論功行賞）", CareerPetitionRules.HonorKey);
+        }
+
+        /// <summary>減税の建言（政治ゲート）。採用で自勢力の税率が下がる。</summary>
+        public bool SubmitTaxCutPetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.政治)) return false;
+            return SubmitPetition("減税の建言", CareerPetitionRules.TaxCutKey);
+        }
+
+        /// <summary>名誉回復の嘆願（個人・階級不問）。採用で不満が和らぐ。</summary>
+        public bool SubmitClearPetition()
+        {
+            if (Protagonist == null) return false;
+            return SubmitPetition("名誉回復の嘆願", CareerPetitionRules.ClearKey);
+        }
+
+        /// <summary>具申の採用見込み（上官＝君主との関係で上下）。執務机の表示用。</summary>
+        public float EstimateAdoptChance()
+        {
+            float pf2 = (Relations != null && Sovereign != null && Protagonist != null)
+                ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
+            return Mathf.Clamp01(0.35f + pf2 * 0.4f);
+        }
+
+        /// <summary>減税の建言が容れられたとき、自勢力の税率を下げる（0..1クランプ）。戦役状態が無ければ false。</summary>
+        private bool ApplyTaxCut()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null) return false;
+            FactionState fs = CampaignRules.GetState(camp, pf);
+            if (fs == null || fs.fiscal == null) return false;
+            fs.fiscal.taxRate = Mathf.Clamp(fs.fiscal.taxRate - CareerPetitionRules.TaxCutAmount, 0f, 1f);
+            return true;
         }
 
         /// <summary>その区分の具申を今の階級で出せるか（出せなければ通知）。UI も <see cref="PetitionRankRules"/> で同判定。</summary>

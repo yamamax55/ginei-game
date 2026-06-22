@@ -39,6 +39,7 @@ tags: [index]
 - `軍編成/` … 各勢力の軍編成（梯団・order of battle＝`OrderOfBattle`/`MilitaryFormation`/`FleetRoster`/`FleetPool`）。勢力ごとに `◯◯の軍編成.md`
 - `内政/` … 各勢力の内政（財政・経済・民心・法秩序＝`CampaignRules`/`FiscalRules`/`GovernanceRules`/`Province`）。勢力ごとに `◯◯の内政.md`
 - `外交/` … 各勢力の外交姿勢・対他勢力関係（`DiplomacyState`/`DiplomacyRules`/`DiplomacyAiRules`/`WarGoalRules`）。勢力ごとに `◯◯の外交.md`
+- `法令/` … 各勢力の法令（憲法・法律・政令＝`LawCatalog`/`RuleOfLawRules`/`LawTickRules`）。内政の「法と秩序」を条文まで降りる層。勢力ごとに `◯◯の法令.md`
 - `星系/` … 星系（SYS＝名峰）。回廊の交点・要衝
 - `惑星/` … 惑星（PLA＝日本神話名。攻城・内政の単位＝`Planet`/`Province`/`PlanetSiegeRules`）。`_テンプレート.md` を複製
 - `会戦/` … 各会戦のシナリオ・経緯・結果

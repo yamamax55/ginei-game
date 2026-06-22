@@ -89,6 +89,7 @@ for fac in FAC_ORDER:
 - 首都星系：[[{CAP[fac]}]]
 - 建国会戦：[[{FOUNDING[fac]}]]
 - 接続回廊：{cor}
+- 役職体系：[[{fac}の役職]]
 
 ### 組織
 {oblock}

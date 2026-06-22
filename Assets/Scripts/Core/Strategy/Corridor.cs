@@ -16,6 +16,10 @@ namespace Ginei
         public float length = 1f;            // 航行コスト
         public CorridorType type = CorridorType.通商;
 
+        /// <summary>この回廊を扼する要塞（#40・null＝要塞なし＝フェザーン型の自由通過）。
+        /// 健在な間は所有勢力に敵対する艦隊の通過を封じる（迂回不可＝裏エッジを持たない方針と一体）。</summary>
+        public Fortress fortress;
+
         public Corridor() { }
 
         public Corridor(int aId, int bId, float length = 1f, CorridorType type = CorridorType.通商)

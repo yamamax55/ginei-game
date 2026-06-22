@@ -178,7 +178,7 @@ namespace Ginei
             sb.Append("　<color=#6f8a9a>(政界転身の資本)</color>\n");
             sb.Append("  <color=#9aa7b2>具申の採用見込み</color> <color=#a0e0a0>")
               .Append(Mathf.RoundToInt(d.EstimateAdoptChance() * 100f)).Append("%</color>")
-              .Append("　<color=#6f8a9a>(上官との関係で上下・賄賂で改善)</color>\n");
+              .Append("　<color=#6f8a9a>(上官との関係で上下・賄賂で改善・乱発で低下)</color>\n");
 
             // 能力（会戦成長 P1-b を反映した実効値＝基準＋GrowthRegistry）
             Growth g = d.HeroGrowth;

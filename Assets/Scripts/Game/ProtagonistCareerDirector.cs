@@ -207,9 +207,8 @@ namespace Ginei
             // 具申の結実（TKO-4・序列内）：上官が拾って裁可＝採用で建白採用の武勲。MEYASU の決裁デスク（god-view）は通さない。
             if (pendingPetitions > 0)
             {
-                float pf2 = (Relations != null && Sovereign != null)
-                    ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
-                float adoptChance = Mathf.Clamp01(0.35f + pf2 * 0.4f); // 上官との関係が良いほど拾われる
+                // 乱発ペナルティ：未決が積むほど上官が食傷し採用率が下がる（信用コスト）。
+                float adoptChance = PetitionFatigueRules.EffectiveAdoptChance(BaseAdoptChance(), pendingPetitions, PetitionFatigueParams.Default);
                 int adopted = 0, budgetAdopted = 0, baseAdopted = 0, pirateAdopted = 0;
                 int reinforceAdopted = 0, honorAdopted = 0, taxAdopted = 0, clearAdopted = 0;
                 long budgetBefore = ProtagonistGrantStore.Grants.fleetBudgetGrant;
@@ -526,13 +525,17 @@ namespace Ginei
             return SubmitPetition("名誉回復の嘆願", CareerPetitionRules.ClearKey);
         }
 
-        /// <summary>具申の採用見込み（上官＝君主との関係で上下）。執務机の表示用。</summary>
-        public float EstimateAdoptChance()
+        /// <summary>基準採用率（上官＝君主との関係で上下・食傷前）。</summary>
+        private float BaseAdoptChance()
         {
             float pf2 = (Relations != null && Sovereign != null && Protagonist != null)
                 ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
             return Mathf.Clamp01(0.35f + pf2 * 0.4f);
         }
+
+        /// <summary>具申の採用見込み（関係＋乱発ペナルティ込み）。執務机の表示用＝採用判定と同じ式。</summary>
+        public float EstimateAdoptChance()
+            => PetitionFatigueRules.EffectiveAdoptChance(BaseAdoptChance(), pendingPetitions, PetitionFatigueParams.Default);
 
         /// <summary>減税の建言が容れられたとき、自勢力の税率を下げる（0..1クランプ）。戦役状態が無ければ false。</summary>
         private bool ApplyTaxCut()

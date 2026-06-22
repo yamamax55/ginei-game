@@ -29,8 +29,8 @@ namespace Ginei.Tests
             var general = new Office(3, "軍務大臣", OfficeScope.国家, OfficeDomain.軍事) { requiredTier = 11 };
             var offices = new List<Office> { bureaucrat, minister, general };
 
-            // 民主国家・上限tier7：tier7超の政治職を政治任用専用へ
-            PartyRules.MarkDemocraticAppointments(offices, careerCeilingTier: 7, CivilianControlType.文民統制);
+            // 民主国家・上限tier9（中将）：それ超の政治職を政治任用専用へ
+            PartyRules.MarkDemocraticAppointments(offices, careerCeilingTier: 9, CivilianControlType.文民統制);
 
             Assert.IsFalse(bureaucrat.politicalAppointmentOnly); // 事務次官級＝官僚で可
             Assert.IsTrue(minister.politicalAppointmentOnly);    // 大臣＝政治家のみ
@@ -52,7 +52,7 @@ namespace Ginei.Tests
             var offices = new List<Office> { minister };
 
             // 共産（党軍）では官僚上限を課さない＝従来動作
-            PartyRules.MarkDemocraticAppointments(offices, careerCeilingTier: 7, CivilianControlType.党軍);
+            PartyRules.MarkDemocraticAppointments(offices, careerCeilingTier: 9, CivilianControlType.党軍);
             Assert.IsFalse(minister.politicalAppointmentOnly);
         }
     }

@@ -28,10 +28,10 @@ namespace Ginei.Tests
             var strengths = new[] { 12000, 12000, 12000, 12000 };
             var commanders = new List<CommanderSlot>
             {
-                new CommanderSlot(1, 10), // 元帥 cap60000
-                new CommanderSlot(2, 8),  // 大将 cap15000
-                new CommanderSlot(3, 7),  // 中将 cap12000（ちょうど可）
-                new CommanderSlot(4, 5),  // 准将 cap3000（不可）
+                new CommanderSlot(1, 12), // 元帥 cap60000
+                new CommanderSlot(2, 10),  // 大将 cap15000
+                new CommanderSlot(3, 9),  // 中将 cap12000（ちょうど可）
+                new CommanderSlot(4, 7),  // 准将 cap3000（不可）
             };
             var cmd = FleetAutoOrganizeRules.AssignCommanders(strengths, commanders);
             // 上位から順に配属、准将は12000を指揮できず空席。
@@ -46,10 +46,10 @@ namespace Ginei.Tests
         {
             var commanders = new List<CommanderSlot>
             {
-                new CommanderSlot(1, 10),
-                new CommanderSlot(2, 8),
-                new CommanderSlot(3, 7),
-                new CommanderSlot(4, 5),
+                new CommanderSlot(1, 12),
+                new CommanderSlot(2, 10),
+                new CommanderSlot(3, 9),
+                new CommanderSlot(4, 7),
             };
             var plans = FleetAutoOrganizeRules.AutoOrganize(48000, 12000, commanders);
             Assert.AreEqual(4, plans.Count);

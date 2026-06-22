@@ -62,7 +62,7 @@ namespace Ginei.Tests
             // --- ④ 入閣：民主国家では高位政治職は政治任用専用＝官僚は就けず政治家のみ ---
             var minister = new Office(10, "内務大臣", OfficeScope.国家, OfficeDomain.内政) { requiredTier = 11 };
             var viceMinister = new Office(11, "事務次官", OfficeScope.国家, OfficeDomain.内政) { requiredTier = 9 };
-            PartyRules.MarkDemocraticAppointments(new List<Office> { minister, viceMinister }, careerCeilingTier: 7, CivilianControlType.文民統制);
+            PartyRules.MarkDemocraticAppointments(new List<Office> { minister, viceMinister }, careerCeilingTier: 9, CivilianControlType.文民統制);
 
             Assert.IsTrue(OfficeRules.CanHold(hero, minister), "政治家が大臣に就けない");
             var careerOfficial = new Person(3, "職業官僚", Faction.同盟, PersonRole.文民) { rankTier = 11, isPolitician = false };
@@ -121,7 +121,7 @@ namespace Ginei.Tests
             Assert.IsFalse(PoliticianRules.IsPolitician(official));
 
             var minister = new Office(10, "宰相", OfficeScope.国家, OfficeDomain.元首) { requiredTier = 11 };
-            PartyRules.MarkDemocraticAppointments(new List<Office> { minister }, careerCeilingTier: 7, CivilianControlType.文民統制);
+            PartyRules.MarkDemocraticAppointments(new List<Office> { minister }, careerCeilingTier: 9, CivilianControlType.文民統制);
             Assert.IsFalse(OfficeRules.CanHold(official, minister), "官僚が政治任用専用の高位職に就けてしまう");
         }
     }

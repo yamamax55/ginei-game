@@ -43,9 +43,9 @@ namespace Ginei.Tests
         [Test]
         public void EchelonForStrengthMatchesCapacityRules()
         {
-            // 12000 -> 必要tier7(中将) -> 艦隊。
+            // 12000 -> 必要tier9(中将) -> 艦隊。
             Assert.AreEqual(EchelonType.艦隊, ArmyOrganizationRules.EchelonForStrength(12000));
-            // 3000 -> 必要tier5(准将) -> 分艦隊。
+            // 3000 -> 必要tier7(准将) -> 分艦隊。
             Assert.AreEqual(EchelonType.分艦隊, ArmyOrganizationRules.EchelonForStrength(3000));
         }
 
@@ -55,11 +55,11 @@ namespace Ginei.Tests
         public void HigherFitnessCommanderIsChosen()
         {
             var fleets = new List<FleetOrder> { new FleetOrder { strength = 12000, role = ShipRole.戦闘艦 } };
-            // どちらも tier7 で 12000 を指揮可能。combat 適性は a が高い。
+            // どちらも tier9(中将) で 12000 を指揮可能。combat 適性は a が高い。
             var commanders = new List<CommanderProfile>
             {
-                new CommanderProfile(1, 7, 30, 30, 30, 30, 30, 30), // 低適性
-                new CommanderProfile(2, 7, 90, 90, 90, 30, 30, 30), // 高適性(combat)
+                new CommanderProfile(1, 9, 30, 30, 30, 30, 30, 30), // 低適性
+                new CommanderProfile(2, 9, 90, 90, 90, 30, 30, 30), // 高適性(combat)
             };
             ArmyOrganizationRules.AssignCommandersByFitness(fleets, commanders);
             Assert.AreEqual(2, fleets[0].commanderId);
@@ -69,8 +69,8 @@ namespace Ginei.Tests
         public void OverCapacityCommanderIsNotAssigned()
         {
             var fleets = new List<FleetOrder> { new FleetOrder { strength = 12000, role = ShipRole.戦闘艦 } };
-            // tier5(准将)=3000 限界なので 12000 を指揮できない。
-            var commanders = new List<CommanderProfile> { Flat(1, 5) };
+            // tier7(准将)=3000 限界なので 12000 を指揮できない。
+            var commanders = new List<CommanderProfile> { Flat(1, 7) };
             ArmyOrganizationRules.AssignCommandersByFitness(fleets, commanders);
             Assert.AreEqual(-1, fleets[0].commanderId);
         }
@@ -79,8 +79,8 @@ namespace Ginei.Tests
         public void TieBreakPrefersLowerSufficientRank()
         {
             var fleets = new List<FleetOrder> { new FleetOrder { strength = 12000, role = ShipRole.戦闘艦 } };
-            // 適性同点。tier7 も tier10 も 12000 を率いられる -> 低い tier7 を選び元帥を温存。
-            var commanders = new List<CommanderProfile> { Flat(1, 10), Flat(2, 7) };
+            // 適性同点。tier9 も tier12 も 12000 を率いられる -> 低い tier9 を選び元帥を温存。
+            var commanders = new List<CommanderProfile> { Flat(1, 12), Flat(2, 9) };
             ArmyOrganizationRules.AssignCommandersByFitness(fleets, commanders);
             Assert.AreEqual(2, fleets[0].commanderId);
         }
@@ -91,8 +91,8 @@ namespace Ginei.Tests
             var fleets = new List<FleetOrder> { new FleetOrder { strength = 3000, role = ShipRole.偵察艦 } };
             var commanders = new List<CommanderProfile>
             {
-                new CommanderProfile(1, 5, 90, 90, 90, 10, 10, 10), // 戦闘特化だが偵察は低
-                new CommanderProfile(2, 5, 10, 10, 10, 90, 10, 90), // 偵察特化(情報+機動高)
+                new CommanderProfile(1, 7, 90, 90, 90, 10, 10, 10), // 戦闘特化だが偵察は低
+                new CommanderProfile(2, 7, 10, 10, 10, 90, 10, 90), // 偵察特化(情報+機動高)
             };
             ArmyOrganizationRules.AssignCommandersByFitness(fleets, commanders);
             Assert.AreEqual(2, fleets[0].commanderId);
@@ -111,8 +111,8 @@ namespace Ginei.Tests
             };
             var commanders = new List<CommanderProfile>
             {
-                Flat(1, 7), Flat(2, 7),       // 司令（使用済み扱い）
-                Flat(3, 6), Flat(4, 6),       // 残り＝幕僚候補
+                Flat(1, 9), Flat(2, 9),       // 司令（使用済み扱い）
+                Flat(3, 8), Flat(4, 8),       // 残り＝幕僚候補
             };
             ArmyOrganizationRules.AssignStaff(fleets, commanders, prm);
 
@@ -121,9 +121,9 @@ namespace Ginei.Tests
             Assert.AreEqual(-1, fleets[1].viceId, "小艦隊は副司令なし");
             Assert.AreEqual(-1, fleets[1].chiefId, "小艦隊は参謀なし");
 
-            // 副司令の tier <= 司令の tier。
+            // 副司令の tier <= 司令の tier（司令=中将9）。
             int viceTier = TierOfId(commanders, fleets[0].viceId);
-            Assert.LessOrEqual(viceTier, 7);
+            Assert.LessOrEqual(viceTier, 9);
 
             // 二重起用なし（司令/副司令/参謀で重複しない）。
             var ids = new List<int> { fleets[0].commanderId, fleets[0].viceId, fleets[0].chiefId };
@@ -143,8 +143,8 @@ namespace Ginei.Tests
             };
             var commanders = new List<CommanderProfile>
             {
-                Flat(1, 7), Flat(2, 7),   // 司令（使用済み）
-                Flat(9, 9),               // tier9 の予備＝梯団司令適格(>=8)
+                Flat(1, 9), Flat(2, 9),   // 司令（使用済み）
+                Flat(9, 11),               // tier11(上級大将) の予備＝梯団司令適格(>=10)
             };
             var corps = ArmyOrganizationRules.AssembleCorps(fleets, commanders, prm);
             Assert.AreEqual(1, corps.Count);
@@ -163,8 +163,8 @@ namespace Ginei.Tests
                 new FleetOrder { strength = 12000, commanderId = 1 },
                 new FleetOrder { strength = 12000, commanderId = 2 },
             };
-            // 予備に tier8 以上がいない（tier7 のみ）。
-            var commanders = new List<CommanderProfile> { Flat(1, 7), Flat(2, 7), Flat(3, 7) };
+            // 予備に tier10 以上がいない（tier9 のみ）。
+            var commanders = new List<CommanderProfile> { Flat(1, 9), Flat(2, 9), Flat(3, 9) };
             var corps = ArmyOrganizationRules.AssembleCorps(fleets, commanders, prm);
             Assert.AreEqual(0, corps.Count);
             Assert.AreEqual(-1, fleets[0].corpsIndex);
@@ -180,7 +180,7 @@ namespace Ginei.Tests
                 new FleetOrder { strength = 12000, commanderId = 1 },
                 new FleetOrder { strength = 12000, commanderId = 2 },
             };
-            var commanders = new List<CommanderProfile> { Flat(1, 7), Flat(2, 7), Flat(9, 9) };
+            var commanders = new List<CommanderProfile> { Flat(1, 9), Flat(2, 9), Flat(9, 11) };
             var corps = ArmyOrganizationRules.AssembleCorps(fleets, commanders, prm);
             Assert.AreEqual(0, corps.Count);
         }
@@ -192,11 +192,11 @@ namespace Ginei.Tests
         {
             var commanders = new List<CommanderProfile>
             {
-                new CommanderProfile(1, 10, 80, 70, 60, 50, 40, 30),
-                new CommanderProfile(2, 8, 60, 60, 60, 60, 60, 60),
-                new CommanderProfile(3, 7, 90, 50, 50, 50, 90, 90),
-                new CommanderProfile(4, 7, 50, 90, 50, 90, 50, 50),
-                new CommanderProfile(5, 6, 40, 40, 40, 40, 40, 40),
+                new CommanderProfile(1, 12, 80, 70, 60, 50, 40, 30),
+                new CommanderProfile(2, 10, 60, 60, 60, 60, 60, 60),
+                new CommanderProfile(3, 9, 90, 50, 50, 50, 90, 90),
+                new CommanderProfile(4, 9, 50, 90, 50, 90, 50, 50),
+                new CommanderProfile(5, 8, 40, 40, 40, 40, 40, 40),
             };
             var a = ArmyOrganizationRules.Organize(60000, commanders);
             var b = ArmyOrganizationRules.Organize(60000, commanders);

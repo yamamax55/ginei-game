@@ -23,6 +23,7 @@ namespace Ginei
                 new TalentDef("急襲",   "電光奇襲", TalentAspect.武勇, TalentKind.特性, TalentEffect.側背強化, 0.20f, SkillCondition.側背面時, "側背を取るや一撃必殺。側背面の与ダメージ増。"),
                 new TalentDef("連弩",   "連弩斉射", TalentAspect.武勇, TalentKind.戦法, TalentEffect.砲撃戦法, 0.30f, SkillCondition.常時,   "一斉砲撃を強化する短時間の猛射。"),
                 new TalentDef("突貫",   "猪突猛進", TalentAspect.武勇, TalentKind.戦法, TalentEffect.突撃戦法, 0.25f, SkillCondition.常時,   "突撃の威力と速度をさらに高める。"),
+                new TalentDef("不屈",   "不屈闘魂", TalentAspect.武勇, TalentKind.特性, TalentEffect.士気維持, 10f,   SkillCondition.劣勢時, "闘将の不屈。劣勢でも士気が折れない。"),
 
                 // ── 知略（情報が冴え）──
                 new TalentDef("看破",   "看破",     TalentAspect.知略, TalentKind.特性, TalentEffect.索敵強化, 6f,    SkillCondition.常時,   "敵の動きを読み、索敵範囲が広がり不意打ちを受けにくい。"),
@@ -30,6 +31,8 @@ namespace Ginei
                 new TalentDef("奇道",   "奇道",     TalentAspect.知略, TalentKind.特性, TalentEffect.奇襲,     0.20f, SkillCondition.常時,   "潜伏からの不意打ちが冴える（索敵 #2180／特殊作戦）。"),
                 new TalentDef("火計",   "業火之計", TalentAspect.知略, TalentKind.戦法, TalentEffect.範囲攻撃戦法, 0.40f, SkillCondition.常時, "範囲に火を放つ。広範囲の敵へ大ダメージ。"),
                 new TalentDef("雷撃",   "天雷召喚", TalentAspect.知略, TalentKind.戦法, TalentEffect.範囲攻撃戦法, 0.55f, SkillCondition.常時, "落雷の如き一撃。神算の極み（高格）。"),
+                new TalentDef("先見",   "先見之明", TalentAspect.知略, TalentKind.特性, TalentEffect.索敵強化, 8f,    SkillCondition.常時,   "戦機を先読みする。索敵が大きく広がり奇襲を許さない。"),
+                new TalentDef("韜晦",   "韜晦の術", TalentAspect.知略, TalentKind.特性, TalentEffect.奇襲,     0.25f, SkillCondition.常時,   "伏撃と潜伏の妙。不意打ちが一段と冴える（看破の裏）。"),
 
                 // ── 統率（統率が冴え）──
                 new TalentDef("鉄壁",   "鉄壁",     TalentAspect.統率, TalentKind.特性, TalentEffect.防御強化, 0.15f, SkillCondition.常時,   "陣を崩さず、被ダメージを抑える。"),
@@ -37,6 +40,9 @@ namespace Ginei
                 new TalentDef("用兵",   "用兵如神", TalentAspect.統率, TalentKind.特性, TalentEffect.火力集中, 0.15f, SkillCondition.常時,   "兵を巧みに集中運用する（局所火力集中）。"),
                 new TalentDef("疾風",   "疾風迅雷", TalentAspect.統率, TalentKind.特性, TalentEffect.機動強化, 0.15f, SkillCondition.常時,   "部隊運動が速い。機動が上がる。"),
                 new TalentDef("鼓舞",   "鼓舞激励", TalentAspect.統率, TalentKind.戦法, TalentEffect.鼓舞戦法, 0.30f, SkillCondition.常時,   "全軍を鼓舞し士気を一気に回復させる。"),
+                new TalentDef("殿軍",   "殿軍之将", TalentAspect.統率, TalentKind.特性, TalentEffect.防御強化, 0.20f, SkillCondition.劣勢時, "しんがりの名将。劣勢での被害を大きく抑え、退き口を支える。"),
+                new TalentDef("斉射",   "統制斉射", TalentAspect.統率, TalentKind.戦法, TalentEffect.砲撃戦法, 0.30f, SkillCondition.常時,   "統制された一斉射撃で全艦の火力を束ねる。"),
+                new TalentDef("猛追",   "猛追撃滅", TalentAspect.統率, TalentKind.戦法, TalentEffect.突撃戦法, 0.30f, SkillCondition.常時,   "崩れた敵を統制ある突撃で追撃し殲滅する（用兵の突撃）。"),
 
                 // ── 政務（運営が冴え・マクロ）──
                 new TalentDef("兵站",   "兵站名人", TalentAspect.政務, TalentKind.特性, TalentEffect.兵站, 0.20f, SkillCondition.常時, "補給を絶やさぬ手腕。前線の継戦を支える（#2049）。"),

@@ -43,6 +43,7 @@ tags: [index]
 - `星系/` … 星系（SYS＝名峰）。回廊の交点・要衝
 - `惑星/` … 惑星（PLA＝日本神話名。攻城・内政の単位＝`Planet`/`Province`/`PlanetSiegeRules`）。`_テンプレート.md` を複製
 - `会戦/` … 各会戦のシナリオ・経緯・結果
+- `選挙/` … 各勢力の選挙（ELC＝衆参/評議会/党首選＝`ElectionRules`/`ElectoralSystemRules`/`PartyRules`/`PoliticsState`）。`_テンプレート.md` を複製。観測＝O（政治）
 - `旗艦/` … 名のある旗艦（1艦1ノート）。`_テンプレート.md` を複製して使う
 - `用語集.md` … 用語の索引（各設定ノートへのリンク表）
 - `年表.md` … 環暦／宇宙暦／帝国暦の出来事を時系列で

@@ -28,6 +28,7 @@ tags: [index, ID, 識別子]
 | 回廊 | **COR** | [[回廊/_テンプレート\|回廊]] | `GalaxyMap` の `Corridor` / `GalaxyPathfinder` |
 | 通貨 | **CUR** | [[通貨/_テンプレート\|通貨]] | `CurrencyState` / `CurrencyRules` / `CurrencyNames` |
 | 惑星 | **PLA** | [[惑星/_テンプレート\|惑星]] | `Planet` / `Province` / `PlanetSiegeRules` |
+| 選挙 | **ELC** | [[選挙/_テンプレート\|選挙]] | `ElectionRules` / `ElectionScheduleRules` / `PartyRules` / `PoliticsState` |
 
 ## 採番済み
 
@@ -499,6 +500,11 @@ tags: [index, ID, 識別子]
 |---|---|---|
 | （未） | | 各勢力の首星（アマテラス/ワタツミ/オオクニヌシ/スサノオ/ツクヨミ）から起票予定 |
 
+### 選挙（ELC）
+| ID | ノート | 勢力・備考 |
+|---|---|---|
+| （未） | | 各勢力の衆参/評議会選挙・党首選から起票予定（観測＝O 政治） |
+
 ## 次番（採番カウンタ）
 - PER：次は **PER-313**
 - FAC：次は **FAC-006**
@@ -511,3 +517,4 @@ tags: [index, ID, 識別子]
 - COR：次は **COR-008**
 - CUR：次は **CUR-006**
 - PLA：次は **PLA-001**
+- ELC：次は **ELC-001**

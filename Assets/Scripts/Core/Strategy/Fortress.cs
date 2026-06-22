@@ -12,6 +12,7 @@ namespace Ginei
     public class Fortress
     {
         public float garrisonStrength;   // 守備艦隊の戦力
+        public float garrisonCapacity;   // 守備の上限（補給下で回復する到達点。0=回復しない＝後方互換）。既定は初期守備＝満員
         public float shieldIntegrity;    // 反射シールドの健全度 0..1（液体金属鏡）
         public float mainGunPower;       // 主砲（広域砲＝トゥール・ハンマー型）の威力
         public bool controlsCorridor;    // この要塞が回廊通過を扼すか
@@ -23,6 +24,7 @@ namespace Ginei
         public Fortress(float garrisonStrength, float mainGunPower, float shieldIntegrity = 1f, bool controlsCorridor = true)
         {
             this.garrisonStrength = Mathf.Max(0f, garrisonStrength);
+            this.garrisonCapacity = this.garrisonStrength; // 初期守備＝満員＝補給下で回復する到達点
             this.mainGunPower = Mathf.Max(0f, mainGunPower);
             this.shieldIntegrity = Mathf.Clamp01(shieldIntegrity);
             this.controlsCorridor = controlsCorridor;

@@ -1038,9 +1038,11 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 兵糧攻め（#40・銀英伝＝難攻不落も封鎖で落とす）：要塞に敵対する艦隊が回廊で攻囲を続けている要塞の
-        /// 守備を日次ですり減らす（<see cref="StrategyRules.TickFortressSiegeAttrition"/>）。守備が尽きれば開城＝
-        /// 封鎖が解け、攻囲側の固着を解いて回廊を開通する（所有移転は停泊占領で別途）。日次Tickから days=1 で呼ぶ。
+        /// 回廊要塞の攻囲/回復を日次で進める（#40・銀英伝＝難攻不落も封鎖で落とす）。
+        /// <b>封鎖中</b>（要塞に敵対する艦隊が回廊で攻囲継続）＝守備を日々すり減らす
+        /// （<see cref="StrategyRules.TickFortressSiegeAttrition"/>）。守備が尽きれば開城＝固着を解いて回廊を開通。
+        /// <b>非封鎖かつ補給下</b>（owner が回廊端点の星系を保持）＝守備/シールドが回復する
+        /// （<see cref="StrategyRules.TickFortressGarrisonRegen"/>）＝封鎖を解けば要塞は立ち直る（攻囲の継続コスト）。日次Tickから days=1 で呼ぶ。
         /// </summary>
         private void RunFortressSiegeTick(float days)
         {
@@ -1062,7 +1064,18 @@ namespace Ginei
                     if (!StrategyRules.IsFortressBlocked(c, f.faction)) continue; // 要塞に敵対＝攻囲側
                     besieged = true; break;
                 }
-                if (!besieged) continue;
+
+                if (!besieged)
+                {
+                    // 封鎖されていない＝補給下（owner が回廊端点の星系を保持）なら守備/シールドが回復する。
+                    // 封鎖を解けば要塞は立ち直る＝攻囲は維持し続けないと効果が消える「継続コスト」（兵糧攻めの対）。
+                    StarSystem sa = map.GetSystem(c.aId);
+                    StarSystem sb = map.GetSystem(c.bId);
+                    bool supplied = (sa != null && sa.owner == c.fortress.owner)
+                                 || (sb != null && sb.owner == c.fortress.owner);
+                    StrategyRules.TickFortressGarrisonRegen(c.fortress, supplied, days);
+                    continue;
+                }
 
                 if (StrategyRules.TickFortressSiegeAttrition(c.fortress, true, days))
                 {

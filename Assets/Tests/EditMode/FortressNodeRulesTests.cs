@@ -168,5 +168,55 @@ namespace Ginei.Tests
             var empty = new Fortress(0f, 100f, 1f, true) { owner = Faction.帝国 };
             Assert.IsFalse(StrategyRules.TickFortressSiegeAttrition(empty, true, 1f)); // 既に守備0＝落城扱いしない
         }
+
+        // ── 補給下の回復：TickFortressGarrisonRegen（兵糧攻めの対・#40）──
+
+        [Test]
+        public void Regen_RecoversGarrisonAndShield_WhenSupplied()
+        {
+            // 上限1000、削れた守備800・シールド0.5。補給下で1日：守備+2%×1000=20、シールド+0.05。
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            f.garrisonStrength = 800f; f.shieldIntegrity = 0.5f;
+            StrategyRules.TickFortressGarrisonRegen(f, supplied: true, days: 1f);
+            Assert.AreEqual(820f, f.garrisonStrength, 1e-3f);
+            Assert.AreEqual(0.55f, f.shieldIntegrity, 1e-4f);
+        }
+
+        [Test]
+        public void Regen_ClampsAtCapacityAndFullShield()
+        {
+            var f = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            f.garrisonStrength = 995f; f.shieldIntegrity = 0.99f;
+            StrategyRules.TickFortressGarrisonRegen(f, supplied: true, days: 10f);
+            Assert.AreEqual(1000f, f.garrisonStrength, 1e-3f); // 上限で頭打ち
+            Assert.AreEqual(1f, f.shieldIntegrity, 1e-4f);     // シールドは1.0で頭打ち
+        }
+
+        [Test]
+        public void Regen_NoChange_WhenBlockaded_OrFallen()
+        {
+            var besieged = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            besieged.garrisonStrength = 800f;
+            StrategyRules.TickFortressGarrisonRegen(besieged, supplied: false, days: 5f); // 封鎖中＝補給なし
+            Assert.AreEqual(800f, besieged.garrisonStrength, 1e-3f);
+
+            var fallen = new Fortress(1000f, 100f, 1f, true) { owner = Faction.帝国 };
+            fallen.garrisonStrength = 0f; // 開城済み
+            StrategyRules.TickFortressGarrisonRegen(fallen, supplied: true, days: 5f);
+            Assert.AreEqual(0f, fallen.garrisonStrength, 1e-3f); // 自然回復しない（再駐留が要る）
+        }
+
+        [Test]
+        public void Regen_NullSafe()
+        {
+            Assert.DoesNotThrow(() => StrategyRules.TickFortressGarrisonRegen(null, true, 1f));
+        }
+
+        [Test]
+        public void GarrisonCapacity_DefaultsToInitialGarrison()
+        {
+            var f = new Fortress(1234f, 100f);
+            Assert.AreEqual(1234f, f.garrisonCapacity, 1e-3f); // 初期守備＝満員
+        }
     }
 }

@@ -433,6 +433,36 @@ namespace Ginei
             return false;
         }
 
+        /// <summary>補給下の回復の既定：1日あたり守備上限の2%・シールドは1日0.05ぶん回復。</summary>
+        public const float FortressRegenDailyFraction = 0.02f;
+        public const float FortressShieldRegenPerDay = 0.05f;
+
+        /// <summary>
+        /// 補給下の要塞回復（#40・兵糧攻め <see cref="TickFortressSiegeAttrition"/> の対＝封鎖を解けば立ち直る）。
+        /// 封鎖されておらず補給線が通っている（supplied）要塞は、守備を上限（<see cref="Fortress.garrisonCapacity"/>）
+        /// まで・シールドを1.0まで日々回復する＝封鎖は維持し続けないと効果が消える「継続コスト」になる。
+        /// 守備が尽きて開城済み（garrison0）の要塞は自然回復しない（再駐留＝占領が要る）。上限0は回復しない
+        /// （後方互換）。乱数なし・決定論。日次Tick（<paramref name="days"/>=1）から呼ぶ。
+        /// </summary>
+        public static void TickFortressGarrisonRegen(Fortress f, bool supplied, float days)
+            => TickFortressGarrisonRegen(f, supplied, days, FortressRegenDailyFraction, FortressShieldRegenPerDay);
+
+        /// <summary><inheritdoc cref="TickFortressGarrisonRegen(Fortress,bool,float)"/></summary>
+        public static void TickFortressGarrisonRegen(Fortress f, bool supplied, float days,
+            float garrisonRegenFraction, float shieldRegenPerDay)
+        {
+            if (f == null || !supplied || f.garrisonCapacity <= 0f) return;
+            if (f.garrisonStrength <= 0f) return; // 開城済み（守備0）は自然回復しない＝再駐留が要る
+            float d = Mathf.Max(0f, days);
+            if (f.garrisonStrength < f.garrisonCapacity)
+            {
+                float gain = Mathf.Max(0f, garrisonRegenFraction) * f.garrisonCapacity * d;
+                f.garrisonStrength = Mathf.Min(f.garrisonCapacity, f.garrisonStrength + gain);
+            }
+            if (f.shieldIntegrity < 1f)
+                f.shieldIntegrity = Mathf.Clamp01(f.shieldIntegrity + Mathf.Max(0f, shieldRegenPerDay) * d);
+        }
+
         /// <summary>
         /// 指定星系の占領を解決する。停泊中の艦隊が1勢力のみで、その勢力が現所有者と敵対していれば
         /// 所有権をその勢力へ移す。複数勢力が居る（＝戦闘案件）／無人／同一勢力なら何もしない。

@@ -13,11 +13,11 @@ namespace Ginei.Tests
         [Test]
         public void InitialTier_TopRankHighest_FloorClamped()
         {
-            var p = SP.Default; // 首席6・20席ごと−1・下限5
-            Assert.AreEqual(6, SeniorityRules.InitialTier(1, p));
-            Assert.AreEqual(6, SeniorityRules.InitialTier(20, p));
-            Assert.AreEqual(5, SeniorityRules.InitialTier(21, p));
-            Assert.AreEqual(5, SeniorityRules.InitialTier(200, p)); // 下限でクランプ
+            var p = SP.Default; // 首席8・20席ごと−1・下限7
+            Assert.AreEqual(8, SeniorityRules.InitialTier(1, p));
+            Assert.AreEqual(8, SeniorityRules.InitialTier(20, p));
+            Assert.AreEqual(7, SeniorityRules.InitialTier(21, p));
+            Assert.AreEqual(7, SeniorityRules.InitialTier(200, p)); // 下限でクランプ
         }
 
         [Test]

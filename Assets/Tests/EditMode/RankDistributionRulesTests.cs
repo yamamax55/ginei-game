@@ -29,12 +29,14 @@ namespace Ginei.Tests
         public void ToOfficerTier_BridgesToRankSystem()
         {
             Assert.AreEqual(1, RankDistributionRules.ToOfficerTier(MilitaryGrade.少尉));
-            Assert.AreEqual(4, RankDistributionRules.ToOfficerTier(MilitaryGrade.大佐));
-            Assert.AreEqual(5, RankDistributionRules.ToOfficerTier(MilitaryGrade.准将));
-            Assert.AreEqual(10, RankDistributionRules.ToOfficerTier(MilitaryGrade.元帥));
+            Assert.AreEqual(6, RankDistributionRules.ToOfficerTier(MilitaryGrade.大佐));
+            Assert.AreEqual(7, RankDistributionRules.ToOfficerTier(MilitaryGrade.准将));
+            Assert.AreEqual(12, RankDistributionRules.ToOfficerTier(MilitaryGrade.元帥));
+            Assert.AreEqual(2, RankDistributionRules.ToOfficerTier(MilitaryGrade.中尉), "中尉＝tier2");
+            Assert.AreEqual(5, RankDistributionRules.ToOfficerTier(MilitaryGrade.中佐), "中佐＝tier5");
             Assert.AreEqual(0, RankDistributionRules.ToOfficerTier(MilitaryGrade.二等兵), "兵卒は士官tierを持たない");
             Assert.AreEqual(0, RankDistributionRules.ToOfficerTier(MilitaryGrade.准尉), "准尉は任官前");
-            // RankSystem の既定ラダーと一致（准将5/元帥10）
+            // RankSystem の既定ラダーと一致（准将7/元帥12）
             Assert.AreEqual("准将", RankSystem.DefaultRankName(RankDistributionRules.ToOfficerTier(MilitaryGrade.准将)));
             Assert.AreEqual("元帥", RankSystem.DefaultRankName(RankDistributionRules.ToOfficerTier(MilitaryGrade.元帥)));
         }
@@ -103,9 +105,9 @@ namespace Ginei.Tests
             var d = new RankDistribution();
             for (int i = 0; i < target.Length; i++) d.Set((MilitaryGrade)i, target[i]);
 
-            // 実在の提督：元帥1・大将3・大尉2（tier 10/8/2）
-            var named = new int[11];
-            named[10] = 1; named[8] = 3; named[2] = 2;
+            // 実在の提督：元帥1・大将3・大尉2（tier 12/10/3）
+            var named = new int[13];
+            named[12] = 1; named[10] = 3; named[3] = 2;
             RankDistributionRules.OverlayNamedOfficers(d, named);
 
             Assert.AreEqual(1, d.Get(MilitaryGrade.元帥), "実在元帥が頂点に反映される");
@@ -120,7 +122,7 @@ namespace Ginei.Tests
         {
             var d = new RankDistribution();
             d.Set(MilitaryGrade.少尉, 100); // 既存が多い段
-            var named = new int[11];
+            var named = new int[13];
             named[1] = 5; // 少尉(tier1)の実在は5
             RankDistributionRules.OverlayNamedOfficers(d, named);
             Assert.AreEqual(100, d.Get(MilitaryGrade.少尉), "max下限＝既存を下げない");

@@ -14,10 +14,10 @@ namespace Ginei.Tests
         private static MeritRecordRules.MeritRecordParams EP => MeritRecordRules.MeritRecordParams.Default;
 
         private static Person Lord(int id = 1)
-            => new Person(id, "君主", Faction.帝国, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
+            => new Person(id, "君主", Faction.帝国, PersonRole.軍人) { isSovereign = true, rankTier = 12 };
 
         private static Person Retainer(int id = 2, Faction f = Faction.帝国)
-            => new Person(id, "臣下", f, PersonRole.軍人) { rankTier = 5 };
+            => new Person(id, "臣下", f, PersonRole.軍人) { rankTier = 7 };
 
         [Test]
         public void CanIssue_RequiresSovereignSameFactionAliveOther()

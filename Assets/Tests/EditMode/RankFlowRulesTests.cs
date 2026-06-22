@@ -96,10 +96,10 @@ namespace Ginei.Tests
         [Test]
         public void GradeForOfficerTier_IsInverseOfToOfficerTier()
         {
-            for (int t = 1; t <= 10; t++)
+            for (int t = 1; t <= 12; t++)
                 Assert.AreEqual(t, RankDistributionRules.ToOfficerTier(RankDistributionRules.GradeForOfficerTier(t)));
             Assert.AreEqual(MilitaryGrade.少尉, RankDistributionRules.GradeForOfficerTier(1));
-            Assert.AreEqual(MilitaryGrade.元帥, RankDistributionRules.GradeForOfficerTier(10));
+            Assert.AreEqual(MilitaryGrade.元帥, RankDistributionRules.GradeForOfficerTier(12));
         }
 
         [Test]
@@ -108,11 +108,11 @@ namespace Ginei.Tests
             var f = ScriptableObject.CreateInstance<FactionData>();
             f.ranks = new List<FactionData.RankEntry>
             {
-                new FactionData.RankEntry(5, "准将"), new FactionData.RankEntry(6, "少将"),
+                new FactionData.RankEntry(7, "准将"), new FactionData.RankEntry(8, "少将"),
             };
-            var hero = new Person(2, "主人公", Faction.帝国, PersonRole.軍人) { rankTier = 5 };
+            var hero = new Person(2, "主人公", Faction.帝国, PersonRole.軍人) { rankTier = 7 };
             var merit = new MeritRecord(2) { points = 120f }; // 昇進保留あり
-            var lord = new Person(1, "君主", Faction.帝国, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
+            var lord = new Person(1, "君主", Faction.帝国, PersonRole.軍人) { isSovereign = true, rankTier = 12 };
 
             // 定員ゲート＝どこへも昇進不可
             var outcome = MonthlyCouncilRules.Hold(hero, merit, f, null, lord,
@@ -123,7 +123,7 @@ namespace Ginei.Tests
                 relations: null, canPromoteTo: _ => false);
 
             Assert.IsFalse(outcome.promoted, "定員空きなし＝昇進しない");
-            Assert.AreEqual(5, hero.rankTier, "据え置き");
+            Assert.AreEqual(7, hero.rankTier, "据え置き");
             Assert.AreEqual(0, merit.meritPromotionsApplied, "武勲は消費されず保留");
             Assert.IsTrue(MeritRecordRules.HasPendingPromotion(merit, MeritRecordRules.MeritRecordParams.Default));
         }

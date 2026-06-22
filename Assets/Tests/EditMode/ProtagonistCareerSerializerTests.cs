@@ -13,7 +13,7 @@ namespace Ginei.Tests
         {
             var p = new Person(900001, "テスト提督", Faction.同盟, PersonRole.軍人)
             {
-                rankTier = 6,
+                rankTier = 8,
                 leadership = 80, attack = 72, defense = 64, mobility = 90, operation = 55, intelligence = 61,
             };
             return p;
@@ -35,7 +35,7 @@ namespace Ginei.Tests
             var restored = new Person(900001, "テスト提督", Faction.同盟, PersonRole.軍人);
             ProtagonistCareerSerializer.ApplyPerson(d, restored);
 
-            Assert.AreEqual(6, restored.rankTier);
+            Assert.AreEqual(8, restored.rankTier);
             Assert.AreEqual(80, restored.leadership);
             Assert.AreEqual(72, restored.attack);
             Assert.AreEqual(64, restored.defense);

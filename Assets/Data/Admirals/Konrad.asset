@@ -25,7 +25,7 @@ MonoBehaviour:
   callName: "コンラート"
   signatureShipName: "ヴェルサイユ"
   isProtagonist: 0
-  rankTier: 4
+  rankTier: 6
   leadership: 80
   attack: 72
   defense: 82

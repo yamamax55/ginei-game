@@ -10,26 +10,27 @@ namespace Ginei
     public static class CommandCapacityRules
     {
         // 銀英伝準拠の指揮可能兵力ラダー（隻・目安）。一個艦隊 ≒ 1.2〜1.5万隻＝中将/大将。調整可。
-        public const int Cap准将 = 3000;     // tier5：分艦隊
-        public const int Cap少将 = 6000;     // tier6：分艦隊
-        public const int Cap中将 = 12000;    // tier7：一個艦隊の司令官になれる下限
-        public const int Cap大将 = 15000;    // tier8：標準的な一個艦隊
-        public const int Cap上級大将 = 30000; // tier9：複数艦隊/方面
-        public const int Cap元帥 = 60000;    // tier10：宇宙艦隊総司令（数個艦隊）
+        // 階級 tier は完全12段ラダー（少尉1〜元帥12・RankSystem）。将官は准将7〜元帥12。
+        public const int Cap准将 = 3000;     // tier7：分艦隊
+        public const int Cap少将 = 6000;     // tier8：分艦隊
+        public const int Cap中将 = 12000;    // tier9：一個艦隊の司令官になれる下限
+        public const int Cap大将 = 15000;    // tier10：標準的な一個艦隊
+        public const int Cap上級大将 = 30000; // tier11：複数艦隊/方面
+        public const int Cap元帥 = 60000;    // tier12：宇宙艦隊総司令（数個艦隊）
         public const int CapSub = 1000;      // 准将未満（佐官/尉官＝戦隊以下）
 
-        /// <summary>その階級 tier が指揮できる最大兵力（隻）。10超は元帥級、准将(5)未満は最小。</summary>
+        /// <summary>その階級 tier が指揮できる最大兵力（隻）。12超は元帥級、准将(7)未満は最小。</summary>
         public static int MaxStrengthForTier(int tier)
         {
             switch (tier)
             {
-                case 5:  return Cap准将;
-                case 6:  return Cap少将;
-                case 7:  return Cap中将;
-                case 8:  return Cap大将;
-                case 9:  return Cap上級大将;
-                case 10: return Cap元帥;
-                default: return tier > 10 ? Cap元帥 : CapSub;
+                case 7:  return Cap准将;
+                case 8:  return Cap少将;
+                case 9:  return Cap中将;
+                case 10: return Cap大将;
+                case 11: return Cap上級大将;
+                case 12: return Cap元帥;
+                default: return tier > 12 ? Cap元帥 : CapSub;
             }
         }
 
@@ -39,12 +40,12 @@ namespace Ginei
         /// <summary>その兵力を率いるのに要る最小階級 tier（艦隊指揮の下限＝准将5）。</summary>
         public static int RequiredTierForStrength(int strength)
         {
-            if (strength <= Cap准将) return 5;
-            if (strength <= Cap少将) return 6;
-            if (strength <= Cap中将) return 7;
-            if (strength <= Cap大将) return 8;
-            if (strength <= Cap上級大将) return 9;
-            return 10;
+            if (strength <= Cap准将) return 7;
+            if (strength <= Cap少将) return 8;
+            if (strength <= Cap中将) return 9;
+            if (strength <= Cap大将) return 10;
+            if (strength <= Cap上級大将) return 11;
+            return 12;
         }
 
         /// <summary>
@@ -54,10 +55,10 @@ namespace Ginei
         /// </summary>
         public static EchelonType EchelonForTier(int tier)
         {
-            if (tier <= 6) return EchelonType.分艦隊;   // 准将5/少将6
-            if (tier <= 8) return EchelonType.艦隊;     // 中将7/大将8
-            if (tier == 9) return EchelonType.軍団;     // 上級大将＝艦隊群/方面
-            return EchelonType.軍集団;                  // 元帥10＝宇宙艦隊
+            if (tier <= 8) return EchelonType.分艦隊;   // 〜准将7/少将8（尉官・佐官も最小段）
+            if (tier <= 10) return EchelonType.艦隊;    // 中将9/大将10
+            if (tier == 11) return EchelonType.軍団;    // 上級大将＝艦隊群/方面
+            return EchelonType.軍集団;                  // 元帥12＝宇宙艦隊
         }
 
         // ===== ORBAT-2 #1718：梯団↔指揮官階級↔規模（隻）の一表 =====
@@ -65,14 +66,14 @@ namespace Ginei
         // <see cref="OrderOfBattle.RequiredTier"/> の出所にする（二重定義しない）。指揮官 tier は >= ゲートの下限。
         // ※実際の配属ゲートは配下兵力（StrengthUnder）で RANKCMD-3 が別途効く＝この規模は「その段らしい目安」。
 
-        // 標準指揮官階級 tier（#14 既定ラダー・段が上がるほど単調非減少）
-        public const int Tier戦隊 = 4;     // 大佐相当
-        public const int Tier分艦隊 = 6;   // 少将
-        public const int Tier艦隊 = 7;     // 中将
-        public const int Tier軍団 = 8;     // 大将
-        public const int Tier軍 = 9;       // 上級大将
-        public const int Tier軍集団 = 10;  // 元帥（＝方面軍）
-        public const int Tier宇宙艦隊 = 10; // 元帥（＝総軍・最上段）
+        // 標準指揮官階級 tier（#14 完全12段ラダー・段が上がるほど単調非減少）
+        public const int Tier戦隊 = 6;     // 大佐
+        public const int Tier分艦隊 = 8;   // 少将
+        public const int Tier艦隊 = 9;     // 中将
+        public const int Tier軍団 = 10;    // 大将
+        public const int Tier軍 = 11;      // 上級大将
+        public const int Tier軍集団 = 12;  // 元帥（＝方面軍）
+        public const int Tier宇宙艦隊 = 12; // 元帥（＝総軍・最上段）
 
         // 規模レンジ（隻・目安）。艦隊＝基幹単位 1.2〜1.5万隻に合わせて上下を現実準拠で配する。
         public const int Ships戦隊Min = 300, Ships戦隊Max = 1500;

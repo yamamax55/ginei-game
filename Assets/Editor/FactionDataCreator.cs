@@ -25,27 +25,27 @@ namespace Ginei
         {
             EnsureFolder(FactionDir);
 
-            // 階級は RankSystem の共通 tier（大きいほど上位）に揃える。欠番は ResolveTier が直近 tier に丸める。
-            // 帝国のみ tier9「上級大将」を持つ。共産は党称号、軍閥は簡易ラダー。
+            // 階級は RankSystem の共通 tier（完全12段ラダー＝少尉1〜元帥12・大きいほど上位）に揃える。欠番は ResolveTier が直近 tier に丸める。
+            // 帝国のみ tier11「上級大将」を持つ。共産は党称号、軍閥は簡易ラダー。将官は准将7〜元帥12。
             FactionData empire = GetOrCreate("Empire", "帝国", new Color(0.9f, 0.2f, 0.2f),
                 "王党派（専制・帝政）", Faction.帝国,
-                Ranks((5, "准将"), (6, "少将"), (7, "中将"), (8, "大将"), (9, "上級大将"), (10, "元帥")));
+                Ranks((7, "准将"), (8, "少将"), (9, "中将"), (10, "大将"), (11, "上級大将"), (12, "元帥")));
 
             FactionData alliance = GetOrCreate("Alliance", "同盟", new Color(0.2f, 0.5f, 0.9f),
                 "民主派（共和制）", Faction.同盟,
-                Ranks((5, "准将"), (6, "少将"), (7, "中将"), (8, "大将"), (10, "元帥")));
+                Ranks((7, "准将"), (8, "少将"), (9, "中将"), (10, "大将"), (12, "元帥")));
 
             FactionData communist = GetOrCreate("Communist", "共産主義", new Color(0.9f, 0.4f, 0.1f),
                 "党による計画・集団主義（穏健派／強硬派）", Faction.帝国,
-                Ranks((5, "准司令官"), (6, "司令官"), (7, "上級司令官"), (8, "軍司令官"), (10, "総司令官")));
+                Ranks((7, "准司令官"), (8, "司令官"), (9, "上級司令官"), (10, "軍司令官"), (12, "総司令官")));
 
             FactionData autonomous = GetOrCreate("Autonomous", "自治領", new Color(0.3f, 0.8f, 0.4f),
                 "軍閥（自治領）", Faction.帝国,
-                Ranks((6, "隊長"), (8, "将軍"), (10, "総帥")));
+                Ranks((8, "隊長"), (10, "将軍"), (12, "総帥")));
 
             FactionData warlord = GetOrCreate("Warlord", "軍閥", new Color(0.45f, 0.75f, 0.35f),
                 "軍閥（地方領袖）", Faction.同盟,
-                Ranks((6, "隊長"), (8, "将軍"), (10, "総帥")));
+                Ranks((8, "隊長"), (10, "将軍"), (12, "総帥")));
 
             // 敵対関係（Issue #16「関係を設定」）。
             // 三大勢力は全敵対（四つ巴）。軍閥2勢力は連合＝相互に非敵対だが三大勢力とは敵対。

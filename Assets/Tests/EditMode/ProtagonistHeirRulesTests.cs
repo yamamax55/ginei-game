@@ -23,16 +23,16 @@ namespace Ginei.Tests
         public void CreateHeir_SameFaction_OriginCommissionTier()
         {
             var pre = new Person(900001, "先代", Faction.同盟, PersonRole.軍人)
-            { rankTier = 8, leadership = 90, attack = 80, defense = 70, mobility = 60, operation = 50, intelligence = 40 };
+            { rankTier = 10, leadership = 90, attack = 80, defense = 70, mobility = 60, operation = 50, intelligence = 40 };
 
             Person royalHeir = ProtagonistHeirRules.CreateHeir(pre, PersonOrigin.王家, 900001, "世継ぎ", 820);
             Assert.AreEqual(Faction.同盟, royalHeir.faction);
-            Assert.AreEqual(3, royalHeir.rankTier);              // 王家＝初任段3
+            Assert.AreEqual(4, royalHeir.rankTier);              // 王家＝初任段4（少佐相当）
             Assert.AreEqual(78, royalHeir.leadership);           // 平均回帰（90→78）
             Assert.AreEqual(820, royalHeir.birthYear);
 
             Person nobleHeir = ProtagonistHeirRules.CreateHeir(pre, PersonOrigin.貴族, 900001, "世継ぎ", 820);
-            Assert.AreEqual(2, nobleHeir.rankTier);              // 貴族＝初任段2
+            Assert.AreEqual(3, nobleHeir.rankTier);              // 貴族＝初任段3（大尉相当）
         }
     }
 }

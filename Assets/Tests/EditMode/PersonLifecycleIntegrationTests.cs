@@ -20,7 +20,7 @@ namespace Ginei.Tests
             {
                 birthYear = startYear - 22,            // 任官時22歳
                 militaryDegree = MilitaryDegree.士官学校卒,
-                rankTier = 6,
+                rankTier = 8,
                 serviceStatus = ServiceStatus.現役,
             };
             var roster = new List<Person> { p };
@@ -77,11 +77,11 @@ namespace Ginei.Tests
             var p = new Person(1, "退役者", Faction.帝国, PersonRole.軍人)
             {
                 birthYear = 800 - 28, militaryDegree = MilitaryDegree.士官学校卒,
-                rankTier = 6, serviceStatus = ServiceStatus.退役,
+                rankTier = 8, serviceStatus = ServiceStatus.退役,
             };
             Assert.IsFalse(WarCollegeCareerRules.CanEnroll(p, 800));
             WarCollegeCareerRules.TickYear(new List<Person> { p }, 800, _ => PromotionDoctrine.学閥主義);
-            Assert.AreEqual(6, p.rankTier);                 // 昇進しない
+            Assert.AreEqual(8, p.rankTier);                 // 昇進しない
             Assert.AreEqual(0, p.schoolPostingUntilYear);   // 入校もしない
         }
     }

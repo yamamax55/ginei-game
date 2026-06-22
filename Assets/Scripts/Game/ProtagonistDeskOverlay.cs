@@ -49,7 +49,7 @@ namespace Ginei
         private object escWindowToken;
 
         // 士官段（少尉1〜元帥10）のネームド人数を毎フレーム数えるための再利用バッファ（GC回避）。
-        private readonly int[] namedCountByTier = new int[11];
+        private readonly int[] namedCountByTier = new int[13]; // tier 1〜12（完全12段ラダー）
         private readonly HashSet<object> namedDedup = new HashSet<object>();
 
         // 階級別ネームド人物ウィンドウ（帯クリックで開く）。
@@ -434,8 +434,8 @@ namespace Ginei
         private static Color CategoryColor(MilitaryGrade g)
         {
             int tier = RankDistributionRules.ToOfficerTier(g);
-            if (tier >= 8) return new Color(0.70f, 0.20f, 0.20f);   // 大将以上＝赤の頂点
-            if (tier >= 5) return new Color(0.32f, 0.42f, 0.64f);   // 准将〜中将＝将官の青
+            if (tier >= 10) return new Color(0.70f, 0.20f, 0.20f);  // 大将以上＝赤の頂点
+            if (tier >= 7) return new Color(0.32f, 0.42f, 0.64f);   // 准将〜中将＝将官の青
             if (tier >= 1) return new Color(0.22f, 0.30f, 0.47f);   // 尉官・佐官＝士官の青
             if (g == MilitaryGrade.准尉) return new Color(0.60f, 0.48f, 0.20f); // 准士官＝金帯
             if (RankDistributionRules.IsNco(g)) return new Color(0.27f, 0.33f, 0.36f); // 下士官＝鋼
@@ -447,8 +447,8 @@ namespace Ginei
         private static string InsigniaGlyph(MilitaryGrade g)
         {
             int tier = RankDistributionRules.ToOfficerTier(g);
-            if (tier >= 5) return "<color=#ffd24a>" + Repeat('★', tier - 4) + "</color>";   // 将官：1〜6★
-            if (tier >= 1) return "<color=#d6dde6>" + Repeat('✦', tier) + "</color>";        // 士官：1〜4✦
+            if (tier >= 7) return "<color=#ffd24a>" + Repeat('★', tier - 6) + "</color>";   // 将官：1〜6★
+            if (tier >= 1) return "<color=#d6dde6>" + Repeat('✦', tier) + "</color>";        // 士官：1〜6✦
             if (g == MilitaryGrade.准尉) return "<color=#e0c060>◈</color>";                   // 准士官
             if (RankDistributionRules.IsNco(g))
                 return "<color=#c8ccd0>" + Repeat('«', (int)g - (int)MilitaryGrade.伍長 + 1) + "</color>"; // 下士官：1〜3
@@ -481,7 +481,7 @@ namespace Ginei
             System.Array.Clear(namedCountByTier, 0, namedCountByTier.Length);
             EnumerateNamed(f, (name, tier, role, adm) =>
             {
-                if (tier >= 1 && tier <= 10) namedCountByTier[tier]++;
+                if (tier >= 1 && tier <= 12) namedCountByTier[tier]++;
             });
         }
 

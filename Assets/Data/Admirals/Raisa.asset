@@ -23,7 +23,7 @@ MonoBehaviour:
   callName: 
   signatureShipName: 
   isProtagonist: 0
-  rankTier: 7
+  rankTier: 9
   leadership: 86
   attack: 84
   defense: 80

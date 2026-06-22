@@ -37,12 +37,13 @@ namespace Ginei
                  "勢力をまたいだ同列判定は tier の一致で行う（RankSystem 参照）。")]
         public List<RankEntry> ranks = new List<RankEntry>
         {
-            new RankEntry(5, "准将"),
-            new RankEntry(6, "少将"),
-            new RankEntry(7, "中将"),
-            new RankEntry(8, "大将"),
-            new RankEntry(10, "元帥"),
-            // 帝国はここに tier 9「上級大将」を足す（同盟は欠番のまま＝同列に該当無し）
+            new RankEntry(7, "准将"),
+            new RankEntry(8, "少将"),
+            new RankEntry(9, "中将"),
+            new RankEntry(10, "大将"),
+            new RankEntry(12, "元帥"),
+            // 帝国はここに tier 11「上級大将」を足す（同盟は欠番のまま＝同列に該当無し）
+            // tier は完全12段ラダー（少尉1〜元帥12・RankSystem）。佐官/尉官（1-6）は表示時 FullLadderName で補完。
         };
 
         /// <summary>

@@ -49,9 +49,9 @@ namespace Ginei.Tests
         [Test]
         public void CanHold_RequiredTier_GatesByRank()
         {
-            var o = new Office(4, "総督", OfficeScope.星系, OfficeDomain.内政) { requiredTier = 8 };
-            Assert.IsFalse(OfficeRules.CanHold(Soldier(tier: 7), o));
-            Assert.IsTrue(OfficeRules.CanHold(Soldier(tier: 8), o));
+            var o = new Office(4, "総督", OfficeScope.星系, OfficeDomain.内政) { requiredTier = 10 };
+            Assert.IsFalse(OfficeRules.CanHold(Soldier(tier: 9), o));
+            Assert.IsTrue(OfficeRules.CanHold(Soldier(tier: 10), o));
         }
 
         [Test]

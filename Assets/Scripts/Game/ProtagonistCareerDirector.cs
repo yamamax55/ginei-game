@@ -22,8 +22,8 @@ namespace Ginei
         [Tooltip("准将未満（尉官/佐官）の月あたり勤務功績＝昇進モンタージュの速さ")]
         public float juniorServiceMerit = 14f;
 
-        // 艦隊指揮の下限（准将＝tier5）。これ未満は尉官/佐官＝モンタージュで駆け上がる。
-        private const int FlagRankTier = 5;
+        // 艦隊指揮の下限（准将＝tier7）。これ未満は尉官/佐官＝モンタージュで駆け上がる。
+        private const int FlagRankTier = 7;
 
         // 会戦→武勲の換算（P1-a #2477）。与ダメをこの量で割って撃沈功績の magnitude に（上限 MaxBattleMerit）。
         private const float DamagePerSinkMerit = 50f;
@@ -242,7 +242,7 @@ namespace Ginei
             Protagonist.faction = enemy;
             Protagonist.rankTier = Mathf.Max(1, Protagonist.rankTier - 2); // 亡命者は降格して再出仕
             Sovereign = FindSovereignFor(enemy)
-                ?? new Person(SovereignId, "君主", enemy, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
+                ?? new Person(SovereignId, "君主", enemy, PersonRole.軍人) { isSovereign = true, rankTier = 12 };
             Merit = new MeritRecord(ProtagonistId);
             fame = Mathf.RoundToInt(fame * 0.5f); SyncFameToRegistry(); // 旧友の信は失う
             grievance = 0f; pendingPetitions = 0; ActiveMandate = null; retired = false;
@@ -490,7 +490,7 @@ namespace Ginei
             if (Protagonist == null) return false;
             if (!AvailableForks().Contains(f)) { Push(NotificationSeverity.注意, "その進路はまだ開かれていません"); return false; }
             bool hasEnemyHaven = true;                       // 多勢力＝迎える敵は居る（厳密な受入判定は後段）
-            bool hasIndependenceBase = Protagonist.rankTier >= 8; // 大将以上の stature（独立の拠点）
+            bool hasIndependenceBase = Protagonist.rankTier >= 10; // 大将以上の stature（独立の拠点）
             bool hasPoliticalOpening = true;                 // 政界の受け皿（政党#159 配線は後段）
             if (!CareerForkExecutionRules.CanExecute(f, hasEnemyHaven, hasIndependenceBase, hasPoliticalOpening))
             { Push(NotificationSeverity.注意, "その進路は今は実行できません（前提不足）"); return false; }
@@ -552,7 +552,7 @@ namespace Ginei
                 Protagonist.leadership = Protagonist.attack = Protagonist.defense = Protagonist.mobility = 72;
             }
 
-            Sovereign = FindSovereign() ?? new Person(SovereignId, "君主", pf, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
+            Sovereign = FindSovereign() ?? new Person(SovereignId, "君主", pf, PersonRole.軍人) { isSovereign = true, rankTier = 12 };
             Relations = new PersonRelationGraph();
             Chronicle = new ProtagonistChronicle();
 
@@ -650,17 +650,18 @@ namespace Ginei
         /// <summary>tier を階級名へ（勢力の階級表→尉官/佐官を含む完全ラダー＝立身出世版）。</summary>
         public string RankName(int tier) => RankSystem.CareerRankName(FactionRanks, tier);
 
-        // 尉官〜元帥の完全ラダー（少尉1〜元帥10）。月次評定が NextRankTier で1段ずつ辿れるよう全段を持つ（TKO-12）。
+        // 尉官〜元帥の完全12段ラダー（少尉1〜元帥12）。月次評定が NextRankTier で1段ずつ辿れるよう全段を持つ（TKO-12）。
         private FactionData BuildCareerLadder()
         {
             var f = ScriptableObject.CreateInstance<FactionData>();
             f.ranks = new List<FactionData.RankEntry>
             {
-                new FactionData.RankEntry(1, "少尉"), new FactionData.RankEntry(2, "大尉"),
-                new FactionData.RankEntry(3, "少佐"), new FactionData.RankEntry(4, "大佐"),
-                new FactionData.RankEntry(5, "准将"), new FactionData.RankEntry(6, "少将"),
-                new FactionData.RankEntry(7, "中将"), new FactionData.RankEntry(8, "大将"),
-                new FactionData.RankEntry(9, "上級大将"), new FactionData.RankEntry(10, "元帥"),
+                new FactionData.RankEntry(1, "少尉"), new FactionData.RankEntry(2, "中尉"),
+                new FactionData.RankEntry(3, "大尉"), new FactionData.RankEntry(4, "少佐"),
+                new FactionData.RankEntry(5, "中佐"), new FactionData.RankEntry(6, "大佐"),
+                new FactionData.RankEntry(7, "准将"), new FactionData.RankEntry(8, "少将"),
+                new FactionData.RankEntry(9, "中将"), new FactionData.RankEntry(10, "大将"),
+                new FactionData.RankEntry(11, "上級大将"), new FactionData.RankEntry(12, "元帥"),
             };
             return f;
         }

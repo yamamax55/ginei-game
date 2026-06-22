@@ -21,7 +21,7 @@ namespace Ginei.Tests
             Assert.IsFalse(squad.Contains(100));
 
             var division = GroundForceRules.ProfileFor(GroundEchelonType.師団);
-            Assert.AreEqual(6, division.commanderTier);  // 中将/少将
+            Assert.AreEqual(8, division.commanderTier);  // 少将（中将/少将級）
             Assert.AreEqual(10000, division.minPersonnel);
             Assert.AreEqual(20000, division.maxPersonnel);
 
@@ -55,8 +55,8 @@ namespace Ginei.Tests
         [Test]
         public void CommanderTierFor_MatchesProfile()
         {
-            Assert.AreEqual(8, GroundForceRules.CommanderTierFor(GroundEchelonType.軍団)); // 大将/中将
-            Assert.AreEqual(9, GroundForceRules.CommanderTierFor(GroundEchelonType.軍));   // 元帥〜中将
+            Assert.AreEqual(10, GroundForceRules.CommanderTierFor(GroundEchelonType.軍団)); // 大将/中将
+            Assert.AreEqual(11, GroundForceRules.CommanderTierFor(GroundEchelonType.軍));   // 上級大将（元帥〜中将級）
         }
 
         [Test]

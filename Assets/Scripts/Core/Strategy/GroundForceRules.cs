@@ -49,13 +49,13 @@ namespace Ginei
         {
             new GroundProfile(GroundEchelonType.分隊,  0,      8,      12),    // 軍曹〜兵長
             new GroundProfile(GroundEchelonType.小隊,  1,     30,      60),    // 中尉〜軍曹
-            new GroundProfile(GroundEchelonType.中隊,  2,     60,     250),    // 少佐〜中尉
-            new GroundProfile(GroundEchelonType.大隊,  3,    300,    1000),    // 中佐/少佐
-            new GroundProfile(GroundEchelonType.連隊,  4,    500,    5000),    // 大佐/中佐
-            new GroundProfile(GroundEchelonType.旅団,  5,   2000,    8000),    // 少将〜大佐
-            new GroundProfile(GroundEchelonType.師団,  6,  10000,   20000),    // 中将/少将
-            new GroundProfile(GroundEchelonType.軍団,  8,  30000,   60000),    // 大将/中将
-            new GroundProfile(GroundEchelonType.軍,    9,  50000, int.MaxValue) // 元帥〜中将
+            new GroundProfile(GroundEchelonType.中隊,  3,     60,     250),    // 少佐〜中尉（大尉=tier3）
+            new GroundProfile(GroundEchelonType.大隊,  4,    300,    1000),    // 中佐/少佐（tier4）
+            new GroundProfile(GroundEchelonType.連隊,  6,    500,    5000),    // 大佐/中佐（大佐=tier6）
+            new GroundProfile(GroundEchelonType.旅団,  7,   2000,    8000),    // 少将〜大佐（准将=tier7）
+            new GroundProfile(GroundEchelonType.師団,  8,  10000,   20000),    // 中将/少将（少将=tier8）
+            new GroundProfile(GroundEchelonType.軍団,  10,  30000,   60000),   // 大将/中将（大将=tier10）
+            new GroundProfile(GroundEchelonType.軍,    11,  50000, int.MaxValue) // 元帥〜中将（上級大将=tier11）
         };
 
         /// <summary>その地上梯団の標準プロファイル（指揮官階級 tier ＋人員レンジ）。</summary>

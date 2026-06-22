@@ -84,18 +84,18 @@ namespace Ginei.Tests
         [Test]
         public void Commander_RankGate_PerEchelon()
         {
-            Assert.AreEqual(7, OrderOfBattle.RequiredTier(EchelonType.艦隊));   // 中将
-            Assert.AreEqual(8, OrderOfBattle.RequiredTier(EchelonType.軍団));   // 大将
-            Assert.AreEqual(10, OrderOfBattle.RequiredTier(EchelonType.軍集団)); // 元帥
+            Assert.AreEqual(9, OrderOfBattle.RequiredTier(EchelonType.艦隊));   // 中将
+            Assert.AreEqual(10, OrderOfBattle.RequiredTier(EchelonType.軍団));  // 大将
+            Assert.AreEqual(12, OrderOfBattle.RequiredTier(EchelonType.軍集団)); // 元帥
 
             var corps = OrderOfBattle.Create(EchelonType.軍団, Faction.帝国);
-            Assert.IsFalse(OrderOfBattle.AssignCommander(corps.id, Admiral(7))); // 中将では軍団を持てない
-            Assert.IsTrue(OrderOfBattle.AssignCommander(corps.id, Admiral(8)));  // 大将ならOK
+            Assert.IsFalse(OrderOfBattle.AssignCommander(corps.id, Admiral(9))); // 中将では軍団を持てない
+            Assert.IsTrue(OrderOfBattle.AssignCommander(corps.id, Admiral(10)));  // 大将ならOK
             Assert.IsTrue(corps.HasCommander);
 
             var group = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
-            Assert.IsFalse(OrderOfBattle.AssignCommander(group.id, Admiral(8)));  // 大将では軍集団を持てない
-            Assert.IsTrue(OrderOfBattle.AssignCommander(group.id, Admiral(10)));  // 元帥ならOK
+            Assert.IsFalse(OrderOfBattle.AssignCommander(group.id, Admiral(10)));  // 大将では軍集団を持てない
+            Assert.IsTrue(OrderOfBattle.AssignCommander(group.id, Admiral(12)));  // 元帥ならOK
 
             Assert.IsFalse(OrderOfBattle.AssignCommander(corps.id, null));
         }
@@ -143,7 +143,7 @@ namespace Ginei.Tests
             Assert.IsFalse(OrderOfBattle.AttachFormation(99999, 1));
             Assert.IsFalse(OrderOfBattle.DetachFormation(99999, 1));
             Assert.IsFalse(OrderOfBattle.CanAttachFleet(99999, 1));
-            Assert.IsFalse(OrderOfBattle.AssignCommander(99999, Admiral(10)));
+            Assert.IsFalse(OrderOfBattle.AssignCommander(99999, Admiral(12)));
             // 未知 id への UnassignCommander は no-op（例外を出さない）
             Assert.DoesNotThrow(() => OrderOfBattle.UnassignCommander(99999));
             // 未知 id の集計は空・0
@@ -295,26 +295,26 @@ namespace Ginei.Tests
         public void AssignCommander_FleetEchelon_BoundaryTier()
         {
             var fleet = OrderOfBattle.Create(EchelonType.艦隊, Faction.帝国);
-            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(6))); // 7 未満は不可
+            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(8))); // 9 未満は不可
             Assert.IsFalse(fleet.HasCommander);
-            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(7)));  // ちょうど 7 で可（>= 判定）
+            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(9)));  // ちょうど 9（中将）で可（>= 判定）
             Assert.IsTrue(fleet.HasCommander);
             // 上位tierも当然可
-            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(10)));
+            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(12)));
         }
 
-        /// <summary>分艦隊 echelon（RANKCMD-4 #1714）：必要階級は少将6。准将5は不可・少将6ちょうどで可（境界・銀英伝準拠の最下段）。</summary>
+        /// <summary>分艦隊 echelon（RANKCMD-4 #1714）：必要階級は少将8。准将7は不可・少将8ちょうどで可（境界・銀英伝準拠の最下段）。</summary>
         [Test]
         public void AssignCommander_SubFleetEchelon_RequiresMajorGeneral()
         {
-            Assert.AreEqual(6, OrderOfBattle.RequiredTier(EchelonType.分艦隊));
+            Assert.AreEqual(8, OrderOfBattle.RequiredTier(EchelonType.分艦隊));
             var sub = OrderOfBattle.Create(EchelonType.分艦隊, Faction.同盟);
-            Assert.IsFalse(OrderOfBattle.AssignCommander(sub.id, Admiral(5))); // 准将は不可（6未満）
+            Assert.IsFalse(OrderOfBattle.AssignCommander(sub.id, Admiral(7))); // 准将は不可（8未満）
             Assert.IsFalse(sub.HasCommander);
-            Assert.IsTrue(OrderOfBattle.AssignCommander(sub.id, Admiral(6)));  // 少将ちょうどで可（>= 判定）
+            Assert.IsTrue(OrderOfBattle.AssignCommander(sub.id, Admiral(8)));  // 少将ちょうどで可（>= 判定）
             Assert.IsTrue(sub.HasCommander);
-            // 分艦隊は最下段＝艦隊(7)を持てる中将も当然持てる
-            Assert.IsTrue(OrderOfBattle.CanCommand(Admiral(7), EchelonType.分艦隊));
+            // 分艦隊は最下段＝艦隊(9)を持てる中将も当然持てる
+            Assert.IsTrue(OrderOfBattle.CanCommand(Admiral(9), EchelonType.分艦隊));
         }
 
         /// <summary>CanCommand は null提督・各echelonの境界で正しく判定する（単調性：高tierほど多くの梯団を持てる）。</summary>
@@ -322,14 +322,14 @@ namespace Ginei.Tests
         public void CanCommand_NullAndBoundaries()
         {
             Assert.IsFalse(OrderOfBattle.CanCommand(null, EchelonType.艦隊));
-            // 大将(8)は艦隊(7)・軍団(8)を持てるが軍集団(10)は持てない
-            var general = Admiral(8);
+            // 大将(10)は艦隊(9)・軍団(10)を持てるが軍集団(12)は持てない
+            var general = Admiral(10);
             Assert.IsTrue(OrderOfBattle.CanCommand(general, EchelonType.艦隊));
             Assert.IsTrue(OrderOfBattle.CanCommand(general, EchelonType.軍団));
             Assert.IsFalse(OrderOfBattle.CanCommand(general, EchelonType.軍集団));
-            // 軍集団境界：9 は不可、10 は可
-            Assert.IsFalse(OrderOfBattle.CanCommand(Admiral(9), EchelonType.軍集団));
-            Assert.IsTrue(OrderOfBattle.CanCommand(Admiral(10), EchelonType.軍集団));
+            // 軍集団境界：11 は不可、12 は可
+            Assert.IsFalse(OrderOfBattle.CanCommand(Admiral(11), EchelonType.軍集団));
+            Assert.IsTrue(OrderOfBattle.CanCommand(Admiral(12), EchelonType.軍集団));
         }
 
         /// <summary>
@@ -346,17 +346,17 @@ namespace Ginei.Tests
             Assert.IsTrue(OrderOfBattle.AttachFleet(fleet.id, 1));
             Assert.AreEqual(50000, OrderOfBattle.StrengthUnder(fleet.id));
 
-            // 階級ゲート(7)は満たすが指揮可能規模を超える中将/大将は不可
-            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(7))); // 中将 cap12000 < 50000
-            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(8))); // 大将 cap15000 < 50000
+            // 階級ゲート(9)は満たすが指揮可能規模を超える中将/大将は不可
+            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(9))); // 中将 cap12000 < 50000
+            Assert.IsFalse(OrderOfBattle.AssignCommander(fleet.id, Admiral(10))); // 大将 cap15000 < 50000
             Assert.IsFalse(fleet.HasCommander);
             // 元帥は規模も満たす
-            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(10))); // 元帥 cap60000 >= 50000
+            Assert.IsTrue(OrderOfBattle.AssignCommander(fleet.id, Admiral(12))); // 元帥 cap60000 >= 50000
 
             // 兵力0の梯団は規模0扱い＝中将でも可（後方互換）
             var empty = OrderOfBattle.Create(EchelonType.艦隊, Faction.帝国);
             Assert.AreEqual(0, OrderOfBattle.StrengthUnder(empty.id));
-            Assert.IsTrue(OrderOfBattle.AssignCommander(empty.id, Admiral(7)));
+            Assert.IsTrue(OrderOfBattle.AssignCommander(empty.id, Admiral(9)));
             FleetRoster.Clear();
         }
 
@@ -365,10 +365,10 @@ namespace Ginei.Tests
         public void AssignCommander_FailedGate_KeepsExistingCommander()
         {
             var group = OrderOfBattle.Create(EchelonType.軍集団, Faction.帝国);
-            var marshal = Admiral(10);
+            var marshal = Admiral(12);
             Assert.IsTrue(OrderOfBattle.AssignCommander(group.id, marshal));
-            // 大将(8)は軍集団を持てない → 失敗、元帥のまま据え置き
-            Assert.IsFalse(OrderOfBattle.AssignCommander(group.id, Admiral(8)));
+            // 大将(10)は軍集団を持てない → 失敗、元帥のまま据え置き
+            Assert.IsFalse(OrderOfBattle.AssignCommander(group.id, Admiral(10)));
             Assert.AreSame(marshal, group.commander);
         }
 
@@ -395,13 +395,13 @@ namespace Ginei.Tests
         [Test]
         public void RequiredTier_MultiTierEchelons_ORBAT1()
         {
-            Assert.AreEqual(4, OrderOfBattle.RequiredTier(EchelonType.戦隊));
-            Assert.AreEqual(6, OrderOfBattle.RequiredTier(EchelonType.分艦隊));
-            Assert.AreEqual(7, OrderOfBattle.RequiredTier(EchelonType.艦隊));
-            Assert.AreEqual(8, OrderOfBattle.RequiredTier(EchelonType.軍団));
-            Assert.AreEqual(9, OrderOfBattle.RequiredTier(EchelonType.軍));
-            Assert.AreEqual(10, OrderOfBattle.RequiredTier(EchelonType.軍集団));
-            Assert.AreEqual(10, OrderOfBattle.RequiredTier(EchelonType.宇宙艦隊));
+            Assert.AreEqual(6, OrderOfBattle.RequiredTier(EchelonType.戦隊));
+            Assert.AreEqual(8, OrderOfBattle.RequiredTier(EchelonType.分艦隊));
+            Assert.AreEqual(9, OrderOfBattle.RequiredTier(EchelonType.艦隊));
+            Assert.AreEqual(10, OrderOfBattle.RequiredTier(EchelonType.軍団));
+            Assert.AreEqual(11, OrderOfBattle.RequiredTier(EchelonType.軍));
+            Assert.AreEqual(12, OrderOfBattle.RequiredTier(EchelonType.軍集団));
+            Assert.AreEqual(12, OrderOfBattle.RequiredTier(EchelonType.宇宙艦隊));
 
             // enum の並び順＝序列（低→高）で必要 tier が単調非減少であることを固定
             var order = new[]
@@ -416,22 +416,22 @@ namespace Ginei.Tests
         }
 
         /// <summary>
-        /// ORBAT-1：新段の司令配属が階級ゲートで効く。戦隊は准将(5≥4)で持てる／軍は上級大将(9)が要る（大将8は不可）／
-        /// 宇宙艦隊は元帥(10)のみ（上級大将9は不可）。
+        /// ORBAT-1：新段の司令配属が階級ゲートで効く。戦隊は准将(7≥6)で持てる／軍は上級大将(11)が要る（大将10は不可）／
+        /// 宇宙艦隊は元帥(12)のみ（上級大将11は不可）。
         /// </summary>
         [Test]
         public void AssignCommander_NewEchelons_RankGate_ORBAT1()
         {
             var squadron = OrderOfBattle.Create(EchelonType.戦隊, Faction.同盟);
-            Assert.IsTrue(OrderOfBattle.AssignCommander(squadron.id, Admiral(5)));  // 准将でも戦隊は持てる（5≥4）
+            Assert.IsTrue(OrderOfBattle.AssignCommander(squadron.id, Admiral(7)));  // 准将でも戦隊は持てる（7≥6）
 
             var army = OrderOfBattle.Create(EchelonType.軍, Faction.帝国);
-            Assert.IsFalse(OrderOfBattle.AssignCommander(army.id, Admiral(8)));     // 大将は軍を持てない（8<9）
-            Assert.IsTrue(OrderOfBattle.AssignCommander(army.id, Admiral(9)));      // 上級大将で可
+            Assert.IsFalse(OrderOfBattle.AssignCommander(army.id, Admiral(10)));     // 大将は軍を持てない（10<11）
+            Assert.IsTrue(OrderOfBattle.AssignCommander(army.id, Admiral(11)));      // 上級大将で可
 
             var grand = OrderOfBattle.Create(EchelonType.宇宙艦隊, Faction.帝国);
-            Assert.IsFalse(OrderOfBattle.AssignCommander(grand.id, Admiral(9)));    // 上級大将は不可（9<10）
-            Assert.IsTrue(OrderOfBattle.AssignCommander(grand.id, Admiral(10)));    // 元帥で可
+            Assert.IsFalse(OrderOfBattle.AssignCommander(grand.id, Admiral(11)));    // 上級大将は不可（11<12）
+            Assert.IsTrue(OrderOfBattle.AssignCommander(grand.id, Admiral(12)));    // 元帥で可
         }
 
         /// <summary>

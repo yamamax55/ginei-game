@@ -17,29 +17,29 @@ namespace Ginei.Tests
         private static Person P(int id, int tier)
             => new Person(id, "人物" + id, Faction.帝国, PersonRole.軍人) { rankTier = tier };
 
-        // 君主(元帥10) → 上級大将9 → 中将7 → プレイヤー(准将5)
-        private static List<Person> Chain() => new List<Person> { P(1, 10), P(2, 9), P(3, 7), P(4, 5) };
+        // 君主(元帥12) → 上級大将11 → 中将9 → プレイヤー(准将7)
+        private static List<Person> Chain() => new List<Person> { P(1, 12), P(2, 11), P(3, 9), P(4, 7) };
 
         [Test]
         public void Decompose_ScalesByCommandCapacityRatio()
         {
-            Assert.AreEqual(30000f, MandateCascadeRules.Decompose(60000f, 10, 9, CP), 1f); // ×30000/60000
-            Assert.AreEqual(12000f, MandateCascadeRules.Decompose(30000f, 9, 7, CP), 1f);  // ×12000/30000
-            Assert.AreEqual(3000f, MandateCascadeRules.Decompose(12000f, 7, 5, CP), 1f);   // ×3000/12000
+            Assert.AreEqual(30000f, MandateCascadeRules.Decompose(60000f, 12, 11, CP), 1f); // ×30000/60000
+            Assert.AreEqual(12000f, MandateCascadeRules.Decompose(30000f, 11, 9, CP), 1f);  // ×12000/30000
+            Assert.AreEqual(3000f, MandateCascadeRules.Decompose(12000f, 9, 7, CP), 1f);   // ×3000/12000
         }
 
         [Test]
         public void Decompose_FloorsAtMinScope()
         {
             // 100×(3000/60000=0.05)=5 → 最小規模500で床
-            Assert.AreEqual(500f, MandateCascadeRules.Decompose(100f, 10, 5, CP), 1e-3);
+            Assert.AreEqual(500f, MandateCascadeRules.Decompose(100f, 12, 7, CP), 1e-3);
         }
 
         [Test]
         public void Decompose_DoesNotGrowWhenChildOutranksParent()
         {
             // 子の容量比>1 はクランプ1＝親より大きくならない
-            Assert.AreEqual(1000f, MandateCascadeRules.Decompose(1000f, 5, 10, CP), 1e-3);
+            Assert.AreEqual(1000f, MandateCascadeRules.Decompose(1000f, 7, 12, CP), 1e-3);
         }
 
         [Test]
@@ -97,7 +97,7 @@ namespace Ginei.Tests
         [Test]
         public void SingleLevelChain_NoLeafMandate()
         {
-            var levels = MandateCascadeRules.Build(60000f, new List<Person> { P(1, 10) }, CP);
+            var levels = MandateCascadeRules.Build(60000f, new List<Person> { P(1, 12) }, CP);
             Assert.AreEqual(1, levels.Count);
             Assert.IsNull(MandateCascadeRules.ToLeafMandate(levels, 1, Faction.帝国, MandateKind.出陣, "", 0, MP),
                 "段が1つ＝カスケード不要（君主が直接発令する想定）");

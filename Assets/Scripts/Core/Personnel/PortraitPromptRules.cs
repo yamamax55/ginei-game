@@ -89,11 +89,11 @@ namespace Ginei
         private static string RankBearing(int tier)
         {
             if (tier <= 0) return "";
-            if (tier <= 5) return "young officer in late twenties, eager, few decorations";
-            if (tier == 6) return "officer in their thirties, confident bearing";
-            if (tier == 7) return "seasoned commander in their forties, composed, several medals";
-            if (tier == 8) return "distinguished veteran admiral, many decorations, authoritative";
-            if (tier == 9) return "senior admiral of great gravitas, ornate decorations";
+            if (tier <= 7) return "young officer in late twenties, eager, few decorations";
+            if (tier == 8) return "officer in their thirties, confident bearing";
+            if (tier == 9) return "seasoned commander in their forties, composed, several medals";
+            if (tier == 10) return "distinguished veteran admiral, many decorations, authoritative";
+            if (tier == 11) return "senior admiral of great gravitas, ornate decorations";
             return "supreme commander, a marshal of imposing presence, lavish ceremonial decorations";
         }
 

@@ -14,19 +14,19 @@ namespace Ginei.Tests
         [Test]
         public void MandatoryRetirementAge_PerTier()
         {
-            Assert.AreEqual(50, RetirementRules.MandatoryRetirementAge(5, P));
-            Assert.AreEqual(54, RetirementRules.MandatoryRetirementAge(6, P));
-            Assert.AreEqual(58, RetirementRules.MandatoryRetirementAge(7, P));
-            Assert.AreEqual(62, RetirementRules.MandatoryRetirementAge(8, P));
+            Assert.AreEqual(50, RetirementRules.MandatoryRetirementAge(7, P));  // 准将
+            Assert.AreEqual(54, RetirementRules.MandatoryRetirementAge(8, P));  // 少将
+            Assert.AreEqual(58, RetirementRules.MandatoryRetirementAge(9, P));  // 中将
+            Assert.AreEqual(62, RetirementRules.MandatoryRetirementAge(10, P)); // 大将
         }
 
         [Test]
         public void MandatoryRetirementAge_ClampsLowAndHighTier()
         {
-            // tier5 未満は tier5 の停年へ、tier8 超（9=上級大将など）は tier8 の停年へ丸める
+            // 准将(7)未満は若手停年へ、大将(10)超（11=上級大将など）は最高停年へ丸める
             Assert.AreEqual(50, RetirementRules.MandatoryRetirementAge(1, P));
-            Assert.AreEqual(50, RetirementRules.MandatoryRetirementAge(4, P));
-            Assert.AreEqual(62, RetirementRules.MandatoryRetirementAge(9, P));
+            Assert.AreEqual(50, RetirementRules.MandatoryRetirementAge(6, P));
+            Assert.AreEqual(62, RetirementRules.MandatoryRetirementAge(11, P));
         }
 
         // --- ShouldRetireByAge：停年到達と元帥終身の例外 ---
@@ -34,11 +34,11 @@ namespace Ginei.Tests
         [Test]
         public void ShouldRetireByAge_BoundaryAndMarshalException()
         {
-            Assert.IsFalse(RetirementRules.ShouldRetireByAge(57, 7, P)); // 停年58の1歳前
-            Assert.IsTrue(RetirementRules.ShouldRetireByAge(58, 7, P));  // 停年ちょうど＝退役
-            Assert.IsTrue(RetirementRules.ShouldRetireByAge(70, 8, P));
-            // 元帥(tier10)は終身＝何歳でも停年退役しない
-            Assert.IsFalse(RetirementRules.ShouldRetireByAge(90, 10, P));
+            Assert.IsFalse(RetirementRules.ShouldRetireByAge(57, 9, P)); // 中将＝停年58の1歳前
+            Assert.IsTrue(RetirementRules.ShouldRetireByAge(58, 9, P));  // 停年ちょうど＝退役
+            Assert.IsTrue(RetirementRules.ShouldRetireByAge(70, 10, P)); // 大将
+            // 元帥(tier12)は終身＝何歳でも停年退役しない
+            Assert.IsFalse(RetirementRules.ShouldRetireByAge(90, 12, P));
         }
 
         // --- ShouldUpOrOut：在級年数超過で予備役、元帥は対象外 ---
@@ -46,9 +46,9 @@ namespace Ginei.Tests
         [Test]
         public void ShouldUpOrOut_BoundaryAndMarshalException()
         {
-            Assert.IsFalse(RetirementRules.ShouldUpOrOut(5, 7, P)); // 上限ちょうどは留任
-            Assert.IsTrue(RetirementRules.ShouldUpOrOut(6, 7, P));  // 上限超＝予備役編入
-            Assert.IsFalse(RetirementRules.ShouldUpOrOut(20, 10, P)); // 元帥は終身＝据え置き
+            Assert.IsFalse(RetirementRules.ShouldUpOrOut(5, 9, P)); // 上限ちょうどは留任（中将）
+            Assert.IsTrue(RetirementRules.ShouldUpOrOut(6, 9, P));  // 上限超＝予備役編入
+            Assert.IsFalse(RetirementRules.ShouldUpOrOut(20, 12, P)); // 元帥は終身＝据え置き
         }
 
         // --- IsMarshalTenure：最上位 tier の終身判定 ---
@@ -56,9 +56,9 @@ namespace Ginei.Tests
         [Test]
         public void IsMarshalTenure_AtAndAboveMarshalTier()
         {
-            Assert.IsFalse(RetirementRules.IsMarshalTenure(9, P));
-            Assert.IsTrue(RetirementRules.IsMarshalTenure(10, P));
-            Assert.IsTrue(RetirementRules.IsMarshalTenure(11, P));
+            Assert.IsFalse(RetirementRules.IsMarshalTenure(11, P)); // 上級大将は終身でない
+            Assert.IsTrue(RetirementRules.IsMarshalTenure(12, P));  // 元帥＝終身
+            Assert.IsTrue(RetirementRules.IsMarshalTenure(13, P));
         }
 
         // --- CanRecall：現役は対象外、年齢上限内のみ召集可 ---
@@ -89,8 +89,8 @@ namespace Ginei.Tests
         [Test]
         public void RetireParams_GuardsDivisorsToOne()
         {
-            var p = new RetirementRules.RetireParams(50, 54, 58, 62, 0, 65, 10, 0);
-            Assert.IsTrue(RetirementRules.ShouldUpOrOut(2, 7, p)); // maxYearsInGrade=1 へクランプ＝2で超過
+            var p = new RetirementRules.RetireParams(50, 54, 58, 62, 0, 65, 12, 0);
+            Assert.IsTrue(RetirementRules.ShouldUpOrOut(2, 9, p)); // maxYearsInGrade=1 へクランプ＝2で超過
             Assert.AreEqual(1f, RetirementRules.PensionFactor(1, p), 1e-4f); // fullPensionYears=1 へクランプ
         }
     }

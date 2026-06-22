@@ -21,10 +21,10 @@ namespace Ginei
         /// <summary>退役判定の調整値（停年・在級上限・召集年齢上限・元帥 tier）。</summary>
         public readonly struct RetireParams
         {
-            public readonly int retireAgeTier5;   // tier5（准将級）の停年
-            public readonly int retireAgeTier6;   // tier6（少将級）の停年
-            public readonly int retireAgeTier7;   // tier7（中将級）の停年
-            public readonly int retireAgeTier8;   // tier8（大将級）の停年
+            public readonly int retireAgeTier5;   // 准将(7)級以下の停年
+            public readonly int retireAgeTier6;   // 少将(8)級の停年
+            public readonly int retireAgeTier7;   // 中将(9)級の停年
+            public readonly int retireAgeTier8;   // 大将(10)級以上の停年
             public readonly int maxYearsInGrade;  // 在級年数の上限（超で予備役＝アップ・オア・アウト）
             public readonly int recallMaxAge;     // 戦時召集の年齢上限
             public readonly int marshalTier;      // 終身扱いの最上位 tier（元帥）
@@ -43,22 +43,22 @@ namespace Ginei
                 this.fullPensionYears = Mathf.Max(1, fullPensionYears);
             }
 
-            /// <summary>既定＝停年 tier5:50/tier6:54/tier7:58/tier8:62、在級上限5年、召集上限65歳、元帥tier10、満額恩給30年。</summary>
-            public static RetireParams Default => new RetireParams(50, 54, 58, 62, 5, 65, 10, 30);
+            /// <summary>既定＝停年 准将(7)以下:50/少将(8):54/中将(9):58/大将(10)以上:62、在級上限5年、召集上限65歳、元帥tier12、満額恩給30年。</summary>
+            public static RetireParams Default => new RetireParams(50, 54, 58, 62, 5, 65, 12, 30);
         }
 
         /// <summary>
         /// 階級別の停年（定年退役年齢）。低 tier ほど早く退く（米軍 grade-based mandatory retirement）。
-        /// tier5 以下は tier5 の停年、tier8 以上（元帥含む）は tier8 の停年へ丸める（停年の上限）。
+        /// 准将(7)以下は若手停年、大将(10)以上（元帥含む）は最高停年へ丸める（停年の上限）。
         /// </summary>
         public static int MandatoryRetirementAge(int rankTier, RetireParams p)
         {
-            if (rankTier <= 5) return p.retireAgeTier5;
+            if (rankTier <= 7) return p.retireAgeTier5; // 准将(7)以下＝若手の停年
             switch (rankTier)
             {
-                case 6: return p.retireAgeTier6;
-                case 7: return p.retireAgeTier7;
-                default: return p.retireAgeTier8; // 8 以上は大将級の停年
+                case 8: return p.retireAgeTier6;  // 少将
+                case 9: return p.retireAgeTier7;  // 中将
+                default: return p.retireAgeTier8; // 大将(10)以上は最高停年
             }
         }
 

@@ -23,7 +23,7 @@ namespace Ginei.Tests
             var hero = new Person(1, "駆け出しの政治家", Faction.同盟, PersonRole.文民)
             {
                 isPolitician = true,
-                rankTier = 9,                 // 大臣級の階級
+                rankTier = 11,                 // 大臣級の階級
                 birthYear = startYear - 50,   // 開始時50歳
             };
             Assert.AreEqual(PersonVocation.政治家, PersonVocationRules.VocationOf(hero));
@@ -41,7 +41,7 @@ namespace Ginei.Tests
             Assert.IsTrue(PoliticianRules.IsViableLeader(pol), "頭角を現しても党首候補にならない");
 
             // --- ③ 総裁選：ライバルに勝って党首へ（選挙の解決は LeadershipElectionRules へ委譲） ---
-            var rivalPerson = new Person(2, "対立候補", Faction.同盟, PersonRole.文民) { isPolitician = true, rankTier = 9, birthYear = startYear - 55 };
+            var rivalPerson = new Person(2, "対立候補", Faction.同盟, PersonRole.文民) { isPolitician = true, rankTier = 11, birthYear = startYear - 55 };
             var rival = new PoliticianProfile(rivalPerson.id) { popularity = 0.6f, oratory = 70, partyStanding = 0.6f, integrity = 60 };
 
             var leadershipVote = new LeadershipElectionRules.VoteParams(0.7f, 0.3f); // 党員票（民意連動）が重い総裁選
@@ -60,12 +60,12 @@ namespace Ginei.Tests
             Assert.AreEqual(hero.id, PartyRules.Premier(parties), "党首が首班にならなかった");
 
             // --- ④ 入閣：民主国家では高位政治職は政治任用専用＝官僚は就けず政治家のみ ---
-            var minister = new Office(10, "内務大臣", OfficeScope.国家, OfficeDomain.内政) { requiredTier = 9 };
-            var viceMinister = new Office(11, "事務次官", OfficeScope.国家, OfficeDomain.内政) { requiredTier = 7 };
-            PartyRules.MarkDemocraticAppointments(new List<Office> { minister, viceMinister }, careerCeilingTier: 7, CivilianControlType.文民統制);
+            var minister = new Office(10, "内務大臣", OfficeScope.国家, OfficeDomain.内政) { requiredTier = 11 };
+            var viceMinister = new Office(11, "事務次官", OfficeScope.国家, OfficeDomain.内政) { requiredTier = 9 };
+            PartyRules.MarkDemocraticAppointments(new List<Office> { minister, viceMinister }, careerCeilingTier: 9, CivilianControlType.文民統制);
 
             Assert.IsTrue(OfficeRules.CanHold(hero, minister), "政治家が大臣に就けない");
-            var careerOfficial = new Person(3, "職業官僚", Faction.同盟, PersonRole.文民) { rankTier = 9, isPolitician = false };
+            var careerOfficial = new Person(3, "職業官僚", Faction.同盟, PersonRole.文民) { rankTier = 11, isPolitician = false };
             Assert.IsFalse(OfficeRules.CanHold(careerOfficial, minister), "官僚が大臣に就けてしまう（政治任用の壁が無い）");
             Assert.IsTrue(OfficeRules.CanHold(careerOfficial, viceMinister), "官僚が事務次官に就けない");
 
@@ -117,11 +117,11 @@ namespace Ginei.Tests
         public void CareerBureaucrat_StaysOffThePoliticalArena()
         {
             // 官僚（文民・非政治家）は、いくら有能でも政治家の土俵（民意と票）に乗らない＝高位政治職に就けない。
-            var official = new Person(1, "有能な官僚", Faction.同盟, PersonRole.文民) { rankTier = 10, isPolitician = false };
+            var official = new Person(1, "有能な官僚", Faction.同盟, PersonRole.文民) { rankTier = 12, isPolitician = false };
             Assert.IsFalse(PoliticianRules.IsPolitician(official));
 
-            var minister = new Office(10, "宰相", OfficeScope.国家, OfficeDomain.元首) { requiredTier = 9 };
-            PartyRules.MarkDemocraticAppointments(new List<Office> { minister }, careerCeilingTier: 7, CivilianControlType.文民統制);
+            var minister = new Office(10, "宰相", OfficeScope.国家, OfficeDomain.元首) { requiredTier = 11 };
+            PartyRules.MarkDemocraticAppointments(new List<Office> { minister }, careerCeilingTier: 9, CivilianControlType.文民統制);
             Assert.IsFalse(OfficeRules.CanHold(official, minister), "官僚が政治任用専用の高位職に就けてしまう");
         }
     }

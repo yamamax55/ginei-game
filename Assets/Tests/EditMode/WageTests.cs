@@ -27,7 +27,7 @@ namespace Ginei.Tests
             Assert.AreEqual(0.7f, WageRules.AbilityFactor(0f, s), 1e-3f);
             Assert.AreEqual(30f, WageRules.PersonSalary(5, 50f, s), 1e-3f);
             Assert.AreEqual(39f, WageRules.PersonSalary(5, 100f, s), 1e-3f); // 30×1.3
-            // 提督データから（階級5・統率50→俸給30）
+            // 提督データから（階級tier5・統率50→俸給30＝俸給は tier 比例の純式・改番非依存の単体検証）
             var a = ScriptableObject.CreateInstance<AdmiralData>();
             a.staffOfficers = new AdmiralData[0];
             a.rankTier = 5; a.leadership = 50;

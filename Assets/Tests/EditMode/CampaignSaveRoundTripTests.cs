@@ -86,7 +86,7 @@ namespace Ginei.Tests
         {
             return new Person(7, "ヤン", Faction.同盟, PersonRole.軍人)
             {
-                rankTier = 8, sex = Sex.女性,
+                rankTier = 10, sex = Sex.女性,
                 isPolitician = false, isSovereign = false,
                 financialTrait = FinancialTrait.浪費, wealth = 1234f,
                 birthYear = 767, deathYear = 0,
@@ -109,7 +109,7 @@ namespace Ginei.Tests
             Assert.AreEqual("ヤン", r.name);
             Assert.AreEqual(Faction.同盟, r.faction);
             Assert.AreEqual(PersonRole.軍人, r.role);
-            Assert.AreEqual(8, r.rankTier);
+            Assert.AreEqual(10, r.rankTier);
             Assert.AreEqual(Sex.女性, r.sex);
             Assert.AreEqual(FinancialTrait.浪費, r.financialTrait);
             Assert.AreEqual(1234f, r.wealth, 1e-3f);
@@ -132,7 +132,7 @@ namespace Ginei.Tests
             var people = new System.Collections.Generic.List<Person>
             {
                 SamplePerson(),
-                new Person(8, "ラインハルト", Faction.帝国, PersonRole.軍人) { rankTier = 10, isSovereign = true }
+                new Person(8, "ラインハルト", Faction.帝国, PersonRole.軍人) { rankTier = 12, isSovereign = true }
             };
             string json = CampaignSerializer.ToJson(src, people, prettyPrint: false);
             CampaignSaveData save = CampaignSerializer.Parse(json);
@@ -143,7 +143,7 @@ namespace Ginei.Tests
             Assert.AreEqual(ServiceStatus.退役, r[0].serviceStatus);   // 在役状態が往復
             Assert.AreEqual(MilitaryDegree.大学校卒, r[0].militaryDegree); // 学歴が往復
             Assert.IsTrue(r[1].isSovereign);                          // 君主フラグが往復
-            Assert.AreEqual(10, r[1].rankTier);
+            Assert.AreEqual(12, r[1].rankTier);
         }
 
         [Test]

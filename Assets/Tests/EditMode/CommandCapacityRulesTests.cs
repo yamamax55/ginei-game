@@ -12,18 +12,18 @@ namespace Ginei.Tests
         [Test]
         public void MaxStrength_FollowsRankLadder()
         {
-            Assert.AreEqual(12000, CommandCapacityRules.MaxStrengthForTier(7));  // 中将＝一個艦隊の下限
-            Assert.AreEqual(15000, CommandCapacityRules.MaxStrengthForTier(8));  // 大将
-            Assert.AreEqual(60000, CommandCapacityRules.MaxStrengthForTier(10)); // 元帥＝宇宙艦隊
-            Assert.AreEqual(3000, CommandCapacityRules.MaxStrengthForTier(5));   // 准将＝分艦隊
-            Assert.AreEqual(60000, CommandCapacityRules.MaxStrengthForTier(11)); // 10超＝元帥級
+            Assert.AreEqual(12000, CommandCapacityRules.MaxStrengthForTier(9));  // 中将＝一個艦隊の下限
+            Assert.AreEqual(15000, CommandCapacityRules.MaxStrengthForTier(10)); // 大将
+            Assert.AreEqual(60000, CommandCapacityRules.MaxStrengthForTier(12)); // 元帥＝宇宙艦隊
+            Assert.AreEqual(3000, CommandCapacityRules.MaxStrengthForTier(7));   // 准将＝分艦隊
+            Assert.AreEqual(60000, CommandCapacityRules.MaxStrengthForTier(13)); // 12超＝元帥級
             Assert.AreEqual(1000, CommandCapacityRules.MaxStrengthForTier(0));   // 准将未満＝最小
         }
 
         [Test]
         public void MaxStrength_IsMonotonic()
         {
-            for (int t = 5; t < 10; t++)
+            for (int t = 7; t < 12; t++)
                 Assert.LessOrEqual(CommandCapacityRules.MaxStrengthForTier(t),
                                    CommandCapacityRules.MaxStrengthForTier(t + 1));
         }
@@ -31,21 +31,21 @@ namespace Ginei.Tests
         [Test]
         public void CanCommand_GatesByCapacity()
         {
-            Assert.IsTrue(CommandCapacityRules.CanCommand(7, 12000));  // 中将は一個艦隊まで
-            Assert.IsFalse(CommandCapacityRules.CanCommand(7, 15000)); // 中将は大艦隊を率いれない
-            Assert.IsTrue(CommandCapacityRules.CanCommand(8, 15000));  // 大将なら可
-            Assert.IsTrue(CommandCapacityRules.CanCommand(10, 60000)); // 元帥＝宇宙艦隊
+            Assert.IsTrue(CommandCapacityRules.CanCommand(9, 12000));  // 中将は一個艦隊まで
+            Assert.IsFalse(CommandCapacityRules.CanCommand(9, 15000)); // 中将は大艦隊を率いれない
+            Assert.IsTrue(CommandCapacityRules.CanCommand(10, 15000)); // 大将なら可
+            Assert.IsTrue(CommandCapacityRules.CanCommand(12, 60000)); // 元帥＝宇宙艦隊
         }
 
         [Test]
         public void RequiredTier_ForStrength()
         {
-            Assert.AreEqual(7, CommandCapacityRules.RequiredTierForStrength(12000)); // 一個艦隊＝中将
-            Assert.AreEqual(8, CommandCapacityRules.RequiredTierForStrength(12001)); // 超なら大将
-            Assert.AreEqual(8, CommandCapacityRules.RequiredTierForStrength(15000));
-            Assert.AreEqual(9, CommandCapacityRules.RequiredTierForStrength(30000));
-            Assert.AreEqual(10, CommandCapacityRules.RequiredTierForStrength(60001));
-            Assert.AreEqual(5, CommandCapacityRules.RequiredTierForStrength(100)); // 小規模でも下限は准将
+            Assert.AreEqual(9, CommandCapacityRules.RequiredTierForStrength(12000)); // 一個艦隊＝中将
+            Assert.AreEqual(10, CommandCapacityRules.RequiredTierForStrength(12001)); // 超なら大将
+            Assert.AreEqual(10, CommandCapacityRules.RequiredTierForStrength(15000));
+            Assert.AreEqual(11, CommandCapacityRules.RequiredTierForStrength(30000));
+            Assert.AreEqual(12, CommandCapacityRules.RequiredTierForStrength(60001));
+            Assert.AreEqual(7, CommandCapacityRules.RequiredTierForStrength(100)); // 小規模でも下限は准将
         }
 
         /// <summary>
@@ -55,13 +55,13 @@ namespace Ginei.Tests
         [Test]
         public void EchelonForTier_FollowsLoghLadder()
         {
-            Assert.AreEqual(EchelonType.分艦隊, CommandCapacityRules.EchelonForTier(5));  // 准将
-            Assert.AreEqual(EchelonType.分艦隊, CommandCapacityRules.EchelonForTier(6));  // 少将
-            Assert.AreEqual(EchelonType.艦隊,   CommandCapacityRules.EchelonForTier(7));  // 中将
-            Assert.AreEqual(EchelonType.艦隊,   CommandCapacityRules.EchelonForTier(8));  // 大将＝艦隊司令が自然
-            Assert.AreEqual(EchelonType.軍団,   CommandCapacityRules.EchelonForTier(9));  // 上級大将＝艦隊群/方面
-            Assert.AreEqual(EchelonType.軍集団, CommandCapacityRules.EchelonForTier(10)); // 元帥＝宇宙艦隊
-            Assert.AreEqual(EchelonType.軍集団, CommandCapacityRules.EchelonForTier(11)); // 10超も最上段
+            Assert.AreEqual(EchelonType.分艦隊, CommandCapacityRules.EchelonForTier(7));  // 准将
+            Assert.AreEqual(EchelonType.分艦隊, CommandCapacityRules.EchelonForTier(8));  // 少将
+            Assert.AreEqual(EchelonType.艦隊,   CommandCapacityRules.EchelonForTier(9));  // 中将
+            Assert.AreEqual(EchelonType.艦隊,   CommandCapacityRules.EchelonForTier(10)); // 大将＝艦隊司令が自然
+            Assert.AreEqual(EchelonType.軍団,   CommandCapacityRules.EchelonForTier(11)); // 上級大将＝艦隊群/方面
+            Assert.AreEqual(EchelonType.軍集団, CommandCapacityRules.EchelonForTier(12)); // 元帥＝宇宙艦隊
+            Assert.AreEqual(EchelonType.軍集団, CommandCapacityRules.EchelonForTier(13)); // 12超も最上段
             Assert.AreEqual(EchelonType.分艦隊, CommandCapacityRules.EchelonForTier(0));  // 准将未満は最下段
         }
 
@@ -79,7 +79,7 @@ namespace Ginei.Tests
                 EchelonType.戦隊, EchelonType.分艦隊, EchelonType.艦隊,
                 EchelonType.軍団, EchelonType.軍, EchelonType.軍集団, EchelonType.宇宙艦隊
             };
-            var expectedTiers = new[] { 4, 6, 7, 8, 9, 10, 10 };
+            var expectedTiers = new[] { 6, 8, 9, 10, 11, 12, 12 };
 
             for (int i = 0; i < order.Length; i++)
             {

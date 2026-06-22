@@ -34,19 +34,19 @@ namespace Ginei.Tests
         [Test]
         public void AssignVice_RequiresRankAtOrBelowCommander()
         {
-            var unit = Unit(Admiral("提督", tier: 8));
-            Assert.IsTrue(CommandStaffRules.AssignVice(unit, Admiral("次席", tier: 7)));  // 提督以下＝可
-            Assert.AreEqual(7, unit.viceCommander.rankTier);
+            var unit = Unit(Admiral("提督", tier: 10));
+            Assert.IsTrue(CommandStaffRules.AssignVice(unit, Admiral("次席", tier: 9)));  // 提督以下＝可
+            Assert.AreEqual(9, unit.viceCommander.rankTier);
 
-            var unit2 = Unit(Admiral("提督", tier: 7));
-            Assert.IsFalse(CommandStaffRules.AssignVice(unit2, Admiral("上位", tier: 9))); // 提督より上＝不可
+            var unit2 = Unit(Admiral("提督", tier: 9));
+            Assert.IsFalse(CommandStaffRules.AssignVice(unit2, Admiral("上位", tier: 11))); // 提督より上＝不可
             Assert.IsNull(unit2.viceCommander);
         }
 
         [Test]
         public void AssignVice_RejectsSameAsCommander()
         {
-            var cmd = Admiral("提督", 8);
+            var cmd = Admiral("提督", 10);
             var unit = Unit(cmd);
             Assert.IsFalse(CommandStaffRules.AssignVice(unit, cmd)); // 兼任不可
         }
@@ -54,14 +54,14 @@ namespace Ginei.Tests
         [Test]
         public void AssignChief_RejectsDuplicateOfCommanderOrVice()
         {
-            var cmd = Admiral("提督", 8);
-            var vice = Admiral("次席", 7);
+            var cmd = Admiral("提督", 10);
+            var vice = Admiral("次席", 9);
             var unit = Unit(cmd);
             CommandStaffRules.AssignVice(unit, vice);
 
             Assert.IsFalse(CommandStaffRules.AssignChief(unit, cmd));
             Assert.IsFalse(CommandStaffRules.AssignChief(unit, vice));
-            Assert.IsTrue(CommandStaffRules.AssignChief(unit, Admiral("参謀", 6)));
+            Assert.IsTrue(CommandStaffRules.AssignChief(unit, Admiral("参謀", 8)));
             Assert.IsTrue(unit.HasFullCommandStaff);
         }
 
@@ -70,8 +70,8 @@ namespace Ginei.Tests
         [Test]
         public void EffectiveLeadership_AddsViceAssist_BaseNonDestructive()
         {
-            var cmd = Admiral("提督", 8, leadership: 80);
-            var vice = Admiral("次席", 7, leadership: 60);
+            var cmd = Admiral("提督", 10, leadership: 80);
+            var vice = Admiral("次席", 9, leadership: 60);
             var unit = Unit(cmd);
             CommandStaffRules.AssignVice(unit, vice);
 
@@ -83,8 +83,8 @@ namespace Ginei.Tests
         [Test]
         public void EffectiveLeadership_CapsAtMaxStatValue()
         {
-            var cmd = Admiral("提督", 8, leadership: 95);
-            var vice = Admiral("次席", 8, leadership: 100);
+            var cmd = Admiral("提督", 10, leadership: 95);
+            var vice = Admiral("次席", 10, leadership: 100);
             var unit = Unit(cmd);
             CommandStaffRules.AssignVice(unit, vice);
             // 95 + 25 = 120 → 100 でクランプ
@@ -94,9 +94,9 @@ namespace Ginei.Tests
         [Test]
         public void EffectiveOperation_AddsChiefAssist()
         {
-            var cmd = Admiral("提督", 8, operation: 50);
+            var cmd = Admiral("提督", 10, operation: 50);
             var unit = Unit(cmd);
-            CommandStaffRules.AssignChief(unit, Admiral("参謀", 6, operation: 90));
+            CommandStaffRules.AssignChief(unit, Admiral("参謀", 8, operation: 90));
             // 50 + round(90 * 0.20) = 50 + 18 = 68
             Assert.AreEqual(68, CommandStaffRules.EffectiveOperation(unit, CP.Default));
         }
@@ -104,7 +104,7 @@ namespace Ginei.Tests
         [Test]
         public void EffectiveStats_CommanderOnly_NoBonus()
         {
-            var cmd = Admiral("提督", 8, leadership: 70, operation: 70);
+            var cmd = Admiral("提督", 10, leadership: 70, operation: 70);
             var unit = Unit(cmd);
             Assert.AreEqual(70, CommandStaffRules.EffectiveLeadership(unit, CP.Default)); // 副提督なし
             Assert.AreEqual(70, CommandStaffRules.EffectiveOperation(unit, CP.Default));  // 参謀なし
@@ -115,8 +115,8 @@ namespace Ginei.Tests
         [Test]
         public void PromoteVice_FillsEmptyCommanderSeat()
         {
-            var unit = Unit(Admiral("提督", 8));
-            var vice = Admiral("次席", 7);
+            var unit = Unit(Admiral("提督", 10));
+            var vice = Admiral("次席", 9);
             CommandStaffRules.AssignVice(unit, vice);
 
             unit.assignedAdmiral = null; // 提督喪失（戦死/捕虜）
@@ -129,28 +129,28 @@ namespace Ginei.Tests
         [Test]
         public void Succeed_PromotesAndRefillsVice()
         {
-            var cmd = Admiral("提督", 8);
-            var vice = Admiral("次席", 7);
-            var chief = Admiral("参謀", 6);
+            var cmd = Admiral("提督", 10);
+            var vice = Admiral("次席", 9);
+            var chief = Admiral("参謀", 8);
             var unit = Unit(cmd);
             CommandStaffRules.AssignVice(unit, vice);
             CommandStaffRules.AssignChief(unit, chief);
 
             unit.assignedAdmiral = null; // 提督喪失
-            var pool = new List<AdmiralData> { Admiral("候補A", 5), Admiral("候補B", 7), Admiral("上位", 9) };
+            var pool = new List<AdmiralData> { Admiral("候補A", 7), Admiral("候補B", 9), Admiral("上位", 11) };
 
             Assert.IsTrue(CommandStaffRules.Succeed(unit, pool));
             Assert.AreSame(vice, unit.assignedAdmiral);   // 副提督→提督
             Assert.IsNotNull(unit.viceCommander);          // 新副提督を補充
-            Assert.AreEqual(7, unit.viceCommander.rankTier); // 新提督(tier7)以下の最高位＝候補B(7)
+            Assert.AreEqual(9, unit.viceCommander.rankTier); // 新提督(tier9)以下の最高位＝候補B(9)
         }
 
         [Test]
         public void Succeed_NoVice_LeavesCommanderVacant()
         {
-            var unit = Unit(Admiral("提督", 8));
+            var unit = Unit(Admiral("提督", 10));
             unit.assignedAdmiral = null; // 提督喪失・副提督なし
-            Assert.IsFalse(CommandStaffRules.Succeed(unit, new List<AdmiralData> { Admiral("外部", 8) }));
+            Assert.IsFalse(CommandStaffRules.Succeed(unit, new List<AdmiralData> { Admiral("外部", 10) }));
             Assert.IsNull(unit.assignedAdmiral); // 空席のまま（無痛補充にしない）
         }
     }

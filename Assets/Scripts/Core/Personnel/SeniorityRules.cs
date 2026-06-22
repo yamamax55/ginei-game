@@ -23,8 +23,8 @@ namespace Ginei
                 this.floorTier = floorTier;
             }
 
-            /// <summary>既定＝首席tier6・20席ごとに−1・下限tier5。</summary>
-            public static SeniorityParams Default => new SeniorityParams(6, 20, 5);
+            /// <summary>既定＝首席tier8（少将級）・20席ごとに−1・下限tier7（准将級）。</summary>
+            public static SeniorityParams Default => new SeniorityParams(8, 20, 7);
         }
 
         /// <summary>席次（1=首席。小さいほど上位）から初期 tier を出す。下限でクランプ。</summary>

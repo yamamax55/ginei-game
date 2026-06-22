@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発ログ 2026-06-10 ── 統一時間・艦隊編成プール・通知システム
 
 戦略レイヤーの「時間」「編成」「通知」基盤を一気に配線した日。純ロジックは Core で test-first、Game 配線は GalaxyView/BattleManager へ。TestHarness は 440→**1020** テストへ。
@@ -27,3 +32,11 @@
 ## リポジトリ整理
 - `.gitignore`：`TestResults/`（dotnet test 出力）と未使用の `Assets/SpaceSkies Free/`（約483MB・コード/シーン未参照）を追跡対象外に。
 - `JapaneseFont_TMP.asset`：新UIのグリフ追加で atlas が成長＝コミット。
+
+## 関連
+- [[fleet-organization-design]] — 艦隊編成プールの設計
+- [[2026-06-08-strategy-layer-planet-siege]] — 戦略レイヤーの土台
+- [[2026-06-14-strategy-ux-observers]] — 後続の戦略UX/観測拡充
+- [[late-game-performance-design]] — 暦境界Tickの規律
+- [[wartime-logistics-design]] — 造船供給と兵站
+- [[core-modules-catalog]] — 追加Core純ロジックの索引

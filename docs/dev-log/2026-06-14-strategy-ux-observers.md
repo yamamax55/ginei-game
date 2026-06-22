@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発ログ 2026-06-14 ── 戦略マップ UX 大改修／観測層の拡充（法令・教育・艦艇・人事）／God Object 解体／会戦の膠着解消
 
 前回（06-11）以降、**「Core は積み上がるが盤面で何も見えない／触れない」乖離を潰す**方向に大きく舵を切った数日。観測層を 6→8 窓口へ拡げ、戦略マップの操作感を作り直し、3925 行に肥大した `GalaxyView` を partial class で物理分割した。あわせて会戦の「お互い静観で膠着」を解消し、配下艦の運動品質（EMOV-1〜5）をフル実装。CI（GameCI／可視化 playtest）も実運用に乗せた。
@@ -53,4 +58,12 @@
 
 ## ドキュメント
 - CLAUDE.md：観測層節（窓口 6→8・L/U/B）、`WindowChrome`/`UIWindowStack`/`StrategySystemMenu` のコンポーネント表、Esc 優先順位チェーンを反映。
-- `docs/late-game-performance-design.md` の規律（個体粒度へ降りない・暦境界 Tick・差分/収束/キャッシュ・N² を増やさない・シミュ LOD）を観測層シードと EMOV-5 で踏襲。
+- `docs/design/late-game-performance-design.md` の規律（個体粒度へ降りない・暦境界 Tick・差分/収束/キャッシュ・N² を増やさない・シミュ LOD）を観測層シードと EMOV-5 で踏襲。
+
+## 関連
+- [[2026-06-11-observer-layer-cleanup]] — 直前の観測層整理
+- [[2026-06-10-time-fleet-notification]] — 戦略基盤の前段
+- [[late-game-performance-design]] — 観測解像度とシミュ規律
+- [[squadron-motion-quality-design]] — 配下艦の運動品質
+- [[corporate-workflow-strategy-ui-design]] — 戦略UI/ウィンドウの思想
+- [[gameci-setup]] — CI/可視化playtestの地ならし

@@ -1,0 +1,20 @@
+{
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s\\n' '{\"systemMessage\": \"✅ Claudeの回答が完了しました（ターン終了）\"}'"
+          },
+          {
+            "type": "command",
+            "command": "bash Tools/hooks/stop-slack-notify.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

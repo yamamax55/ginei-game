@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発ログ 2026-06-08 — ビーム表示と発砲音の改善
 
 関連PR: [#762](https://github.com/yamamax55/ginei-game/pull/762)（master へマージ済み）
@@ -43,3 +48,9 @@ Play モード直後に直接 Battle を起動すると `GameSettings.scenarioNa
 - **サウンド未完**：`seHit`（着弾）／`seExplosion`（撃沈）／`bgmTitle`／`bgmBattle` が未割当＝無音。撃沈の爆発音・BGM の導入が自然な次の一手。
 - 音質：SFX は mp3 より WAV 推奨（mp3 は頭に無音が入りやすい）。
 - 演出強化：着弾フラッシュ、撃沈エフェクト（パーティクル）。
+
+## 関連
+- [[audio-sourcing]] — 発砲音・BGMの調達ガイド
+- [[2026-06-21-dev-efficiency-juice-audio-portraits]] — 手触り・音の続き
+- [[squadron-motion-quality-design]] — 配下艦の見た目品質
+- [[components-catalog]] — FleetWeapon/EscortShip 詳細

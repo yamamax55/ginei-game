@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d52659118b39d5c4c969bec3c3e341f6, type: 3}
+  m_Name: Aurelia
+  m_EditorClassIdentifier: Ginei.Runtime::Ginei.AdmiralData
+  admiralName: "アウレリア・ファルケンハイト"
+  faction: 1
+  factionName: "黎明評議会"
+  sex: 1
+  givenName: "アウレリア"
+  middleName:
+  familyName: "ファルケンハイト"
+  nobleParticle:
+  regnalNumber: 0
+  epithet:
+  callName: "アウレリア"
+  signatureShipName: "ビッグベン"
+  isProtagonist: 0
+  rankTier: 1
+  leadership: 76
+  attack: 78
+  defense: 56
+  mobility: 66
+  operation: 58
+  intelligence: 58
+  humility: 44
+  ambition: 74
+  isSpecialForces: 0
+  isTranscendent: 1
+  isHyoriHikyo: 0
+  isInnovator: 0
+  isRisingHero: 1
+  isPeerlessWarrior: 0
+  isThreeDayRuler: 0
+  isTurncoat: 0
+  virtue: 60
+  claimsImperialDescent: 0
+  isVirtuousLord: 0
+  isWarSaint: 0
+  isFierceGeneral: 0
+  isGrandTactician: 0
+  isKaiser: 0
+  isRightHand: 0
+  isMagician: 0
+  baseStrength: 2000
+  hasPreferredFormation: 1
+  preferredFormation: 0
+  staffOfficers: []
+  staffBonusRatio: 0.2
+  talents: []
+  fame: 0
+  specialty: 0
+  fatigue: 0
+  woundSeverity: 0
+  growth:
+    experience: 0
+    archetype: 0
+  personality: 0
+  personalLoyalty: 1

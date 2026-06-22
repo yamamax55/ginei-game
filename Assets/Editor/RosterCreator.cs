@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Ginei
 {
     /// <summary>
-    /// 世界観バイブル(docs/worldbuilding-bible.md)準拠の**オリジナル提督ロスター**と、
+    /// 世界観バイブル(docs/design/worldbuilding-bible.md)準拠の**オリジナル提督ロスター**と、
     /// 勝利条件・兵力差の異なる**シナリオ群**を生成するエディタ拡張（Issue #18）。
     /// メニュー「Ginei/Create Roster &amp; Scenarios」から実行する。
     ///

@@ -7,7 +7,7 @@ name: playtest-visual
 # 流れ：実 Unity で StandaloneLinux64（Mono）をビルド → xvfb（仮想ディスプレイ）上で起動 →
 #       PlaytestRunner が AI 対 AI の会戦を速回しし、JSON レポート＋PNG スクショを書き出す。
 #
-# ライセンス（docs/gameci-setup.md）：Personal=UNITY_LICENSE(.ulf) 必須／Pro=UNITY_EMAIL+UNITY_PASSWORD+UNITY_SERIAL。
+# ライセンス（docs/ops/gameci-setup.md）：Personal=UNITY_LICENSE(.ulf) 必須／Pro=UNITY_EMAIL+UNITY_PASSWORD+UNITY_SERIAL。
 # 不完全なら skip（赤くしない）。重いので PR では走らせず手動（workflow_dispatch）のみ。
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Unity ライセンス未設定/不完全のためスキップ（Personal=UNITY_LICENSE(.ulf)／Pro=+UNITY_SERIAL）。docs/gameci-setup.md 参照。"
+            echo "::notice::Unity ライセンス未設定/不完全のためスキップ（Personal=UNITY_LICENSE(.ulf)／Pro=+UNITY_SERIAL）。docs/ops/gameci-setup.md 参照。"
           fi
 
       - uses: actions/checkout@v4

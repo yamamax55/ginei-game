@@ -20,6 +20,14 @@ namespace Ginei.Tests
             Assert.AreEqual("リオグランデ", SignatureShipRegistry.ResolveByName("ビュコック"));
             Assert.AreEqual("ブリュンヒルト", SignatureShipRegistry.ResolveByName("ラインハルト"));
             Assert.IsTrue(SignatureShipRegistry.HasSignature("ヤン"));
+            // 本作オリジナル（主人公候補とその親友）。
+            Assert.AreEqual("グリニッジ", SignatureShipRegistry.ResolveByName("ミレイア・セルウィン"));
+            Assert.AreEqual("グリニッジ", SignatureShipRegistry.ResolveByName("ミレイア"));
+            Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア・ファルケンハイト"));
+            Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア・フォン・ファルケンハイト")); // 旧名
+            Assert.AreEqual("ビッグベン", SignatureShipRegistry.ResolveByName("アウレリア"));
+            Assert.AreEqual("ヴェルサイユ", SignatureShipRegistry.ResolveByName("コンラート・フォン・メーアブルク"));
+            Assert.AreEqual("ヴェルサイユ", SignatureShipRegistry.ResolveByName("コンラート"));
             Assert.AreEqual("", SignatureShipRegistry.ResolveByName("名もなき提督"));
         }
 

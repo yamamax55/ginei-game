@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace Ginei
@@ -5,6 +6,8 @@ namespace Ginei
     /// <summary>
     /// BGM と効果音を一元管理するシングルトン。DontDestroyOnLoad で永続化。
     /// Inspector で AudioClip を割り当てる。未割り当て clip は無音でエラーにならない。
+    /// 未割当時は Resources から規約名（bgm_title 等）で自動ロード＝ファイルを置くだけで鳴る
+    /// （コード生成の AudioManager でも有効。導入手順は docs/ops/audio-sourcing.md）。
     /// </summary>
     public class AudioManager : MonoBehaviour
     {
@@ -31,12 +34,30 @@ namespace Ginei
         [Header("BGM")]
         public AudioClip bgmTitle;
         public AudioClip bgmBattle;
+        public AudioClip bgmStrategy;
+        public AudioClip bgmResult;
+
+        [Header("BGM Resources フォールバック名（Inspector未割当時に Resources からロード）")]
+        [Tooltip("Assets/Resources/ 直下にこの名前で音源を置けば Inspector 割当なしで鳴る")]
+        public string bgmTitleResource = "bgm_title";
+        public string bgmBattleResource = "bgm_battle";
+        public string bgmStrategyResource = "bgm_strategy";
+        public string bgmResultResource = "bgm_result";
+
+        [Header("BGM クロスフェード")]
+        [Tooltip("BGM切替のフェード時間（秒・実時間）。0で即時切替。クラシックの曲間ギャップを和らげる")]
+        public float bgmCrossfade = 1.2f;
 
         [Header("効果音")]
         public AudioClip seBeam;
         public AudioClip seHit;
         public AudioClip seExplosion;
         public AudioClip seUiClick;
+
+        [Header("効果音 Resources フォールバック名")]
+        public string seHitResource = "se_hit";
+        public string seExplosionResource = "se_explosion";
+        public string seUiClickResource = "se_uiclick";
 
         [Header("音量")]
         [Range(0f, 1f)] public float bgmVolume = 0.6f;
@@ -58,6 +79,7 @@ namespace Ginei
         private AudioSource[] seVoices; // 重ね発音用ボイスプール（ピッチをばらけさせる）
         private int seVoiceIndex;
         private float nextBeamTime;     // 次にビームSEを鳴らせる実時間
+        private Coroutine bgmFadeRoutine; // クロスフェード進行中のコルーチン
 
         private void Awake()
         {
@@ -91,9 +113,16 @@ namespace Ginei
                 seVoices[i] = v;
             }
 
-            // Inspector未割当のビーム音は Resources からフォールバック読み込み（コード生成のAudioManagerでも鳴る）
+            // Inspector未割当の音源は Resources からフォールバック読み込み（規約名で置くだけで鳴る）
             if (seBeam == null && !string.IsNullOrEmpty(beamClipResource))
                 seBeam = Resources.Load<AudioClip>(beamClipResource);
+            LoadIfNull(ref bgmTitle, bgmTitleResource);
+            LoadIfNull(ref bgmBattle, bgmBattleResource);
+            LoadIfNull(ref bgmStrategy, bgmStrategyResource);
+            LoadIfNull(ref bgmResult, bgmResultResource);
+            LoadIfNull(ref seHit, seHitResource);
+            LoadIfNull(ref seExplosion, seExplosionResource);
+            LoadIfNull(ref seUiClick, seUiClickResource);
 
             ApplyMasterVolume();
         }
@@ -110,17 +139,73 @@ namespace Ginei
             if (seSource != null) seSource.volume = seVolume * master;
         }
 
+        /// <summary>未割当(null)なら Resources から名前でロードする補助。</summary>
+        private static void LoadIfNull(ref AudioClip clip, string resourceName)
+        {
+            if (clip == null && !string.IsNullOrEmpty(resourceName))
+                clip = Resources.Load<AudioClip>(resourceName);
+        }
+
+        /// <summary>現在のシーン名に対応する BGM を再生する（Title/Battle/Strategy/Result）。</summary>
+        public void PlayBGMForScene(string sceneName)
+        {
+            switch (sceneName)
+            {
+                case "Title": PlayBGM(bgmTitle); break;
+                case "Battle": PlayBGM(bgmBattle); break;
+                case "Strategy": PlayBGM(bgmStrategy); break;
+                case "Result": PlayBGM(bgmResult); break;
+            }
+        }
+
         public void PlayBGM(AudioClip clip)
         {
             if (clip == null) return;
             if (bgmSource.clip == clip && bgmSource.isPlaying) return;
+
+            // 即時切替（フェード無効・非再生中・非アクティブ時）。
+            if (bgmCrossfade <= 0f || !Application.isPlaying || !isActiveAndEnabled || !bgmSource.isPlaying)
+            {
+                if (bgmFadeRoutine != null) { StopCoroutine(bgmFadeRoutine); bgmFadeRoutine = null; }
+                bgmSource.clip = clip;
+                bgmSource.volume = bgmVolume * GameSettings.Instance.masterVolume;
+                bgmSource.Play();
+                return;
+            }
+
+            if (bgmFadeRoutine != null) StopCoroutine(bgmFadeRoutine);
+            bgmFadeRoutine = StartCoroutine(CrossfadeTo(clip));
+        }
+
+        /// <summary>現BGMをフェードアウト→新BGMをフェードイン（曲間の唐突な切替を和らげる簡易版・実時間）。</summary>
+        private IEnumerator CrossfadeTo(AudioClip clip)
+        {
+            float target = bgmVolume * GameSettings.Instance.masterVolume;
+            float dur = Mathf.Max(0.01f, bgmCrossfade);
+
+            float from = bgmSource.volume;
+            for (float e = 0f; e < dur; e += Time.unscaledDeltaTime)
+            {
+                bgmSource.volume = Mathf.Lerp(from, 0f, Easing.SmoothStep(e / dur));
+                yield return null;
+            }
+
             bgmSource.clip = clip;
-            bgmSource.volume = bgmVolume * GameSettings.Instance.masterVolume;
+            bgmSource.volume = 0f;
             bgmSource.Play();
+
+            for (float e = 0f; e < dur; e += Time.unscaledDeltaTime)
+            {
+                bgmSource.volume = Mathf.Lerp(0f, target, Easing.SmoothStep(e / dur));
+                yield return null;
+            }
+            bgmSource.volume = target;
+            bgmFadeRoutine = null;
         }
 
         public void StopBGM()
         {
+            if (bgmFadeRoutine != null) { StopCoroutine(bgmFadeRoutine); bgmFadeRoutine = null; }
             bgmSource.Stop();
         }
 

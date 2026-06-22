@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発ログ 2026-06-20 ── Blenderで戦艦を3D化（MCP連携・噴射アニメ）とBlender→Unity知見の文書化
 
 ゲームロジックではなく**アート/制作パイプライン**に寄った日。提供された戦艦イラストを **Blender MCP** 経由で 3D 化し、流線型化→高層化→エンジン噴射アニメまで反復。成果物を2本のPRに整理し、Blender→Unity の現実的な落とし穴を設計ドキュメント化した。**現状はR&D寄りで、ゲーム本体への実投入は未**（艦船は今も2Dスプライト運用）。
@@ -18,7 +23,7 @@
 
 ## 4. 成果物（PR）
 - **PR #2594**：`Assets/Art/Ships/Battleship3D.blend`（既存スプライト群と同じ `Art/Ships/` に配置）。
-- **PR #2595**：`docs/blender-to-unity-3d-pipeline.md`（制作・活用ガイド）＋ README 目次に「制作ガイド」節。
+- **PR #2595**：`docs/ops/blender-to-unity-3d-pipeline.md`（制作・活用ガイド）＋ README 目次に「制作ガイド」節。
 - 本ログ（#2596 想定）で当日分を記録。
 
 ## 5. 学び（Blender→Unityの現実）
@@ -30,3 +35,9 @@
 ## 未確定・次の判断
 - **本作での使い道は未決**：①3D→2Dスプライト書き出しで現行運用に載せる ②実3D投入（要・最適化/コライダー/LOD/Prefab）③演出ムービー（透過動画）。用途で必要作業が大きく変わる。
 - 本モデルは提供イラストの**ラフな再現（MVP）**であり、艦種設定・縮尺・実ゲーム検証は未。`FleetRegistry`/`BattleSetup` 等の既存システムへの接続は**シナリオ会戦に無影響**（アセット追加のみ）。
+
+## 関連
+- [[blender-to-unity-3d-pipeline]] — 当日整理した制作ガイド
+- [[portrait-pipeline]] — 提督アートの量産パイプライン
+- [[comfyui-setup]] — ローカル画像生成の環境
+- [[2026-06-21-dev-efficiency-juice-audio-portraits]] — アート/演出の続き

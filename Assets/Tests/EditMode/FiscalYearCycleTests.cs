@@ -7,7 +7,7 @@ namespace Ginei.Tests
     /// 政府の財政＝<b>予算と執行で1年が回るか</b>を検証する（#161/#162/#163 の結合）。
     /// 歳入(税)→予算編成(配分)→執行(歳出)→帰結(出資度/債務/利払い)→翌年 の輪が Core 部品で閉じることを固定し、
     /// あわせて<b>足りない機能をあぶり出す</b>（空予算なら執行0＝年が回らない／FiscalState を勢力ごとに持たないと
-    /// 債務が繰り越されない、を pin する）。GalaxyView の配線ギャップは docs/fiscal-year-cycle-gap-analysis.md 参照。
+    /// 債務が繰り越されない、を pin する）。GalaxyView の配線ギャップは docs/audit/fiscal-year-cycle-gap-analysis.md 参照。
     /// </summary>
     public class FiscalYearCycleTests
     {

@@ -20,6 +20,13 @@ namespace Ginei
         public string admiralName = "提督名";
         public Faction faction;
 
+        [Tooltip("多勢力の所属名（FactionData.factionName 相当。例：黎明評議会）。空なら faction(enum) で解決＝後方互換。" +
+                 "肖像の勢力制服解決（PortraitUniformCatalog）等に利用")]
+        public string factionName = "";
+
+        [Tooltip("性別。既定＝男性（後方互換）。肖像生成・呼称・人物表示に利用")]
+        public Sex sex = Sex.男性;
+
         [Header("姓名（任意・未設定なら admiralName を使用＝後方互換）")]
         [Tooltip("名（カタカナ）。例：ラインハルト。名→姓の順で合成する")]
         public string givenName = "";
@@ -50,6 +57,17 @@ namespace Ginei
         [Tooltip("この提督を主人公（動かない光源）とするか。true＝陣営に関わらず常にプレイヤー操作（FleetAI 非制御）。" +
                  "既定 false＝従来どおり（後方互換）。判定は ProtagonistRules を参照すること")]
         public bool isProtagonist = false;
+
+        [Header("ポートレート（③アート一貫性・任意）")]
+        [Tooltip("提督の肖像スプライト（任意）。未割当なら HUD 等は名前表示にフォールバック。" +
+                 "生成プロンプトは PortraitPromptRules（docs/ops/portrait-pipeline.md）。")]
+        public Sprite portrait;
+
+        [Tooltip("肖像生成の追加外見ヒント（英語可）。髪型/性別/年齢/特徴など。空でも能力・アーキタイプから生成される。")]
+        public string appearanceNote = "";
+
+        [Tooltip("肖像生成の固定シード（>0で固定＝再生成しても同一人物。0＝名前から決定論的に導出）。")]
+        public int portraitSeed = 0;
 
         [Header("階級（#14・任意）")]
         [Tooltip("階級の序列 tier（所属勢力の階級表 FactionData.ranks から名称を解決）。" +
@@ -211,6 +229,55 @@ namespace Ginei
         [Tooltip("君主への個人忠誠（0..1・CDR-2 #2312・既定1＝忠臣）。論功行賞/不遇/功名心で動き、低忠誠×高功名心で下剋上＝AllegianceDriftRules")]
         [Range(0f, 1f)]
         public float personalLoyalty = 1f;
+
+        [Header("出自・信条・人となり（PER-PROPS・任意・既定＝後方互換）")]
+        [Tooltip("個人の政治信条（PER-PROPS A2）。所属勢力のイデオロギーとのズレが離反・クーデターの火種＝CreedRules。既定=無関心＝緊張なし")]
+        public Creed creed = Creed.無関心;
+
+        [Tooltip("社会階層・出自（PER-PROPS A4）。登用・忠誠・政治派閥に影響＝SocialOriginRules。既定=平民")]
+        public SocialOrigin socialOrigin = SocialOrigin.平民;
+
+        [Tooltip("出身地（星系名・lore表示用。runtime の出身星系は Person.birthSystemId）。空＝未設定")]
+        public string birthPlace = "";
+
+        [Tooltip("人望・カリスマ（0..100・PER-PROPS B5）。統率（部隊指揮）と別軸の『人を惹きつける力』＝登用・民心・正統性。既定50")]
+        [Range(0, 100)]
+        public int charisma = 50;
+
+        [Tooltip("体質・健康（0..100・PER-PROPS B7）。低い＝病弱（寿命roll不利・疲労回復遅い）／高い＝頑健＝ConstitutionRules。既定50")]
+        [Range(0, 100)]
+        public int constitution = 50;
+
+        [Tooltip("趣味（PER-PROPS C8）。イベント・会話の彩り。既定=なし")]
+        public Hobby hobby = Hobby.なし;
+
+        [Tooltip("悪癖（PER-PROPS C8）。突発事件の種。既定=なし")]
+        public Vice vice = Vice.なし;
+
+        [Tooltip("悪名（0..100・PER-PROPS C9）。武名（fame）と対＝占領地の反発・登用忌避を生む。ReputationRules。既定0")]
+        [Range(0, 100)]
+        public int infamy = 0;
+
+        [Tooltip("民望（0..100・PER-PROPS C9）。民心での名声（武名 fame とは別軸）。ReputationRules。既定0")]
+        [Range(0, 100)]
+        public int popularRenown = 0;
+
+        [Header("家系（PER-PROPS B6・任意・名前で記す。runtime は Person の id リンク）")]
+        [Tooltip("配偶者の名（lore表示。runtime は Person.spouseId）")]
+        public string spouseName = "";
+
+        [Tooltip("父の名（lore表示。runtime は Person.fatherId）")]
+        public string fatherName = "";
+
+        [Tooltip("母の名（lore表示。runtime は Person.motherId）")]
+        public string motherName = "";
+
+        [Header("人間関係・隠し特性（PER-PROPS A1/C10・任意）")]
+        [Tooltip("恩讐ネットワークの種（PER-PROPS A1）。相手の名・関係種別・強度。runtime で RelationshipGraph に解決して積む")]
+        public List<RelationshipSeed> relationships = new List<RelationshipSeed>();
+
+        [Tooltip("隠し特性（PER-PROPS C10）。出生の秘密・内通・持病など。観測側の情報能力で露見＝HiddenTraitRules")]
+        public List<HiddenTrait> hiddenTraits = new List<HiddenTrait>();
 
         /// <summary>参謀の最大人数。</summary>
         public const int MaxStaff = 3;

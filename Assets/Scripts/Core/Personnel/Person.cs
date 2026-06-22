@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -95,6 +96,26 @@ namespace Ginei
         public int mobility;     // 機動（軍）
         public int operation;    // 運営/行政（文）
         public int intelligence; // 情報/外交（文）
+
+        // --- 出自・信条・人となり（PER-PROPS・既定＝後方互換） ---
+        public Creed creed = Creed.無関心;            // 個人の政治信条（A2・CreedRules）
+        public SocialOrigin socialOrigin = SocialOrigin.平民; // 社会階層・出自（A4・SocialOriginRules）
+        public int birthSystemId = -1;                // 出身星系（A4・-1=未設定）
+        public int charisma = 50;                     // 人望・カリスマ（B5）
+        public int constitution = 50;                 // 体質・健康（B7・ConstitutionRules）
+        public Hobby hobby = Hobby.なし;              // 趣味（C8）
+        public Vice vice = Vice.なし;                 // 悪癖（C8）
+
+        // 動態値（runtime で増減・既存の AllegianceDriftRules / AmbitionRules / PersonGrievanceRules が回す）
+        public int grievance = 0;        // 不満（A3・冷遇/降格で蓄積→離反の火種。0..100）
+        public int loyaltyTargetId = -1; // 忠誠の対象人物（A3・-1=勢力そのもの。人に忠誠を誓う＝主君変更で離反しうる）
+
+        // 評判（C9・武名は FameRegistry の fame。これは別軸の民望/悪名＝ReputationRules）
+        public int popularRenown = 0;    // 民望（民心での名声）
+        public int infamy = 0;           // 悪名
+
+        // 隠し特性（C10・情報能力で露見＝HiddenTraitRules）
+        public List<HiddenTrait> hiddenTraits = new List<HiddenTrait>();
 
         public Person() { }
 

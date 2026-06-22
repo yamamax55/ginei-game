@@ -1,3 +1,8 @@
+---
+type: dev-log
+tags: [dev-log]
+---
+
 # 開発日記 2026-06-08
 
 > 旧 GitHub Issue #774（documentation）から dev-log へ移設（2026-06-21）。タスクではなく作業ログ。
@@ -40,3 +45,10 @@
 ## 運用メモ
 - 全変更を feature ブランチ→PR→マージで進行。Unity MCP で**コンパイル確認・EditModeテスト実行・Playモードでの目視キャプチャ**まで自動化して検証した。
 - セッションを跨ぐとローカルが別ブランチに戻ることがあるため、ブランチ作成前に `git checkout master && git pull` を徹底。
+
+## 関連
+- [[phase-c-strategy]] — Phase C 戦略レイヤー全体
+- [[planetary-battle-design]] — 惑星攻城の設計
+- [[fleet-organization-design]] — 艦隊編制・軍団梯団
+- [[military-organization-design]] — 軍編制ツリー
+- [[2026-06-08-beam-visual-audio]] — 同日のビーム/発砲音

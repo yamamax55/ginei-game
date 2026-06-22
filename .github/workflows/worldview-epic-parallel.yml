@@ -35,8 +35,8 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
           claude_args: '--allowedTools "Bash,Read,Grep,Glob"'
           prompt: |
-            docs/reference-epic-backlog.md の表で状態「未」の先頭から最大5件を選ぶ。
-            各作品について：(1) gh issue list --state all --limit 5 --search "in:title <作品名の主要部>" で既存EPICが無いことを確認（あれば除外）。(2) 意味のある3〜4字の英大文字プレフィックスを割当（例 VEN/LEAR）。docs/roadmap.md と docs/*-reference-design.md を grep し5件が互いにも既存にも重複しないこと。
+            docs/planning/reference-epic-backlog.md の表で状態「未」の先頭から最大5件を選ぶ。
+            各作品について：(1) gh issue list --state all --limit 5 --search "in:title <作品名の主要部>" で既存EPICが無いことを確認（あれば除外）。(2) 意味のある3〜4字の英大文字プレフィックスを割当（例 VEN/LEAR）。docs/planning/roadmap.md と docs/reference/*-reference-design.md を grep し5件が互いにも既存にも重複しないこと。
             結果を /tmp/matrix.json に JSON配列で書く: [{"work":"<作品名そのまま>","prefix":"<PFX>"}]。未が無い・全て既存なら []。issue起票やファイル編集はしない。
       - name: Emit matrix
         id: out
@@ -71,10 +71,10 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CC }}
           claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"'
           prompt: |
-            担当作品＝環境変数 WORK、プレフィックス＝環境変数 PREFIX（必ずこの字種を使う）。docs/reference-epic-pipeline.md と実例 docs/spice-and-wolf-reference-design.md を読む。
-            手順（この作品だけ）：(1)調査→CLAUDE.md「テスト基盤」節の既存純ロジックと突き合わせ欠落軸分析。(2)設計書 docs/<slug>-reference-design.md 作成（§0なぜ役立つか/§1視点/§2メカニクス★優先度＋接続先＋不採用表/§3子Issue表＋着手順）。(3)gh で EPIC 起票（[EPIC][分野] WORK 参考 — 要約・label type:epic,type:design,area:worldbuilding,area:strategy）。(4)子issue を直列起票（[PREFIX-n]・label type:feature,priority:med,area:strategy・本文＝親EPIC #n／設計§2＋狙い/接続先/完了条件・純ロジック新設は完了条件にEditModeテスト必須）。(5)EPIC本文と設計書§3に子番号反映。
-            ★制約：docs/roadmap.md と docs/reference-epic-backlog.md は編集しない。git commit/push しない。
-            ★成果物：mkdir -p /tmp/out; cp docs/<slug>-reference-design.md /tmp/out/; さらに /tmp/out/fragment.json に {"prefix":"PREFIX","work":"WORKと完全一致","epic":<番号>,"roadmap_line":"  - **WORK 参考：#EPIC＋PREFIX-1〜N（#a〜#b）** ＝要約","backlog_done":"| 済 | WORK | 着眼点 | #EPIC |"} を書く。
+            担当作品＝環境変数 WORK、プレフィックス＝環境変数 PREFIX（必ずこの字種を使う）。docs/planning/reference-epic-pipeline.md と実例 docs/reference/spice-and-wolf-reference-design.md を読む。
+            手順（この作品だけ）：(1)調査→CLAUDE.md「テスト基盤」節の既存純ロジックと突き合わせ欠落軸分析。(2)設計書 docs/reference/<slug>-reference-design.md 作成（§0なぜ役立つか/§1視点/§2メカニクス★優先度＋接続先＋不採用表/§3子Issue表＋着手順）。(3)gh で EPIC 起票（[EPIC][分野] WORK 参考 — 要約・label type:epic,type:design,area:worldbuilding,area:strategy）。(4)子issue を直列起票（[PREFIX-n]・label type:feature,priority:med,area:strategy・本文＝親EPIC #n／設計§2＋狙い/接続先/完了条件・純ロジック新設は完了条件にEditModeテスト必須）。(5)EPIC本文と設計書§3に子番号反映。
+            ★制約：docs/planning/roadmap.md と docs/planning/reference-epic-backlog.md は編集しない。git commit/push しない。
+            ★成果物：mkdir -p /tmp/out; cp docs/reference/<slug>-reference-design.md /tmp/out/; さらに /tmp/out/fragment.json に {"prefix":"PREFIX","work":"WORKと完全一致","epic":<番号>,"roadmap_line":"  - **WORK 参考：#EPIC＋PREFIX-1〜N（#a〜#b）** ＝要約","backlog_done":"| 済 | WORK | 着眼点 | #EPIC |"} を書く。
             著作権：固有名・文章・キャラ不使用、構造のみ。重複新設しない。タイクン化回避。
       - name: Upload result
         uses: actions/upload-artifact@v4

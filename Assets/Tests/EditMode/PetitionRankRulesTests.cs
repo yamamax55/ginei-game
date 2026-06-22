@@ -37,5 +37,24 @@ namespace Ginei.Tests
             Assert.IsFalse(PetitionRankRules.CanRaise(PetitionCategory.政治, 6)); // 政治は中将から
             Assert.IsTrue(PetitionRankRules.CanRaise(PetitionCategory.政治, 7));
         }
+
+        [Test]
+        public void ExistingCategories_HaveNoUpperBound()
+        {
+            Assert.AreEqual(int.MaxValue, PetitionRankRules.MaxTier(PetitionCategory.作戦));
+            Assert.IsTrue(PetitionRankRules.CanRaise(PetitionCategory.政治, 10)); // 元帥でも政治は可
+        }
+
+        [Test]
+        public void PirateHunt_IsJuniorOfficerOnly()
+        {
+            Assert.AreEqual(1, PetitionRankRules.MinTier(PetitionCategory.海賊狩り)); // 少尉から
+            Assert.AreEqual(2, PetitionRankRules.MaxTier(PetitionCategory.海賊狩り)); // 大尉まで
+            Assert.IsFalse(PetitionRankRules.CanRaise(PetitionCategory.海賊狩り, 0)); // 任官前は不可
+            Assert.IsTrue(PetitionRankRules.CanRaise(PetitionCategory.海賊狩り, 1));  // 少尉
+            Assert.IsTrue(PetitionRankRules.CanRaise(PetitionCategory.海賊狩り, 2));  // 大尉
+            Assert.IsFalse(PetitionRankRules.CanRaise(PetitionCategory.海賊狩り, 3)); // 少佐以上は出せない（下級士官の任）
+            Assert.IsFalse(PetitionRankRules.CanRaise(PetitionCategory.海賊狩り, 5)); // 将官には不要
+        }
     }
 }

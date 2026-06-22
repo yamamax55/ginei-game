@@ -210,7 +210,7 @@ namespace Ginei
                 float pf2 = (Relations != null && Sovereign != null)
                     ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
                 float adoptChance = Mathf.Clamp01(0.35f + pf2 * 0.4f); // 上官との関係が良いほど拾われる
-                int adopted = 0, budgetAdopted = 0, baseAdopted = 0;
+                int adopted = 0, budgetAdopted = 0, baseAdopted = 0, pirateAdopted = 0;
                 long budgetBefore = ProtagonistGrantStore.Grants.fleetBudgetGrant;
                 for (int i = 0; i < pendingPetitions; i++)
                 {
@@ -221,6 +221,7 @@ namespace Ginei
                     PetitionEffect eff = PetitionEffectRules.Apply(ProtagonistGrantStore.Grants, key);
                     if (eff == PetitionEffect.予算増額) budgetAdopted++;
                     else if (eff == PetitionEffect.根拠地変更) baseAdopted++;
+                    else if (PirateHuntPetitionRules.IsPiratePetition(key)) { pirateAdopted++; fame = RenownRules.Gain(fame, PirateHuntPetitionRules.FameReward); } // 海賊掃討で武名↑
                 }
                 pendingPetitions = 0;
                 pendingPetitionKeys.Clear();
@@ -238,6 +239,11 @@ namespace Ginei
                     {
                         int sys = ProtagonistGrantStore.Grants.fleetBaseSystemId;
                         Push(NotificationSeverity.情報, sys >= 0 ? $"［根拠地変更］根拠地が星系 {sys} に改められた" : "［根拠地変更］根拠地の変更が容れられた（司令部一任）");
+                    }
+                    if (pirateAdopted > 0)
+                    {
+                        ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.武勲, "海賊を掃討し武名を上げた");
+                        Push(NotificationSeverity.情報, $"［海賊狩り］海賊を掃討し武名を上げた（武名 {fame}）");
                     }
                 }
             }
@@ -469,6 +475,14 @@ namespace Ginei
             if (!RankGateOk(PetitionCategory.作戦)) return false;
             string key = FleetBasePetitionRules.EncodeEffectKey(0, FleetBasePetitionRules.UnspecifiedSystem); // 番号0＝自艦隊・星系一任
             return SubmitPetition("自艦隊の根拠地変更（前線寄りへ）の具申", key);
+        }
+
+        /// <summary>海賊狩り（海賊掃討の任）を上官へ具申する。少尉/大尉（下級士官）専用＝若手の腕試し。採用で武名が上がる。</summary>
+        public bool SubmitPiratePetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.海賊狩り)) return false;
+            return SubmitPetition("海賊狩りの具申", PirateHuntPetitionRules.EffectKey);
         }
 
         /// <summary>その区分の具申を今の階級で出せるか（出せなければ通知）。UI も <see cref="PetitionRankRules"/> で同判定。</summary>

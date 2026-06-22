@@ -753,6 +753,13 @@ namespace Ginei
             RefreshNow();
         }
 
+        private void OnSubmitPiratePetition()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.SubmitPiratePetition();
+            RefreshNow();
+        }
+
         // 岐路の実行ボタン（TKO-7・一人称の自由意志）。押すと director.ExecuteFork が開かれた進路か＋前提を確認して実行。
         private void BuildForkButtons(Transform parent)
         {
@@ -857,6 +864,7 @@ namespace Ginei
 
             WindowChrome.AddTitleBarLayout(frameRT, "執務机", () => SetVisible(false));
             BuildPetitionButton(frame.transform);
+            BuildPiratePetitionButton(frame.transform);
             BuildFleetBudgetPetitionButton(frame.transform);
             BuildFleetBasePetitionButton(frame.transform);
             BuildBribeButton(frame.transform);
@@ -949,6 +957,35 @@ namespace Ginei
             RegisterGated(btn, img, lbl, "自艦隊の根拠地変更を具申する", PetitionCategory.作戦);
         }
 
+        /// <summary>海賊狩りを上官へ具申するボタン（少尉/大尉＝下級士官専用の腕試し）。</summary>
+        private void BuildPiratePetitionButton(Transform parent)
+        {
+            GameObject go = new GameObject("SubmitPiratePetitionButton");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = 42f; le.preferredHeight = 42f;
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.30f, 0.26f, 0.18f, 1f);
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(OnSubmitPiratePetition);
+
+            GameObject lblGo = new GameObject("Label");
+            lblGo.transform.SetParent(go.transform, false);
+            RectTransform lrt = lblGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.sizeDelta = Vector2.zero; lrt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI lbl = lblGo.AddComponent<TextMeshProUGUI>();
+            lbl.text = "海賊狩りを具申する";
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.fontSize = 18f;
+            lbl.color = new Color(1f, 0.96f, 0.86f);
+            lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+            RegisterGated(btn, img, lbl, "海賊狩りを具申する", PetitionCategory.海賊狩り);
+        }
+
         /// <summary>階級ゲート対象ボタンを登録（onColor は現在の色＝活性時の色）。</summary>
         private void RegisterGated(Button btn, Image img, TextMeshProUGUI lbl, string baseText, PetitionCategory category)
         {
@@ -967,8 +1004,17 @@ namespace Ginei
                 if (gp.btn != null) gp.btn.interactable = can;
                 if (gp.img != null) gp.img.color = can ? gp.onColor : GateDisabledColor;
                 if (gp.lbl != null)
-                    gp.lbl.text = can ? gp.baseText
-                        : gp.baseText + $"（要 {RankSystem.ResolveRankNameOrDefault(null, PetitionRankRules.MinTier(gp.category))}）";
+                {
+                    string suffix = "";
+                    if (!can)
+                    {
+                        if (tier < PetitionRankRules.MinTier(gp.category))
+                            suffix = $"（要 {RankSystem.CareerRankName(null, PetitionRankRules.MinTier(gp.category))}）";
+                        else // 階級が高すぎる（海賊狩り等の下級士官専用）
+                            suffix = $"（{RankSystem.CareerRankName(null, PetitionRankRules.MaxTier(gp.category))}まで）";
+                    }
+                    gp.lbl.text = gp.baseText + suffix;
+                }
             }
         }
 

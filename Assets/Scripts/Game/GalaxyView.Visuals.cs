@@ -25,6 +25,14 @@ namespace Ginei
                 lr.startWidth = lr.endWidth = choke ? 0.16f : 0.08f;
                 lr.startColor = lr.endColor = choke ? chokeColor : corridorColor;
                 corridorLines.Add(lr);
+
+                // 回廊要塞（#40）：中点に状態ラベル（要塞名／守備％・シールド％／開城）。攻囲の進捗が読めるように。
+                if (c.fortress != null)
+                {
+                    Vector2 mid = (a.position + b.position) * 0.5f;
+                    var fl = MakeLabel(transform, "", new Vector3(mid.x, mid.y + 0.5f, 0f), 0.6f).GetComponent<TextMesh>();
+                    fortressLabels[i] = fl;
+                }
             }
 
             foreach (var s in map.systems)
@@ -150,6 +158,10 @@ namespace Ginei
                 else col = StrategyRules.IsFtlBlocked(map, c) ? frontlineColor
                     : (c.type == CorridorType.要衝 ? chokeColor : corridorColor);
                 corridorLines[i].startColor = corridorLines[i].endColor = col;
+
+                // 回廊要塞の状態ラベル（守備/シールド／開城）を更新。
+                if (c.fortress != null && fortressLabels.TryGetValue(i, out TextMesh fl) && fl != null)
+                    UpdateFortressLabel(fl, c.fortress, fortressActive);
             }
 
             // 除去された艦隊（戦闘で消滅）のマーカーを片付ける
@@ -588,6 +600,27 @@ namespace Ginei
             if (d.sqrMagnitude < 1e-6f) return false;
             dir = d.normalized;
             return true;
+        }
+
+        /// <summary>
+        /// 回廊要塞の状態ラベルを更新する（#40 可視化）。健在なら「要塞名 守備％ 盾％」、開城（守備尽き or
+        /// 回廊を扼さない）なら「要塞名 開城」をグレーで表示＝兵糧攻め/回復の進捗が盤面で読める。
+        /// </summary>
+        private void UpdateFortressLabel(TextMesh label, Fortress f, bool blocking)
+        {
+            if (label == null || f == null) return;
+            if (!blocking)
+            {
+                label.text = $"{f.fortressName} 開城";
+                label.color = new Color(0.6f, 0.6f, 0.62f, 0.9f);
+                return;
+            }
+            int gPct = f.garrisonCapacity > 0f
+                ? Mathf.RoundToInt(Mathf.Clamp01(f.garrisonStrength / f.garrisonCapacity) * 100f) : 100;
+            int sPct = Mathf.RoundToInt(Mathf.Clamp01(f.shieldIntegrity) * 100f);
+            label.text = $"{f.fortressName} 守{gPct}% 盾{sPct}%";
+            // 守備が乏しいほど赤寄り（兵糧攻めが効いている合図）。
+            label.color = Color.Lerp(new Color(1f, 0.45f, 0.4f), fortressBlockadeColor, gPct / 100f);
         }
 
         private LineRenderer NewLine(string name, int order)

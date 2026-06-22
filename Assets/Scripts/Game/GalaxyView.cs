@@ -165,6 +165,7 @@ namespace Ginei
         private TextMesh policyLine;                 // S5：プレイヤー勢力の税率/国庫/民心/安定度の読み取り表示
         private readonly Dictionary<int, TextMesh> siegeLabels = new Dictionary<int, TextMesh>();
         private readonly HashSet<int> besiegedSystems = new HashSet<int>(); // 攻城中の星系（開始/完了通知の状態遷移検出）
+        private readonly Dictionary<int, TextMesh> fortressLabels = new Dictionary<int, TextMesh>(); // 回廊要塞の状態ラベル（守備/シールド・#40）。キー＝corridor index
 
         // S5/S6（縦スライス）：税率レバー・財政・支持低下イベント
         [Header("内政スライス（S5/S6）")]

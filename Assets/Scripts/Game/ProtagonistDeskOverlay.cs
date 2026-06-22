@@ -725,6 +725,13 @@ namespace Ginei
             RefreshNow();
         }
 
+        private void OnBribeSuperior()
+        {
+            var d = ProtagonistCareerDirector.Instance;
+            if (d != null) d.BribeSuperior();
+            RefreshNow();
+        }
+
         // 岐路の実行ボタン（TKO-7・一人称の自由意志）。押すと director.ExecuteFork が開かれた進路か＋前提を確認して実行。
         private void BuildForkButtons(Transform parent)
         {
@@ -831,6 +838,7 @@ namespace Ginei
             BuildPetitionButton(frame.transform);
             BuildFleetBudgetPetitionButton(frame.transform);
             BuildFleetBasePetitionButton(frame.transform);
+            BuildBribeButton(frame.transform);
             BuildForkButtons(frame.transform);
             BuildScrollBody(frame.transform);
         }
@@ -914,6 +922,34 @@ namespace Ginei
             lbl.alignment = TextAlignmentOptions.Center;
             lbl.fontSize = 18f;
             lbl.color = new Color(0.9f, 0.96f, 1f);
+            lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+        }
+
+        /// <summary>上官へ賄賂を送るボタン（私財から支出＝親愛↑だが露見すると逆効果）。</summary>
+        private void BuildBribeButton(Transform parent)
+        {
+            GameObject go = new GameObject("BribeSuperiorButton");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = 42f; le.preferredHeight = 42f;
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.40f, 0.30f, 0.16f, 1f); // 賄賂＝黄土色（後ろ暗さ）
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(OnBribeSuperior);
+
+            GameObject lblGo = new GameObject("Label");
+            lblGo.transform.SetParent(go.transform, false);
+            RectTransform lrt = lblGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.sizeDelta = Vector2.zero; lrt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI lbl = lblGo.AddComponent<TextMeshProUGUI>();
+            lbl.text = "上官へ賄賂を送る（私財・露見注意）";
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.fontSize = 18f;
+            lbl.color = new Color(1f, 0.95f, 0.85f);
             lbl.raycastTarget = false;
             ApplyJapaneseFont(lbl);
         }

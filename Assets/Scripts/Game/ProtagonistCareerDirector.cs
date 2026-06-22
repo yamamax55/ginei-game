@@ -447,6 +447,53 @@ namespace Ginei
             return SubmitPetition("自艦隊の根拠地変更（前線寄りへ）の具申", key);
         }
 
+        /// <summary>
+        /// 上官へ賄賂を送る（私財から支出）。成功すれば上官の親愛が上がり覚えがめでたくなる（昇進/具申に有利）。
+        /// ただし露見（<see cref="BriberyRules.IsExposed"/>）すると逆に遺恨を買い不満が募る。数値は <see cref="BriberyRules"/> へ委譲。
+        /// </summary>
+        public bool BribeSuperior()
+        {
+            if (Protagonist == null) return false;
+            Person superior = DirectSuperior();
+            if (superior == null) { Push(NotificationSeverity.注意, "賄賂を送る上官がいません"); return false; }
+            var bp = BribeParams.Default;
+            int cost = BriberyRules.Cost(superior.rankTier, bp);
+            if (Protagonist.wealth < cost)
+            {
+                Push(NotificationSeverity.注意, $"私財が足りません（賄賂 {cost:#,0}／所持 {Protagonist.wealth:#,0}）");
+                return false;
+            }
+            Protagonist.wealth -= cost; // 私財から支出（実状態変更）
+
+            if (BriberyRules.IsExposed(Random.value, bp))
+            {
+                // 露見＝逆効果：上官の遺恨が募り、不満も増える。
+                if (Relations != null)
+                {
+                    float cur = RelationStrength(superior.id, Protagonist.id, RelationKind.遺恨);
+                    Relations.Set(superior.id, Protagonist.id, RelationKind.遺恨, BriberyRules.NewStrength(cur, BriberyRules.ResentmentGain(cost, bp)));
+                }
+                grievance += 10f;
+                Push(NotificationSeverity.警告, $"［賄賂露見］{superior.CharacterName} への贈賄が露見し心証を害した（私財 {cost:#,0} を失う）");
+                return false;
+            }
+
+            if (Relations != null)
+            {
+                float cur = RelationStrength(superior.id, Protagonist.id, RelationKind.親愛);
+                Relations.Set(superior.id, Protagonist.id, RelationKind.親愛, BriberyRules.NewStrength(cur, BriberyRules.FavorGain(cost, bp)));
+            }
+            Push(NotificationSeverity.情報, $"［賄賂］{superior.CharacterName} の覚えがめでたくなった（親愛↑・私財 {cost:#,0}・残 {Protagonist.wealth:#,0}）");
+            return true;
+        }
+
+        /// <summary>関係グラフの強度（無ければ0）。</summary>
+        private float RelationStrength(int fromId, int toId, RelationKind kind)
+        {
+            PersonRelation r = Relations != null ? Relations.Get(fromId, toId, kind) : null;
+            return r != null ? r.strength : 0f;
+        }
+
         /// <summary>建白を起案して上官（序列内）へ提出する共通処理。title/effectKey で具申内容を変える。</summary>
         public bool SubmitPetition(string title, string effectKey)
         {

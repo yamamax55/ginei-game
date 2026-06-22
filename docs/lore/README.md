@@ -36,6 +36,7 @@ tags: [index]
 - `回廊/` … 名前付き回廊（COR＝星系を結ぶ航路。死んだ回廊を開く設定の背骨）。`_テンプレート.md` を複製。総説は `設定/回廊.md`
 - `通貨/` … 各勢力の通貨（CUR＝`CurrencyState`／為替・物価・信認）。`_テンプレート.md` を複製
 - `役職/` … 各勢力の役職体系（官職・指揮系統＝`Office`/`GovernmentRegistry`/`RankSystem`）。`_テンプレート.md` を複製し勢力ごとに `◯◯の役職.md`
+- `軍編成/` … 各勢力の軍編成（梯団・order of battle＝`OrderOfBattle`/`MilitaryFormation`/`FleetRoster`/`FleetPool`）。勢力ごとに `◯◯の軍編成.md`
 - `星系/` … 星系・惑星・回廊などの地理
 - `会戦/` … 各会戦のシナリオ・経緯・結果
 - `旗艦/` … 名のある旗艦（1艦1ノート）。`_テンプレート.md` を複製して使う

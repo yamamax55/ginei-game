@@ -90,6 +90,7 @@ for fac in FAC_ORDER:
 - 建国会戦：[[{FOUNDING[fac]}]]
 - 接続回廊：{cor}
 - 役職体系：[[{fac}の役職]]
+- 軍編成：[[{fac}の軍編成]]
 
 ### 組織
 {oblock}

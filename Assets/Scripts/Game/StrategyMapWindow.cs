@@ -287,6 +287,10 @@ namespace Ginei
             MakeBarButton(cmd.transform, "執務机", 110f,
                 () => UnityEngine.Object.FindAnyObjectByType<ProtagonistDeskOverlay>()?.Toggle());
 
+            // 資産運用（プレイヤー勢力の財務ポートフォリオ＝資産配分/純資産/分散度）を上メニューへ。執務机の隣に置く。
+            MakeBarButton(cmd.transform, "資産運用", 110f,
+                () => UnityEngine.Object.FindAnyObjectByType<AssetManagementOverlay>()?.Toggle());
+
             // 上メニューの集約：25個のボタンを「観測」1個に畳み、タブ化したウィンドウ（内政/経済/軍事/政治/
             // システムの5タブ）から各オブザーバを開く。既存ウィンドウ・単一文字ショートカット（G/J/M/…）は不変。
             MakeBarButton(cmd.transform, "観測 ▾", 132f, ToggleObserverWindow);

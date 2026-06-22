@@ -56,6 +56,8 @@ tags: [catalog]
 
 - **戦術要塞の砲台シールド `FortressBatteryRules`／`FortressBatteryParams`（#76/#77・Battle シーンの固定拠点・Core純ロジック・test-first）**：イゼルローン型の固定拠点を「動かない艦隊」として実装する戦術側の純ロジック。`CoreDamageMultiplier(active,total[,params])`＝稼働砲台比に応じたコア被ダメ倍率（全砲台稼働で既定0.25倍＝固い／稼働比 exposedTurretRatio=0.3 以下でシールド消失＝等倍。段階攻略＝砲台を削るほどコアが脆くなる）／`IsSilenced(active)`＝全砲台沈黙＝制圧（攻略のもう一つの達成条件）／`TurretAngleDeg(index,count)`＝外周砲台の等間隔配置角／`InFiringBand(dist,min,max)`＝主砲の射界帯（最小射程未満＝懐＝撃てない・#77）。Game配線＝`FortressUnit`（IShipTarget コア）／`FortressTurret`（外周砲台）／`FortressMainCannon`（#77 主砲）が消費。**回廊の戦略要塞 `FortressRules`/`Fortress`（守備隊/シールド/難攻不落・#40）とは別系統（名前衝突回避でこちらは Battery 接尾辞）**。`FortressBatteryRulesTests`(EditMode/TestHarness・10本) が被ダメ倍率の境界/中点/単調性・0除算安全・沈黙・配置角・射界帯を固定。
 
+- **車懸かり陣形＋軍神専用ゲート `FormationAccessRules`（#軍神・Core純ロジック・test-first）**：上杉謙信型の旋回突撃陣形「車懸かり」を `Formation` enum 末尾に追加（後方互換でインデックス維持）。`FormationTraitRules.TraitOf(車懸かり)`＝攻撃1.30/被ダメ1.05/機動1.30（全陣形中もっとも攻撃・機動が高く・やや脆い）。使用可否は `FormationAccessRules`＝`IsTranscendentOnly(Formation)`(車懸かりのみ true)／`CanUse(Formation, isTranscendent)`(軍神専用陣形は `AdmiralData.isTranscendent` のみ可・他陣形は誰でも可)＝軍神専用ゲートの単一窓口。Game配線＝`FleetCommander.ChangeFormation`（艦隊ごとに `FleetStrength.admiralData.isTranscendent` で判定し非軍神は弾く＋通知）／`CommandMenu.FormationItems`（選択に軍神がいる時だけメニューに出す）／`FormationDoctrineRules.RecommendFormation`（得意陣形が車懸かりでも非軍神なら採用せず紡錘陣へ）／`Squadron.ComputeWheel`（渦巻き＝複数の腕が螺旋を描く配置）。`FormationAccessRulesTests`＋`FormationTraitTests`(車懸かりの特性・最強性)＋`BattleAiRulesTests`(ドクトリンの軍神ゲート)が固定。
+
 ## 関連
 - [[components-catalog]] — Game層コンポーネントの索引（姉妹カタログ）
 - [[core-orphan-audit]] — 量産Coreの未配線棚卸し

@@ -968,6 +968,7 @@ namespace Ginei
                 case Formation.円陣:   return ComputeCircle(n);
                 case Formation.横陣:   return ComputeLine(n);
                 case Formation.方陣:   return ComputeSquare(n);
+                case Formation.車懸かり: return ComputeWheel(n);
                 case Formation.紡錘陣:
                 default:               return ComputeSpindle(n);
             }
@@ -1062,6 +1063,34 @@ namespace Ginei
                 }
                 placed += c;
                 ring++;
+            }
+            return slots;
+        }
+
+        /// <summary>
+        /// 車懸かり：旗艦中心の渦巻き（風車）。複数の腕が外へ螺旋を描き、絶え間ない旋回突撃を表す（軍神専用）。
+        /// </summary>
+        private List<Vector2> ComputeWheel(int n)
+        {
+            var slots = new List<Vector2>(n);
+            if (n <= 0) return slots;
+
+            int arms = (n >= 24) ? 4 : (n >= 12 ? 3 : 2); // 渦の腕数
+            int perArm = Mathf.CeilToInt((float)n / arms);
+            const float twistPerStep = 28f;  // 1隻ごとに腕をひねる角度（螺旋の巻き）
+            int idx = 0;
+            for (int a = 0; a < arms && idx < n; a++)
+            {
+                float armBaseDeg = a * (360f / arms); // 腕の起点角
+                int c = Mathf.Min(perArm, n - idx);
+                for (int k = 0; k < c; k++)
+                {
+                    float radius = (k + 1) * spacing;
+                    float angleDeg = armBaseDeg + k * twistPerStep; // 外側ほどひねる＝渦巻き
+                    float rad = angleDeg * Mathf.Deg2Rad;
+                    slots.Add(new Vector2(Mathf.Cos(rad) * radius, Mathf.Sin(rad) * radius));
+                    idx++;
+                }
             }
             return slots;
         }

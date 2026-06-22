@@ -841,15 +841,30 @@ namespace Ginei
         public void ChangeFormation(int formationIdx)
         {
             Formation f = (Formation)formationIdx;
-            bool anyBlocked = false; // 指揮スキルポイント不足で変更できなかった艦隊があるか
+            bool anyBlocked = false;        // 指揮スキルポイント不足で変更できなかった艦隊があるか
+            bool anyAccessDenied = false;   // 軍神専用陣形を非軍神に指示した艦隊があるか
             foreach (var selectable in selectedFleets)
             {
                 if (selectable == null) continue;
                 Squadron sq = selectable.GetComponent<Squadron>();
                 if (sq == null) continue;
+                // 軍神専用陣形（車懸かり）は軍神の提督のみ（#軍神）。
+                if (FormationAccessRules.IsTranscendentOnly(f))
+                {
+                    FleetStrength fs = selectable.GetComponent<FleetStrength>();
+                    bool transcendent = fs != null && fs.admiralData != null && fs.admiralData.isTranscendent;
+                    if (!FormationAccessRules.CanUse(f, transcendent))
+                    {
+                        anyAccessDenied = true;
+                        continue;
+                    }
+                }
                 // 陣形変更は指揮スキルポイントを消費（#陣形コスト）。戦闘中はコストが重く、多用できない。
                 if (!sq.TryChangeFormation(f)) anyBlocked = true;
             }
+            if (anyAccessDenied)
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    "車懸かりは軍神のみが布陣できる陣形だ");
             if (anyBlocked)
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
                     "指揮スキルポイント不足で陣形を変更できない隊があった（戦闘中はコストが重い）");

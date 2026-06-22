@@ -22,7 +22,9 @@ namespace Ginei
             float ratio = Mathf.Max(0f, ownStrength) / Mathf.Max(1f, enemyStrength);
             if (ratio <= OutnumberedRatio) return Formation.方陣;
             if (ratio >= OutnumberingRatio) return Formation.鶴翼陣;
-            if (admiral != null && admiral.hasPreferredFormation) return admiral.preferredFormation;
+            if (admiral != null && admiral.hasPreferredFormation
+                && FormationAccessRules.CanUse(admiral.preferredFormation, admiral.isTranscendent))
+                return admiral.preferredFormation;
             return Formation.紡錘陣;
         }
     }

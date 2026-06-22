@@ -15,6 +15,22 @@ namespace Ginei.Tests
             Assert.AreEqual(1.15f, FormationTraitRules.DamageTakenFactor(Formation.鶴翼陣), 1e-4f); // 中央薄く脆い
             Assert.AreEqual(1.15f, FormationTraitRules.MobilityFactor(Formation.紡錘陣), 1e-4f); // 機動高
             Assert.AreEqual(0.80f, FormationTraitRules.MobilityFactor(Formation.方陣), 1e-4f);  // 鈍重
+            // 車懸かり（軍神専用・旋回突撃）＝最大級の攻撃/機動・やや脆い
+            Assert.AreEqual(1.30f, FormationTraitRules.AttackFactor(Formation.車懸かり), 1e-4f);
+            Assert.AreEqual(1.05f, FormationTraitRules.DamageTakenFactor(Formation.車懸かり), 1e-4f);
+            Assert.AreEqual(1.30f, FormationTraitRules.MobilityFactor(Formation.車懸かり), 1e-4f);
+        }
+
+        [Test]
+        public void Kurumagakari_Strongest_Attack_And_Mobility()
+        {
+            // 車懸かりは全陣形中もっとも攻撃・機動が高い（軍神の専用陣形）
+            foreach (Formation f in System.Enum.GetValues(typeof(Formation)))
+            {
+                if (f == Formation.車懸かり) continue;
+                Assert.GreaterOrEqual(FormationTraitRules.AttackFactor(Formation.車懸かり), FormationTraitRules.AttackFactor(f));
+                Assert.GreaterOrEqual(FormationTraitRules.MobilityFactor(Formation.車懸かり), FormationTraitRules.MobilityFactor(f));
+            }
         }
 
         [Test]

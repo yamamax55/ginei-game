@@ -373,15 +373,33 @@ namespace Ginei
         private List<(string, UnityEngine.Events.UnityAction)> FormationItems(bool corps)
         {
             var items = new List<(string, UnityEngine.Events.UnityAction)>();
-            string[] names = System.Enum.GetNames(typeof(Formation));
-            for (int i = 0; i < names.Length; i++)
+            bool anyTranscendent = SelectionHasTranscendent();
+            var values = (Formation[])System.Enum.GetValues(typeof(Formation));
+            for (int i = 0; i < values.Length; i++)
             {
-                int idx = i; // クロージャ用にキャプチャ
-                items.Add((names[idx], () => ApplyFormation(idx, corps)));
+                Formation f = values[i];
+                // 軍神専用陣形（車懸かり）は、選択中に軍神がいる時だけメニューに出す。
+                if (FormationAccessRules.IsTranscendentOnly(f) && !anyTranscendent) continue;
+                int idx = (int)f; // クロージャ用にキャプチャ
+                items.Add((f.ToString(), () => ApplyFormation(idx, corps)));
             }
             if (corps)
                 items.Add(("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); }));
             return items;
+        }
+
+        /// <summary>選択中の艦隊に軍神（限界突破型・車懸かり可）がいるか。</summary>
+        private bool SelectionHasTranscendent()
+        {
+            if (commander == null) return false;
+            for (int i = 0; i < commander.SelectedFleets.Count; i++)
+            {
+                Selectable sel = commander.SelectedFleets[i];
+                if (sel == null) continue;
+                FleetStrength fs = sel.GetComponent<FleetStrength>();
+                if (fs != null && fs.admiralData != null && fs.admiralData.isTranscendent) return true;
+            }
+            return false;
         }
 
         /// <summary>陣形（艦隊／軍団）を適用してメニューを閉じる。</summary>

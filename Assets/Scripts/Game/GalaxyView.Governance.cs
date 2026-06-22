@@ -290,6 +290,26 @@ namespace Ginei
                 for (int b = 0; b < bridges; b++)
                 { int a = ally[rng.Next(ally.Count)]; Link(a, Nearest(a, imp), CorridorType.要衝); }
             }
+
+            // #40 戦略ノード：前線の要衝回廊を1本だけ要塞で封鎖する（帝国側）。同盟は撃破/制圧しないと通れない。
+            PlaceDemoFortress();
+        }
+
+        /// <summary>#40 デモ：敵対勢力をつなぐ前線の要衝回廊を1本だけ要塞で封鎖する（要塞所有は帝国側）。</summary>
+        private void PlaceDemoFortress()
+        {
+            if (map == null || map.corridors == null) return;
+            for (int i = 0; i < map.corridors.Count; i++)
+            {
+                Corridor c = map.corridors[i];
+                if (c == null || c.type != CorridorType.要衝 || c.fortress != null) continue;
+                StarSystem a = map.GetSystem(c.aId), b = map.GetSystem(c.bId);
+                if (a == null || b == null) continue;
+                if (!FactionRelations.IsHostile(null, a.owner, null, b.owner)) continue; // 前線（敵対）のみ
+                Faction owner = a.owner == Faction.帝国 ? a.owner : b.owner;             // 帝国側を要塞所有者に
+                c.fortress = new Fortress(1200f, 740f, 1f, true) { owner = owner, fortressName = "イゼルローン要塞" };
+                return; // デモは1つだけ
+            }
         }
 
         /// <summary>

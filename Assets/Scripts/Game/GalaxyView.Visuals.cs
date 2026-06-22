@@ -144,7 +144,9 @@ namespace Ginei
             {
                 Corridor c = map.corridors[i];
                 Color col;
+                bool fortressActive = c.fortress != null && FortressRules.BlocksPassage(c.fortress);
                 if (IsEngagedCorridor(c)) col = Color.Lerp(combatColor, Color.white, pulse * 0.6f);
+                else if (fortressActive) col = Color.Lerp(fortressBlockadeColor, Color.white, pulse * 0.4f); // #40 要塞封鎖
                 else col = StrategyRules.IsFtlBlocked(map, c) ? frontlineColor
                     : (c.type == CorridorType.要衝 ? chokeColor : corridorColor);
                 corridorLines[i].startColor = corridorLines[i].endColor = col;

@@ -405,6 +405,7 @@ if (Time.time >= nextSearchTime)
                         Vector2 dest = SteerAroundBlackHoles(pos, targetEnemy.transform.position);
                         if (avoidEnemyZoc)
                             dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
+                        dest = SteerAroundFortressFire(pos, dest); // #641：チャージ中の敵要塞主砲の射線へ漫然と突っ込まない
                         dest = ApplyCorpsLeash(dest); // 軍団隷下は持ち場から深追いしない（#持ち場）
                         dest = ApplyOvertakeLimit(dest); // 前方の味方を追い越さない（#隊列整流）
                         movement.SetDestination(dest);
@@ -563,6 +564,7 @@ if (Time.time >= nextSearchTime)
                 Vector2 dest = SteerAroundBlackHoles(pos, flankTarget);
                 if (avoidEnemyZoc)
                     dest = ZoneOfControl.SteerAround(strength, pos, dest, zocAvoidStrength, targetEnemy);
+                dest = SteerAroundFortressFire(pos, dest); // #641：回り込み軌道でも要塞主砲の射線を避ける
                 dest = ApplyCorpsLeash(dest);
                 movement.SetDestination(dest);
                 return true;
@@ -719,6 +721,32 @@ if (Time.time >= nextSearchTime)
 
             Vector2 steeredDir = (dir + steer).normalized;
             return pos + steeredDir * targetDist;
+        }
+
+        /// <summary>
+        /// 進路上で「チャージ中の敵要塞主砲（#77 トールハンマー型）」の射線（危険域）へ漫然と突っ込まないよう、
+        /// 目標を横へ散開させる（#641 EX4-3 ハメ防止）。チャージ中だけ射線が固定され予告線が出る＝その窓で
+        /// 逸れる＝プレイヤーと同じ回避リズム。複数門あれば順に逸らす。味方要塞は避けない。幾何は
+        /// <see cref="FortressThreatRules"/>（Core・test-first）に委譲＝移動本体は変えずAI側で目標補正
+        /// （ブラックホール/ZOC回避と同方式）。
+        /// </summary>
+        private Vector2 SteerAroundFortressFire(Vector2 pos, Vector2 desiredTarget)
+        {
+            IReadOnlyList<FortressUnit> forts = FortressRegistry.All;
+            if (forts == null || forts.Count == 0 || strength == null) return desiredTarget;
+
+            Vector2 dest = desiredTarget;
+            for (int i = 0; i < forts.Count; i++)
+            {
+                FortressUnit f = forts[i];
+                if (f == null || !f.IsAlive) continue;
+                if (!FactionRelations.IsHostile(strength.factionData, strength.faction, f)) continue; // 味方/中立要塞は避けない
+                FortressMainCannon cannon = f.GetComponent<FortressMainCannon>();
+                if (cannon == null || !cannon.IsCharging) continue; // チャージ中だけ射線が確定＝回避できる窓
+                dest = FortressThreatRules.SteerClear(pos, dest, cannon.Origin, cannon.AimDirection,
+                    cannon.MinRange, cannon.MaxRange, cannon.HalfWidth);
+            }
+            return dest;
         }
     }
 }

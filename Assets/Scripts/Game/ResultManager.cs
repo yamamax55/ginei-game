@@ -60,6 +60,11 @@ namespace Ginei
                 }
 
                 sb.Append($"\n勝因: {reason}\n殊勲提督(MVP): {mvp}");
+
+                // 要塞会戦（#78）：要塞の損害（残存砲台数・コア残存 or 陥落）を任意表示。
+                if (!string.IsNullOrEmpty(settings.fortressSummary))
+                    sb.Append($"\n\n【要塞】\n{settings.fortressSummary}");
+
                 statsText.text = sb.ToString();
             }
         }

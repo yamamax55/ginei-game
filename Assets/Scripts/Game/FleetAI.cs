@@ -227,6 +227,35 @@ if (Time.time >= nextSearchTime)
         }
 
         /// <summary>
+        /// 敵旗艦が居ないとき、敵対する最寄りの要塞（#76-78）へ寄せて攻城する。自分の射程付近で止まり要塞へ正対する
+        /// （発砲は FleetWeapon が射界内で自動的に行う）。敵対要塞が無ければ false（＝従来どおり停止）。
+        /// </summary>
+        private bool TryApproachFortress(Vector2 pos)
+        {
+            if (strength == null || movement == null) return false;
+            IReadOnlyList<FortressUnit> all = FortressRegistry.All;
+            FortressUnit nearest = null;
+            float min = float.MaxValue;
+            for (int i = 0; i < all.Count; i++)
+            {
+                FortressUnit f = all[i];
+                if (f == null || !f.IsAlive) continue;
+                if (!FactionRelations.IsHostile(strength.factionData, strength.faction, f)) continue;
+                float d = Vector2.Distance(pos, f.transform.position);
+                if (d < min) { min = d; nearest = f; }
+            }
+            if (nearest == null) return false;
+
+            Vector2 fpos = nearest.transform.position;
+            float standoff = weaponArc != null ? weaponArc.range * 0.85f : 8f;
+            Vector2 dir = pos - fpos;
+            Vector2 dest = dir.sqrMagnitude > 1e-4f ? fpos + dir.normalized * standoff : fpos + Vector2.up * standoff;
+            movement.FaceTarget(fpos);
+            movement.SetDestination(dest);
+            return true;
+        }
+
+        /// <summary>
         /// 戦況（自/敵の兵力比・敗走）と提督の得意陣形から有利な陣形へ自動切替（AI艦隊のみ・#会戦改善 #5）。
         /// 判断は <see cref="FormationDoctrineRules"/> へ委譲し、結果を自部隊の陣形へ反映する。
         /// </summary>
@@ -330,6 +359,8 @@ if (Time.time >= nextSearchTime)
 
             if (targetEnemy == null && currentState != AIState.撤退)
             {
+                // 敵旗艦が居なくても、敵対要塞があれば攻城へ前進する（#78 要塞防衛戦＝AI攻撃側が要塞へ寄せる）。
+                if (TryApproachFortress(pos)) return;
                 // 敵がいない場合は停止
                 return;
             }

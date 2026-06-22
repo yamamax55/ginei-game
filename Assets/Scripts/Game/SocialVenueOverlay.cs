@@ -14,6 +14,8 @@ namespace Ginei
     /// 出席者（<see cref="ContentDatabase.AllAdmirals"/>＝シナリオ提督＋<see cref="GalaxyView.CommanderRoster"/>＝戦略の武官）を
     /// 異名・勢力・階級・能力・所持特技（<see cref="TalentCatalog"/>）つきで一覧する。人事（<see cref="PersonObserverOverlay"/>）が
     /// 職分・決裁履歴の台帳なのに対し、こちらは「誰が居て何が得意か」の顔見せ＝特技に焦点。観測専用＝状態は変えない。
+    /// <b>カンタベリー物語のエッセンス</b>：宿の主人（Host）が一同に物語を促し、各出席者は己の得意素養に応じた
+    /// 一席（騎士の物語／学僧の物語…）を語る——という枠物語を <see cref="CanterburyTaleRules"/> で添える（決定論フレーバー）。
     /// Strategy/Battle へ自動生成（`HelpOverlay`/`PersonObserverOverlay` と同型）。
     /// </summary>
     public class SocialVenueOverlay : MonoBehaviour
@@ -81,6 +83,11 @@ namespace Ginei
             var gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
             bool any = false;
 
+            // カンタベリー物語の枠：宿の主人が一同に「各々ひとつ語りを」と促す（決定論＝出席者数で安定）。
+            int hostSeed = (gv != null && gv.CommanderRoster != null ? gv.CommanderRoster.Count : 0)
+                         + (ContentDatabase.AllAdmirals()?.Count ?? 0);
+            sb.Append("\n<color=#c9b3e6>").Append(CanterburyTaleRules.HostRemark(hostSeed)).Append("</color>\n");
+
             // 戦略の武官ロスター（在席の人物）。
             if (gv != null && gv.CommanderRoster != null && gv.CommanderRoster.Count > 0)
             {
@@ -116,6 +123,7 @@ namespace Ginei
             string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
             sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　<color=#8aa0b0>{p.serviceStatus}</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 攻撃 {p.attack} ／ 防御 {p.defense} ／ 機動 {p.mobility}\n");
+            AppendTale(sb, Dominant(p.attack, p.intelligence, p.leadership, p.operation), p.name);
         }
 
         private void AppendAdmiral(StringBuilder sb, AdmiralData a)
@@ -127,6 +135,33 @@ namespace Ginei
             sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{a.EpithetName}</color>　<color=#9fb0c0>[{a.faction}]</color>{proto}\n");
             sb.Append($"  統率 {a.EffectiveLeadership} ／ 攻撃 {a.EffectiveAttack} ／ 防御 {a.EffectiveDefense} ／ 機動 {a.EffectiveMobility}\n");
             AppendTalents(sb, a);
+            AppendTale(sb, Dominant(a.EffectiveAttack, a.EffectiveIntelligence, a.EffectiveLeadership, a.EffectiveOperation), a.EpithetName);
+        }
+
+        /// <summary>その人物の得意素養に応じた一席（カンタベリー物語）。名から決定論で同じ語りになる。</summary>
+        private void AppendTale(StringBuilder sb, TalentAspect dominant, string nameForSeed)
+        {
+            sb.Append("  <color=#c9b3e6>語り:</color> <color=#b9c2cc>")
+              .Append(CanterburyTaleRules.Tale(dominant, SeedOf(nameForSeed)))
+              .Append("</color>\n");
+        }
+
+        /// <summary>4素養のうち最も高いものを得意素養とする（同点は武勇＞知略＞統率＞政務）。</summary>
+        private static TalentAspect Dominant(int valor, int cunning, int command, int govern)
+        {
+            TalentAspect best = TalentAspect.武勇; int bestV = valor;
+            if (cunning > bestV) { best = TalentAspect.知略; bestV = cunning; }
+            if (command > bestV) { best = TalentAspect.統率; bestV = command; }
+            if (govern > bestV) { best = TalentAspect.政務; }
+            return best;
+        }
+
+        /// <summary>名から決定論のシード（GetHashCode は実行間で不安定なので使わない＝多項式ハッシュ）。</summary>
+        private static int SeedOf(string s)
+        {
+            int h = 17;
+            if (s != null) for (int i = 0; i < s.Length; i++) h = h * 31 + s[i];
+            return h;
         }
 
         /// <summary>提督の所持特技を名称・格つきで横並び表示（社交場の主役＝得意の披露）。無ければ出さない。</summary>

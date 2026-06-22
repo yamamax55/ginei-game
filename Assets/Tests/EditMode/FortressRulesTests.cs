@@ -79,6 +79,8 @@ namespace Ginei.Tests
             var f = new Fortress(1000f, 50f, 1f) { strategicValue = 6000f };
             Assert.AreEqual(3000, FortressRules.CaptureReward(f));          // 既定 0.5
             Assert.AreEqual(1800, FortressRules.CaptureReward(f, 0.3f));    // 任意割合
+            // 兵糧攻めの開城は焦土化で接収が少ない（0.25）＝力攻めの半分。
+            Assert.AreEqual(1500, FortressRules.CaptureReward(f, FortressRules.SiegeCaptureRewardFraction));
         }
 
         [Test]

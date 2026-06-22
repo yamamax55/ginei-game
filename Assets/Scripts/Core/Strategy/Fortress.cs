@@ -134,6 +134,8 @@ namespace Ginei
 
         /// <summary>占領で接収する蓄えの既定割合（拠点価値の半分が新所有者の手に入る）。</summary>
         public const float DefaultCaptureRewardFraction = 0.5f;
+        /// <summary>兵糧攻めの開城で接収する割合（力攻めより少ない＝長期包囲で蓄えが枯れ焦土化するため）。</summary>
+        public const float SiegeCaptureRewardFraction = 0.25f;
         /// <summary>居住要塞が1日あたり供給する艦艇（拠点価値あたりの建艦寄与）の既定レート。</summary>
         public const float DefaultProductionRatePerValue = 0.01f;
 

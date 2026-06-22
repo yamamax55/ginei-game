@@ -1068,6 +1068,7 @@ namespace Ginei
 
                 int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
                 bool besieged = false;
+                Faction besieger = c.fortress.owner; // 開城時に接収する攻囲側（先頭の封鎖艦隊）
                 for (int fi = 0; fi < reg.fleets.Count; fi++)
                 {
                     StrategicFleet f = reg.fleets[fi];
@@ -1075,7 +1076,7 @@ namespace Ginei
                     if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) continue;
                     if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
                     if (!StrategyRules.IsFortressBlocked(c, f.faction)) continue; // 要塞に敵対＝攻囲側
-                    besieged = true; break;
+                    besieged = true; besieger = f.faction; break;
                 }
 
                 if (!besieged)
@@ -1107,8 +1108,14 @@ namespace Ginei
                         if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
                         f.engaged = false;
                     }
+                    // 兵糧攻めで落とした要塞は攻囲側が接収する（#765）。長期包囲で蓄えが枯れ焦土化＝接収は力攻めより少ない。
+                    Faction fallen = c.fortress.owner;
+                    int reward = FortressRules.CaptureReward(c.fortress, FortressRules.SiegeCaptureRewardFraction);
+                    c.fortress.owner = besieger;
+                    if (reward > 0) FleetPool.Add(besieger, reward);
                     NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
-                        $"{c.fortress.fortressName}（{c.fortress.owner}）が兵糧攻めで開城した（回廊が開通）");
+                        reward > 0 ? $"{c.fortress.fortressName}（{fallen}）が兵糧攻めで開城＝{besieger} が接収（艦艇+{reward}・回廊開通）"
+                                   : $"{c.fortress.fortressName}（{fallen}）が兵糧攻めで開城＝{besieger} が接収（回廊が開通）");
                 }
             }
         }

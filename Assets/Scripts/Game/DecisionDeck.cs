@@ -238,12 +238,14 @@ namespace Ginei
                 Destroy(c.gameObject);
             }
 
-            // 表示するカード（最小化・解決済を除く＝提示中/新着）。重大→経過順で優先。
+            // 表示するカード（最小化・解決済を除く＝提示中/新着）＋「自分の決裁箱宛て」だけに絞る。重大→経過順で優先。
+            BoxKind playerBox = DecisionRoutingRules.PlayerDecisionBox();
             var visible = new List<PendingDecision>();
             for (int i = 0; i < Queue.items.Count; i++)
             {
                 var d = Queue.items[i];
                 if (d == null) continue;
+                if (!DecisionRoutingRules.IsForPlayer(d.boxRouted, d.addresseeBox, playerBox)) continue; // 他箱宛ては出さない
                 if (d.status == DecisionStatus.新着 || d.status == DecisionStatus.提示中)
                     visible.Add(d);
             }
@@ -531,6 +533,7 @@ namespace Ginei
                 body: "辺境の議員から減税の建白が上がっている。重税に民が苦しんでおり、民心の離反が懸念される。" +
                       "ただし国庫はすでに細っており、減税は歳入を削る。財務官僚は強く難色を示している。");
             tax.choices.Add("裁可する"); tax.choices.Add("見送る（現状維持）");
+            tax.addresseeBox = BoxKind.政治家; tax.boxRouted = true; // 政治家箱宛て＝元首（国王箱）の決裁デスクには出ない
 
             var treaty = new PendingDecision(9002, "辺境星系との通商条約", DecisionSeverity.重要,
                 DecisionSource.イベント, "treaty.sign", defaultChoiceIndex: 1,

@@ -45,6 +45,12 @@ namespace Ginei
         /// <summary>決まった選択肢（-1=未決）。人 or AI が確定する。</summary>
         public int chosenIndex = -1;
 
+        /// <summary>稟議の宛先の箱（<see cref="boxRouted"/> が true のときだけ意味を持つ）。決裁デスクの「自分の箱宛てのみ」絞り込みに使う。</summary>
+        public BoxKind addresseeBox = BoxKind.国王;
+
+        /// <summary>箱宛ての稟議か（true＝<see cref="addresseeBox"/> で絞り込み対象／false＝箱に紐づかない一般決裁＝常に表示）。</summary>
+        public bool boxRouted;
+
         public PendingDecision() { }
 
         public PendingDecision(int id, string title, DecisionSeverity severity,

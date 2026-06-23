@@ -108,6 +108,7 @@ namespace Ginei
             RingiPipeline.SendToDecision(pet);
             var pd = new PendingDecision(nextDecisionId++, $"{sample.title}（{sample.box}箱）", DecisionSeverity.通常,
                 DecisionSource.建白結果, pet.effectKey, defaultChoiceIndex: 1, body: sample.body);
+            pd.addresseeBox = sample.box; pd.boxRouted = true; // 箱宛て＝決裁デスクは「自分の箱」だけに絞る
             pd.choices.Add("裁可する");
             pd.choices.Add("見送る（現状維持）");
             DecisionDeck.Enqueue(pd);

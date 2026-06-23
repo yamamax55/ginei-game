@@ -1,0 +1,117 @@
+---
+type: design
+tags: [design]
+---
+
+# ヒーロー会戦モード 設計（EPIC #HERO）
+
+> RTS を MOBA へ「切り替える」のではなく、**RTS/戦略の土台を維持したまま、会戦で自艦隊1体に集中操作する“ヒーロー没入モード”を載せる**統合EPIC。
+> MOBA の本質＝「1体の強いヒーローを操作する手触り」＋「時間と空間の駆け引き」。本作はこれを**すでに別レイヤーで持っている**（太閤立志伝V／軍人立志伝 TKO・軍神`isTranscendent`）か、**直近で取り込んだ**（LoL EPIC #2739）。本EPICは**それらの合流点**＝既存の Core 純ロジックを composing するだけで、捨てるものゼロ・足すだけ（additive）。
+
+---
+
+## 0. なぜ「切替」でなく「載せる」か
+
+| 全面MOBA転換のコスト | 本EPIC（載せる）の利得 |
+|---|---|
+| 艦隊指揮RTS核（複数艦隊選択・陣形〔車懸かり/石兵八陣〕・Lanchester・旗艦＋配下艦）と巨大戦略シム（Core約1,100本）を**破棄** | それらを**土台のまま活かす**。ヒーローは「その世界の中の1人」 |
+| 自走する世界（観測する箱庭・roadmap §3）の identity を喪失 | identity を保ったまま**没入の手触り**を追加 |
+| 新コア設計のやり直し | 既存＋直近EPIC（SGT/GIR/LOL）の**配線のみ** |
+
+**結論**：MOBA がやりたいこと＝「1体のヒーローで時間と空間の駆け引きをする」は、**ジャンルを捨てずに会戦モードとして実現できる**。RTS全体指揮と同一盤面でシームレス切替する。
+
+---
+
+## 1. 既存資産の合流（HEROが composing するもの）
+
+| 既存/直近EPIC | ヒーロー会戦モードでの役割 |
+|---|---|
+| `ProtagonistRules`/`ProtagonistCareerRules`（TKO）・`isProtagonist` | 「ヒーロー」＝プレイヤーの主人公提督/旗艦 |
+| `ActiveCommandRules`#2175／号令 SGT-2 | ヒーローのアビリティ（スキルスロット） |
+| 采配ゲージ SGT-1 | アビリティの資源（MOBAのマナ/CD相当） |
+| スケーリング曲線 LOL-2／覚醒 GIR-2 | 会戦内レベリング＝パワースパイク |
+| 指揮影響圏 GIR-1 | 残戦線（友軍ライン）の自律運用＋ヒーロー周囲の強化 |
+| 中立目標バフ LOL-1 | 「取りに行く」会戦目標 |
+| 賞金首/追い上げ LOL-3 | ヒーローが狙われる緊張・殊勲の代償 |
+| 捨てがまり#史実／退避（既存） | ヒーローの被撃破・退避の帰結 |
+| `FleetCommander.SelectedFleets`（選択の単一窓口） | RTS指揮⇄ヒーロー没入の切替の土台（崩さない） |
+
+> つまり HERO の新規 Core は**ごく薄い**（モード状態/適格判定・会戦内XP曲線・被撃破の帰結）。残りは Game の配線（カメラ/操作集中・UI・モード切替）。
+
+---
+
+## 2. 取り入れる要素（優先度・接続先）
+
+### ★★★ 最優先（モードの背骨）
+
+#### HERO モード基盤（ヒーロー指定・モードのオン/オフ）
+- プレイヤーの主人公提督/旗艦を「ヒーロー」に指定し、会戦でカメラ/操作をそこへ集中。RTS全体指揮との切替トグル。
+- 接続：新 `HeroBattleModeRules`（Core・適格判定/state＝誰がヒーローたり得るか〔`ProtagonistRules`/`isProtagonist`〕・モード可否）。Game がカメラ/入力を配線。
+
+#### HERO 残戦線のAI委任（ヒーローに集中するための自律ライン）
+- ヒーロー以外の友軍は AI が自律運用（指揮影響圏 GIR-1 の圏内で強化）。プレイヤーは1体に専念できる。
+- 接続：既存 `FleetAI` ＋ GIR-1 `CommandAuraRules`。Game の自律度トグル（プレイヤー操作艦＝ヒーローのみ手動）。
+
+#### HERO RTS ⇄ ヒーロー没入のシームレス切替
+- 同一盤面で「全体指揮（RTS）」と「ヒーロー没入」をワンキー切替。`FleetCommander` の選択窓口・Esc優先順位チェーンを**崩さない**。
+- 接続：`FleetCommander`（選択の単一窓口）・`GameInput`（新 `GameAction`）・Esc チェーン規約遵守。
+
+### ★★ 高（手触り）
+
+#### HERO アビリティバー（戦法/号令を采配ゲージのスキルスロットへ）
+- ヒーローの戦法（`ActiveCommandRules`）・号令（SGT-2）を MOBA風ホットバーに割付、采配ゲージ（SGT-1）で発動。
+- 接続：Game UI（ホットバー）＝既存窓口を呼ぶだけ（数式は二重実装しない）。
+
+#### HERO 会戦内レベリング（スケーリング曲線＋覚醒のパワースパイク）
+- 撃破/目標確保で会戦内XPを獲得→レベル→スケーリング曲線（LOL-2）/覚醒（GIR-2）で実効戦力が伸びる＝「自分の山で仕掛ける」。
+- 接続：新 `HeroProgressionRules`（Core・会戦内XP→レベル→既存曲線へ橋渡し）。test-first。
+
+### ★ 中（緊張・目標）
+
+#### HERO 被撃破・退避・賞金首（狙われる緊張）
+- ヒーローは殊勲で賞金首（LOL-3）化＝敵AIの優先目標。被撃破は退避（捨てがまり既存）かモード終了の帰結。
+- 接続：新 `HeroStakesRules`（Core・退避/被撃破の帰結）× LOL-3 `MomentumBountyRules` × 既存捨てがまり。test-first。
+
+#### HERO 会戦目標の確保（中立目標バフを取りに行く）
+- 中立目標（LOL-1）を確保しに行く動機＝ヒーローの行き先を作る。
+- 接続：LOL-1 `NeutralObjectiveRules`（接続のみ）。
+
+### ❌ 不採用（ジャンルを壊すもの）
+
+| 不採用 | 理由 |
+|---|---|
+| RTS全体指揮の廃止 | 本作の核＝戦略シム＋艦隊戦を捨てない。切替で**両立** |
+| PvP/リアルタイム対人アリーナ | 「自走する世界の箱庭」identity（roadmap §3）と矛盾 |
+| 単一ヒーローのみの新コア | 既存（艦隊/旗艦＋配下艦/戦略）を作り直さない＝composing で実現 |
+| 課金/ランク/スキン/マッチング | 性質が異なる |
+
+---
+
+## 3. EPIC #HERO の子Issue（着手順）
+
+> 新規 Core はごく薄い（モード状態・会戦内XP・被撃破帰結）＝test-first。残りは Game 配線（Unity 目視検証）。既存＋SGT/GIR/LOL は**接続のみ・重複新設しない**。
+
+> **EPIC = #2747**。GitHub issue 起票済み（#2748〜#2755）。
+
+| # | issue | タイトル | 接続先 / 主眼 |
+|---|---|---|---|
+| **HERO-1** | #2748 | モード基盤（ヒーロー指定・モードのオン/オフ・適格判定） | 新 `HeroBattleModeRules`（Core・state/適格）＋Game カメラ/入力 |
+| **HERO-2** | #2749 | RTS ⇄ ヒーロー没入のシームレス切替（同一盤面・FleetCommander両立） | `FleetCommander`（選択窓口）×`GameInput`×Esc チェーン規約 |
+| **HERO-3** | #2750 | 残戦線のAI委任（ヒーロー以外は自律・指揮影響圏で強化） | `FleetAI`×`CommandAuraRules`(GIR-1)。Game 自律度トグル |
+| **HERO-4** | #2752 | アビリティバー（戦法/号令を采配ゲージのスキルスロットへ） | `ActiveCommandRules`#2175／号令SGT-2／采配ゲージSGT-1（Game UI・既存窓口） |
+| **HERO-5** | #2753 | 会戦内レベリング（スケーリング曲線＋覚醒のパワースパイク） | 新 `HeroProgressionRules`（Core）×`ScalingCurveRules`(LOL-2)×`AwakeningRules`(GIR-2) |
+| **HERO-6** | #2754 | 被撃破・退避・賞金首（狙われる緊張） | 新 `HeroStakesRules`（Core）×`MomentumBountyRules`(LOL-3)×既存捨てがまり |
+| **HERO-7** | #2755 | 会戦目標の確保（中立目標バフを取りに行く動機） | `NeutralObjectiveRules`(LOL-1)（接続のみ） |
+
+### 推奨着手順
+`HERO-1 → HERO-2 → HERO-3`（モード基盤→切替→AI委任＝「1体に集中できる」骨格）→ `HERO-4 → HERO-5`（アビリティ→レベリング＝MOBAの手触り）→ `HERO-6 → HERO-7`（緊張と目標）。
+
+> 依存：SGT-1/SGT-2（采配/号令）・LOL-1/LOL-2/LOL-3（目標/曲線/賞金首）・GIR-1/GIR-2（指揮影響圏/覚醒）。これらが揃うほど HERO は厚くなるが、HERO-1〜3 は既存だけでも成立する。
+> additive・タイクン化回避（高位の決断→エンジン→創発）・PERF#1117。Game層は Unity 目視検証要。
+
+## 関連
+- [[taikou-risshiden-reference-design]] — 一人称の軍人立志伝（ヒーロー＝その世界の1人）
+- [[league-of-legends-reference-design]] — 時間と空間の駆け引き（HEROが composing する素材）
+- [[gihren-no-yabou-reference-design]] — 指揮影響圏/覚醒
+- [[sangokushi-taisen-reference-design]] — 采配ゲージ/号令
+- [[roadmap]] — §5-2 に本EPICを追記

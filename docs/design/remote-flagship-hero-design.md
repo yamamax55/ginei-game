@@ -106,6 +106,12 @@ MOBA のリスポーンを直訳すると「沈んだ旗艦が湧く」＝艦隊
 ## 7. 規律
 - **lore**：蘇生でなく遠隔操作＋予備旗艦＋根拠地の命。 **タイクン回避**：ショップは数SKUに厳選。 **二重計上回避**：会戦限定のみ・永続は造船/R&D・人物能力は練度/覚醒。 **雪だるま**：再投入タイマー＋予備上限＋カウンター品＋賞金首(LOL-3)＋能力上限クランプ。 **PERF**：ヒーロー化はLODで抽象。 **合成は単一窓口**：`ModifierStack`/`CombatModifiers` に積む。
 
+## イシュー（EPIC #2747 配下に統合）
+- **HERO-8** #2760 — 遠隔操作旗艦＝リスポーン基盤（§0/§1/§1.1・`RemoteRedeployRules`・予備在庫＋補充）
+- **HERO-9** #2761 — 根拠地＝再投入アンカー＋敗北条件（§2・喪失で提督の撤退/死亡/捕縛）
+- **HERO-10** #2762 — 戦功ショップ＝会戦限定の換装（§3・`MeritShopRules`）
+- **HERO-11** #2763 — 階級投入コスト＋最終能力合成式（§4・`DeploymentCostRules`/`FlagshipEffectivePowerRules`）
+
 ## 関連
 - [[hero-battle-mode-design]] — ヒーロー会戦モード EPIC #2747
 - [[league-of-legends-reference-design]] — 賞金首LOL-3/中立目標LOL-1

@@ -53,7 +53,7 @@ tags: [planning]
 
 ## 0. 現在地（実装済みの土台）
 
-> これらは master 反映済み。新機能はこの上に乗せる。前版（06-06）から **Phase A の主要部・Phase C コア・Phase D の純ロジック層が大きく進んだ**。06-12〜14 は **戦略マップ UX 大改修・観測層 6→8 窓口・`GalaxyView` の partial 分割・会戦の膠着解消・配下艦運動 EMOV・CI 整備** が中心（詳細は [[2026-06-14-strategy-ux-observers|`dev-log/2026-06-14-strategy-ux-observers.md`]]）。
+> これらは master 反映済み。新機能はこの上に乗せる。前版（06-06）から **Phase A の主要部・Phase C コア・Phase D の純ロジック層が大きく進んだ**。06-12〜14 は **戦略マップ UX 大改修・観測層 6→8 窓口（以降さらに拡張し現在24窓口）・`GalaxyView` の partial 分割・会戦の膠着解消・配下艦運動 EMOV・CI 整備** が中心（詳細は [[2026-06-14-strategy-ux-observers|`dev-log/2026-06-14-strategy-ux-observers.md`]]）。
 
 ### ★ 一人称の人生レイヤー（TKO・会戦接続＋永続まで実装済み＝PR #2593）
 - **立身出世の Core＋UI**：`ProtagonistCareerRules`/`MeritRecordRules`/`PersonRelationRules`/`SovereignMandateRules`/`MandateCascadeRules`/`MonthlyCouncilRules`/`RankDistributionRules` ほか TKO-1〜13 純ロジック（test-first）＋ Game 層 `ProtagonistCareerDirector`（Strategy 自動生成・少尉任官→月次昇進モンタージュ→准将で実艦隊指揮・MBOカスケード＋具申）＋執務机UI `ProtagonistDeskOverlay`（Alt+J）。
@@ -83,7 +83,7 @@ tags: [planning]
 - **艦隊編成プール（#148 / #884）**：`FleetPool`(勢力総艦艇)＋`FleetPoolRules`。造船(`ShipyardRules.CommissionToPool`)で総艦艇増・生産力(`ProductionFactor`)連動・会戦損耗でプール減。提督の加齢/死亡(`AnnualLifecycleRules`)。**旧 `FleetOrganizationPanel`（艦隊編成 UI）は一旦廃棄し、B キーは観測層 `FleetObserverOverlay`（艦艇プール＋艦隊台帳の read-only 可視化）へ移行**（操作化は後段）。
 - **通知システム（EPIC #964 NOTIF-1〜3）**：`NotificationCenter`(単一窓口)＋`NotificationFeed`(画面**左下**トースト・自動フェード)。会戦結果/占領/造船/死亡を集約。
 
-### 純ロジック層（test-first・EditMode 1037件＋＝以降 `EncircleRules`/`UIWindowStack`/`EncounterOutcome`/`BreakStalemate` 等を追加・TestHarness で Unity 無し回帰可）
+### 純ロジック層（test-first・EditMode 約8,800件＝当初1037件から拡張〔`EncircleRules`/`UIWindowStack`/`EncounterOutcome`/`BreakStalemate` 等〕・TestHarness で Unity 無し回帰可。実数は CI が正＝直近 8,845）
 - **兵站 L-1〜3 #93/#94/#95**：資源生産・補給線（ZOC遮断）・通商破壊。
 - **財政・経済 #161/#162**：PB/国債/金利/為替・税/社会保障・再分配（階級別負担）。
 - **政府 GOV-1/3/4/5/6/7 #142/#144/#145/#158/#159/#165**：役職/任命/提案権限・文民統制/クーデター・省庁・政党/最小選挙・総裁選。
@@ -99,7 +99,7 @@ tags: [planning]
 ### 基盤
 - **FND-1 #496**：asmdef 4分割（Core←Data←Game＋Editor）＋SO名前解決の `ContentDatabase` 一本化。
 - **#107 入力集約（主要部完了）**：`GameInput`（コンテキスト/衝突検出/複数キーOR/Ctrl修飾分離）。HelpOverlay 自動生成。**残り＝FleetCommander の Esc・GalaxyView の直読み**。
-- **観測層 第1層＝可視化（read-only・06-14 時点で 8 窓口）**：`CampaignObserverOverlay`（**G**＝国家状態）／汎用 `CoreStateInspector`（**J**＝登録ルートをリフレクション全ダンプ＋用語集）／`MilitaryObserverOverlay`（**M**＝編制ツリー/プール/台帳）／`NotificationLogOverlay`（**N**＝通知履歴）／`EconomyObserverOverlay`（**E**＝経済）／`LawObserverOverlay`（**L**＝法の支配/治安）／`EducationObserverOverlay`（**U**＝教育チェーン）／`FleetObserverOverlay`（**B**＝艦艇プール/艦隊台帳）。人事オーバーレイ（**P**）はタブ化（指導者/軍人/文民）。Strategy/Battle 両シーン自動生成。**狙い＝「Core純ロジックは増えるが盤面で何も見えない」乖離を構造的に潰す＝生成と観測を歩調させる規約**（CLAUDE.md「観測層」節）。第2層「操作化」（レバーを回す）はここから手で昇格。
+- **観測層 第1層＝可視化（read-only・06-14 時点で 8 窓口→以降拡張し現在24窓口＋決裁K/人物P。下記は06-14基準の初期8窓口）**：`CampaignObserverOverlay`（**G**＝国家状態）／汎用 `CoreStateInspector`（**J**＝登録ルートをリフレクション全ダンプ＋用語集）／`MilitaryObserverOverlay`（**M**＝編制ツリー/プール/台帳）／`NotificationLogOverlay`（**N**＝通知履歴）／`EconomyObserverOverlay`（**E**＝経済）／`LawObserverOverlay`（**L**＝法の支配/治安）／`EducationObserverOverlay`（**U**＝教育チェーン）／`FleetObserverOverlay`（**B**＝艦艇プール/艦隊台帳）。人事オーバーレイ（**P**）はタブ化（指導者/軍人/文民）。Strategy/Battle 両シーン自動生成。**狙い＝「Core純ロジックは増えるが盤面で何も見えない」乖離を構造的に潰す＝生成と観測を歩調させる規約**（CLAUDE.md「観測層」節）。第2層「操作化」（レバーを回す）はここから手で昇格。
 - **ウィンドウ統一（06-14）**：上メニューから開く各オーバーレイを共通クローム `WindowChrome`（タイトルバー＝ドラッグ移動＋×閉じる・非モーダル化）でウィンドウ化。`UIWindowStack`（Core・test-first）で **ESC は最前面から 1 枚ずつ閉じ→システムメニュー**（戦略＝新設 `StrategySystemMenu`）へフォールバック。各窓は Register/Unregister するだけで Esc を直読みしない。
 - **CCX 並列ファンアウト #1044/#1049**：独立 Core を Workflow/多Agent で同時生成する標準手順＋codex（design/worldbuilding）を buildable backlog から分離。
 - **命名 #523**・**主人公 #735**・**階級表示 #14**・**TestHarness**（`dotnet test`・クラウド回帰用）。

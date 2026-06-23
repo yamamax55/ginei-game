@@ -58,6 +58,8 @@ tags: [catalog]
 
 - **車懸かり陣形＋軍神専用ゲート `FormationAccessRules`（#軍神・Core純ロジック・test-first）**：上杉謙信型の旋回突撃陣形「車懸かり」を `Formation` enum 末尾に追加（後方互換でインデックス維持）。`FormationTraitRules.TraitOf(車懸かり)`＝攻撃1.30/被ダメ1.05/機動1.30（全陣形中もっとも攻撃・機動が高く・やや脆い）。使用可否は `FormationAccessRules`＝`IsTranscendentOnly(Formation)`(車懸かりのみ true)／`CanUse(Formation, isTranscendent)`(軍神専用陣形は `AdmiralData.isTranscendent` のみ可・他陣形は誰でも可)＝軍神専用ゲートの単一窓口。Game配線＝`FleetCommander.ChangeFormation`（艦隊ごとに `FleetStrength.admiralData.isTranscendent` で判定し非軍神は弾く＋通知）／`CommandMenu.FormationItems`（選択に軍神がいる時だけメニューに出す）／`FormationDoctrineRules.RecommendFormation`（得意陣形が車懸かりでも非軍神なら採用せず紡錘陣へ）／`Squadron.ComputeWheel`（渦巻き＝複数の腕が螺旋を描く配置）。`FormationAccessRulesTests`＋`FormationTraitTests`(車懸かりの特性・最強性)＋`BattleAiRulesTests`(ドクトリンの軍神ゲート)が固定。
 
+- **車懸かりの旋回運動 `KurumagakariRules`（#軍神・Core純ロジック・test-first）**：史実(俗説＝江戸期軍学者の解釈)の車懸かり＝部隊を絶え間なく入れ替え、疲れた前線を後退させ新手を前へ回す＝陣がぐるぐる旋回し常に新手が敵に当たる（上杉謙信＝軍神の戦法）。配下艦の陣形スロットを旗艦中心に旋回させ巡回運動にする運動の核。`AdvanceAngle(angle, speedDeg, dt)`＝累積旋回角を dt ぶん進め 0..360 にラップ（フレームレート非依存・timeScale 追従・負速度=逆旋回）／`RotateLocalSlot(localSlot, angleDeg)`＝渦巻きスロットを旋回角ぶん回す（magnitude 保存）／`DefaultRotationSpeedDeg=30`（12秒/周）。Game配線＝`Squadron.UpdateShipPositions` が車懸かり陣形のあいだ `wheelAngle` を進め `ComputeWheel` のスロットを毎フレーム旋回（`kurumagakariRotationSpeed`・SmoothDamp 追従で外周艦が遅れて渦を引く）。`KurumagakariRulesTests`(旋回角の累積/ラップ/0dt・スロット回転の magnitude 保存/90度/恒等) が固定。
+
 ## 関連
 - [[components-catalog]] — Game層コンポーネントの索引（姉妹カタログ）
 - [[core-orphan-audit]] — 量産Coreの未配線棚卸し

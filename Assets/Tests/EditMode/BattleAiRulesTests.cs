@@ -24,6 +24,27 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void Doctrine_Guards_Transcendent_Only_Preferred_Formation()
+        {
+            // 得意陣形が軍神専用（車懸かり）でも、非軍神なら採用せず既定の紡錘陣へ落ちる
+            var nonGod = ScriptableObject.CreateInstance<AdmiralData>();
+            nonGod.hasPreferredFormation = true;
+            nonGod.preferredFormation = Formation.車懸かり;
+            nonGod.isTranscendent = false;
+            Assert.AreEqual(Formation.紡錘陣, FormationDoctrineRules.RecommendFormation(100, 100, false, nonGod));
+
+            // 軍神なら得意陣形（車懸かり）を採用
+            var god = ScriptableObject.CreateInstance<AdmiralData>();
+            god.hasPreferredFormation = true;
+            god.preferredFormation = Formation.車懸かり;
+            god.isTranscendent = true;
+            Assert.AreEqual(Formation.車懸かり, FormationDoctrineRules.RecommendFormation(100, 100, false, god));
+
+            Object.DestroyImmediate(nonGod);
+            Object.DestroyImmediate(god);
+        }
+
+        [Test]
         public void Withdrawal_Geometry()
         {
             Assert.AreEqual(Vector2.right, BattleWithdrawalRules.AwayDirection(new Vector2(10, 0), Vector2.zero));

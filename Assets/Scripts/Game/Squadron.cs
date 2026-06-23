@@ -73,6 +73,10 @@ namespace Ginei
         [Tooltip("艦同士の間隔")]
         public float spacing = 1.2f;
 
+        [Header("車懸かり（軍神専用・旋回突撃）")]
+        [Tooltip("車懸かり陣形での旋回速度（度/秒）。陣がぐるぐる旋回し配下艦が旗艦周りを巡回する。0で旋回なし")]
+        public float kurumagakariRotationSpeed = KurumagakariRules.DefaultRotationSpeedDeg;
+
         [Tooltip("追従の滑らかさ（秒）")]
         public float smoothTime = 0.3f;
 
@@ -210,6 +214,9 @@ namespace Ginei
         private List<Vector2> cachedSlots = new List<Vector2>();
         private Formation cachedFormation;
         private int cachedCount = -1;
+
+        // 車懸かりの累積旋回角（度・0..360）。車懸かり陣形のあいだ毎フレーム進めてスロットを旋回させる。
+        private float wheelAngle = 0f;
 
         // スロット割当（EMOV-1/2）：添字＝member、値＝割り当てスロット添字（-1=未割当）。
         // スロット集合が変わった時だけ EscortSlotAssignmentRules で再割当して席替え交差を防ぐ。
@@ -719,6 +726,12 @@ namespace Ginei
             // EMOV-4：航行（移動中・非交戦）は隊形を広げ、交戦/停止では締める（実効間隔・基準非破壊）。
             UpdateSpacingFactor(inCombat, dt);
 
+            // 車懸かり（軍神専用）：陣を絶え間なく旋回させ、配下艦が旗艦周りを巡回する
+            // ＝疲れた前線を退げ新手を前へ回す史実(俗説)の運動。旋回角を進める（timeScale 追従）。
+            bool wheeling = (currentFormation == Formation.車懸かり) && !encircling;
+            if (wheeling)
+                wheelAngle = KurumagakariRules.AdvanceAngle(wheelAngle, kurumagakariRotationSpeed, dt);
+
             // 速度上限の基準＝旗艦の最高速 × catchUpRatio（遅れは取り戻せるがワープしない）。
             float baseMaxSpeed = (flagshipMovement != null ? flagshipMovement.maxSpeed : flagshipMaxSpeed)
                                  * Mathf.Max(0.1f, catchUpRatio);
@@ -746,7 +759,10 @@ namespace Ginei
                     int slot = (i < slotForMember.Count) ? slotForMember[i] : -1;
                     if (slot < 0 || slot >= cachedSlots.Count) continue;
                     // ローカル座標→ワールド座標（旗艦の回転に追従。root スケールは1前提）。実効間隔（EMOV-4）を乗算。
-                    targetWorldPos = transform.TransformPoint(cachedSlots[slot] * spacingFactor);
+                    Vector2 localSlot = cachedSlots[slot] * spacingFactor;
+                    // 車懸かり：渦巻きスロットを累積旋回角ぶん回す＝配下艦が旗艦周りを巡回（旋回突撃）。
+                    if (wheeling) localSlot = KurumagakariRules.RotateLocalSlot(localSlot, wheelAngle);
+                    targetWorldPos = transform.TransformPoint(localSlot);
                     targetWorldPos.z = transform.position.z;
                 }
 
@@ -968,6 +984,7 @@ namespace Ginei
                 case Formation.円陣:   return ComputeCircle(n);
                 case Formation.横陣:   return ComputeLine(n);
                 case Formation.方陣:   return ComputeSquare(n);
+                case Formation.車懸かり: return ComputeWheel(n);
                 case Formation.紡錘陣:
                 default:               return ComputeSpindle(n);
             }
@@ -1062,6 +1079,34 @@ namespace Ginei
                 }
                 placed += c;
                 ring++;
+            }
+            return slots;
+        }
+
+        /// <summary>
+        /// 車懸かり：旗艦中心の渦巻き（風車）。複数の腕が外へ螺旋を描き、絶え間ない旋回突撃を表す（軍神専用）。
+        /// </summary>
+        private List<Vector2> ComputeWheel(int n)
+        {
+            var slots = new List<Vector2>(n);
+            if (n <= 0) return slots;
+
+            int arms = (n >= 24) ? 4 : (n >= 12 ? 3 : 2); // 渦の腕数
+            int perArm = Mathf.CeilToInt((float)n / arms);
+            const float twistPerStep = 28f;  // 1隻ごとに腕をひねる角度（螺旋の巻き）
+            int idx = 0;
+            for (int a = 0; a < arms && idx < n; a++)
+            {
+                float armBaseDeg = a * (360f / arms); // 腕の起点角
+                int c = Mathf.Min(perArm, n - idx);
+                for (int k = 0; k < c; k++)
+                {
+                    float radius = (k + 1) * spacing;
+                    float angleDeg = armBaseDeg + k * twistPerStep; // 外側ほどひねる＝渦巻き
+                    float rad = angleDeg * Mathf.Deg2Rad;
+                    slots.Add(new Vector2(Mathf.Cos(rad) * radius, Mathf.Sin(rad) * radius));
+                    idx++;
+                }
             }
             return slots;
         }

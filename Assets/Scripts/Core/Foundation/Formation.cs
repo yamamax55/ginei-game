@@ -10,6 +10,7 @@ namespace Ginei
         鶴翼陣, // Crescent：前方に開いた幅広の弧
         円陣,   // Circle：同心円リング
         横陣,   // Line abreast：左右一直線（1〜2段）
-        方陣    // Square：格子状
+        方陣,   // Square：格子状
+        車懸かり // Kurumagakari：旋回突撃（軍神専用・末尾＝後方互換のためインデックス維持）
     }
 }

@@ -62,6 +62,7 @@ namespace Ginei
         private float grievance;    // 不満（主命失敗で増・達成で減）＝岐路判定 CareerForkRules 用
         private int fame;           // 武名（ADM-3 #2304・戦功で上がり政界転身の資本に・RenownRules）
         private int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可＝序列内・MEYASU の決裁デスクは通さない）
+        private readonly List<string> pendingPetitionKeys = new List<string>(); // 未裁可の具申の effectKey（採用で TryDecode→効果適用）
         private bool retired;       // 下野（TKO-7 岐路）＝月次ループを止める
         private int ageMonths;      // 主人公の年齢（月）＝加齢/老衰死・継承の駆動（LifecycleRules）
         private bool ready;
@@ -206,17 +207,55 @@ namespace Ginei
             // 具申の結実（TKO-4・序列内）：上官が拾って裁可＝採用で建白採用の武勲。MEYASU の決裁デスク（god-view）は通さない。
             if (pendingPetitions > 0)
             {
-                float pf2 = (Relations != null && Sovereign != null)
-                    ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
-                float adoptChance = Mathf.Clamp01(0.35f + pf2 * 0.4f); // 上官との関係が良いほど拾われる
-                int adopted = 0;
-                for (int i = 0; i < pendingPetitions; i++) if (Random.value < adoptChance) adopted++;
+                // 乱発ペナルティ：未決が積むほど上官が食傷し採用率が下がる（信用コスト）。
+                float adoptChance = PetitionFatigueRules.EffectiveAdoptChance(BaseAdoptChance(), pendingPetitions, PetitionFatigueParams.Default);
+                int adopted = 0, budgetAdopted = 0, baseAdopted = 0, pirateAdopted = 0;
+                int reinforceAdopted = 0, honorAdopted = 0, taxAdopted = 0, clearAdopted = 0;
+                long budgetBefore = ProtagonistGrantStore.Grants.fleetBudgetGrant;
+                for (int i = 0; i < pendingPetitions; i++)
+                {
+                    string key = i < pendingPetitionKeys.Count ? pendingPetitionKeys[i] : "";
+                    // 案件ごとの難度（政治/人事ほど通りにくい）を採用率へ掛ける。
+                    float keyChance = adoptChance * PetitionDifficultyRules.AdoptMultiplier(PetitionDifficultyRules.CategoryOf(key));
+                    if (Random.value >= Mathf.Clamp01(keyChance)) continue;
+                    adopted++;
+                    // 採用された具申を decode して実際の効果へ反映（記帳だけ→効く）。keys 不足分（旧セーブ）は汎用建白。
+                    PetitionEffect eff = PetitionEffectRules.Apply(ProtagonistGrantStore.Grants, key);
+                    if (eff == PetitionEffect.予算増額) budgetAdopted++;
+                    else if (eff == PetitionEffect.根拠地変更) baseAdopted++;
+                    else if (PirateHuntPetitionRules.IsPiratePetition(key)) { pirateAdopted++; fame = RenownRules.Gain(fame, PirateHuntPetitionRules.FameReward); } // 海賊掃討で武名↑
+                    else if (CareerPetitionRules.TryDecodeReinforce(key, out int rein)) { FleetPool.Add(pf, rein); reinforceAdopted += rein; } // 増援＝艦艇プール増
+                    else if (CareerPetitionRules.IsHonor(key)) { honorAdopted++; fame = RenownRules.Gain(fame, CareerPetitionRules.HonorFameReward); } // 恩賞＝武名↑
+                    else if (CareerPetitionRules.IsTaxCut(key)) { if (ApplyTaxDelta(-CareerPetitionRules.TaxCutAmount)) taxAdopted++; } // 減税＝税率↓
+                    else if (CareerPetitionRules.IsTaxHike(key)) { if (ApplyTaxDelta(CareerPetitionRules.TaxHikeAmount)) taxAdopted++; } // 増税＝税率↑
+                    else if (CareerPetitionRules.IsClear(key)) { grievance = Mathf.Max(0f, grievance - CareerPetitionRules.ClearGrievanceAmount); clearAdopted++; } // 名誉回復＝不満↓
+                }
                 pendingPetitions = 0;
+                pendingPetitionKeys.Clear();
                 if (adopted > 0)
                 {
                     MeritRecordRules.Record(Merit, ExploitKind.建白採用, adopted, MeritP);
                     ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.武勲, $"建白{adopted}件が容れられた");
                     Push(NotificationSeverity.情報, $"［建白採用］具申{adopted}件が上官に容れられ武勲を得た");
+                    if (budgetAdopted > 0)
+                    {
+                        long delta = ProtagonistGrantStore.Grants.fleetBudgetGrant - budgetBefore;
+                        Push(NotificationSeverity.情報, $"［予算拝領］運用予算枠 +{delta:#,0}（累計 {ProtagonistGrantStore.Grants.fleetBudgetGrant:#,0}）");
+                    }
+                    if (baseAdopted > 0)
+                    {
+                        int sys = ProtagonistGrantStore.Grants.fleetBaseSystemId;
+                        Push(NotificationSeverity.情報, sys >= 0 ? $"［根拠地変更］根拠地が星系 {sys} に改められた" : "［根拠地変更］根拠地の変更が容れられた（司令部一任）");
+                    }
+                    if (pirateAdopted > 0)
+                    {
+                        ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.武勲, "海賊を掃討し武名を上げた");
+                        Push(NotificationSeverity.情報, $"［海賊狩り］海賊を掃討し武名を上げた（武名 {fame}）");
+                    }
+                    if (reinforceAdopted > 0) Push(NotificationSeverity.情報, $"［増援］艦艇プールへ {reinforceAdopted:#,0} 隻の増援が認められた");
+                    if (honorAdopted > 0) Push(NotificationSeverity.情報, $"［恩賞］部下への論功行賞が容れられ武名が上がった（武名 {fame}）");
+                    if (taxAdopted > 0) Push(NotificationSeverity.情報, "［税制］税の建言が容れられ税率が改められた");
+                    if (clearAdopted > 0) Push(NotificationSeverity.情報, "［名誉回復］嘆願が容れられ不満が和らいだ");
                 }
             }
 
@@ -245,7 +284,7 @@ namespace Ginei
                 ?? new Person(SovereignId, "君主", enemy, PersonRole.軍人) { isSovereign = true, rankTier = 10 };
             Merit = new MeritRecord(ProtagonistId);
             fame = Mathf.RoundToInt(fame * 0.5f); SyncFameToRegistry(); // 旧友の信は失う
-            grievance = 0f; pendingPetitions = 0; ActiveMandate = null; retired = false;
+            grievance = 0f; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear(); ActiveMandate = null; retired = false;
             Relations = new PersonRelationGraph();
             PersonRelationRules.LinkCommand(Relations, Sovereign, Protagonist, 0.1f); // 新主君とは薄い縁から
             var gs = GameSettings.Instance;
@@ -273,7 +312,7 @@ namespace Ginei
             }
             Protagonist.isSovereign = true; // 自ら主君に
             Sovereign = Protagonist;
-            ActiveMandate = null; retired = false; grievance = 0f; pendingPetitions = 0;
+            ActiveMandate = null; retired = false; grievance = 0f; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear();
             var gs = GameSettings.Instance;
             if (gs != null) gs.playerFactionData = newFaction; // プレイヤーは独立勢力を率いる
             ProtagonistChronicleRules.Record(Chronicle, month, ChronicleEventKind.岐路, $"独立（{home} で旗揚げ・{newFaction.factionName}）");
@@ -361,7 +400,7 @@ namespace Ginei
                 Person heir = ProtagonistHeirRules.CreateHeir(Protagonist, Origin, ProtagonistId, Protagonist.name + "の世継ぎ", EnrollYear + age);
                 Protagonist = heir;
                 Merit = new MeritRecord(ProtagonistId);
-                fame = 0; grievance = 0f; pendingPetitions = 0; retired = false;
+                fame = 0; grievance = 0f; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear(); retired = false;
                 ActiveMandate = null;
                 ageMonths = StartAgeMonths;
                 SyncFameToRegistry(); // 世継ぎは武名も一から（会戦の鼓舞もリセット）
@@ -421,16 +460,176 @@ namespace Ginei
 
         /// <summary>主人公が直属の上官へ建白を起案・具申する（TKO-4）。稟議在庫へ載せ、稟議オブザーバ（Alt+I）に
         /// 起案者＝主人公・決裁者＝上官として現れる。資格（下位→上位・同勢力）は <see cref="PersonRingiRules"/> が判定。</summary>
-        public bool SubmitPetition()
+        public bool SubmitPetition() => SubmitPetition($"{Protagonist?.name}の建白", "career.petition");
+
+        /// <summary>
+        /// 自艦隊への予算増額を上官へ具申する（TKO-4 の具体例）。増額は自分の階級の指揮可能規模を基準に算出し、
+        /// effectKey に直列化（<see cref="FleetBudgetPetitionRules"/>）して稟議へ載せる＝採用時に decode して反映できる。
+        /// </summary>
+        public bool SubmitFleetBudgetPetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.予算)) return false;
+            int budgetBase = CommandCapacityRules.MaxStrengthForTier(Protagonist.rankTier);
+            int amount = FleetBudgetPetitionRules.RecommendedIncrease(budgetBase);
+            string key = FleetBudgetPetitionRules.EncodeEffectKey(0, amount); // 番号0＝自艦隊
+            return SubmitPetition($"自艦隊への予算増額（{amount:#,0}）の具申", key);
+        }
+
+        /// <summary>
+        /// 自艦隊の根拠地（母港/展開拠点）の変更を上官へ具申する（TKO-4）。具体的な星系は司令部一任（前線寄りへ）として
+        /// effectKey に直列化（<see cref="FleetBasePetitionRules"/>）し、採用時に decode して反映できる。
+        /// </summary>
+        public bool SubmitFleetBasePetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.作戦)) return false;
+            string key = FleetBasePetitionRules.EncodeEffectKey(0, FleetBasePetitionRules.UnspecifiedSystem); // 番号0＝自艦隊・星系一任
+            return SubmitPetition("自艦隊の根拠地変更（前線寄りへ）の具申", key);
+        }
+
+        /// <summary>海賊狩り（海賊掃討の任）を上官へ具申する。少尉/大尉（下級士官）専用＝若手の腕試し。採用で武名が上がる。</summary>
+        public bool SubmitPiratePetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.海賊狩り)) return false;
+            return SubmitPetition("海賊狩りの具申", PirateHuntPetitionRules.EffectKey);
+        }
+
+        /// <summary>増援要請（軍事・予算ゲート）。自分の指揮可能規模に応じた増援を具申＝採用で艦艇プールが増える。</summary>
+        public bool SubmitReinforcePetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.予算)) return false;
+            int amount = CareerPetitionRules.RecommendReinforce(CommandCapacityRules.MaxStrengthForTier(Protagonist.rankTier));
+            return SubmitPetition($"増援要請（{amount:#,0}隻）の具申", CareerPetitionRules.EncodeReinforce(amount));
+        }
+
+        /// <summary>恩賞の上申（人事ゲート）＝部下への論功行賞。採用で自分の武名が上がる。</summary>
+        public bool SubmitHonorPetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.人事)) return false;
+            return SubmitPetition("恩賞の上申（部下への論功行賞）", CareerPetitionRules.HonorKey);
+        }
+
+        /// <summary>減税の建言（政治ゲート）。採用で自勢力の税率が下がる。</summary>
+        public bool SubmitTaxCutPetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.政治)) return false;
+            return SubmitPetition("減税の建言", CareerPetitionRules.TaxCutKey);
+        }
+
+        /// <summary>増税の建言（政治ゲート）。採用で自勢力の税率が上がる（戦費調達）。</summary>
+        public bool SubmitTaxHikePetition()
+        {
+            if (Protagonist == null) return false;
+            if (!RankGateOk(PetitionCategory.政治)) return false;
+            return SubmitPetition("増税の建言（戦費調達）", CareerPetitionRules.TaxHikeKey);
+        }
+
+        /// <summary>名誉回復の嘆願（個人・階級不問）。採用で不満が和らぐ。</summary>
+        public bool SubmitClearPetition()
+        {
+            if (Protagonist == null) return false;
+            return SubmitPetition("名誉回復の嘆願", CareerPetitionRules.ClearKey);
+        }
+
+        /// <summary>基準採用率（上官＝君主との関係で上下・食傷前）。</summary>
+        private float BaseAdoptChance()
+        {
+            float pf2 = (Relations != null && Sovereign != null && Protagonist != null)
+                ? PersonRelationRules.NetAffinity(Relations, Protagonist.id, Sovereign.id) : 0f;
+            return Mathf.Clamp01(0.35f + pf2 * 0.4f);
+        }
+
+        /// <summary>具申の採用見込み（関係＋乱発ペナルティ込み）。執務机の表示用＝採用判定と同じ式。</summary>
+        public float EstimateAdoptChance()
+            => PetitionFatigueRules.EffectiveAdoptChance(BaseAdoptChance(), pendingPetitions, PetitionFatigueParams.Default);
+
+        /// <summary>税の建言が容れられたとき、自勢力の税率を delta ぶん増減する（0..1クランプ）。戦役状態が無ければ false。</summary>
+        private bool ApplyTaxDelta(float delta)
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null) return false;
+            FactionState fs = CampaignRules.GetState(camp, pf);
+            if (fs == null || fs.fiscal == null) return false;
+            fs.fiscal.taxRate = Mathf.Clamp(fs.fiscal.taxRate + delta, 0f, 1f);
+            return true;
+        }
+
+        /// <summary>その区分の具申を今の階級で出せるか（出せなければ通知）。UI も <see cref="PetitionRankRules"/> で同判定。</summary>
+        public bool CanRaiseCategory(PetitionCategory category)
+            => Protagonist != null && PetitionRankRules.CanRaise(category, Protagonist.rankTier);
+
+        private bool RankGateOk(PetitionCategory category)
+        {
+            if (CanRaiseCategory(category)) return true;
+            int need = PetitionRankRules.MinTier(category);
+            Push(NotificationSeverity.注意, $"その具申はあなたの階級では出せません（要 {RankName(need)}）");
+            return false;
+        }
+
+        /// <summary>
+        /// 上官へ賄賂を送る（私財から支出）。成功すれば上官の親愛が上がり覚えがめでたくなる（昇進/具申に有利）。
+        /// ただし露見（<see cref="BriberyRules.IsExposed"/>）すると逆に遺恨を買い不満が募る。数値は <see cref="BriberyRules"/> へ委譲。
+        /// </summary>
+        public bool BribeSuperior()
+        {
+            if (Protagonist == null) return false;
+            Person superior = DirectSuperior();
+            if (superior == null) { Push(NotificationSeverity.注意, "賄賂を送る上官がいません"); return false; }
+            var bp = BribeParams.Default;
+            int cost = BriberyRules.Cost(superior.rankTier, bp);
+            if (Protagonist.wealth < cost)
+            {
+                Push(NotificationSeverity.注意, $"私財が足りません（賄賂 {cost:#,0}／所持 {Protagonist.wealth:#,0}）");
+                return false;
+            }
+            Protagonist.wealth -= cost; // 私財から支出（実状態変更）
+
+            if (BriberyRules.IsExposed(Random.value, bp))
+            {
+                // 露見＝逆効果：上官の遺恨が募り、不満も増える。
+                if (Relations != null)
+                {
+                    float cur = RelationStrength(superior.id, Protagonist.id, RelationKind.遺恨);
+                    Relations.Set(superior.id, Protagonist.id, RelationKind.遺恨, BriberyRules.NewStrength(cur, BriberyRules.ResentmentGain(cost, bp)));
+                }
+                grievance += 10f;
+                Push(NotificationSeverity.警告, $"［賄賂露見］{superior.CharacterName} への贈賄が露見し心証を害した（私財 {cost:#,0} を失う）");
+                return false;
+            }
+
+            if (Relations != null)
+            {
+                float cur = RelationStrength(superior.id, Protagonist.id, RelationKind.親愛);
+                Relations.Set(superior.id, Protagonist.id, RelationKind.親愛, BriberyRules.NewStrength(cur, BriberyRules.FavorGain(cost, bp)));
+            }
+            Push(NotificationSeverity.情報, $"［賄賂］{superior.CharacterName} の覚えがめでたくなった（親愛↑・私財 {cost:#,0}・残 {Protagonist.wealth:#,0}）");
+            return true;
+        }
+
+        /// <summary>関係グラフの強度（無ければ0）。</summary>
+        private float RelationStrength(int fromId, int toId, RelationKind kind)
+        {
+            PersonRelation r = Relations != null ? Relations.Get(fromId, toId, kind) : null;
+            return r != null ? r.strength : 0f;
+        }
+
+        /// <summary>建白を起案して上官（序列内）へ提出する共通処理。title/effectKey で具申内容を変える。</summary>
+        public bool SubmitPetition(string title, string effectKey)
         {
             if (Protagonist == null) return false;
             Person superior = DirectSuperior();
             if (superior == null) { Push(NotificationSeverity.注意, "具申できる上官がいません"); return false; }
             int id = RingiDirector.Ledger.NextId();
-            Petition pet = PersonRingiRules.RaiseTo(id, $"{Protagonist.name}の建白", Protagonist, superior, "career.petition");
+            Petition pet = PersonRingiRules.RaiseTo(id, title, Protagonist, superior, effectKey);
             if (pet == null) { Push(NotificationSeverity.注意, "具申の資格がありません（上官でない）"); return false; }
             RingiDirector.Ledger.Add(pet);
             pendingPetitions++; // 月次評定で上官（序列内）が裁可する＝結実すれば建白採用の武勲（P1-d）
+            pendingPetitionKeys.Add(effectKey ?? ""); // 採用時に decode して効果適用するため effectKey を控える
             Push(NotificationSeverity.情報, $"［具申］{superior.CharacterName} へ建白を提出（稟議 Alt+I で確認・月次評定で裁可）");
             return true;
         }
@@ -530,7 +729,7 @@ namespace Ginei
         {
             // 戦果インボックスを新戦役ぶんでリセット（前のプレイの残留を持ち込まない）。
             pendingBattleDamage = 0f; pendingBattleVictories = 0; pendingBattleCount = 0;
-            grievance = 0f; fame = 0; pendingPetitions = 0; retired = false; ageMonths = StartAgeMonths;
+            grievance = 0f; fame = 0; pendingPetitions = 0; pendingPetitionKeys.Clear(); ProtagonistGrantStore.Clear(); retired = false; ageMonths = StartAgeMonths;
 
             var gs = GameSettings.Instance;
             pf = gs != null ? gs.playerFaction : Faction.同盟;

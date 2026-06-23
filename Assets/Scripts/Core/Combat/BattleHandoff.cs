@@ -62,6 +62,24 @@ namespace Ginei
         public static string systemViewName;    // 表示名
         public static Faction systemViewOwner;  // 星系の所有勢力
 
+        // ===== 回廊要塞の攻略戦＝戦術潜行（FortressUnit 戦・#40 次スライス／#76-78 と接続）=====
+        // 戦略マップの回廊要塞（Fortress）に阻まれた艦隊が、自動解決でなく実会戦（FortressUnit）へ潜行する。
+        // 戻ったとき GalaxyView が fortressSysA/B で回廊の Fortress を引き、結果を反映する。
+        public static bool IsFortressSiege;        // この受け渡しが回廊要塞の攻略戦か
+        public static int fortressSysA, fortressSysB; // 封鎖回廊（無向・戻ってから Fortress を引く）
+        public static string fortressName;         // 要塞名（表示・会戦見出し）
+        public static Faction fortressOwner;       // 守備側＝要塞所有勢力
+        public static Faction fortressAttacker;    // 攻撃側＝潜行してきた勢力
+        public static int fortressAttackerStrength; // 攻撃側の戦略兵力（合計）
+        public static float fortressGarrisonStrength; // 守備戦力（砲台数/コア耐久のスケール根拠）
+        public static float fortressShieldIntegrity = 1f; // シールド健全度（戦術規模の素地）
+        public static bool fortressHasMainCannon = true;  // 主砲（トールハンマー）を備えるか
+
+        // 出力：要塞攻略の結果（戦術会戦の帰結）
+        public static bool fortressResolved;            // 要塞攻略の結果が書き込まれたか
+        public static bool fortressResultCaptured;      // 戦術会戦で要塞を制圧（陥落）させたか
+        public static int fortressResultAttackerSurvivor; // 攻撃側の残存戦略兵力
+
         // 攻城の戦術マップでの進捗を戦略へ書き戻す（戻ったとき GalaxyView が惑星へ反映）
         public static bool siegeResolved;        // 攻城結果が書き込まれた
         public static float siegeResultDefense;  // 残った制空権の割合(0..1)
@@ -100,6 +118,7 @@ namespace Ginei
         {
             IsPlanetSiege = true;
             IsSystemView = false;
+            IsFortressSiege = false;
             planetSystemId = systemId;
             planetName = name;
             planetOwner = owner;
@@ -126,6 +145,7 @@ namespace Ginei
         {
             IsSystemView = true;
             IsPlanetSiege = false;
+            IsFortressSiege = false;
             systemViewId = systemId;
             systemViewName = name;
             systemViewOwner = owner;
@@ -135,12 +155,48 @@ namespace Ginei
             siegeResolved = false;
         }
 
+        /// <summary>
+        /// 回廊要塞への攻略戦（戦術潜行）を予約する（#40 次スライス）。守備側＝要塞所有勢力、攻撃側＝潜行勢力。
+        /// 守備戦力/シールドから戦術側（FortressUnit）の砲台数・コア耐久がスケールされ、戻ったとき
+        /// <paramref name="sysA"/>/<paramref name="sysB"/> で回廊の <see cref="Fortress"/> を引いて結果を反映する。
+        /// </summary>
+        public static void QueueFortressSiege(int sysA, int sysB, string name, Faction owner, Faction attacker,
+            int attackerStrength, float garrisonStrength, float shieldIntegrity, bool hasMainCannon, string returnScene)
+        {
+            IsFortressSiege = true;
+            IsPlanetSiege = false;
+            IsSystemView = false;
+            fleets.Clear();
+            fortressSysA = sysA; fortressSysB = sysB;
+            fortressName = string.IsNullOrEmpty(name) ? "要塞" : name;
+            fortressOwner = owner;
+            fortressAttacker = attacker;
+            fortressAttackerStrength = Mathf.Max(0, attackerStrength);
+            fortressGarrisonStrength = Mathf.Max(0f, garrisonStrength);
+            fortressShieldIntegrity = Mathf.Clamp01(shieldIntegrity);
+            fortressHasMainCannon = hasMainCannon;
+            admiralA = admiralB = null; // 攻撃側は臨時提督（stale な提督を持ち込まない）
+            BattleHandoff.returnScene = returnScene;
+            fortressResolved = false;
+            Pending = true;
+            Resolved = false;
+        }
+
+        /// <summary>要塞攻略戦の結果（制圧したか・攻撃側の残存戦略兵力）を書き込む（BattleManager から）。</summary>
+        public static void SetFortressResult(bool captured, int attackerSurvivor)
+        {
+            fortressResultCaptured = captured;
+            fortressResultAttackerSurvivor = Mathf.Max(0, attackerSurvivor);
+            fortressResolved = true;
+        }
+
         /// <summary>2つの戦略艦隊から実会戦を予約する。</summary>
         public static void Queue(StrategicFleet a, StrategicFleet b, string returnScene)
         {
             if (a == null || b == null) return;
             IsPlanetSiege = false;
             IsSystemView = false;
+            IsFortressSiege = false;
             factionA = a.faction; strengthA = a.strength; fleetIdA = a.id; admiralA = null;
             factionB = b.faction; strengthB = b.strength; fleetIdB = b.id; admiralB = null;
             loyaltyA = loyaltyB = 1f;   // 旗幟は既定＝完全忠誠（戦略側が国家状態から上書きする・#817）
@@ -184,6 +240,7 @@ namespace Ginei
         {
             IsPlanetSiege = false;
             IsSystemView = false;
+            IsFortressSiege = false;
             fleets.Clear();
             int sa = 0, sb = 0;
             if (entries != null)
@@ -231,7 +288,9 @@ namespace Ginei
             Resolved = false;
             IsPlanetSiege = false;
             IsSystemView = false;
+            IsFortressSiege = false;
             siegeResolved = false;
+            fortressResolved = false;
             hasDefender = false;
             admiralA = admiralB = null;
             fleets.Clear();
@@ -272,6 +331,15 @@ namespace Ginei
             public int systemViewId;
             public string systemViewName;
             public Faction systemViewOwner;
+            public bool IsFortressSiege;
+            public int fortressSysA, fortressSysB;
+            public string fortressName;
+            public Faction fortressOwner, fortressAttacker;
+            public int fortressAttackerStrength;
+            public float fortressGarrisonStrength, fortressShieldIntegrity;
+            public bool fortressHasMainCannon;
+            public bool fortressResolved, fortressResultCaptured;
+            public int fortressResultAttackerSurvivor;
             public bool siegeResolved;
             public float siegeResultDefense, siegeResultInvasion;
             public bool siegeResultCaptured;
@@ -304,6 +372,13 @@ namespace Ginei
                 planetGarrisonMorale = planetGarrisonMorale,
                 IsSystemView = IsSystemView, systemViewId = systemViewId, systemViewName = systemViewName,
                 systemViewOwner = systemViewOwner,
+                IsFortressSiege = IsFortressSiege, fortressSysA = fortressSysA, fortressSysB = fortressSysB,
+                fortressName = fortressName, fortressOwner = fortressOwner, fortressAttacker = fortressAttacker,
+                fortressAttackerStrength = fortressAttackerStrength,
+                fortressGarrisonStrength = fortressGarrisonStrength, fortressShieldIntegrity = fortressShieldIntegrity,
+                fortressHasMainCannon = fortressHasMainCannon,
+                fortressResolved = fortressResolved, fortressResultCaptured = fortressResultCaptured,
+                fortressResultAttackerSurvivor = fortressResultAttackerSurvivor,
                 siegeResolved = siegeResolved, siegeResultDefense = siegeResultDefense,
                 siegeResultInvasion = siegeResultInvasion, siegeResultCaptured = siegeResultCaptured,
                 siegeResultGarrison = siegeResultGarrison, siegeResultMorale = siegeResultMorale,
@@ -336,6 +411,13 @@ namespace Ginei
             planetGarrisonMorale = s.planetGarrisonMorale;
             IsSystemView = s.IsSystemView; systemViewId = s.systemViewId; systemViewName = s.systemViewName;
             systemViewOwner = s.systemViewOwner;
+            IsFortressSiege = s.IsFortressSiege; fortressSysA = s.fortressSysA; fortressSysB = s.fortressSysB;
+            fortressName = s.fortressName; fortressOwner = s.fortressOwner; fortressAttacker = s.fortressAttacker;
+            fortressAttackerStrength = s.fortressAttackerStrength;
+            fortressGarrisonStrength = s.fortressGarrisonStrength; fortressShieldIntegrity = s.fortressShieldIntegrity;
+            fortressHasMainCannon = s.fortressHasMainCannon;
+            fortressResolved = s.fortressResolved; fortressResultCaptured = s.fortressResultCaptured;
+            fortressResultAttackerSurvivor = s.fortressResultAttackerSurvivor;
             siegeResolved = s.siegeResolved; siegeResultDefense = s.siegeResultDefense;
             siegeResultInvasion = s.siegeResultInvasion; siegeResultCaptured = s.siegeResultCaptured;
             siegeResultGarrison = s.siegeResultGarrison; siegeResultMorale = s.siegeResultMorale;

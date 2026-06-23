@@ -380,6 +380,90 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 戦術潜行（実会戦＝FortressUnit 戦・#76-78）の決着を戦略の回廊要塞へ反映する（#40 次スライス）。
+        /// 自動解決の <see cref="AssaultFortress"/> が力攻め比で決めるのに対し、こちらは<b>戦術会戦の帰結</b>
+        /// （プレイヤーがコア破壊／砲台沈黙まで攻略できたか）を直接反映する唯一の窓口。乱数なし・決定論。
+        /// <list type="bullet">
+        /// <item><b>制圧</b>（captured）：守備0・通過開放・所有を攻撃側へ移転（陥落）。</item>
+        /// <item><b>撃退</b>（!captured）：要塞は健在のまま、戦術会戦で受けた打撃ぶんシールドが
+        /// <paramref name="repulseShieldLoss"/> 目減りする＝再潜行/兵糧攻めで段階的に脆くなる素地を残す。</item>
+        /// </list>
+        /// 攻撃側艦隊の残存兵力は呼び出し側（GalaxyView）が会戦の生存戦力から按分する（ここでは要塞だけを更新）。
+        /// </summary>
+        public static void ApplyFortressBattleResult(Fortress f, Faction attacker, bool captured, float repulseShieldLoss = 0.2f)
+        {
+            if (f == null) return;
+            if (captured)
+            {
+                f.garrisonStrength = 0f;
+                f.controlsCorridor = false;
+                f.owner = attacker;
+                return;
+            }
+            // 撃退：要塞は持ちこたえるが、潜行で叩かれたぶんシールドが削れる（次の攻略が楽になる＝段階攻略）。
+            f.shieldIntegrity = FortressRules.ShieldAfterHit(f.shieldIntegrity, Mathf.Max(0f, repulseShieldLoss));
+        }
+
+        /// <summary>兵糧攻めの守備漸減の既定：1日あたり守備の3%＋下限50（必ず0へ到達して開城する＝難攻不落も封鎖で落ちる）。</summary>
+        public const float FortressStarveDailyFraction = 0.03f;
+        public const float FortressStarveDailyFloor = 50f;
+
+        /// <summary>
+        /// 兵糧攻め（補給遮断）で要塞守備を1tick分すり減らす（#40 戦略・銀英伝＝難攻不落も封鎖で落とす）。
+        /// 力攻めでは落ちない要塞も、補給線を断って攻囲を続ければ守備が尽きて<b>開城</b>する＝正面でなく策略・
+        /// 持久で落とす道。besieged（補給遮断下で攻囲継続中）でなければ何もしない。守備が0に達したら
+        /// controlsCorridor を解いて回廊を開ける（所有は不変＝占領は別途・停泊で発生）。落城したら true。
+        /// 乱数なし・決定論。日次Tick（<paramref name="days"/>=1）から呼ぶ。
+        /// </summary>
+        public static bool TickFortressSiegeAttrition(Fortress f, bool besieged, float days)
+            => TickFortressSiegeAttrition(f, besieged, days, FortressStarveDailyFraction, FortressStarveDailyFloor);
+
+        /// <summary><inheritdoc cref="TickFortressSiegeAttrition(Fortress,bool,float)"/></summary>
+        public static bool TickFortressSiegeAttrition(Fortress f, bool besieged, float days, float dailyFraction, float dailyFloor)
+        {
+            if (f == null || !besieged || f.garrisonStrength <= 0f) return false;
+            float d = Mathf.Max(0f, days);
+            float loss = (Mathf.Max(0f, dailyFraction) * f.garrisonStrength + Mathf.Max(0f, dailyFloor)) * d;
+            f.garrisonStrength = Mathf.Max(0f, f.garrisonStrength - loss);
+            if (f.garrisonStrength <= 0f)
+            {
+                f.controlsCorridor = false; // 兵糧尽きて開城＝回廊が開く（所有は停泊占領で別途移る）
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>補給下の回復の既定：1日あたり守備上限の2%・シールドは1日0.05ぶん回復。</summary>
+        public const float FortressRegenDailyFraction = 0.02f;
+        public const float FortressShieldRegenPerDay = 0.05f;
+
+        /// <summary>
+        /// 補給下の要塞回復（#40・兵糧攻め <see cref="TickFortressSiegeAttrition"/> の対＝封鎖を解けば立ち直る）。
+        /// 封鎖されておらず補給線が通っている（supplied）要塞は、守備を上限（<see cref="Fortress.garrisonCapacity"/>）
+        /// まで・シールドを1.0まで日々回復する＝封鎖は維持し続けないと効果が消える「継続コスト」になる。
+        /// 守備が尽きて開城済み（garrison0）の要塞は自然回復しない（再駐留＝占領が要る）。上限0は回復しない
+        /// （後方互換）。乱数なし・決定論。日次Tick（<paramref name="days"/>=1）から呼ぶ。
+        /// </summary>
+        public static void TickFortressGarrisonRegen(Fortress f, bool supplied, float days)
+            => TickFortressGarrisonRegen(f, supplied, days, FortressRegenDailyFraction, FortressShieldRegenPerDay);
+
+        /// <summary><inheritdoc cref="TickFortressGarrisonRegen(Fortress,bool,float)"/></summary>
+        public static void TickFortressGarrisonRegen(Fortress f, bool supplied, float days,
+            float garrisonRegenFraction, float shieldRegenPerDay)
+        {
+            if (f == null || !supplied || f.garrisonCapacity <= 0f) return;
+            if (f.garrisonStrength <= 0f) return; // 開城済み（守備0）は自然回復しない＝再駐留が要る
+            float d = Mathf.Max(0f, days);
+            if (f.garrisonStrength < f.garrisonCapacity)
+            {
+                float gain = Mathf.Max(0f, garrisonRegenFraction) * f.garrisonCapacity * d;
+                f.garrisonStrength = Mathf.Min(f.garrisonCapacity, f.garrisonStrength + gain);
+            }
+            if (f.shieldIntegrity < 1f)
+                f.shieldIntegrity = Mathf.Clamp01(f.shieldIntegrity + Mathf.Max(0f, shieldRegenPerDay) * d);
+        }
+
+        /// <summary>
         /// 指定星系の占領を解決する。停泊中の艦隊が1勢力のみで、その勢力が現所有者と敵対していれば
         /// 所有権をその勢力へ移す。複数勢力が居る（＝戦闘案件）／無人／同一勢力なら何もしない。
         /// フリップしたら true。

@@ -307,7 +307,9 @@ namespace Ginei
                 if (a == null || b == null) continue;
                 if (!FactionRelations.IsHostile(null, a.owner, null, b.owner)) continue; // 前線（敵対）のみ
                 Faction owner = a.owner == Faction.帝国 ? a.owner : b.owner;             // 帝国側を要塞所有者に
-                c.fortress = new Fortress(1200f, 740f, 1f, true) { owner = owner, fortressName = "イゼルローン要塞" };
+                // 居住可能要塞（#765）：拠点規模 strategicValue＝保有中は艦艇プールへ供給、占領で半分を接収。
+                c.fortress = new Fortress(1200f, 740f, 1f, true)
+                    { owner = owner, fortressName = "イゼルローン要塞", strategicValue = 6000f };
                 return; // デモは1つだけ
             }
         }

@@ -12,17 +12,20 @@ namespace Ginei
     public class Fortress
     {
         public float garrisonStrength;   // 守備艦隊の戦力
+        public float garrisonCapacity;   // 守備の上限（補給下で回復する到達点。0=回復しない＝後方互換）。既定は初期守備＝満員
         public float shieldIntegrity;    // 反射シールドの健全度 0..1（液体金属鏡）
         public float mainGunPower;       // 主砲（広域砲＝トゥール・ハンマー型）の威力
         public bool controlsCorridor;    // この要塞が回廊通過を扼すか
         public Faction owner = Faction.帝国; // 所有勢力（#40 戦略ノード化＝この勢力に敵対する艦隊の通過を封じる）
         public string fortressName = "要塞"; // 表示名（戦略マップのラベル・潜行会戦の名称）
+        public float strategicValue;     // 居住可能要塞の拠点規模（#765 イゼルローン型＝人口/産業）。保有中は艦艇供給、占領で接収。0=非居住＝後方互換
 
         public Fortress() { shieldIntegrity = 1f; controlsCorridor = true; }
 
         public Fortress(float garrisonStrength, float mainGunPower, float shieldIntegrity = 1f, bool controlsCorridor = true)
         {
             this.garrisonStrength = Mathf.Max(0f, garrisonStrength);
+            this.garrisonCapacity = this.garrisonStrength; // 初期守備＝満員＝補給下で回復する到達点
             this.mainGunPower = Mathf.Max(0f, mainGunPower);
             this.shieldIntegrity = Mathf.Clamp01(shieldIntegrity);
             this.controlsCorridor = controlsCorridor;
@@ -126,5 +129,41 @@ namespace Ginei
 
         public static bool IsImpregnable(Fortress f, float attackerStrength)
             => IsImpregnable(f, attackerStrength, FortressParams.Default);
+
+        // ── 居住可能要塞（#765 イゼルローン型）＝拠点としての戦略価値 ───────────────
+
+        /// <summary>占領で接収する蓄えの既定割合（拠点価値の半分が新所有者の手に入る）。</summary>
+        public const float DefaultCaptureRewardFraction = 0.5f;
+        /// <summary>兵糧攻めの開城で接収する割合（力攻めより少ない＝長期包囲で蓄えが枯れ焦土化するため）。</summary>
+        public const float SiegeCaptureRewardFraction = 0.25f;
+        /// <summary>居住要塞が1日あたり供給する艦艇（拠点価値あたりの建艦寄与）の既定レート。</summary>
+        public const float DefaultProductionRatePerValue = 0.01f;
+
+        /// <summary>
+        /// 占領報酬（#765）＝要塞を制圧した勢力が接収する蓄え（艦艇プールへ加える量）。拠点価値×fraction を
+        /// 非負整数で返す。非居住（strategicValue=0）なら0＝従来動作。
+        /// </summary>
+        public static int CaptureReward(Fortress f, float fraction)
+        {
+            if (f == null) return 0;
+            float r = Mathf.Max(0f, f.strategicValue) * Mathf.Clamp01(fraction);
+            return Mathf.Max(0, Mathf.RoundToInt(r));
+        }
+
+        public static int CaptureReward(Fortress f) => CaptureReward(f, DefaultCaptureRewardFraction);
+
+        /// <summary>
+        /// 居住要塞が1日あたり所有勢力へ供給する艦艇（#765＝拠点の産業）。守備が生きている（garrison&gt;0）間だけ
+        /// 生産し、開城/陥落（garrison0）なら0。拠点価値×ratePerValue×days を非負整数で返す。非居住なら0。
+        /// </summary>
+        public static int GarrisonProduction(Fortress f, float days, float ratePerValue)
+        {
+            if (f == null || f.strategicValue <= 0f || f.garrisonStrength <= 0f) return 0;
+            float p = f.strategicValue * Mathf.Max(0f, ratePerValue) * Mathf.Max(0f, days);
+            return Mathf.Max(0, Mathf.RoundToInt(p));
+        }
+
+        public static int GarrisonProduction(Fortress f, float days)
+            => GarrisonProduction(f, days, DefaultProductionRatePerValue);
     }
 }

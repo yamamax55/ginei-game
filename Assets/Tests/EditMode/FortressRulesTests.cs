@@ -70,5 +70,41 @@ namespace Ginei.Tests
             Assert.IsFalse(FortressRules.IsImpregnable(f, 1500f, P)); // 足りる＝落とせる
             Assert.IsFalse(FortressRules.IsImpregnable(new Fortress(0f, 50f, 1f), 1f, P)); // 守備無し
         }
+
+        // ── 居住可能要塞（#765 イゼルローン型）：占領報酬・拠点生産 ──
+
+        [Test]
+        public void CaptureReward_HalfOfStrategicValue_ByDefault()
+        {
+            var f = new Fortress(1000f, 50f, 1f) { strategicValue = 6000f };
+            Assert.AreEqual(3000, FortressRules.CaptureReward(f));          // 既定 0.5
+            Assert.AreEqual(1800, FortressRules.CaptureReward(f, 0.3f));    // 任意割合
+            // 兵糧攻めの開城は焦土化で接収が少ない（0.25）＝力攻めの半分。
+            Assert.AreEqual(1500, FortressRules.CaptureReward(f, FortressRules.SiegeCaptureRewardFraction));
+        }
+
+        [Test]
+        public void CaptureReward_ZeroForNonHabitableOrNull()
+        {
+            Assert.AreEqual(0, FortressRules.CaptureReward(new Fortress(1000f, 50f, 1f))); // strategicValue=0
+            Assert.AreEqual(0, FortressRules.CaptureReward(null));
+        }
+
+        [Test]
+        public void GarrisonProduction_ScalesWithValueAndDays_WhileGarrisoned()
+        {
+            var f = new Fortress(1000f, 50f, 1f) { strategicValue = 6000f };
+            Assert.AreEqual(60, FortressRules.GarrisonProduction(f, 1f));   // 6000×0.01×1
+            Assert.AreEqual(180, FortressRules.GarrisonProduction(f, 3f));  // 3日分
+        }
+
+        [Test]
+        public void GarrisonProduction_ZeroWhenFallenOrNonHabitable()
+        {
+            var fallen = new Fortress(0f, 50f, 1f) { strategicValue = 6000f }; // 守備0＝開城＝生産停止
+            Assert.AreEqual(0, FortressRules.GarrisonProduction(fallen, 1f));
+            Assert.AreEqual(0, FortressRules.GarrisonProduction(new Fortress(1000f, 50f, 1f), 1f)); // 非居住
+            Assert.AreEqual(0, FortressRules.GarrisonProduction(null, 1f));
+        }
     }
 }

@@ -81,6 +81,7 @@ namespace Ginei
             {
                 if (BattleHandoff.IsSystemView) SetupSystemView();      // 非戦闘＝星系の閲覧（恒星系ビュー）
                 else if (BattleHandoff.IsPlanetSiege) SetupPlanetSiege();
+                else if (BattleHandoff.IsFortressSiege) SetupFortressSiege(); // 回廊要塞の攻略戦（戦術潜行・#40）
                 else SetupFromHandoff();
                 ApplyWorldOffset();
                 return;
@@ -439,6 +440,66 @@ namespace Ginei
                 fortress.Setup(entry.faction, entry.factionData, entry.fortressName, turretCount, coreStrength);
                 go.name = $"Fortress_{fortress.Faction}_{fortress.FortressName}";
             }
+        }
+
+        // ===== 回廊要塞の攻略戦＝戦術潜行（FortressUnit 戦・#40 次スライス）=====
+
+        /// <summary>
+        /// 戦略マップの回廊要塞へ潜行した攻略戦を生成する（#40）。中央に <see cref="FortressUnit"/>（守備側）を置き、
+        /// 守備駐留艦隊を要塞の後背に、攻撃側（潜行勢力）を侵攻方向（左）に配置する。勝利条件はランタイムの
+        /// <see cref="ScenarioData"/>（要塞攻略・objectiveFaction=守備側）として公開し、BattleManager が制圧/防衛を判定する。
+        /// 守備戦力・シールドから砲台数とコア耐久をスケールする（戦略規模を戦術へ写す）。
+        /// </summary>
+        private void SetupFortressSiege()
+        {
+            if (fleetPrefab == null)
+            {
+                Debug.LogError("BattleSetup: fleetPrefab が未設定です（要塞攻略戦）。");
+                return;
+            }
+            ClearExistingFleets();
+
+            Faction defender = BattleHandoff.fortressOwner;
+            Faction attacker = BattleHandoff.fortressAttacker;
+            float garrison = BattleHandoff.fortressGarrisonStrength;
+            float shield = BattleHandoff.fortressShieldIntegrity;
+
+            // 守備戦力/シールドから戦術側の規模をスケール（砲台数・コア耐久）。
+            int turretCount = Mathf.Clamp(Mathf.RoundToInt(garrison / 120f) + Mathf.RoundToInt(shield * 4f), 6, 18);
+            int coreStrength = Mathf.Max(4000, Mathf.RoundToInt(garrison * BattleHandoff.StrengthScale * 0.25f));
+
+            // 要塞（守備側）＝中央。
+            GameObject fgo = new GameObject("Fortress");
+            fgo.transform.position = Vector3.zero;
+            FortressUnit fortress = fgo.AddComponent<FortressUnit>();
+            fortress.hasMainCannon = BattleHandoff.fortressHasMainCannon;
+            // factionData は潜行 handoff の慣例にならい null（enum 既定色へフォールバック）。
+            fortress.Setup(defender, null, BattleHandoff.fortressName, turretCount, coreStrength);
+            fgo.name = $"Fortress_{fortress.Faction}_{fortress.FortressName}";
+
+            Faction playerFaction = GameSettings.Instance.playerFaction;
+            var fleets = new System.Collections.Generic.List<GameObject>();
+
+            // 守備駐留艦隊（要塞の後背・右）：守備戦力の一部が艦隊として展開する。
+            int garrisonStrategic = Mathf.RoundToInt(garrison * 0.4f);
+            if (garrisonStrategic > 0)
+            {
+                var dg = MakeHandoffEntry(defender, null, garrisonStrategic, new Vector2(3f, 0f));
+                GameObject dgo = SpawnFleet(dg, playerFaction);
+                if (dgo != null) fleets.Add(dgo);
+            }
+
+            // 攻撃側（潜行勢力）＝侵攻方向（左）。合計戦力を1艦隊として展開する。
+            int atkStrategic = Mathf.Max(1, BattleHandoff.fortressAttackerStrength);
+            var ae = MakeHandoffEntry(attacker, BattleHandoff.admiralA, atkStrategic, new Vector2(-8f, 0f));
+            GameObject ago = SpawnFleet(ae, playerFaction);
+            if (ago != null) fleets.Add(ago);
+
+            OrientFleetsToEnemy(fleets);
+
+            // 勝利条件（要塞攻略・objectiveFaction=守備側）は BattleManager が受け渡し（IsFortressSiege）から
+            // ランタイム構築する＝static な ScenarioData.ActiveScenario を汚さない（WIN-3 複数同時会戦で安全）。
+            Debug.Log($"BattleSetup: 回廊要塞の攻略戦を生成（{BattleHandoff.fortressName}／{attacker} {atkStrategic} が {defender} の要塞へ）。");
         }
 
         /// <summary>

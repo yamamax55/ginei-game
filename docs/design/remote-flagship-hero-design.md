@@ -113,6 +113,7 @@ MOBA のリスポーンを直訳すると「沈んだ旗艦が湧く」＝艦隊
 - **HERO-11** #2763 — 階級投入コスト＋最終能力合成式（§4・`DeploymentCostRules`/`FlagshipEffectivePowerRules`）
 
 ## 関連
+- 設定（lore canon）：`docs/lore/設定/遠隔座乗.md` — 遠隔座乗（提督は根拠地の〈感応座〉から旗艦を遠隔操作・連合の遺産技）
 - [[hero-battle-mode-design]] — ヒーロー会戦モード EPIC #2747
 - [[league-of-legends-reference-design]] — 賞金首LOL-3/中立目標LOL-1
 - [[late-game-performance-design]] — 全旗艦ヒーロー化のLOD/抽象

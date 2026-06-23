@@ -7,9 +7,10 @@ namespace Ginei.Tests
     public class FormationAccessRulesTests
     {
         [Test]
-        public void Kurumagakari_Is_Transcendent_Only()
+        public void Legendary_Formations_Are_Transcendent_Only()
         {
-            Assert.IsTrue(FormationAccessRules.IsTranscendentOnly(Formation.車懸かり));
+            Assert.IsTrue(FormationAccessRules.IsTranscendentOnly(Formation.車懸かり)); // 旋回突撃
+            Assert.IsTrue(FormationAccessRules.IsTranscendentOnly(Formation.八陣));     // 石兵八陣
         }
 
         [Test]
@@ -17,7 +18,7 @@ namespace Ginei.Tests
         {
             foreach (Formation f in System.Enum.GetValues(typeof(Formation)))
             {
-                if (f == Formation.車懸かり) continue;
+                if (f == Formation.車懸かり || f == Formation.八陣) continue;
                 Assert.IsFalse(FormationAccessRules.IsTranscendentOnly(f), f.ToString());
                 // 非軍神でも使える
                 Assert.IsTrue(FormationAccessRules.CanUse(f, false), f.ToString());
@@ -26,10 +27,12 @@ namespace Ginei.Tests
         }
 
         [Test]
-        public void Kurumagakari_Requires_Transcendent()
+        public void Legendary_Formations_Require_Transcendent()
         {
             Assert.IsFalse(FormationAccessRules.CanUse(Formation.車懸かり, false)); // 凡将は不可
             Assert.IsTrue(FormationAccessRules.CanUse(Formation.車懸かり, true));    // 軍神のみ可
+            Assert.IsFalse(FormationAccessRules.CanUse(Formation.八陣, false));     // 凡将は不可
+            Assert.IsTrue(FormationAccessRules.CanUse(Formation.八陣, true));        // 天才のみ可
         }
     }
 }

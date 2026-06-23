@@ -62,6 +62,8 @@ tags: [catalog]
 
 - **車懸かりの旋回運動 `KurumagakariRules`（#軍神・Core純ロジック・test-first）**：史実(俗説＝江戸期軍学者の解釈)の車懸かり＝部隊を絶え間なく入れ替え、疲れた前線を後退させ新手を前へ回す＝陣がぐるぐる旋回し常に新手が敵に当たる（上杉謙信＝軍神の戦法）。配下艦の陣形スロットを旗艦中心に旋回させ巡回運動にする運動の核。`AdvanceAngle(angle, speedDeg, dt)`＝累積旋回角を dt ぶん進め 0..360 にラップ（フレームレート非依存・timeScale 追従・負速度=逆旋回）／`RotateLocalSlot(localSlot, angleDeg)`＝渦巻きスロットを旋回角ぶん回す（magnitude 保存）／`DefaultRotationSpeedDeg=30`（12秒/周）。Game配線＝`Squadron.UpdateShipPositions` が車懸かり陣形のあいだ `wheelAngle` を進め `ComputeWheel` のスロットを毎フレーム旋回（`kurumagakariRotationSpeed`・SmoothDamp 追従で外周艦が遅れて渦を引く）。`KurumagakariRulesTests`(旋回角の累積/ラップ/0dt・スロット回転の magnitude 保存/90度/恒等) が固定。
 
+- **石兵八陣（八陣図）`StoneMazeRules`／`EightGate`／`StoneMazeParams`（#石兵八陣・Core純ロジック・test-first）**：諸葛亮の防御迷宮（三国志演義・陸遜を翻弄した巨石の陣）を再現。八門遁甲＝`EightGate`{休/生/傷/杜/景/死/驚/開}（宣言順＝方位の八等分）、三吉門(休/生/開)は素通り・五凶門(傷/杜/景/死/驚)は罠。`GateAtAngle(angleDeg)`＝方位→門（0..360 ラップ）／`IsSafeGate(gate)`＝吉門か（吉3/凶5）／`IsTrapped(approachAngleDeg)`＝凶門から踏み込んだか／`DisorientMobilityFactor(trapped, params)`＝罠の敵の機動倍率（既定0.5・下限0.1クランプ）／`MazeNodeLocal(index, radius)`＝八つの石塁の八角形配置。`StoneMazeParams.Default`＝`disorientMobility:0.5`。Game配線＝`Formation.八陣`（天才専用＝`FormationAccessRules.IsTranscendentOnly` に追加・`FormationTraitRules` 八陣＝被ダメ0.60/攻撃0.85/機動0.70＝鉄壁の防御迷宮）／`Squadron.ComputeBaZhen`（八塁を `MazeNodeLocal` で配置・各塁を小集団で固める）／`FleetMovement.GetMazeFactor`（敵が八陣を布いた部隊の凶門に踏み込むと幻惑＝機動低下・throttle スキャン・`enableStoneMaze`/`mazeRadiusScale`/`mazeDisorientMobility`）。`StoneMazeRulesTests`(門の方位/ラップ・吉凶3対5・罠判定・幻惑倍率/クランプ・八角形配置) が固定。
+
 ## 関連
 - [[components-catalog]] — Game層コンポーネントの索引（姉妹カタログ）
 - [[core-orphan-audit]] — 量産Coreの未配線棚卸し

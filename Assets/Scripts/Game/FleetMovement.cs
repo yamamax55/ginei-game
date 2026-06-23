@@ -80,6 +80,20 @@ namespace Ginei
         [Tooltip("ZOCスキャンの間隔（秒）。負荷軽減のため毎フレームは計算しない")]
         public float zocUpdateInterval = 0.2f;
 
+        [Header("石兵八陣の罠（八門遁甲・#石兵八陣）")]
+        [Tooltip("敵が八陣を布いた部隊の凶門から踏み込むと幻惑され機動が落ちるか")]
+        public bool enableStoneMaze = true;
+
+        [Tooltip("八陣の迷宮半径＝相手の外接円半径×この倍率（この範囲に踏み込むと門の吉凶判定）")]
+        public float mazeRadiusScale = 3.0f;
+
+        [Tooltip("凶門に捕らわれた敵の機動倍率（0.5＝半減）")]
+        [Range(0.1f, 1f)]
+        public float mazeDisorientMobility = 0.5f;
+
+        [Tooltip("八陣スキャンの間隔（秒）。負荷軽減のため毎フレームは計算しない")]
+        public float mazeUpdateInterval = 0.3f;
+
         [Header("味方どうしの重なり回避（separation・#隊列整流）")]
         [Tooltip("味方艦隊と重なったとき離れる方向へ押し出して重なりを解消する（混雑減速とは別系統＝こちらは位置を直す）")]
         public bool enableFriendlySeparation = true;
@@ -127,6 +141,11 @@ namespace Ginei
         private float zocFactor = 1f;
         private float zocTarget = 1f;
         private float lastZocUpdate = 0f;
+
+        // 石兵八陣の幻惑の状態（八門遁甲・間引き計算＋滑らかに追従）
+        private float mazeFactor = 1f;
+        private float mazeTarget = 1f;
+        private float lastMazeUpdate = 0f;
 
         // 味方分離（separation）の状態。押し出しベクトルは間引き計算し、毎フレーム deltaTime ぶん適用する。
         private Vector2 separationPush = Vector2.zero;
@@ -334,10 +353,11 @@ namespace Ginei
             // 戦場の地形（#2181・小惑星帯=減速）：その地点の機動倍率（既定1.0）。
             m.Mul(Mathf.Max(0.1f, BattleTerrain.SpeedFactorAt(transform.position)));
 
-            // 減速ペナルティを2系統で算出して合算（下限つき）：
+            // 減速ペナルティを3系統で算出して合算（下限つき）：
             //  ・混雑(GetCongestionFactor)＝全陣営対象の物理的密集
             //  ・ZOC(GetZocFactor)＝敵対部隊の支配領域（敵の素通り・離脱の妨害）
-            float penalty = GetCongestionFactor() * GetZocFactor();
+            //  ・八陣(GetMazeFactor)＝敵が布いた石兵八陣の凶門に踏み込んだ幻惑（#石兵八陣）
+            float penalty = GetCongestionFactor() * GetZocFactor() * GetMazeFactor();
             penalty = Mathf.Max(penalty, minCombinedFactor); // 完全停止を防ぐ合算下限
             m.Mul(penalty);
 
@@ -361,6 +381,57 @@ namespace Ginei
             }
             zocFactor = Mathf.MoveTowards(zocFactor, zocTarget, congestionSmoothSpeed * Time.deltaTime);
             return zocFactor;
+        }
+
+        /// <summary>
+        /// 敵が布いた石兵八陣（八門遁甲）の凶門に踏み込んでいることによる機動低下倍率を返す
+        /// （1.0=迷宮外/吉門, mazeDisorientMobility=凶門に捕らわれ幻惑）。ZOC・混雑とは独立系統。
+        /// スキャンは mazeUpdateInterval ごとに間引き、係数は滑らかに追従させる（timeScale 追従）。
+        /// 配置・門の吉凶・幻惑倍率は <see cref="StoneMazeRules"/>(Core) に委譲（二重実装しない）。
+        /// </summary>
+        private float GetMazeFactor()
+        {
+            if (!enableStoneMaze || strength == null) return 1f;
+
+            if (Time.time - lastMazeUpdate >= mazeUpdateInterval)
+            {
+                lastMazeUpdate = Time.time;
+                mazeTarget = ComputeMazeTarget();
+            }
+            mazeFactor = Mathf.MoveTowards(mazeFactor, mazeTarget, congestionSmoothSpeed * Time.deltaTime);
+            return mazeFactor;
+        }
+
+        /// <summary>最も強く捕らえている敵八陣の幻惑倍率（凶門=mazeDisorientMobility／迷宮外・吉門=1.0）。</summary>
+        private float ComputeMazeTarget()
+        {
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            Vector2 myPos = transform.position;
+            var p = new StoneMazeParams(mazeDisorientMobility);
+            float worst = 1f; // 1.0=影響なし、小さいほど強い幻惑
+
+            for (int i = 0; i < flagships.Count; i++)
+            {
+                FleetStrength fs = flagships[i];
+                if (fs == null || fs == strength || !fs.IsAlive) continue;
+                if (!FactionRelations.IsHostile(strength, fs)) continue; // 敵対のみ
+                Squadron sq = fs.GetComponent<Squadron>();
+                if (sq == null || sq.currentFormation != Formation.八陣) continue;
+
+                sq.GetBoundingCircle(out Vector3 center, out float baseRadius);
+                float mazeRadius = baseRadius * Mathf.Max(0.1f, mazeRadiusScale);
+                if (mazeRadius <= 0f) continue;
+
+                Vector2 toMe = myPos - (Vector2)center;
+                if (toMe.magnitude > mazeRadius) continue; // 迷宮の外＝影響なし
+
+                // 中心から自分への方位がどの門か＝凶門なら幻惑される（#石兵八陣）。
+                float bearing = Mathf.Atan2(toMe.y, toMe.x) * Mathf.Rad2Deg;
+                bool trapped = StoneMazeRules.IsTrapped(bearing);
+                float f = StoneMazeRules.DisorientMobilityFactor(trapped, p);
+                if (f < worst) worst = f;
+            }
+            return worst;
         }
 
         /// <summary>

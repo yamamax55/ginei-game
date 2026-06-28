@@ -76,6 +76,8 @@ namespace Ginei
         public string mvpAdmiral;
         [Tooltip("勝因")]
         public string victoryReason;
+        [Tooltip("要塞の損害サマリ（#78・要塞会戦のみ。残存砲台数/コア残存 or 陥落。空＝要塞なし）")]
+        public string fortressSummary;
 
         [Tooltip("勢力ごとの戦績（多勢力対応・勢力名キー。3勢力以上の Result 表示に使用）")]
         public List<FactionStat> factionStats = new List<FactionStat>();
@@ -142,6 +144,7 @@ namespace Ginei
             allianceRemainingStrength = 0;
             mvpAdmiral = "";
             victoryReason = "";
+            fortressSummary = "";
             winnerName = "";
             factionStats.Clear();
         }

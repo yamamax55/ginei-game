@@ -3,11 +3,13 @@ type: catalog
 tags: [catalog]
 ---
 
-# Core純ロジック モジュール網羅カタログ
+# Core純ロジック モジュール 波別追加ログ
 
-> CLAUDE.md の肥大（CI/エージェントの文脈圧迫）を防ぐため、「テスト基盤（EditMode）」節にあった波ごとの全モジュール追加一覧をここへ分離した。
+> CLAUDE.md の肥大（CI/エージェントの文脈圧迫）を防ぐため、「テスト基盤（EditMode）」節にあった波ごとのモジュール追加一覧をここへ分離した。
 > 規約・索引は `CLAUDE.md` 本体を正とする。新規純ロジックを足したらここへ1行追記する。
 > （自動生成的な追記の置き場。Claude Code の自動メモリロード対象外＝`docs/` 配下）
+>
+> **★これは網羅一覧ではない**：主要モジュールの波別ログ＝現状 *Rules 約1,100本中およそ4割を収載（追記が追いついていない波がある）。**Core の完全・最新の索引はコードを正とする**＝`Assets/Scripts/Core/**/*Rules.cs` の glob か serena `get_symbols_overview`。本ログは「いつ・何の主題で・何を入れたか」の経緯メモとして読む。
 
 ## 波ごとの純ロジック追加一覧
 
@@ -55,6 +57,10 @@ tags: [catalog]
 - **人物プロパティ群（PER-PROPS・銀英伝的な人物の彩りと力学・Core純ロジック・test-first）**：人物の出自・信条・人となりをデータ化し、既存の人事/忠誠/関係システムへ橋渡しする（再実装しない）。データ＝`Creed`/`SocialOrigin`/`Hobby`/`Vice`(enum・`PersonCharacterTraits`)＋`HiddenTrait`(struct)＋`RelationshipSeed`(lore→graph 用)。`AdmiralData`/`Person` に `creed`/`socialOrigin`/`birthPlace`(Person は `birthSystemId`)/`charisma`/`constitution`/`hobby`/`vice`/`grievance`/`loyaltyTargetId`/`popularRenown`/`infamy`/`hiddenTraits`/`relationships` を additive 追加（既定＝後方互換）。ルール＝**A2** `CreedRules`（個人信条↔勢力イデオロギーのズレ＝緊張0..1・`Parse`/`Tension`/`IsOpposed`／離反力学は `AllegianceDriftRules`/`AmbitionRules` へ橋渡し）／**A4** `SocialOriginRules`（門閥/能力主義での登用引き立て `RecruitmentFavor`・階級摩擦 `LoyaltyFriction`）／**A3** `PersonGrievanceRules`（不満の `Accumulate`/`Decay`・功名心で増幅する `DefectionPropensity`・`ShouldConsiderDefection`＝静的忠誠と別軸の蓄積遺恨）／**B7** `VitalityRules`（体質→`DeathRiskFactor`/`FatigueRecoveryFactor`・中庸50で係数1.0／加齢死亡 `LifecycleRules`・疲労 `ConditionRules` に掛けるだけ）／**B5/C9** `StandingRules`（人望/武名/民望/悪名→`NetStanding`・悪名→占領地反発 `UnrestFromInfamy`・`RecruitmentAppeal`／戦績名声 `ReputationRules`・武名威圧 `RenownRules` と別軸）／**C10** `HiddenTraitRules`（情報能力で隠し特性が露見＝`RevealChance`/`IsRevealed`・roll は外から）／**A1** `RelationshipSeedRules`（lore の `RelationshipSeed` を名前→Person.id 解決し**既存**の `PersonRelationGraph`(TKO-3 #2480)へ積む橋渡し＝関係システムは再実装しない）。`PersonPropertyRulesTests`(EditMode/TestHarness・20本) が緊張行列・登用/摩擦・不満クランプ・体質係数・立場合成・露見単調性・seed 解決/自己参照スキップ/null安全を固定。lore は `docs/lore/人物/_テンプレート.md` の PER-PROPS 節で記す。
 
 - **戦術要塞の砲台シールド `FortressBatteryRules`／`FortressBatteryParams`（#76/#77・Battle シーンの固定拠点・Core純ロジック・test-first）**：イゼルローン型の固定拠点を「動かない艦隊」として実装する戦術側の純ロジック。`CoreDamageMultiplier(active,total[,params])`＝稼働砲台比に応じたコア被ダメ倍率（全砲台稼働で既定0.25倍＝固い／稼働比 exposedTurretRatio=0.3 以下でシールド消失＝等倍。段階攻略＝砲台を削るほどコアが脆くなる）／`IsSilenced(active)`＝全砲台沈黙＝制圧（攻略のもう一つの達成条件）／`TurretAngleDeg(index,count)`＝外周砲台の等間隔配置角／`InFiringBand(dist,min,max)`＝主砲の射界帯（最小射程未満＝懐＝撃てない・#77）。Game配線＝`FortressUnit`（IShipTarget コア）／`FortressTurret`（外周砲台）／`FortressMainCannon`（#77 主砲）が消費。**回廊の戦略要塞 `FortressRules`/`Fortress`（守備隊/シールド/難攻不落・#40）とは別系統（名前衝突回避でこちらは Battery 接尾辞）**。`FortressBatteryRulesTests`(EditMode/TestHarness・10本) が被ダメ倍率の境界/中点/単調性・0除算安全・沈黙・配置角・射界帯を固定。
+
+- **車懸かり陣形＋軍神専用ゲート `FormationAccessRules`（#軍神・Core純ロジック・test-first）**：上杉謙信型の旋回突撃陣形「車懸かり」を `Formation` enum 末尾に追加（後方互換でインデックス維持）。`FormationTraitRules.TraitOf(車懸かり)`＝攻撃1.30/被ダメ1.05/機動1.30（全陣形中もっとも攻撃・機動が高く・やや脆い）。使用可否は `FormationAccessRules`＝`IsTranscendentOnly(Formation)`(車懸かりのみ true)／`CanUse(Formation, isTranscendent)`(軍神専用陣形は `AdmiralData.isTranscendent` のみ可・他陣形は誰でも可)＝軍神専用ゲートの単一窓口。Game配線＝`FleetCommander.ChangeFormation`（艦隊ごとに `FleetStrength.admiralData.isTranscendent` で判定し非軍神は弾く＋通知）／`CommandMenu.FormationItems`（選択に軍神がいる時だけメニューに出す）／`FormationDoctrineRules.RecommendFormation`（得意陣形が車懸かりでも非軍神なら採用せず紡錘陣へ）／`Squadron.ComputeWheel`（渦巻き＝複数の腕が螺旋を描く配置）。`FormationAccessRulesTests`＋`FormationTraitTests`(車懸かりの特性・最強性)＋`BattleAiRulesTests`(ドクトリンの軍神ゲート)が固定。
+
+- **車懸かりの旋回運動 `KurumagakariRules`（#軍神・Core純ロジック・test-first）**：史実(俗説＝江戸期軍学者の解釈)の車懸かり＝部隊を絶え間なく入れ替え、疲れた前線を後退させ新手を前へ回す＝陣がぐるぐる旋回し常に新手が敵に当たる（上杉謙信＝軍神の戦法）。配下艦の陣形スロットを旗艦中心に旋回させ巡回運動にする運動の核。`AdvanceAngle(angle, speedDeg, dt)`＝累積旋回角を dt ぶん進め 0..360 にラップ（フレームレート非依存・timeScale 追従・負速度=逆旋回）／`RotateLocalSlot(localSlot, angleDeg)`＝渦巻きスロットを旋回角ぶん回す（magnitude 保存）／`DefaultRotationSpeedDeg=30`（12秒/周）。Game配線＝`Squadron.UpdateShipPositions` が車懸かり陣形のあいだ `wheelAngle` を進め `ComputeWheel` のスロットを毎フレーム旋回（`kurumagakariRotationSpeed`・SmoothDamp 追従で外周艦が遅れて渦を引く）。`KurumagakariRulesTests`(旋回角の累積/ラップ/0dt・スロット回転の magnitude 保存/90度/恒等) が固定。
 
 ## 関連
 - [[components-catalog]] — Game層コンポーネントの索引（姉妹カタログ）

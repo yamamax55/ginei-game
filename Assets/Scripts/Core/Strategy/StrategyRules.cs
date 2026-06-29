@@ -40,6 +40,18 @@ namespace Ginei
         }
     }
 
+    /// <summary>回廊要塞への力攻めの結末（#40）。要塞を陥落させたかと、攻撃側の残存兵力。</summary>
+    public readonly struct FortressAssaultResult
+    {
+        public readonly bool captured;        // 要塞を陥落（制圧）させたか
+        public readonly int attackerSurvivor; // 攻撃側の残存兵力
+        public FortressAssaultResult(bool captured, int attackerSurvivor)
+        {
+            this.captured = captured;
+            this.attackerSurvivor = attackerSurvivor;
+        }
+    }
+
     /// <summary>
     /// 戦略マップの判定ルール（C-1 #34 仕上げ）。会戦トリガー（回廊での敵対遭遇）と
     /// 星系の占領（所有フリップ）の唯一の窓口。敵対判定は必ず FactionRelations 経由。純ロジック。
@@ -318,6 +330,53 @@ namespace Ginei
             StarSystem b = map.GetSystem(c.bId);
             if (a == null || b == null) return false;
             return FactionRelations.IsHostile(null, a.owner, null, b.owner);
+        }
+
+        // ===== 回廊要塞＝戦略ノード（#40 C-7）=====
+
+        /// <summary>
+        /// 回廊が要塞で封鎖されているか（#40）。要塞が健在（<see cref="FortressRules.BlocksPassage"/>）で、
+        /// 通行しようとする勢力が要塞所有者に敵対していれば封鎖＝通過には撃破/制圧が要る（迂回不可）。
+        /// 要塞なし（フェザーン型の通商回廊）・要塞所有者と非敵対なら自由通過（後方互換）。
+        /// </summary>
+        public static bool IsFortressBlocked(Corridor c, Faction viewerFaction)
+        {
+            if (c == null || c.fortress == null) return false;
+            if (!FortressRules.BlocksPassage(c.fortress)) return false;
+            return FactionRelations.IsHostile(null, viewerFaction, null, c.fortress.owner);
+        }
+
+        /// <summary>
+        /// 回廊要塞への力攻めを決定論で自動解決する（#40・抽象版）。攻撃兵力が実効防御の assaultRatio 倍以上なら
+        /// <b>陥落</b>（守備0・通過開放・所有を攻撃側へ移転）＝攻撃側は実効防御ぶん消耗して残存。満たなければ
+        /// <b>撃退</b>（難攻不落）＝攻撃側は守備の反撃で損害を受け、要塞は守備を一部削られるが健在（繰り返しの
+        /// 消耗＝兵糧攻めの素地）。潜行（実会戦）でも自動解決でもこの窓口で要塞状態を更新する。
+        /// </summary>
+        public static FortressAssaultResult AssaultFortress(Fortress f, Faction attacker, int attackerStrength)
+            => AssaultFortress(f, attacker, attackerStrength, FortressParams.Default);
+
+        /// <summary><inheritdoc cref="AssaultFortress(Fortress,Faction,int)"/></summary>
+        public static FortressAssaultResult AssaultFortress(Fortress f, Faction attacker, int attackerStrength, FortressParams p)
+        {
+            int atk = attackerStrength > 0 ? attackerStrength : 0;
+            if (f == null) return new FortressAssaultResult(true, atk); // 要塞なし＝素通り（防御的フォールバック）
+
+            float def = FortressRules.EffectiveDefense(f, p);
+            if (FortressRules.CaptureFeasibleByForce(f, atk, p))
+            {
+                // 力攻め成功：実効防御ぶん消耗して占領。要塞は陥落（守備0・通過開放・所有移転）。
+                int survivor = Mathf.Max(1, atk - Mathf.RoundToInt(def));
+                f.garrisonStrength = 0f;
+                f.controlsCorridor = false;
+                f.owner = attacker;
+                return new FortressAssaultResult(true, survivor);
+            }
+
+            // 撃退：難攻不落。攻撃側は反撃で損害（実効防御の一部）、要塞は守備を一部削られるが健在。
+            int loss = Mathf.RoundToInt(Mathf.Min(atk, def * 0.5f));
+            int attackerSurvivor = Mathf.Max(0, atk - loss);
+            f.garrisonStrength = Mathf.Max(1f, f.garrisonStrength - atk * 0.1f); // 繰り返しで徐々に削れる素地
+            return new FortressAssaultResult(false, attackerSurvivor);
         }
 
         /// <summary>

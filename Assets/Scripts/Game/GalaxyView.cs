@@ -27,6 +27,7 @@ namespace Ginei
         public Color corridorColor = new Color(0.5f, 0.55f, 0.7f, 0.9f);
         public Color chokeColor = new Color(0.9f, 0.8f, 0.3f, 0.95f);
         public Color frontlineColor = new Color(0.9f, 0.25f, 0.2f, 0.95f); // 前線（FTL不可）
+        public Color fortressBlockadeColor = new Color(0.85f, 0.35f, 0.95f, 1f); // 要塞封鎖中の回廊（#40）
         public Color selectColor = new Color(1f, 0.95f, 0.4f);
 
         [Header("艦隊表示（重なり回避・軍団）")]
@@ -352,6 +353,9 @@ namespace Ginei
                 calendarCompression, TimeFlowRules.TargetCompression(IsActionSalient(), flow), flow, frameDt);
             if (clock != null) clock.Advance(frameDt * calendarCompression);
             reg.Tick(dt);
+
+            // 回廊要塞（#40）：要塞で封鎖された回廊上の敵対艦隊を固着（迂回不可）し、一定間隔で力攻めを自動解決する。
+            TickFortressBlockades(dt);
 
             // 回廊で接触した敵対艦隊は「交戦中」として固着（旧：即・実会戦へ強制遷移＝廃止）。
             // プレイヤーはダブルクリックで潜行＝手動指揮へ。放置すれば猶予後に自動解決（#586 ①④）。
@@ -887,6 +891,80 @@ namespace Ginei
                 if (fMin == min && fMax == max) return true;
             }
             return false;
+        }
+
+        // ===== 回廊要塞＝戦略ノード（#40 C-7）=====
+
+        private float fortressAssaultTimer = 0f;
+        private const float FortressAssaultInterval = 4f; // 力攻め判定の間隔（game-秒）。毎フレーム解決して瞬殺しない
+        private readonly List<StrategicFleet> fortressAttackers = new List<StrategicFleet>();
+
+        /// <summary>
+        /// 回廊要塞（#40）の封鎖と力攻めを進める。要塞で封鎖された回廊上にいる敵対艦隊を固着（前進停止＝
+        /// 迂回不可）させ、<see cref="FortressAssaultInterval"/> ごとに合計兵力で力攻めを自動解決する。
+        /// 制圧で回廊が開通＋要塞所有が攻撃側へ移転（<see cref="StrategyRules.AssaultFortress"/> が更新）、
+        /// 撃退なら攻撃側が消耗して足止め継続（難攻不落）。要塞なし・非敵対は素通り（フェザーン型）。
+        /// </summary>
+        private void TickFortressBlockades(float dt)
+        {
+            if (map == null || map.corridors == null || reg == null || reg.fleets == null) return;
+
+            bool doAssault = false;
+            fortressAssaultTimer += dt;
+            if (fortressAssaultTimer >= FortressAssaultInterval) { fortressAssaultTimer = 0f; doAssault = true; }
+
+            for (int ci = 0; ci < map.corridors.Count; ci++)
+            {
+                Corridor c = map.corridors[ci];
+                if (c == null || c.fortress == null) continue;
+
+                int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
+                fortressAttackers.Clear();
+                int total = 0;
+                for (int fi = 0; fi < reg.fleets.Count; fi++)
+                {
+                    StrategicFleet f = reg.fleets[fi];
+                    if (f == null || !f.IsOnCorridor) continue;
+                    if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) continue;
+                    if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
+                    if (!StrategyRules.IsFortressBlocked(c, f.faction)) continue;
+                    f.engaged = true; // 固着＝前進停止（封鎖＝通れない）
+                    fortressAttackers.Add(f);
+                    total += Mathf.Max(0, f.strength);
+                }
+                if (fortressAttackers.Count == 0 || !doAssault || total <= 0) continue;
+
+                Faction attacker = fortressAttackers[0].faction;
+                Faction defender = c.fortress.owner;
+                string fname = c.fortress.fortressName;
+                FortressAssaultResult r = StrategyRules.AssaultFortress(c.fortress, attacker, total);
+
+                if (r.captured)
+                {
+                    for (int i = 0; i < fortressAttackers.Count; i++) fortressAttackers[i].engaged = false; // 固着解除＝前進再開
+                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
+                        $"{fname} を {attacker} が制圧した（回廊が開通）");
+                }
+                else
+                {
+                    ScaleAndCullAttackers(fortressAttackers, r.attackerSurvivor, total);
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                        $"{fname}（{defender}）の攻略に失敗＝難攻不落（{attacker} 軍が損害）");
+                }
+            }
+        }
+
+        /// <summary>力攻めの残存兵力を攻撃側艦隊へ原兵力比で按分し、0以下は盤面から除去する。</summary>
+        private void ScaleAndCullAttackers(List<StrategicFleet> fleets, int survivor, int total)
+        {
+            if (total <= 0) return;
+            for (int i = fleets.Count - 1; i >= 0; i--)
+            {
+                StrategicFleet f = fleets[i];
+                if (f == null) continue;
+                f.strength = Mathf.RoundToInt(f.strength * (survivor / (float)total));
+                if (f.strength <= 0) reg.Remove(f);
+            }
         }
 
         private void OnDestroy()

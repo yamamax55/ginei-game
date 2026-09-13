@@ -82,7 +82,7 @@ namespace Ginei
                 if (kb.digit3Key.wasPressedThisFrame) { clock.SetSpeed(2f); clock.Resume(); }
             }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
-            if (kb.pKey.wasPressedThisFrame) CycleGovernancePolicyAtMouse(); // 星系別統治政策（#109 P-5）
+            if (kb.pKey.wasPressedThisFrame) CycleGovernancePolicyAtMouse(); // 星系別統治政策を稟議上申（#67/#109 P-5）
             if (kb.fKey.wasPressedThisFrame) ResetView(); // F：既定のズーム/位置へ戻す（#2384）
 
             HandleKeyPan(kb); // ステラリス風：WASD/矢印キーで視点パン（押しっぱで連続）

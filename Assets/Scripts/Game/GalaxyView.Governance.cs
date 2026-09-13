@@ -99,8 +99,8 @@ namespace Ginei
         }
 
         /// <summary>
-        /// マウス直下の自領星系について統治政策を循環する（Pキー）。星系別政策の通常操作窓口。
-        /// 管轄外は直接変更せず、権限境界を通知する。
+        /// マウス直下の自領星系について次の統治政策を上申する（Pキー）。
+        /// 戦略・政治の決定は直接変更せず、既存の稟議→決裁→執行を通す（#67）。
         /// </summary>
         private void CycleGovernancePolicyAtMouse()
         {
@@ -121,9 +121,17 @@ namespace Ginei
             }
 
             int count = System.Enum.GetValues(typeof(GovernancePolicy)).Length;
-            province.governancePolicy = (GovernancePolicy)(((int)province.governancePolicy + 1) % count);
-            NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報,
-                $"{system.systemName} の統治政策を「{province.governancePolicy}」へ変更");
+            GovernancePolicy target = (GovernancePolicy)(((int)province.governancePolicy + 1) % count);
+            RingiDirector director = Object.FindAnyObjectByType<RingiDirector>();
+            if (director == null)
+            {
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                    "稟議機構が利用できないため統治政策を上申できない");
+                return;
+            }
+            if (director.SubmitGovernancePolicy(system.id, system.systemName, player, target) < 0)
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"{system.systemName} の上申は受理されなかった（決裁待ち上限・重複・官僚機構を確認）");
         }
 
         /// <summary>所有勢力の在任宰相による安定度寄与（名実の乖離＝朝廷の権威で減衰・<see cref="AdministrationRules"/>）。空席/非デモ勢力は0。</summary>

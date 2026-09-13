@@ -76,6 +76,12 @@ namespace Ginei
         /// <summary>占領統合度（0＝占領直後/未統合 .. 1＝完全統合）。未統合ぶんが安定を押し下げる。</summary>
         public float integration = 1f;
 
+        /// <summary>
+        /// この星系に適用する統治政策（#109 P-5）。星系ごとの正本として保持し、
+        /// 安定度・統合度を通じて政治（反乱）と経済（産出）へ波及する。既定=民生で旧セーブ互換。
+        /// </summary>
+        public GovernancePolicy governancePolicy = GovernancePolicy.民生;
+
         /// <summary>住民の信仰（#172-175・null=未配線=後方互換）。`ReligionTickRules` が年次で進める。</summary>
         public Religion religion = null;
 

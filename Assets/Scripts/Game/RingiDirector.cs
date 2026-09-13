@@ -25,7 +25,14 @@ namespace Ginei
         /// <summary>進行中の稟議在庫（建白→伝播→決裁→執行）。観測/UI から読めるよう公開。</summary>
         public static readonly PetitionLedger Ledger = new PetitionLedger();
 
-        private struct Pending { public Petition pet; public float friction; }
+        private struct Pending
+        {
+            public Petition pet;
+            public float friction;
+            public bool isGovernancePolicy;
+            public int targetSystemId;
+            public GovernancePolicy targetPolicy;
+        }
         private readonly Dictionary<int, Pending> pending = new Dictionary<int, Pending>();
 
         private float accum;
@@ -73,6 +80,55 @@ namespace Ginei
         /// <summary>サンプル建白を1件起こす（同時上限を無視＝F7/スクリプト/テスト用）。決裁デスクへ載った決裁id（&lt;0=官僚機構で死んだ）を返す。
         /// sampleIndex&lt;0 はランダム、0以上は <see cref="RingiSampleData"/> の指定サンプル。</summary>
         public int ForceRaise(int sampleIndex = -1) => TryRaisePetition(forced: true, sampleIndex: sampleIndex);
+
+        /// <summary>
+        /// 星系別統治政策の変更を地方箱へ上申する（#67/#109/#141）。直接変更せず、
+        /// 官僚機構の伝播→決裁デスク→執行を通過した場合だけ対象 Province の政策を更新する。
+        /// </summary>
+        public int SubmitGovernancePolicy(int systemId, string systemName, Faction faction, GovernancePolicy targetPolicy)
+        {
+            FactionState fs = PlayerState();
+            if (fs == null || fs.faction != faction || pending.Count >= maxConcurrent) return -1;
+            foreach (Pending existing in pending.Values)
+                if (existing.isGovernancePolicy && existing.targetSystemId == systemId)
+                    return -1; // 同じ星系への重複上申を積まない
+
+            string regionKey = systemId.ToString();
+            string title = $"{systemName} 統治政策「{targetPolicy}」への変更";
+            string effectKey = $"governance.policy.{systemId}.{(int)targetPolicy}";
+            var pet = new Petition(0, title, faction, BoxKind.地方, PetitionOrigin.建白, effectKey, regionKey);
+            if (!RingiPipeline.Submit(Ledger, pet)) return -1;
+
+            float heed = CredibilityRules.Heed(fs.credibility, BoxKind.地方, regionKey);
+            float friction = MinistryFriction(faction, OfficeDomain.内政);
+            float legitimacy = FactionLoyaltyRules.BaselineLoyalty(fs);
+            PetitionStep step = RingiPipeline.Propagate(pet, heed, friction, legitimacy, Random.value);
+            if (step != PetitionStep.通過)
+            {
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                    $"［{(step == PetitionStep.握り潰し ? "握り潰し" : "黙殺")}］{title}（地方官僚機構で止まった）");
+                return -1;
+            }
+
+            RingiPipeline.SendToDecision(pet);
+            var decision = new PendingDecision(nextDecisionId++, $"{title}（地方箱）", DecisionSeverity.通常,
+                DecisionSource.建白結果, effectKey, defaultChoiceIndex: 1,
+                body: $"{systemName} の統治政策を「{targetPolicy}」へ改める上申。安定・統合・産出・反乱圧に波及する。所管官僚の抵抗により執行が遅れる場合がある。");
+            decision.choices.Add("裁可する");
+            decision.choices.Add("見送る（現状維持）");
+            DecisionDeck.Enqueue(decision);
+            pending[decision.id] = new Pending
+            {
+                pet = pet,
+                friction = friction,
+                isGovernancePolicy = true,
+                targetSystemId = systemId,
+                targetPolicy = targetPolicy
+            };
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                $"［上申］{title} が決裁待ち（右下の決裁デスクへ）");
+            return decision.id;
+        }
 
         // ----- 建白の起案＋官僚機構の伝播 -----
 
@@ -135,8 +191,22 @@ namespace Ginei
                 return;
             }
 
-            // 執行：官僚の執行忠実度（friction）で骨抜き＝通っても満額は効かない
-            float applied = RingiPipeline.ExecuteAndApply(e.pet, StrategySession.Campaign, e.friction);
+            // 統治政策はカテゴリ値なので、承認後の執行成立時に切り替える。
+            // 実効率は「命令が現地へどこまで届いたか」として通知し、数値効果は既存 GovernanceRules が時間で反映する。
+            float applied;
+            if (e.isGovernancePolicy)
+            {
+                float fidelity = PetitionFlowRules.ExecutionFidelity(e.friction);
+                applied = WorkflowRules.Execute(e.pet, fidelity);
+                if (applied > 0f && StrategySession.Provinces != null &&
+                    StrategySession.Provinces.TryGetValue(e.targetSystemId, out Province province) && province != null)
+                    province.governancePolicy = e.targetPolicy;
+            }
+            else
+            {
+                // 通常効果：官僚の執行忠実度で骨抜き＝通っても満額は効かない
+                applied = RingiPipeline.ExecuteAndApply(e.pet, StrategySession.Campaign, e.friction);
+            }
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                 $"［執行］{e.pet.title}：実効 {applied * 100f:0}%（官僚に骨抜きされた）");
         }

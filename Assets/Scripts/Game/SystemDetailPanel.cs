@@ -217,7 +217,7 @@ namespace Ginei
             {
                 string ideo = string.IsNullOrEmpty(prov.nativeIdeology) ? "（不明）" : prov.nativeIdeology;
                 sb.AppendLine($"住民の思想: {ideo}　人口: {Mathf.RoundToInt(prov.population)}");
-                sb.AppendLine($"統治政策: {prov.governancePolicy}（自領はマウスを合わせて P で変更）");
+                sb.AppendLine($"統治政策: {prov.governancePolicy}（自領はマウスを合わせて P で変更を上申）");
                 sb.AppendLine($"統合度: {Mathf.RoundToInt(Mathf.Clamp01(prov.integration) * 100f)}%　産出: ×{GovernanceRules.OutputFactor(prov):0.00}");
 
                 // 経済（#93 を惑星層へ #767）＝SystemView と同じ Core 窓口を読むだけ（数式は二重実装しない）。

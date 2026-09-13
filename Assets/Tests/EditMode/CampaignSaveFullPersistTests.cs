@@ -112,7 +112,8 @@ namespace Ginei.Tests
                     foodShortage = 0.2f,
                     hasStrategicResource = true,
                     strategicResource = StrategicResourceType.反応物質,
-                    strategicAbundance = 0.85f
+                    strategicAbundance = 0.85f,
+                    governancePolicy = GovernancePolicy.解放
                 }
             };
 
@@ -134,6 +135,7 @@ namespace Ginei.Tests
             Assert.IsTrue(p.hasStrategicResource);
             Assert.AreEqual(StrategicResourceType.反応物質, p.strategicResource);
             Assert.AreEqual(0.85f, p.strategicAbundance, 1e-3f);
+            Assert.AreEqual(GovernancePolicy.解放, p.governancePolicy);
             // 細部（demographics/workforce/skills）は再構築＝null のまま
             Assert.IsNull(p.demographics);
             Assert.IsNull(p.workforce);
@@ -146,6 +148,15 @@ namespace Ginei.Tests
             // provinces 欠落の旧セーブ＝空辞書（後方互換）。
             var save = CampaignSerializer.ToSaveData(new CampaignState());
             Assert.AreEqual(0, CampaignSerializer.ReadProvinces(save).Count);
+        }
+
+        [Test]
+        public void Provinces_OldSaveDefaultsToCivilPolicy()
+        {
+            var save = new CampaignSaveData();
+            save.provinces.Add(new ProvinceSave { systemId = 4, stability = 50f, integration = 1f });
+            Province p = CampaignSerializer.ReadProvinces(save)[4];
+            Assert.AreEqual(GovernancePolicy.民生, p.governancePolicy);
         }
 
         [Test]

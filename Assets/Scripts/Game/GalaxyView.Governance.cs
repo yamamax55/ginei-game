@@ -92,9 +92,38 @@ namespace Ginei
                 FactionData owner = demoFactions.TryGetValue(s.owner, out var fd) ? fd : null;
                 // 文官行政（総督＝地方＋宰相＝中央）が安定度目標を押し上げる＝名実の乖離で朝廷の権威ぶん減衰（権威0なら効かない）。
                 // ＋経済・民心（創発ループ配線）：高税/債務スパイラル/民心崩壊が安定度を下げ反乱を誘発、繁栄は安定を支える。
-                GovernanceRules.Tick(prov, owner, supplyOk: true, atWar: HasHostileFleetAt(s),
-                    deltaTime: dt, policy: GovernancePolicy.民生, adminBonus: SystemAdminBonus(s) + EconomyStabilityBonus(s.owner));
+                bool supplyOk = SupplyReadinessOf(s.owner) >= MilSupplyLowReadiness;
+                GovernanceRules.Tick(prov, owner, supplyOk, atWar: HasHostileFleetAt(s),
+                    deltaTime: dt, policy: prov.governancePolicy, adminBonus: SystemAdminBonus(s) + EconomyStabilityBonus(s.owner));
             }
+        }
+
+        /// <summary>
+        /// マウス直下の自領星系について統治政策を循環する（Pキー）。星系別政策の通常操作窓口。
+        /// 管轄外は直接変更せず、権限境界を通知する。
+        /// </summary>
+        private void CycleGovernancePolicyAtMouse()
+        {
+            if (cam == null || map == null) return;
+            Vector2 w = WorldMouse();
+            int systemId = NearestSystemDist(w, out float distance);
+            if (systemId < 0 || distance > 1.2f) return;
+
+            StarSystem system = map.GetSystem(systemId);
+            if (system == null || !provinces.TryGetValue(systemId, out Province province) || province == null) return;
+
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            if (system.owner != player)
+            {
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                    $"{system.systemName} は管轄外のため統治政策を直接変更できない");
+                return;
+            }
+
+            int count = System.Enum.GetValues(typeof(GovernancePolicy)).Length;
+            province.governancePolicy = (GovernancePolicy)(((int)province.governancePolicy + 1) % count);
+            NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報,
+                $"{system.systemName} の統治政策を「{province.governancePolicy}」へ変更");
         }
 
         /// <summary>所有勢力の在任宰相による安定度寄与（名実の乖離＝朝廷の権威で減衰・<see cref="AdministrationRules"/>）。空席/非デモ勢力は0。</summary>

@@ -107,6 +107,7 @@ namespace Ginei
         public int strategicResource; // (int)StrategicResourceType
         public float strategicAbundance;
         public float stability, integration;
+        public int governancePolicy;  // (int)GovernancePolicy（既定0=民生＝旧セーブ後方互換）
     }
 
     /// <summary>星系のセーブ平データ。所有 SO は名前で持つ（復元時に Resources/Factions から解決）。</summary>
@@ -217,4 +218,3 @@ namespace Ginei
         public int meritLastRating = (int)MeritRating.中中; // (int)MeritRating（hasMerit のときのみ有効）
     }
 }
-

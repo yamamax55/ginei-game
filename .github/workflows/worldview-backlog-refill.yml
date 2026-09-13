@@ -23,6 +23,9 @@ jobs:
         with:
           ref: auto/worldview-epics
           fetch-depth: 0
+      - name: Load axis catalog from master
+        run: |
+          git show origin/master:docs/planning/reference-epic-categories.md > docs/reference-epic-categories.md
       - name: Gate and build axis matrix
         id: gate
         run: |

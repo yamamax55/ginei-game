@@ -33,6 +33,19 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void Unretire_MakesRetiredNameAssignableAgain_WithoutMarkingInUse()
+        {
+            string a = ShipNameRegistry.Assign();
+            ShipNameRegistry.Retire(a);
+            Assert.AreNotEqual(a, ShipNameRegistry.Assign(), "欠番の名が払い出された");
+            ShipNameRegistry.Unretire(a);
+            Assert.IsFalse(ShipNameRegistry.IsRetired(a));
+            Assert.IsFalse(ShipNameRegistry.IsInUse(a), "欠番解除で使用中にしてはいけない");
+            Assert.AreEqual(a, ShipNameRegistry.Assign(), "欠番解除後はプール順の最小空き名として戻る");
+            ShipNameRegistry.Unretire(null);   // null 安全
+        }
+
+        [Test]
         public void Release_ReturnsNameToPool()
         {
             string a = ShipNameRegistry.Assign();

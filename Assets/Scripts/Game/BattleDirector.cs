@@ -155,7 +155,8 @@ namespace Ginei
             for (int i = 0; i < windows.Count; i++)
             {
                 BattleWindow w = windows[i];
-                if (w != null && w.Ready && w.ContainsPointer) { focus = w; break; }
+                // 窓の枠を掴んでいる間は、カーソルが外へ出てもその会戦にフォーカスを残す（操作対象が入れ替わらない）。
+                if (w != null && w.Ready && (w.ContainsPointer || w.IsGrabbingHandle)) { focus = w; break; }
             }
 
             if (focus != null)
@@ -170,12 +171,20 @@ namespace Ginei
             }
         }
 
-        /// <summary>いずれかの会戦ウィンドウの上にカーソルがあるか（GalaxyView がマップ操作を譲る判定）。</summary>
+        /// <summary>
+        /// いずれかの会戦ウィンドウの上にカーソルがあるか（GalaxyView がマップ操作を譲る判定）。
+        /// 窓のタイトルバー/リサイズグリップを掴んでいる間は、カーソルが枠外へ出ても true を返す
+        /// ＝窓を動かしている最中に背後の戦略マップがスクロールしない（掴んだら離すまで窓が入力を持つ）。
+        /// </summary>
         public static bool AnyPointerOverWindow()
         {
             if (instance == null) return false;
             for (int i = 0; i < instance.windows.Count; i++)
-                if (instance.windows[i] != null && instance.windows[i].ContainsPointer) return true;
+            {
+                BattleWindow w = instance.windows[i];
+                if (w == null) continue;
+                if (w.ContainsPointer || w.IsGrabbingHandle) return true;
+            }
             return false;
         }
     }

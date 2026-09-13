@@ -252,6 +252,7 @@ namespace Ginei
             ContentSizeFitter csf = content.AddComponent<ContentSizeFitter>();
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             sr.content = crt;
+            UiScrollbars.Attach(sr);   // #H スクロールできることを画面で示す（見えて掴めるバー）
 
             infoText = CreateText(content.transform, "", 15f, new Color(0.9f, 0.93f, 0.97f), TextAlignmentOptions.TopLeft);
             infoText.raycastTarget = false;

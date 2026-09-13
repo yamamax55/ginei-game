@@ -41,6 +41,10 @@ namespace Ginei
         private static void TryCreate(Scene scene)
         {
             if (scene.name != "Battle") return;
+            // ウィンドウ会戦（戦略マップに additive で載る会戦＝アクティブシーンにならない）では作らない。
+            // この HUD は全画面 Overlay なので、窓の枠外へ日付/SPEED が漏れて戦略 HUD と重なっていた（実機報告）。
+            // 窓モードの時刻表示は戦略マップ上メニュー（StrategyMapWindow）が既に担っている＝二重表示でもある。
+            if (scene != SceneManager.GetActiveScene()) return;
             if (UnityEngine.Object.FindAnyObjectByType<TimeDisplay>() != null) return;
             GameObject go = new GameObject("TimeDisplay");
             go.AddComponent<TimeDisplay>();
@@ -48,6 +52,15 @@ namespace Ginei
 
         private void Awake()
         {
+            // ウィンドウ化会戦（additive ロード＝アクティブシーンにならない）に紛れ込んだ個体は浮きHUDを作らない。
+            // この HUD は全画面 Overlay なので、作ると日付/SPEED が窓の枠外へ出て背後の戦略HUDと重なる（実機報告）。
+            // 窓モードの時刻は戦略の上メニュー（StrategyMapWindow）と会戦ウィンドウのタイトルバーが担う
+            // （どちらも TryFormatNow の単一窓口を使う＝二重実装しない）。TryCreate と同じ判定の二重防御。
+            if (gameObject.scene.IsValid() && gameObject.scene != SceneManager.GetActiveScene())
+            {
+                enabled = false;
+                return;
+            }
             BuildUI();
         }
 
@@ -78,24 +91,84 @@ namespace Ginei
         }
 
         /// <summary>+/-（=/-キー）で時間速度を段階変更する（全シーン共通・クロックを駆動）。</summary>
+        // このフレームで既に速度入力を処理したか（複数のコンポーネントが同じキーを二重に消費しないため）。
+        private static int lastSpeedInputFrame = -1;
+
         public static void StepSpeedInput()
         {
+            // 同一フレームで2回目以降は無視（戦略は StrategyMapWindow、会戦は TimeDisplay が呼ぶ＝将来の重複も防ぐ）。
+            if (lastSpeedInputFrame == Time.frameCount) return;
+            lastSpeedInputFrame = Time.frameCount;
+
             // イベントモーダル表示中は速度操作を受けない（誤操作防止）。
             if (StrategyEventPanel.IsOpen) return;
-            Keyboard kb = Keyboard.current;
-            GameClock clock = StrategySession.Clock;
-            if (kb == null || clock == null) return;
+            // 文字入力中（名前入力欄など）はゲームの速度キーとして解釈しない。
+            if (IsTextInputFocused()) return;
 
-            if (kb.equalsKey.wasPressedThisFrame || kb.numpadPlusKey.wasPressedThisFrame)
-            {
-                clock.SetSpeed(NextSpeed(clock.speed, +1));
-                clock.Resume();
-            }
-            if (kb.minusKey.wasPressedThisFrame || kb.numpadMinusKey.wasPressedThisFrame)
-            {
-                clock.SetSpeed(NextSpeed(clock.speed, -1));
-                clock.Resume();
-            }
+            Keyboard kb = Keyboard.current;
+            if (kb == null) return;
+
+            // 日本語配列では「＝」が Shift+「ー」だったり、右手前の記号キーの並びが英語配列と違う。
+            // 取りこぼしを減らすため、増速/減速それぞれに複数のキーを割り当てる（テンキーも含む）。
+            bool up = kb.equalsKey.wasPressedThisFrame
+                   || kb.numpadPlusKey.wasPressedThisFrame
+                   || kb.semicolonKey.wasPressedThisFrame;       // JIS配列で「＋」が乗るキー
+            bool down = kb.minusKey.wasPressedThisFrame
+                     || kb.numpadMinusKey.wasPressedThisFrame;
+
+            if (up) SpeedUp();
+            if (down) SlowDown();
+        }
+
+        /// <summary>入力欄（TMP/uGUI の InputField）にフォーカスがあるか。</summary>
+        private static bool IsTextInputFocused()
+        {
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            GameObject sel = es != null ? es.currentSelectedGameObject : null;
+            if (sel == null) return false;
+            return sel.GetComponent<TMP_InputField>() != null
+                || sel.GetComponent<UnityEngine.UI.InputField>() != null;
+        }
+
+        // ===== 速度操作の単一窓口（キーも画面上のボタンもここを呼ぶ＝挙動が分岐しない） =====
+
+        /// <summary>
+        /// 速度操作を受け付けてよい状態か。システムメニュー/イベントモーダルが開いている間は
+        /// <b>クロックに触らない</b>＝速度変更で意図せずメニューの停止を解除しない（実機報告）。
+        /// </summary>
+        private static bool SpeedControlAllowed()
+            => !StrategySystemMenu.IsOpen && !StrategyEventPanel.IsOpen && !CampaignEndOverlay.IsOpen;
+
+        /// <summary>1段速くする（停止中なら再開する）。メニュー表示中は何もしない。</summary>
+        public static void SpeedUp()
+        {
+            if (!SpeedControlAllowed()) return;
+            GameClock clock = StrategySession.Clock;
+            if (clock == null) return;
+            clock.SetSpeed(NextSpeed(clock.speed, +1));
+            clock.Resume();
+        }
+
+        /// <summary>1段遅くする（停止中なら再開する）。メニュー表示中は何もしない。</summary>
+        public static void SlowDown()
+        {
+            if (!SpeedControlAllowed()) return;
+            GameClock clock = StrategySession.Clock;
+            if (clock == null) return;
+            clock.SetSpeed(NextSpeed(clock.speed, -1));
+            clock.Resume();
+        }
+
+        /// <summary>
+        /// 停止と再開を切り替える。<b>ポーズメニュー（システムメニュー）が開いている間は触らない</b>
+        /// ＝速度操作でメニューのポーズを意図せず解除しない（実機報告）。
+        /// </summary>
+        public static void TogglePause()
+        {
+            if (!SpeedControlAllowed()) return;
+            GameClock clock = StrategySession.Clock;
+            if (clock == null) return;
+            clock.TogglePause();
         }
 
         /// <summary>現在速度に最も近い段階から <paramref name="dir"/> 方向へ1段移動した速度を返す。</summary>

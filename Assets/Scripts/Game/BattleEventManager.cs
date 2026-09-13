@@ -42,11 +42,69 @@ namespace Ginei
         private int nextDecisionId = 1;
         private float nextTick;
 
+        // 固定会戦QA（SPEED-08）が自分の使い捨てシーンに限って会戦イベントを動かすための許可。
+        // 既定＝無し＝従来どおり Battle シーンだけで動く（自動生成 TryCreate はシーン名だけを見るので対象外）。
+        private static Scene qaHostScene;
+
+        /// <summary>このシーンに置いた個体だけ、名前が Battle でなくても動かしてよい（QA専用・終了時に <see cref="ClearQaHostScene"/>）。</summary>
+        public static void AllowQaHostScene(Scene scene) => qaHostScene = scene;
+
+        /// <summary>QAの許可を解く（以後は従来どおり Battle シーン以外で自壊）。</summary>
+        public static void ClearQaHostScene() => qaHostScene = default;
+
+        /// <summary>QAの許可が残っているか（試験・復元確認用）。</summary>
+        public static bool HasQaHostScene => qaHostScene.IsValid();
+
+        private static bool IsQaHost(Scene scene) => qaHostScene.IsValid() && scene == qaHostScene && scene.isLoaded;
+
+        /// <summary>通知の送り先。null＝従来どおり <see cref="NotificationCenter"/>（QAはローカルログへ差し替える）。</summary>
+        public System.Action<NotificationCategory, NotificationSeverity, string> NotificationSink { get; set; }
+
+        // 効果の対象勢力の明示指定（QAが自分の味方艦隊に合わせる）。未指定＝従来どおり GameSettings.playerFaction。
+        private bool hasTargetFactionOverride;
+        private Faction targetFactionOverride;
+
+        /// <summary>この個体の効果の対象勢力を明示する（GameSettings は書き換えない）。</summary>
+        public void SetTargetFaction(Faction faction)
+        {
+            targetFactionOverride = faction;
+            hasTargetFactionOverride = true;
+        }
+
+        /// <summary>対象勢力を明示しているか。</summary>
+        public bool HasTargetFactionOverride => hasTargetFactionOverride;
+
+        /// <summary>いま効果を掛ける勢力（明示があればそれ、無ければ GameSettings.playerFaction）。</summary>
+        public Faction TargetFaction => Player;
+
+        /// <summary>抽選で発火した件数（観測用）。</summary>
+        public int FiredCount { get; private set; }
+        /// <summary>抽選を行った回数（発火しなかった回も数える・観測用）。</summary>
+        public int TickCount { get; private set; }
+        /// <summary>次の抽選時刻（Time.time 基準。Start 前は0）。</summary>
+        public float NextTickAt => nextTick;
+
+        /// <summary>デスクに残っている未解決の決裁数（観測用）。</summary>
+        public int PendingDecisionCount
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < deck.items.Count; i++)
+                {
+                    var d = deck.items[i];
+                    if (d != null && d.status != DecisionStatus.決裁済 && d.status != DecisionStatus.自動解決) n++;
+                }
+                return n;
+            }
+        }
+
         // UI
         private RectTransform container;
         private GameObject deckRoot;
         private GameObject dragHandle;
         private TMP_FontAsset jpFont;
+        private bool windowAttachDone;
         private string lastSignature = "";
         private readonly List<CardView> cardViews = new List<CardView>();
 
@@ -75,11 +133,41 @@ namespace Ginei
 
         private static void TryCreate(Scene scene)
         {
-            if (scene.name != "Battle") return;
+            if (!BattleOverlayScopeRules.ShouldHost(scene.name)) return;
             // 攻城/システムビューなど特殊モードでは出さない。
             if (BattleHandoff.IsPlanetSiege || BattleHandoff.IsSystemView) return;
-            if (FindAnyObjectByType<BattleEventManager>() != null) return;
-            new GameObject("BattleEventManager").AddComponent<BattleEventManager>();
+            // 会戦シーンごとに1つ（WIN-4）：ウィンドウ化会戦は複数の Battle シーンが同時にロードされるので、
+            // グローバル重複ガードでなく「このシーンに既に在るか」で判定する（Minimap.TryCreate と同じ作法）。
+            if (FindInScene(scene) != null) return;
+            var go = new GameObject("BattleEventManager");
+            // ★ additive ロードされた会戦シーンへ帰属させる（WIN-1 残骸バグ）。
+            //   ウィンドウ化会戦ではアクティブシーンが Strategy のままなので、素の new GameObject は
+            //   戦略側に生まれ、Battle シーンをアンロードしても生き残って決裁カードを生み続けてしまう。
+            //   フルスクリーン会戦（Battle＝アクティブ）では移動不要＝従来動作（後方互換）。
+            if (BattleOverlayScopeRules.NeedsSceneMove(scene.IsValid(), scene == SceneManager.GetActiveScene()))
+                SceneManager.MoveGameObjectToScene(go, scene);
+            go.AddComponent<BattleEventManager>();
+        }
+
+        /// <summary>指定シーンに属する BattleEventManager を返す（無ければ null）。</summary>
+        private static BattleEventManager FindInScene(Scene scene)
+        {
+            BattleEventManager[] all = FindObjectsByType<BattleEventManager>();
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && all[i].gameObject.scene == scene) return all[i];
+            return null;
+        }
+
+        private void Awake()
+        {
+            // 保険：万一 Strategy 等の非会戦シーンに生まれた／取り残された個体は即座に自壊する。
+            // （`BattleSetup.Awake` のシーン名ガードと同じ趣旨。決裁カードを生み続ける経路を塞ぐ）
+            if (!BattleOverlayScopeRules.ShouldHost(gameObject.scene.name) && !IsQaHost(gameObject.scene))
+            {
+                Debug.LogWarning("BattleEventManager: 会戦シーン以外に生成されたため自壊します（scene: "
+                    + gameObject.scene.name + "）");
+                Destroy(gameObject);
+            }
         }
 
         private void Start()
@@ -90,26 +178,82 @@ namespace Ginei
             nextTick = Time.time + tickInterval;
         }
 
-        private Faction Player => GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+        /// <summary>
+        /// 会戦終了（シーンのアンロード／フルスクリーンのシーン遷移）で自分が作った UI を確実に片付ける。
+        /// Canvas は自分の子なので通常は連鎖破棄されるが、親替え（<see cref="BattleWindowUI.TryAttach"/> で
+        /// 窓内 UI 親矩形へ移したコンテナ）は<b>別シーンの下に居る</b>ため連鎖破棄されない＝明示的に破棄する。
+        /// </summary>
+        private void OnDestroy()
+        {
+            // 窓へ親替えしたコンテナだけ明示的に破棄する（自分の子でなくなっているため連鎖破棄されない）。
+            // 親替えしていない場合は deckRoot の子＝下の破棄で一緒に片付くので二重に触らない。
+            if (Application.isPlaying && container != null && deckRoot != null
+                && !container.IsChildOf(deckRoot.transform))
+                Destroy(container.gameObject);
+            container = null;
+
+            if (Application.isPlaying && deckRoot != null) Destroy(deckRoot);
+            deckRoot = null;
+            dragHandle = null;
+            cardViews.Clear();
+            eventById.Clear();
+            deck.items.Clear();
+        }
+
+        private Faction Player => hasTargetFactionOverride ? targetFactionOverride
+            : (GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟);
+
+        private bool eventsRegistered;
+        // イベントid → 定義（QAの決定論の効果確認で引く）。
+        private readonly Dictionary<string, GameEventDef> defsById = new Dictionary<string, GameEventDef>();
+
+        private void Register(GameEventDef def)
+        {
+            engine.Register(def);
+            defsById[def.id] = def;
+        }
+
+        private void Notify(NotificationCategory category, NotificationSeverity severity, string message)
+        {
+            if (NotificationSink != null) NotificationSink(category, severity, message);
+            else NotificationCenter.Push(category, severity, message);
+        }
+
+        /// <summary>
+        /// 固定会戦QA専用の<b>決定論の効果確認</b>：登録済みイベントの選択肢の効果をそのまま1回適用する（抽選・デスク・発火数には触れない）。
+        /// ★自然発生の確認ではない。QA許可のシーンの個体だけ受け付ける（通常の Battle 個体では false）。
+        /// </summary>
+        public bool ApplyChoiceForQaVerification(string eventId, int choiceIndex)
+        {
+            if (!IsQaHost(gameObject.scene) || string.IsNullOrEmpty(eventId)) return false;
+            RegisterEvents();
+            if (!defsById.TryGetValue(eventId, out GameEventDef def)) return false;
+            if (choiceIndex < 0 || choiceIndex >= def.choices.Count) return false;
+            def.choices[choiceIndex].Apply(new EventContext(Player));
+            return true;
+        }
 
         private void RegisterEvents()
         {
+            if (eventsRegistered) return;
+            eventsRegistered = true;
+
             // 義勇兵の志願（好機）：受ければ士気↑。放置の既定＝断る（無効果）。
-            engine.Register(new GameEventDef("battle_volunteers", "義勇兵の志願",
+            Register(new GameEventDef("battle_volunteers", "義勇兵の志願",
                     "近隣の義勇兵が前線への参加を志願している。")
-                .AddChoice("受け入れる（士気↑）", ctx => AdjustPlayerMorale(8f))
+                .AddChoice("受け入れる（士気↑）", ctx => AdjustPlayerMorale(8f, "battle_volunteers"))
                 .AddChoice("断る", null));
 
             // 補給線の不安（ジレンマ）：放置の既定＝慎重（安全だが士気↓）。
-            engine.Register(new GameEventDef("battle_supply", "補給線に不安",
+            Register(new GameEventDef("battle_supply", "補給線に不安",
                     "弾薬の補給に遅れが出ている。どう戦う？")
-                .AddChoice("慎重に戦う（士気↓・安全）", ctx => AdjustPlayerMorale(-5f))
-                .AddChoice("強攻して勢いをつける（士気↑）", ctx => AdjustPlayerMorale(7f)));
+                .AddChoice("慎重に戦う（士気↓・安全）", ctx => AdjustPlayerMorale(-5f, "battle_supply"))
+                .AddChoice("強攻して勢いをつける（士気↑）", ctx => AdjustPlayerMorale(7f, "battle_supply")));
 
             // 英雄的奮戦（通知＝確認のみ）：自動で士気↑。
-            engine.Register(new GameEventDef("battle_heroics", "英雄的奮戦",
+            Register(new GameEventDef("battle_heroics", "英雄的奮戦",
                     "一隊の奮戦が全軍を奮い立たせた！")
-                .AddChoice("士気高まる", ctx => AdjustPlayerMorale(6f)));
+                .AddChoice("士気高まる", ctx => AdjustPlayerMorale(6f, "battle_heroics")));
         }
 
         /// <summary>放置時に機械的に採択する既定選択（イベントごと）。</summary>
@@ -128,14 +272,23 @@ namespace Ginei
 
         private void Update()
         {
+            // 0) 自分の会戦シーンが畳まれていたら何もしない（戦略側に残って決裁を生み続けない）。
+            //    ウィンドウ化会戦で窓を閉じるとシーンがアンロードされる＝そのフレーム以降は沈黙する。
+            if (!BattleOverlayScopeRules.ShouldRun(gameObject.scene.name, gameObject.scene.isLoaded) && !IsQaHost(gameObject.scene)) return;
+
+            // ウィンドウ化会戦（WIN-4）ではデスクを自分の窓内 UI 親へ親替えする（全画面に広げない）。
+            TryWindowAttach();
+
             // 1) 一定間隔で会戦イベントを抽選発火し、デスクへ積む（ポーズしない）。
             if (Time.time >= nextTick)
             {
                 nextTick = Time.time + Mathf.Max(5f, tickInterval);
                 var ctx = new EventContext(Player);
                 GameEventDef fired = engine.Tick(ctx, Time.time, Random.value);
+                TickCount++;
                 if (fired != null)
                 {
+                    FiredCount++;
                     EnqueueEvent(fired, ctx);
                     engine.ClearPending(); // デスク側で管理＝エンジンの保留キューは持ち越さない
                 }
@@ -162,7 +315,7 @@ namespace Ginei
             if (def.IsNotification)
             {
                 if (def.choices.Count > 0) def.choices[0].Apply(ctx);
-                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                Notify(NotificationCategory.戦闘, NotificationSeverity.情報,
                     string.IsNullOrEmpty(def.body) ? def.title : $"{def.title}：{def.body}");
                 return;
             }
@@ -183,7 +336,7 @@ namespace Ginei
             if (eventById.TryGetValue(d.id, out EventEntry e))
             {
                 ApplyChoice(e, d.chosenIndex);
-                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                Notify(NotificationCategory.戦闘, NotificationSeverity.注意,
                     $"［放置〕{d.title} → {ChoiceLabel(d, d.chosenIndex)}（現場判断で処理）");
                 eventById.Remove(d.id);
             }
@@ -217,8 +370,12 @@ namespace Ginei
             return d.choices[idx];
         }
 
-        /// <summary>プレイヤー勢力の生存旗艦の士気を一律に増減する。</summary>
-        private void AdjustPlayerMorale(float delta)
+        /// <summary>
+        /// プレイヤー勢力の生存旗艦の士気を一律に増減する。
+        /// <paramref name="eventId"/> は観測台帳（<see cref="MoraleAuditLog"/>）へ残す原因の内訳で、
+        /// 増減の計算には関与しない（士気が上がったのが自然回復かこのイベントかを後から言い分けるため）。
+        /// </summary>
+        private void AdjustPlayerMorale(float delta, string eventId)
         {
             Faction player = Player;
             IReadOnlyList<FleetStrength> flags = FleetRegistry.AllFlagships;
@@ -227,9 +384,9 @@ namespace Ginei
                 FleetStrength f = flags[i];
                 if (f == null || !f.IsAlive || f.faction != player) continue;
                 FleetMorale mo = f.GetComponent<FleetMorale>();
-                if (mo != null) mo.ApplyMoraleDelta(delta);
+                if (mo != null) mo.ApplyMoraleDelta(delta, MoraleChangeSource.戦況イベント, eventId);
             }
-            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+            Notify(NotificationCategory.戦闘, NotificationSeverity.情報,
                 delta >= 0 ? $"会戦イベント：味方の士気が上がった（+{delta:0}）" : $"会戦イベント：味方の士気が下がった（{delta:0}）");
         }
 
@@ -295,7 +452,8 @@ namespace Ginei
             le.preferredWidth = cardWidth;
 
             // タイトル
-            AddLabel(card.transform, $"<b>⚔ {d.title}</b>", 18f, new Color(1f, 0.92f, 0.6f));
+            // 記号「⚔」は日本語フォントに無く豆腐になる（FontCoverageChecker で実測）＝短い日本語で示す。
+            AddLabel(card.transform, $"<b>【戦況】{d.title}</b>", 18f, new Color(1f, 0.92f, 0.6f));
             // 本文
             if (!string.IsNullOrEmpty(d.body))
                 AddLabel(card.transform, d.body, 15f, new Color(0.86f, 0.9f, 0.95f));
@@ -393,6 +551,18 @@ namespace Ginei
             dragHandle.SetActive(false);
         }
 
+        /// <summary>
+        /// ウィンドウ化会戦（WIN-4）では戦術決裁デスクを自分の窓内 UI 親へ親替えする
+        /// （全画面に広げず、対応する会戦窓の中に収める）。フルスクリーン会戦（会戦シーン＝アクティブシーン）
+        /// では何もしない＝従来どおり画面右下に出す（後方互換）。<see cref="Minimap"/> と同じ作法。
+        /// </summary>
+        private void TryWindowAttach()
+        {
+            if (windowAttachDone || container == null) return;
+            if (gameObject.scene == SceneManager.GetActiveScene()) { windowAttachDone = true; return; }
+            if (BattleWindowUI.TryAttach(gameObject.scene, container)) windowAttachDone = true;
+        }
+
         private TextMeshProUGUI AddLabel(Transform parent, string text, float size, Color color)
         {
             var go = new GameObject("Label");
@@ -401,7 +571,7 @@ namespace Ginei
             label.text = text;
             label.fontSize = size;
             label.color = color;
-            label.enableWordWrapping = true;
+            label.textWrappingMode = TMPro.TextWrappingModes.Normal;
             label.raycastTarget = false;
             if (jpFont != null) label.font = jpFont;
             return label;
@@ -434,11 +604,16 @@ namespace Ginei
             return btnObj;
         }
 
-        private static void EnsureEventSystem()
+        private void EnsureEventSystem()
         {
             if (EventSystem.current != null) return;
             if (FindAnyObjectByType<EventSystem>() != null) return;
             var es = new GameObject("EventSystem");
+            // 自分の会戦シーンへ帰属させる（戦略側に EventSystem を置き去りにしない／
+            // ウィンドウ化会戦では BattleWindow の EventSystem ガードが正しく畳める）。
+            Scene mine = gameObject.scene;
+            if (BattleOverlayScopeRules.NeedsSceneMove(mine.IsValid(), mine == SceneManager.GetActiveScene()))
+                SceneManager.MoveGameObjectToScene(es, mine);
             es.AddComponent<EventSystem>();
             es.AddComponent<InputSystemUIInputModule>();
         }

@@ -8,11 +8,11 @@ namespace Ginei
     /// </summary>
     public static class MedalRegistry
     {
-        private static readonly Dictionary<int, List<Decoration>> byPerson = new Dictionary<int, List<Decoration>>();
+        private static readonly Dictionary<long, List<Decoration>> byPerson = new Dictionary<long, List<Decoration>>();
         private static readonly List<Decoration> Empty = new List<Decoration>();
 
         /// <summary>人物に勲章を叙勲（保存）する。</summary>
-        public static void Award(int personId, Decoration decoration)
+        public static void Award(long personId, Decoration decoration)
         {
             if (!byPerson.TryGetValue(personId, out List<Decoration> list))
             {
@@ -23,7 +23,7 @@ namespace Ginei
         }
 
         /// <summary>戦功と種別から叙勲して保存する簡易窓口。</summary>
-        public static Decoration Award(int personId, MedalKind kind, float meritScore, int year = 0, string citation = "")
+        public static Decoration Award(long personId, MedalKind kind, float meritScore, int year = 0, string citation = "")
         {
             Decoration d = MedalRules.Award(kind, meritScore, year, citation);
             Award(personId, d);
@@ -31,18 +31,18 @@ namespace Ginei
         }
 
         /// <summary>人物の保有勲章（無ければ空リスト）。</summary>
-        public static IReadOnlyList<Decoration> Decorations(int personId)
+        public static IReadOnlyList<Decoration> Decorations(long personId)
             => byPerson.TryGetValue(personId, out List<Decoration> list) ? list : Empty;
 
         /// <summary>人物の保有勲章数。</summary>
-        public static int Count(int personId)
+        public static int Count(long personId)
             => byPerson.TryGetValue(personId, out List<Decoration> list) ? list.Count : 0;
 
         /// <summary>人物の恩給倍率（保有勲章から・<see cref="MedalRules.PensionFactor"/>）。</summary>
-        public static float PensionFactor(int personId) => MedalRules.PensionFactor(Decorations(personId));
+        public static float PensionFactor(long personId) => MedalRules.PensionFactor(Decorations(personId));
 
         /// <summary>人物の名誉点（保有勲章から・<see cref="MedalRules.Prestige"/>）。</summary>
-        public static float Prestige(int personId) => MedalRules.Prestige(Decorations(personId));
+        public static float Prestige(long personId) => MedalRules.Prestige(Decorations(personId));
 
         /// <summary>台帳を空にする（戦役の作り直し）。</summary>
         public static void Clear() => byPerson.Clear();

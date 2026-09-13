@@ -31,12 +31,12 @@ namespace Ginei
 
         // 大量ヒット時の出しすぎ防止：同時表示数の上限。超過分は間引く（生成しない）。
         // 多数の配下艦が同時に撃つため、可読性優先で控えめにする。
-        public const int MaxActive = 24;
+        public const int MaxActive = 14;
         private static int activeCount = 0;
 
         // 縦方向の段積み：連続生成を一定段にずらして団子化を防ぐ（重なって読めないのを軽減）。
-        private const int StackSlots = 4;
-        private const float StackStep = 0.45f;
+        private const int StackSlots = 6;
+        private const float StackStep = 0.6f;
         private static int stackSlot = 0;
 
         // 文字サイズのズーム追従に使う基準ズーム（CameraController.startZoom と揃える）。
@@ -75,8 +75,8 @@ namespace Ginei
         {
             string text = damage.ToString();
             return isFlank
-                ? new PopupStyle(text, FlankColor, 80, 0.22f)
-                : new PopupStyle(text, NormalColor, 60, 0.18f);
+                ? new PopupStyle(text, FlankColor, 80, 0.15f)
+                : new PopupStyle(text, NormalColor, 60, 0.12f);
         }
 
         /// <summary>

@@ -18,7 +18,7 @@ namespace Ginei
     /// </summary>
     public class Allegiance
     {
-        public int id;
+        public long id;
         public Faction side;     // 名目上の所属側
         public int strength;     // 兵力（名目）
         public float loyalty;    // 自軍への忠誠 0..1
@@ -28,7 +28,7 @@ namespace Ginei
 
         public Allegiance() { }
 
-        public Allegiance(int id, Faction side, int strength, float loyalty = 1f, float intrigue = 0f)
+        public Allegiance(long id, Faction side, int strength, float loyalty = 1f, float intrigue = 0f)
         {
             this.id = id;
             this.side = side;

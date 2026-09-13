@@ -206,7 +206,8 @@ namespace Ginei
                 if (hf.sideA == aWon)
                 {
                     int share = Mathf.Max(1, Mathf.RoundToInt(survivor * (Mathf.Max(0, hf.strategicStrength) / (float)winnerTotal)));
-                    sf.strength = share;
+                    // 会戦の結果＝実際に艦を失う。艦艇数もこの艦隊のぶんだけ追随させる。
+                    FleetShipCountRules.ApplyPhysicalLoss(sf, share);
                     sf.engaged = false;
                 }
                 else
@@ -308,7 +309,8 @@ namespace Ginei
                 for (int i = 0; i < winners.Count; i++)
                 {
                     StrategicFleet w = winners[i];
-                    w.strength = Mathf.Max(1, Mathf.RoundToInt(survivor * (w.strength / (float)winnerTotal)));
+                    FleetShipCountRules.ApplyPhysicalLoss(
+                        w, Mathf.Max(1, Mathf.RoundToInt(survivor * (w.strength / (float)winnerTotal))));
                     w.engaged = false;
                 }
                 if (outcomes != null)
@@ -604,7 +606,9 @@ namespace Ginei
             float severity = CorpsRetreatRules.DefeatSeverity(survivor, initial, winnerStrength);
 
             // 撤退に伴う追加損耗（しんがり・落伍）。最低1で原隊へ帰す（全滅させない）。
-            loser.strength = CorpsRetreatRules.SurvivorsAfterWithdrawal(survivor, severity);
+            // 撤退の追加損耗も実損＝艦艇数を追随させる。
+            FleetShipCountRules.ApplyPhysicalLoss(
+                loser, CorpsRetreatRules.SurvivorsAfterWithdrawal(survivor, severity));
             loser.engaged = false; // 交戦固着を解いて原隊（後方）へ退ける
 
             // 将帥の声望・政治的代償＝敗者の勢力/軍団を名指しで通知（人事/政治）。
@@ -746,9 +750,16 @@ namespace Ginei
 
         private static void ScaleStrength(List<StrategicFleet> fleets, int survivor, int total)
         {
-            if (total <= 0) { foreach (var f in fleets) if (f != null) f.strength = 0; return; }
+            // 会戦の按分も実損＝艦艇数を各艦隊のぶんだけ追随させる（他隊の損失を混ぜない）。
+            if (total <= 0)
+            {
+                foreach (var f in fleets) if (f != null) FleetShipCountRules.ApplyPhysicalLoss(f, 0);
+                return;
+            }
             foreach (var f in fleets)
-                if (f != null) f.strength = (int)System.Math.Round((double)f.strength * survivor / total);
+                if (f != null)
+                    FleetShipCountRules.ApplyPhysicalLoss(
+                        f, (int)System.Math.Round((double)f.strength * survivor / total));
         }
     }
 }

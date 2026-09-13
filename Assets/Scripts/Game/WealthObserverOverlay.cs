@@ -264,6 +264,7 @@ namespace Ginei
             csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scrollRect.content = contentRT;
+            UiScrollbars.Attach(scrollRect);   // #H スクロールできることを画面で示す（見えて掴めるバー）
 
             GameObject bodyObj = new GameObject("Body");
             bodyObj.transform.SetParent(content.transform, false);

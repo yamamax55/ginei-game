@@ -29,7 +29,8 @@ namespace Ginei
         private readonly Dictionary<int, Pending> pending = new Dictionary<int, Pending>();
 
         private float accum;
-        private int nextDecisionId = 85000; // 税の稟議(80000台)・デモ決裁(9001+)と衝突させない番号帯
+        /// <summary>編制稟議の決裁id番号帯。採番は DecisionDeck.NextDecisionId（巻き戻らない）。</summary>
+        private const int DecisionIdBand = 85000;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -129,12 +130,14 @@ namespace Ginei
             string body = p.kind == FleetProposalKind.設立
                 ? $"参謀本部が新艦隊の設立を上申。総艦艇プールから{p.strength}隻を割く（承認すれば官僚の執行忠実度ぶん値切られる）。"
                 : $"参謀本部が第{p.fleetNumber}艦隊の解散を上申。兵力を総プールへ戻す。";
-            var pd = new PendingDecision(nextDecisionId++, $"［編制］{p.Summary}", DecisionSeverity.通常,
+            var pd = new PendingDecision(DecisionDeck.NextDecisionId(DecisionIdBand), $"［編制］{p.Summary}", DecisionSeverity.通常,
                 DecisionSource.建白結果, pet.effectKey, defaultChoiceIndex: 1, body: body);
             pd.choices.Add("裁可する");
             pd.choices.Add("見送る（現状維持）");
+            // ★稟議との対応と摩擦はカード自身が持つ（シーン往復で対応を失わない・保存もできる）。
+            pd.petitionId = pet.id;
+            pd.friction = friction;
             DecisionDeck.Enqueue(pd);
-            pending[pd.id] = new Pending { pet = pet, friction = friction };
 
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
                 $"［編制建議］{p.Summary} が決裁待ち（右下の決裁デスクへ）");
@@ -142,32 +145,49 @@ namespace Ginei
 
         // ----- 決裁の確定（人 or 自動）→ 執行で台帳が動く -----
 
+        /// <summary>
+        /// 決裁の確定を受けて編制を執行する。対応する稟議は<b>カードの
+        /// <see cref="PendingDecision.petitionId"/></b> から静的台帳を引く（シーン往復で消えない）。
+        /// 効果の適用は <see cref="DecisionResolutionRules.ClaimForApply"/> を勝ち取った1回だけ。
+        /// </summary>
         private void OnResolved(PendingDecision d, int choiceIndex)
         {
-            if (d == null || !pending.TryGetValue(d.id, out var e)) return; // 自分の稟議でなければ無視
-            pending.Remove(d.id);
+            if (d == null || d.petitionId <= 0) return;
+            Petition pet = Ledger.Get(d.petitionId);
+            if (pet == null) return;
+
+            if (!DecisionResolutionRules.ClaimForApply(d)) return; // 二重適用を防ぐ
+            pending.Remove(d.id);                                  // 旧経路の在庫も掃除（枠を空ける）
 
             bool approve = choiceIndex == 0; // 0=裁可する / 1=見送る
-            RingiPipeline.Decide(e.pet, approve);
+            RingiPipeline.Decide(pet, approve);
             if (!approve)
             {
+                DecisionResolutionRules.RecordResult(d,
+                    new PetitionActionResult(PetitionActionOutcome.対象外, "見送り（現状維持）"));
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
-                    $"［見送り］{e.pet.title}（現状維持）");
+                    $"［見送り］{pet.title}（現状維持）");
                 return;
             }
 
             // 執行：官僚の執行忠実度（friction）で骨抜き＝通っても満額の艦隊は揃わない
-            float fidelity = PetitionFlowRules.ExecutionFidelity(e.friction);
-            var p = FleetEstablishmentRules.Decode(e.pet.faction, e.pet.effectKey);
+            float fidelity = PetitionFlowRules.ExecutionFidelity(d.friction);
+            var p = FleetEstablishmentRules.Decode(pet.faction, pet.effectKey);
             if (p != null && FleetEstablishmentRules.Execute(p, fidelity))
             {
-                WorkflowRules.Execute(e.pet, fidelity); // 陳情を執行済みへ（在庫の状態を締める）
+                WorkflowRules.Execute(pet, fidelity); // 陳情を執行済みへ（在庫の状態を締める）
+                DecisionResolutionRules.RecordResult(d, new PetitionActionResult(
+                    PetitionActionOutcome.実行, $"{p.Summary}（実効 {fidelity * 100f:0}%）", p.strength));
                 Notify(p, executed: true);
             }
             else
             {
+                // ★執行に失敗した稟議を「承認」のまま台帳に残さない（却下として締め、枠を返す）。
+                WorkflowRules.Decide(pet, approve: false);
+                DecisionResolutionRules.RecordResult(d, PetitionActionResult.Fail(
+                    PetitionActionOutcome.資源不足, "艦艇プールが足りず編制できませんでした"));
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
-                    $"［不発］{e.pet.title}（プールが足りず編制できなかった）");
+                    $"［不発］{pet.title}（プールが足りず編制できなかった）");
             }
         }
 

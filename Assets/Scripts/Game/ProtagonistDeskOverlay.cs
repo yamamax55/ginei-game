@@ -22,8 +22,12 @@ namespace Ginei
         public int canvasSortingOrder = 1115;
         public float dimAlpha = 0.55f;
         public float panelWidth = 1000f;
+        [Tooltip("枠の最大高さ(px)。実際の高さは画面高さ−上下余白との小さい方＝低い Game ビューでもはみ出さない")]
         public float panelMaxHeight = 900f;
-        public Color panelColor = new Color(0.05f, 0.06f, 0.08f, 0.96f);
+        [Tooltip("画面の上下左右に必ず残す余白(px)。通知トースト（左下）や星系名と重ならせないための逃げ")]
+        public float screenMargin = 28f;
+        [Tooltip("枠の地色。半透明にすると背後の通知トーストや星系名が透けて本文と重なる＝不透明にしておく")]
+        public Color panelColor = new Color(0.05f, 0.06f, 0.08f, 1f);
         public float bodyFontSize = 20f;
         public int barWidth = 14;
 
@@ -47,6 +51,8 @@ namespace Ginei
         private RankPyramidRow[] pyramidRows;    // 階級ごとの帯（幅は固定・人数/現在地のみ毎フレーム更新）
         private TextMeshProUGUI pyramidFooter;   // 次階級の定員空き
         private object escWindowToken;
+        private RectTransform deskFrameRT;       // 執務机の枠（毎フレーム画面内に収める＝FitToScreen）
+        private RectTransform canvasRT;          // 参照解像度スケール後の画面矩形（枠の上限に使う）
 
         // 士官段（少尉1〜元帥10）のネームド人数を毎フレーム数えるための再利用バッファ（GC回避）。
         private readonly int[] namedCountByTier = new int[11];
@@ -117,6 +123,7 @@ namespace Ginei
         {
             if (GameInput.WasPressed(GameAction.執務机切替)) Toggle();
             if (panel == null || !panel.activeSelf) return;
+            FitToScreen(); // Game ビューの縦が参照解像度より低くても画面外へはみ出さない
             if (bodyLabel != null) bodyLabel.text = BuildUpperDump();
             if (bodyLabelLower != null) bodyLabelLower.text = BuildLowerDump();
             UpdatePyramid();
@@ -176,6 +183,26 @@ namespace Ginei
                 sb.Append("  <color=#9ad0ff>").Append(m.kind).Append("</color>　状態 ").Append(m.status)
                   .Append("　期限(通算月) ").Append(m.dueMonth).Append('\n');
                 AppendCascade(sb, d);
+            }
+
+            // 次の一手（#主命の次の一手）＝「拝命したが盤面で何をすればよいか分からない」を潰す。
+            // 主命は会戦に勝つと月次評定で達成扱いになる（乱数はフォールバック）ので、そこへ誘導する。
+            sb.Append("\n<color=#e7e0b0>◤ 次の一手</color>\n");
+            if (me.rankTier < ProtagonistCareerDirector.FlagRankTier)
+            {
+                sb.Append("  <color=#9aa7b2>いまは尉官/佐官＝昇進モンタージュ中。艦隊指揮は <color=#ffe08a>准将</color> から。</color>\n");
+                sb.Append("  <color=#9aa7b2>盤面右下の速度（1/2/3・Space で停止）で時間を進めると、月次評定で昇進します。</color>\n");
+            }
+            else if (m != null)
+            {
+                sb.Append("  ① 下の <color=#ffcc66>「出陣する」</color> を押す（自軍艦隊を選び、前線へ視点が寄ります）\n");
+                sb.Append("  ② 敵の星系を <color=#ffe08a>右クリック</color> で進軍　③ 接敵したら会戦（回廊ダブルクリックで自ら指揮）\n");
+                sb.Append("  ④ <color=#8ce08c>勝てば</color>月次評定で主命が達成になり、武勲と昇進に還ります\n");
+            }
+            else
+            {
+                sb.Append("  <color=#9aa7b2>拝命中の主命はありません。時間を進めると上官から次の主命が下ります。</color>\n");
+                sb.Append("  <color=#9aa7b2>その間も「出陣する」で自軍艦隊を動かし、戦果を積めます。</color>\n");
             }
 
             // 武勲
@@ -647,6 +674,7 @@ namespace Ginei
             ContentSizeFitter csf = content.AddComponent<ContentSizeFitter>();
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scrollRect.content = contentRT;
+            UiScrollbars.Attach(scrollRect);   // #H スクロールできることを画面で示す（見えて掴めるバー）
 
             GameObject bodyObj = new GameObject("RankBody");
             bodyObj.transform.SetParent(content.transform, false);
@@ -774,7 +802,11 @@ namespace Ginei
             CanvasScaler scaler = overlayRoot.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // 既定(0=幅基準)だと 16:9 より横長の Game ビューで参照高さが 1080 を下回り、枠が画面外へ落ちる。
+            // 高さも見る（0.5）ことで縦の余白が確保され、実高さは FitToScreen が最終的に画面へ収める。
+            scaler.matchWidthOrHeight = 0.5f;
             overlayRoot.AddComponent<GraphicRaycaster>();
+            canvasRT = overlayRoot.GetComponent<RectTransform>();
 
             panel = new GameObject("DeskPanel");
             panel.transform.SetParent(overlayRoot.transform, false);
@@ -790,6 +822,23 @@ namespace Ginei
             BuildContentPanel(panel.transform);
         }
 
+        /// <summary>
+        /// 枠を画面内に収める（#執務机はみ出し）。参照解像度(1080)より低い Game ビューでは固定 900px の枠が
+        /// 下へ抜け、左下の通知トーストや背景の星系名と重なっていた。実高さ＝min(panelMaxHeight, 画面高−余白)、
+        /// 実幅＝min(panelWidth, 画面幅−余白) に毎フレーム詰める（サイズが変わったときだけ代入＝レイアウト再計算を抑える）。
+        /// </summary>
+        private void FitToScreen()
+        {
+            if (deskFrameRT == null || canvasRT == null) return;
+            Rect r = canvasRT.rect;
+            if (r.height <= 1f || r.width <= 1f) return;
+
+            float h = Mathf.Clamp(r.height - screenMargin * 2f, 240f, panelMaxHeight);
+            float w = Mathf.Clamp(r.width - screenMargin * 2f, 320f, panelWidth);
+            Vector2 want = new Vector2(w, h);
+            if ((deskFrameRT.sizeDelta - want).sqrMagnitude > 0.01f) deskFrameRT.sizeDelta = want;
+        }
+
         private void BuildContentPanel(Transform parent)
         {
             GameObject frame = new GameObject("DeskFrame");
@@ -798,8 +847,9 @@ namespace Ginei
             frameRT.anchorMin = new Vector2(0f, 0.5f);
             frameRT.anchorMax = new Vector2(0f, 0.5f);
             frameRT.pivot = new Vector2(0f, 0.5f);
-            frameRT.anchoredPosition = new Vector2(24f, 0f);
+            frameRT.anchoredPosition = new Vector2(screenMargin, 0f);
             frameRT.sizeDelta = new Vector2(panelWidth, panelMaxHeight);
+            deskFrameRT = frameRT; // 実サイズは FitToScreen が画面に合わせて毎フレーム詰める
 
             Image frameImg = frame.AddComponent<Image>();
             frameImg.color = panelColor;
@@ -814,9 +864,63 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             WindowChrome.AddTitleBarLayout(frameRT, "執務机", () => SetVisible(false));
+            BuildSortieButton(frame.transform);
             BuildPetitionButton(frame.transform);
             BuildForkButtons(frame.transform);
             BuildScrollBody(frame.transform);
+        }
+
+        /// <summary>
+        /// 「出陣」ボタン（#主命の次の一手）。主命を拝命しても盤面での動き方が分からない、を解消する入口＝
+        /// 執務机を畳み、プレイヤー勢力の艦隊（前線優先）を選択して視点をそこへ寄せ、次の操作を通知で示す。
+        /// </summary>
+        private void BuildSortieButton(Transform parent)
+        {
+            GameObject go = new GameObject("SortieButton");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = 46f; le.preferredHeight = 46f;
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.44f, 0.26f, 0.16f, 1f); // 具申（青系）と並べても取り違えない暖色
+            Button btn = go.AddComponent<Button>();
+            btn.transition = UnityEngine.UI.Selectable.Transition.None;
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(OnSortie);
+
+            GameObject lblGo = new GameObject("Label");
+            lblGo.transform.SetParent(go.transform, false);
+            RectTransform lrt = lblGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.sizeDelta = Vector2.zero; lrt.anchoredPosition = Vector2.zero;
+            TextMeshProUGUI lbl = lblGo.AddComponent<TextMeshProUGUI>();
+            lbl.text = "出陣する（艦隊を選び戦場へ）";
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.fontSize = 19f;
+            lbl.color = new Color(1f, 0.93f, 0.84f);
+            lbl.raycastTarget = false;
+            ApplyJapaneseFont(lbl);
+        }
+
+        private void OnSortie()
+        {
+            GalaxyView gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
+            if (gv == null)
+            {
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    "［出陣］戦略マップがまだ開いていません");
+                return;
+            }
+            if (gv.FocusOwnFleetForSortie(out string info))
+            {
+                SetVisible(false); // 執務机を畳んで盤面を見せる（出陣＝盤面の操作へ移る）
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    $"［出陣］{info} の艦隊を選択しました。敵星系を右クリックで進軍→接敵で会戦（勝てば主命達成）");
+            }
+            else
+            {
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意, $"［出陣］{info}");
+            }
         }
 
         private void BuildPetitionButton(Transform parent)
@@ -892,6 +996,7 @@ namespace Ginei
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             scrollRect.content = contentRT;
+            UiScrollbars.Attach(scrollRect);   // #H スクロールできることを画面で示す（見えて掴めるバー）
 
             // 上段テキスト → グラフィカル階級ピラミッド → 下段テキスト、の順に縦に並べる。
             bodyLabel = BuildBodyLabel(content.transform, "BodyUpper");

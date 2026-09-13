@@ -27,6 +27,27 @@ namespace Ginei
         /// </summary>
         public static bool IsActivePauseInputAllowed { get; private set; }
 
+        /// <summary>
+        /// いま一時停止しているか（<see cref="BattlePauseButton"/> の表示同期用）。
+        /// 状態の出所はここ一つ＝ボタンが <c>Time.timeScale</c> を直接見て別解釈しない。
+        /// </summary>
+        public bool IsPaused => isPaused;
+
+        /// <summary>
+        /// 時間操作（Space／倍速／停止ボタン）を<b>そのパネルへ譲る</b>状態か。
+        /// 艦隊詳細・編制パネルは開いているあいだポーズを維持する（既存仕様）。
+        /// <see cref="HandleInput"/> と <see cref="BattlePauseButton"/> が共通で使う唯一の窓口。
+        /// </summary>
+        public static bool IsTimeInputDeferred => FleetDetailPanel.IsOpen || OrderOfBattlePanel.IsOpen;
+
+        /// <summary>
+        /// システムメニュー／設定パネルが手前に出ているか（＝その停止を他から解除させない）。
+        /// <see cref="UpdateActivePauseState"/> と <see cref="BattlePauseButton"/> が共通で使う。
+        /// </summary>
+        public bool IsSystemUiShown
+            => (pauseMenuRoot != null && pauseMenuRoot.activeSelf)
+            || (settingsPanel != null && settingsPanel.activeSelf);
+
         private void Start()
         {
             // ウィンドウ化会戦（WIN-4 #2571）では時間制御は統一クロック（BattleDirector）が全会戦をまとめて駆動し、
@@ -34,6 +55,13 @@ namespace Ginei
             // 抑止する（Esc での離脱は BattleWindow が UIWindowStack 経由で担う）。フルスクリーン会戦では従来どおり。
             if (gameObject.scene != SceneManager.GetActiveScene())
             {
+                // ★シーンに手置きされた全画面UIは、ここ（発生源）で畳む。
+                // Update を止めるだけだと Battle.unity に置かれた `SPEED: 1.0x` ラベルや
+                // ポーズメニューが全画面に残り、背後の戦略HUDへ重なる（実機QAで判明）。
+                if (pauseMenuRoot != null) pauseMenuRoot.SetActive(false);
+                if (settingsPanel != null) settingsPanel.SetActive(false);
+                if (timeScaleText != null) timeScaleText.gameObject.SetActive(false);
+
                 enabled = false; // Update を止める（入力・timeScale 操作・UI生成を行わない）
                 return;
             }
@@ -84,10 +112,7 @@ namespace Ginei
         /// </summary>
         private void UpdateActivePauseState()
         {
-            bool menuShown = pauseMenuRoot != null && pauseMenuRoot.activeSelf;
-            bool settingsShown = settingsPanel != null && settingsPanel.activeSelf;
-            IsActivePauseInputAllowed = isPaused && !menuShown && !settingsShown
-                                        && !FleetDetailPanel.IsOpen && !OrderOfBattlePanel.IsOpen;
+            IsActivePauseInputAllowed = isPaused && !IsSystemUiShown && !IsTimeInputDeferred;
         }
 
         private void HandleInput()
@@ -99,7 +124,7 @@ namespace Ginei
             if (GameInput.WasPressed(GameAction.キャンセル)) HandleEscape();
 
             // 艦隊詳細パネル／編制パネル表示中は、時間操作（Space/倍速）はそのパネルへ譲る（ポーズ維持）。
-            if (FleetDetailPanel.IsOpen || OrderOfBattlePanel.IsOpen) return;
+            if (IsTimeInputDeferred) return;
 
             // Space: 一時停止 / 再開
             if (GameInput.WasPressed(GameAction.ポーズ))
@@ -299,14 +324,33 @@ namespace Ginei
         /// <summary>
         /// シーンにEventSystemが無ければ、InputSystemUIInputModule付きで生成します。
         /// （StandaloneInputModuleでは新Input System下でボタンが反応しないため）
+        /// <see cref="BattlePauseButton"/> もこの窓口を使う（二重実装しない）。
         /// </summary>
-        private void EnsureEventSystem()
+        public static void EnsureEventSystem()
         {
-            if (Object.FindAnyObjectByType<EventSystem>() != null) return;
+            EventSystem existing = Object.FindAnyObjectByType<EventSystem>();
+            if (existing != null)
+            {
+                // 既にあるなら増やさない（重複すると Unity が警告を出し、どちらが効くか読めなくなる）。
+                EnsureModuleActions(existing.GetComponent<InputSystemUIInputModule>());
+                return;
+            }
 
             GameObject esObj = new GameObject("EventSystem");
             esObj.AddComponent<EventSystem>();
-            esObj.AddComponent<InputSystemUIInputModule>();
+            EnsureModuleActions(esObj.AddComponent<InputSystemUIInputModule>());
+        }
+
+        /// <summary>
+        /// <b>実行時に <c>AddComponent</c> した <see cref="InputSystemUIInputModule"/> は入力アクションが空</b>
+        /// ＝ポインタもクリックも届かない（シーンに置いたものはインスペクタで割り当て済みなので気づきにくい）。
+        /// 既定アクションを割り当てて塞ぐ。割り当て済みなら何もしない。
+        /// </summary>
+        public static void EnsureModuleActions(InputSystemUIInputModule module)
+        {
+            if (module == null) return;
+            if (module.actionsAsset != null && module.point != null && module.leftClick != null) return;
+            module.AssignDefaultActions();
         }
 
         /// <summary>

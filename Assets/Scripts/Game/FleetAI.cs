@@ -124,9 +124,11 @@ namespace Ginei
         /// <summary>軍団長が決戦を仕掛けたか＝遠距離砲撃をやめ全軍前進で間合いを詰める（BattlefieldCommandManager が設定）。</summary>
         [System.NonSerialized] public bool decisiveCommit;
 
-        private bool manualOverride;
+        private ManualOverrideKind overrideKind = ManualOverrideKind.なし;
         /// <summary>手動指示で AI 操舵を一時上書き中か（指示完了で自動的に AI へ復帰）。</summary>
-        public bool ManualOverride => manualOverride;
+        public bool ManualOverride => ManualOverrideRules.IsOverriding(overrideKind);
+        /// <summary>その上書きの出どころ（緊急時に中断してよいかがこれで決まる）。</summary>
+        public ManualOverrideKind OverrideKind => overrideKind;
 
         private FleetMovement movement;
         private FleetWeapon weapon;
@@ -139,15 +141,43 @@ namespace Ginei
         private FleetMorale moraleComponent;
         private Squadron squadron;
 
-        /// <summary>手動指示でAI操舵を上書きする（プレイヤーが移動/攻撃/保持を発令したときに呼ぶ）。</summary>
-        public void BeginManualOverride()
+        /// <summary>
+        /// 手動指示でAI操舵を上書きする（プレイヤーが移動/攻撃/保持を発令したときに呼ぶ）。
+        /// 出どころを省くと<see cref="ManualOverrideKind.直接命令"/>＝従来どおり緊急でも中断しない。
+        /// </summary>
+        public void BeginManualOverride() => BeginManualOverride(ManualOverrideKind.直接命令);
+
+        /// <summary>出どころを明示して上書きする（支援要請は緊急退却で中断できる）。</summary>
+        public void BeginManualOverride(ManualOverrideKind kind)
         {
-            manualOverride = true;
+            overrideKind = kind == ManualOverrideKind.なし ? ManualOverrideKind.直接命令 : kind;
             // FleetStandardOrder は命令時に動的 AddComponent されるため参照を取り直す
             if (standardOrder == null) standardOrder = GetComponent<FleetStandardOrder>();
         }
+
         /// <summary>手動上書きを解除してAI操舵へ戻す。</summary>
-        public void EndManualOverride() { manualOverride = false; }
+        public void EndManualOverride() { overrideKind = ManualOverrideKind.なし; }
+
+        /// <summary>
+        /// 緊急（敗走・総退却）のために、引き受けていた支援の命令を<b>中断</b>する。
+        /// 直接命令には効かない（従来どおり尊重する）。中断したら true。
+        ///
+        /// 攻撃の手動目標も一緒に解く＝退がりながら指定目標を追い続ける、という
+        /// ちぐはぐな状態を残さない（追尾は <see cref="FleetWeapon"/> が上書き中だけ行うため）。
+        /// </summary>
+        public bool InterruptSupportOrder(string reason)
+        {
+            if (overrideKind != ManualOverrideKind.支援要請) return false;
+
+            EndManualOverride();
+            if (weapon != null) weapon.ClearManualTarget();
+            if (standardOrder != null) standardOrder.ClearOrder();
+
+            string who = strength != null ? strength.admiralName : "";
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                ManualOverrideRules.InterruptedText(who, reason));
+            return true;
+        }
 
         private void Awake()
         {
@@ -165,15 +195,35 @@ namespace Ginei
             // 既に戦場から離脱（恒久退却）した艦は何もしない。
             if (strength != null && !strength.IsAlive) return;
 
+            // ★敗走したら陣形の保持を解く（確定仕様1・優先順位の最上位）。
+            //   解くのは<b>陣形の保持だけ</b>で、直接の移動／攻撃命令はここでは何も止めない
+            //   （既存の直接命令の対照を壊さない）。すでに解けていれば何も起きない。
+            if (squadron != null && squadron.IsFormationHeld
+                && FleetFormationOrderRules.ShouldReleaseForEmergency(
+                       moraleComponent != null && moraleComponent.IsRouted, false))
+                squadron.ReleaseFormationHold("敗走");
+
             // 手動指示の上書き：プレイヤーの命令が生きている間は AI 操舵を譲る（基本AI＋手動で上書き）。
             // 命令が完了（移動停止＝到達 かつ 手動標的なし かつ 標準命令なし）したら自動的に AI へ復帰する。
-            if (manualOverride)
+            if (ManualOverride)
             {
-                bool busy = (movement != null && movement.IsMoving)
-                    || (weapon != null && weapon.HasManualTarget)
-                    || (standardOrder != null && standardOrder.stance != FleetStandardOrder.Stance.なし);
-                if (busy) return;          // 手動操作を優先（AIは口を出さない）
-                manualOverride = false;    // 指示完了＝AIへ復帰
+                // ★緊急（敗走）は引き受けた支援より優先する。
+                //   支援要請を承諾したせいで退がれなくなる、を作らない（直接命令は従来どおり中断しない）。
+                bool routed = moraleComponent != null && moraleComponent.IsRouted;
+                if (ManualOverrideRules.ShouldReleaseForEmergency(overrideKind, routed, false))
+                {
+                    InterruptSupportOrder("敗走");
+                    // 上書きが解けたので、このまま下の撤退判断へ進む。
+                }
+                else
+                {
+                    bool complete = ManualOverrideRules.IsOrderComplete(
+                        movement != null && movement.IsMoving,
+                        weapon != null && weapon.HasManualTarget,
+                        standardOrder != null && standardOrder.stance != FleetStandardOrder.Stance.なし);
+                    if (!complete) return;     // 手動操作を優先（AIは口を出さない）
+                    EndManualOverride();       // 指示完了＝AIへ復帰
+                }
             }
 
             // 敗走チェック (最優先)
@@ -281,7 +331,9 @@ if (Time.time >= nextSearchTime)
                 }
             }
             // 陣形変更は指揮スキルポイントを消費（#陣形コスト）＝AIも多用できない（戦闘中は特に重い）。窓口は Squadron に集約。
-            if (squadron.currentFormation != rec) squadron.TryChangeFormation(rec);
+            // ★手動保持中は Squadron 側で弾かれる（確定仕様1）＝ここで判定を二重に持たない。
+            if (squadron.currentFormation != rec)
+                squadron.TryChangeFormation(rec, FormationOrderSource.艦隊AI);
         }
 
         /// <summary>会戦AIの目利き（0..1）＝提督の実効統率＋情報を正規化。提督不在は中庸0.5。</summary>

@@ -49,6 +49,21 @@ namespace Ginei
         }
         private static readonly Dictionary<string, CorpsFlowState> flowStates = new Dictionary<string, CorpsFlowState>();
 
+        /// <summary>
+        /// いま総退却を発令している軍団（軍団キー）。
+        /// <see cref="flowStates"/> は敵不在で捨てられる（<c>ApplyBattleFlow</c>）ので<b>別に持つ</b>
+        /// ＝退却中に「総退却の発令中か」を問い合わせても消えない。
+        /// </summary>
+        private static readonly HashSet<string> corpsRetreatOrdered = new HashSet<string>();
+
+        /// <summary>
+        /// その軍団が<b>総退却を発令中</b>か（確定仕様1が陣形の受付判定に使う）。
+        /// 退却移動の最中は <see cref="FleetStrength.IsRetreating"/> がまだ false（戦場端で立つ）なので、
+        /// 「撤退中かどうか」はこちらも見ないと判定できない。
+        /// </summary>
+        public static bool IsCorpsRetreatOrdered(string corpsKey)
+            => !string.IsNullOrEmpty(corpsKey) && corpsRetreatOrdered.Contains(corpsKey);
+
         [Header("会戦フロー（#戦闘ドクトリン Stage3）")]
         [Tooltip("後衛が回り込み（包囲）を発意する前提＝前衛が交戦に入ったとみなす敵の接近距離")]
         public float frontEngageRange = 40f;
@@ -62,10 +77,29 @@ namespace Ginei
         public float envelopReferenceDistance = 30f;
         [Tooltip("味方軍団の横腹を突く敵を検出するカウンター範囲（この距離内の側背面脅威に後衛を回す）")]
         public float counterDetectRange = 45f;
+        [Tooltip("有能な軍団長が後衛へ回り込み（包囲）を自動で下令するか。false＝発意せず回り込み目標も与えない" +
+                 "（カウンター遮蔽・決戦・総退却は別。包囲進捗が0のままなので決戦の窓は開きにくくなる）。既定true＝通常プレイ。検証用スイッチ(SPEED-08)")]
+        public bool autoEnvelopment = true;
 
-        // 軍団スロット間隔（配下艦の非重複・#軍団集結）。spacing = 2×最大footprint＋余白、最低でも下限。
-        private const float CorpsSpacingMargin = 3f;
-        private const float CorpsMinSpacing = 7f;
+        /// <summary>この個体が回り込みを下令した回数（観測用・読むだけ）。</summary>
+        public int EnvelopmentOrdersIssued { get; private set; }
+        /// <summary><see cref="autoEnvelopment"/>=false のため、下令の条件を満たしたのに見送った判断の回数（周期ごとに数える・観測用）。</summary>
+        public int EnvelopmentSuppressed { get; private set; }
+
+        // 軍団スロット間隔（配下艦の非重複・#軍団集結）。実間隔＝Max(最小間隔, 2×最大footprint＋余白)＝CorpsSpacingRules。
+        [Header("軍団スロット間隔（#軍団集結）")]
+        [Tooltip("軍団の艦隊間の最小間隔（既定7）。実間隔は Max(この値, 2×最大占有半径＋3)＝占有半径の下限を割って重ねない。不正値は既定7で算出")]
+        public float corpsMinSpacing = CorpsSpacingRules.DefaultMinSpacing;
+
+        // 軍団ごとの直近の間隔算出（指定最小と実間隔を区別して記録・QAの読み戻し用）。
+        private readonly Dictionary<string, CorpsSpacingResult> lastCorpsSpacing = new Dictionary<string, CorpsSpacingResult>();
+
+        /// <summary>その軍団で直近に算出したスロット間隔（未算出は false）。</summary>
+        public bool TryGetCorpsSpacing(string corpsKey, out CorpsSpacingResult result)
+        {
+            if (string.IsNullOrEmpty(corpsKey)) { result = default; return false; }
+            return lastCorpsSpacing.TryGetValue(corpsKey, out result);
+        }
 
         // 軍団長の前進保留（集結優先・#軍団集結）。隷下がスロットへこの許容範囲内に就けば「整った」とみなす。
         private const float CorpsFormTolerance = 1.5f;     // 許容＝spacing×この係数
@@ -77,6 +111,8 @@ namespace Ginei
             ActingCommandLedger.Clear();   // 新しい会戦＝臨時指揮をリセット
             lastCorpsFormation.Clear();    // 軍団陣形の通知履歴もリセット
             flowStates.Clear();            // 会戦フロー（包囲/決戦）の進行状態もリセット
+            corpsRetreatOrdered.Clear();   // 総退却の発令状態もリセット（前の会戦を持ち越さない）
+            lastCorpsSpacing.Clear();      // 間隔の算出記録もリセット
         }
 
         private void OnDestroy() => ActingCommandLedger.Clear(); // 戦闘終了（シーン離脱）＝正規人事へ戻す
@@ -105,7 +141,10 @@ namespace Ginei
             {
                 FleetStrength f = flagships[i];
                 if (f == null || !f.IsAlive || string.IsNullOrEmpty(f.corpsName)) continue;
-                string key = f.faction + "/" + f.corpsName;
+                // 軍団キーは「シーン＋勢力＋軍団名」（CorpsFormation と同一窓口）。★シーンを含めるので
+                // ウィンドウ化会戦（additive で同名 "Battle" シーンが複数）でも別戦場の同名軍団と混ざらない。
+                string key = CorpsFormation.KeyFor(f);
+                if (string.IsNullOrEmpty(key)) continue;
                 if (!groups.TryGetValue(key, out var list)) { list = new List<FleetStrength>(); groups[key] = list; }
                 list.Add(f);
             }
@@ -119,24 +158,37 @@ namespace Ginei
                 for (int i = 0; i < list.Count; i++)
                 {
                     int tier = list[i].admiralData != null ? list[i].admiralData.rankTier : 0;
-                    candidates.Add(new CommandCandidate(list[i].GetInstanceID(), tier, 0));
+                    candidates.Add(new CommandCandidate(EntityKey.Of(list[i]), tier, 0));
                 }
 
                 // 軍団長のバフ/デバフ（CSG）：軍団旗艦に乗艦している軍団長の統率で軍団全体の能力・士気を上下。
                 ApplyCorpsCommanderBuff(list);
 
+                // ★手動の軍団隊形命令（CorpsFormation）が生きている軍団には AI が一切触れない。
+                // 隊形・スロット・会戦フロー（包囲/決戦）はプレイヤー命令が優先＝AI の解決周期を跨いでも
+                // 手動指定が意図せず戻らない（優先順位の判定は CorpsFormationOrderRules に集約）。
+                bool manualCorps = CorpsFormation.HasManualOrder(kv.Key);
+
                 // 軍団長が陣形を主導し（#持ち場・#軍団集結）、隷下艦隊に持ち場スロット（軍団長旗艦基準）を与えてまとまらせる。
-                ApplyCorpsFormationAndPost(kv.Key, list);
+                if (!manualCorps) ApplyCorpsFormationAndPost(kv.Key, list);
 
                 // 会戦フロー（①正面→②回り込み→③決戦・#戦闘ドクトリン Stage3）。敗色濃厚なら総退却（Stage4）も判断する。
                 // 退却を発令した軍団は包囲/決戦を試みない（撤退が最優先）。
-                if (!ApplyCorpsRetreat(kv.Key, list))
+                if (ApplyCorpsRetreat(kv.Key, list))
+                {
+                    // 総退却は生存最優先＝手動指定を解除して AI 自動へ返す（手動が解ける唯一の戦況トリガ）。
+                    // #67：AI ドクトリンの下令＝プレイヤーの権限判定の対象外（明示）。
+                    if (manualCorps) CorpsFormation.ReleaseManualOrder(kv.Key, "総退却", CommandOrderSource.AI);
+                }
+                else if (!manualCorps)
+                {
                     ApplyBattleFlow(kv.Key, list, dt);
+                }
 
                 var acting = BattlefieldCommandRules.SelectActingSuccessor(candidates);
                 if (acting.id < 0) continue;
 
-                int prev = ActingCommandLedger.ActingFor(kv.Key);
+                long prev = ActingCommandLedger.ActingFor(kv.Key);
                 ActingCommandLedger.Record(kv.Key, acting.id, acting.id);
 
                 if (prev != -1 && prev != acting.id)
@@ -145,8 +197,10 @@ namespace Ginei
                     FleetStrength newCmd = FindById(list, acting.id);
                     string name = (newCmd != null && newCmd.admiralData != null) ? newCmd.admiralData.admiralName : "次席";
                     bool underRank = acting.rankTier < requiredTier;
+                    // 通知はキーそのもの（シーン番号入り）でなく人が読める軍団名で出す。
+                    string label = $"{CorpsFormationOrderRules.FactionOf(kv.Key)}/{CorpsFormationOrderRules.DisplayName(kv.Key)}";
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
-                        $"{kv.Key} の指揮を {name} が継承{(underRank ? "（階級不足ながら臨時）" : "（臨時）")}");
+                        $"{label} の指揮を {name} が継承{(underRank ? "（階級不足ながら臨時）" : "（臨時）")}");
                 }
             }
         }
@@ -187,7 +241,7 @@ namespace Ginei
         /// （#軍団集結 設計：開始時は自動集結／命令で上書き）。ただし手動命令中（manualOverride）の艦はこの tick は触らず
         /// プレイヤー命令を優先する（命令完了で AI＝集結へ復帰）。軍団長（軍団旗艦）を喪失した軍団は拘束を解いて各自で戦う。
         /// </summary>
-        private static void ApplyCorpsFormationAndPost(string corpsKey, List<FleetStrength> corpsFleets)
+        private void ApplyCorpsFormationAndPost(string corpsKey, List<FleetStrength> corpsFleets)
         {
             // 軍団長（軍団旗艦＝軍団長乗艦）を探す。
             FleetStrength commander = null;
@@ -222,12 +276,18 @@ namespace Ginei
             FleetMorale cmdMorale = commander.GetComponent<FleetMorale>();
             bool routed = cmdMorale != null && cmdMorale.IsRouted;
             AdmiralData decider = commander.corpsCommander != null ? commander.corpsCommander : commander.admiralData;
-            Formation rec = FormationDoctrineRules.RecommendFormation(corpsOwn, enemyStr, routed, decider);
+            Formation doctrine = FormationDoctrineRules.RecommendFormation(corpsOwn, enemyStr, routed, decider);
+            // 手動指定があればそれが勝つ（優先順位の判定は Core に集約＝二重実装しない）。呼び出し側で
+            // 手動軍団はこの関数自体を呼ばないので通常は自動だが、経路が変わっても手動が戻らないよう窓口を通す。
+            bool hasManual = CorpsFormation.TryGetManualFormation(corpsKey, out Formation manualForm);
+            Formation rec = CorpsFormationOrderRules.ResolveFormation(hasManual, manualForm, doctrine, out _);
 
             // 軍団スロット間隔（#軍団集結 非重複）：隣の艦隊の配下艦と重ならないよう、各艦隊の占有半径から決める。
             float maxFoot = FootprintOf(commander);
             for (int i = 0; i < subs.Count; i++) maxFoot = Mathf.Max(maxFoot, FootprintOf(subs[i]));
-            float spacing = Mathf.Max(CorpsMinSpacing, 2f * maxFoot + CorpsSpacingMargin);
+            CorpsSpacingResult spacingResult = CorpsSpacingRules.Resolve(CorpsSpacingRules.EffectiveMinSpacing(corpsMinSpacing), maxFoot);
+            lastCorpsSpacing[corpsKey] = spacingResult;
+            float spacing = spacingResult.actualSpacing;
 
             // 軍団の正面（敵方向）と、軍団スロット（軍団長を含む全艦隊ぶん）。ジオメトリは Core に委譲。
             float facingDeg = FacingDeg(commander, nearest);
@@ -240,7 +300,8 @@ namespace Ginei
             // 軍団長：陣形を発令し、隊を率いる（スロット拘束なし）。手動命令中はプレイヤー優先で陣形を被せない。
             bool cmdManual = cmdAi != null && cmdAi.ManualOverride;
             Squadron cSq = commander.GetComponent<Squadron>();
-            if (cSq != null && !cmdManual) cSq.TryChangeFormation(rec);
+            // ★軍団長の発令＝軍団AI。艦隊ごとの手動保持は Squadron 側が守る（確定仕様1）。
+            if (cSq != null && !cmdManual) cSq.TryChangeFormation(rec, FormationOrderSource.軍団AI);
             if (cmdAi != null) { cmdAi.corpsControlled = true; cmdAi.hasCorpsAnchor = false; cmdAi.hasCorpsSlot = false; }
 
             // 隷下：軍団長が陣形を発令し、軍団長基準のスロットへ就かせる（非接敵時はスロット集結・接敵時は持ち場内で交戦）。
@@ -257,7 +318,9 @@ namespace Ginei
                 if (ai != null && ai.ManualOverride) continue;
 
                 Squadron sq = sub.GetComponent<Squadron>();
-                if (sq != null) sq.TryChangeFormation(rec); // 各艦隊の配下艦陣形（スキルポイント消費・#陣形コスト）
+                // 各艦隊の配下艦陣形（スキルポイント消費・#陣形コスト）。
+                // ★軍団隊形の発令は艦隊ごとの手動保持を上書きしない（確定仕様1＝軍団隊形と艦隊陣形の分離）。
+                if (sq != null) sq.TryChangeFormation(rec, FormationOrderSource.軍団AI);
 
                 Vector2 slotLocal = slots[i].localPos - commanderLocal; // 軍団長を原点とした局所スロット
                 Vector2 slotWorld = anchor + RotateVec(slotLocal, facingDeg);
@@ -370,15 +433,23 @@ namespace Ginei
                 float roll = DeterministicRoll(corpsKey);
                 if (CorpsBattleFlowRules.ShouldAttemptEnvelopment(frontEngaged, rearCount, ability, roll))
                 {
-                    st.enveloping = true;
-                    st.envelopProgress = 0f;
-                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
-                        $"{CommanderName(commander)}：後背への回り込みを下令（{CorpsName(commander)}）");
+                    if (!autoEnvelopment)
+                    {
+                        EnvelopmentSuppressed++;   // 自動包囲OFF：判断は成立したが下令しない
+                    }
+                    else
+                    {
+                        st.enveloping = true;
+                        st.envelopProgress = 0f;
+                        EnvelopmentOrdersIssued++;
+                        NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                            $"{CommanderName(commander)}：後背への回り込みを下令（{CorpsName(commander)}）");
+                    }
                 }
             }
 
             // 回り込み中：進捗を積み、後衛へ側面回り込み目標を与える（②）。
-            if (st.enveloping && rearSub != null)
+            if (autoEnvelopment && st.enveloping && rearSub != null)
             {
                 st.envelopProgress = ManeuverEnvelopmentRules.EnvelopmentProgress(
                     st.envelopProgress, envelopManeuverSpeed, envelopReferenceDistance, dt);
@@ -456,7 +527,16 @@ namespace Ginei
             int lead = decider != null ? decider.EffectiveLeadership : 50;
             int amb = decider != null ? decider.ambition : 50;
 
-            if (!CorpsRetreatRules.ShouldOrderRetreat(ratio, routed, lead, amb)) return false;
+            if (!CorpsRetreatRules.ShouldOrderRetreat(ratio, routed, lead, amb))
+            {
+                corpsRetreatOrdered.Remove(corpsKey);   // 立ち直ったら「発令中」ではなくなる
+                return false;
+            }
+
+            // ★「総退却せよ」という判断が下った時点で発令中にする（陣形の受付判定が問い合わせる）。
+            //   隷下が全員手動命令中で 1隻も撤退へ落とせなくても、軍団としては退却を命じている
+            //   ＝その状態で新しい陣形保持を受け付けないため、下の any とは別に立てる。
+            corpsRetreatOrdered.Add(corpsKey);
 
             // 総退却を発令：軍団長＋全隷下を撤退へ。手動中は尊重（プレイヤー命令を上書きしない）。
             bool any = false;
@@ -465,7 +545,17 @@ namespace Ginei
                 FleetStrength f = corpsFleets[i];
                 if (f == null || !f.IsAlive) continue;
                 FleetAI ai = f.GetComponent<FleetAI>();
-                if (ai == null || ai.ManualOverride) continue;
+                if (ai == null) continue;
+                // 手動中は尊重（プレイヤー命令を上書きしない）。ただし★承諾した支援要請は中断して退がらせる
+                // ＝要請を引き受けたせいで総退却から取り残される、を作らない（承諾前と同じ扱いに戻す）。
+                // ★総退却では陣形の保持を解く（確定仕様1・優先順位の最上位）。出どころに関係なく解くが、
+                //   解くのは<b>陣形の保持だけ</b>＝直接の移動／攻撃命令はここでは止めない。
+                //   だから直接命令の艦でも、この行だけは先に通す（下の continue より前）。
+                Squadron sq = f.GetComponent<Squadron>();
+                if (sq != null) sq.ReleaseFormationHold("総退却");
+
+                if (!ManualOverrideRules.CanOrderRetreat(ai.OverrideKind)) continue;
+                ai.InterruptSupportOrder("総退却");
                 ai.decisiveCommit = false; ai.enveloping = false; ai.counterScreening = false; // 決戦/包囲を解く
                 ai.corpsHold = false;
                 ai.currentState = FleetAI.AIState.撤退;
@@ -494,7 +584,8 @@ namespace Ginei
 
             // 自軍団の横腹/後背を突いている敵対旗艦を探す（カウンター範囲内）。
             FleetStrength threat = null;
-            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            // ★同一戦場（同シーン）だけを見る＝別戦場の敵を脅威と誤検出しない。
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.FlagshipsIn(commander.gameObject.scene);
             for (int i = 0; i < flagships.Count; i++)
             {
                 FleetStrength e = flagships[i];
@@ -592,7 +683,8 @@ namespace Ginei
         private static FleetStrength NearestHostile(FleetStrength commander)
         {
             if (commander == null) return null;
-            IReadOnlyList<FleetStrength> flagships = FleetRegistry.AllFlagships;
+            // ★同一戦場（同シーン）だけを見る＝別戦場の艦を「最寄りの敵」にしない。
+            IReadOnlyList<FleetStrength> flagships = FleetRegistry.FlagshipsIn(commander.gameObject.scene);
             float best = float.MaxValue;
             FleetStrength nearest = null;
             Vector2 pos = commander.transform.position;
@@ -632,10 +724,10 @@ namespace Ginei
         private static string CorpsName(FleetStrength commander)
             => (commander != null && !string.IsNullOrEmpty(commander.corpsName)) ? commander.corpsName : "臨時軍団";
 
-        private static FleetStrength FindById(List<FleetStrength> list, int instanceId)
+        private static FleetStrength FindById(List<FleetStrength> list, long instanceId)
         {
             for (int i = 0; i < list.Count; i++)
-                if (list[i] != null && list[i].GetInstanceID() == instanceId) return list[i];
+                if (list[i] != null && EntityKey.Of(list[i]) == instanceId) return list[i];
             return null;
         }
     }

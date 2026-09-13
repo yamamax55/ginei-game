@@ -85,6 +85,15 @@ namespace Ginei
             retired.Add(name);
         }
 
+        /// <summary>
+        /// 永久欠番を解く（使い捨ての検証艦が撃沈されて欠番化した名を、検証の後始末で元に戻す用）。
+        /// 使用中には戻さない（払い出し可能に戻るだけ）。通常の撃沈処理からは呼ばない。
+        /// </summary>
+        public static void Unretire(string name)
+        {
+            if (name != null) retired.Remove(name);
+        }
+
         /// <summary>整数を簡易ローマ数字（フォールバックの世数表記用・1〜数十を想定）。</summary>
         private static string Roman(int n)
         {

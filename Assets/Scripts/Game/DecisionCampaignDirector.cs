@@ -166,6 +166,10 @@ namespace Ginei
         private void OnResolved(PendingDecision d, int choiceIndex)
         {
             if (d == null) return;
+            // ★同じ案件でメーターを二度動かさない（勝敗に直結するので実害が大きい）。
+            // 二重クリック・期限切れ×手動の競合・解決済みの再解決は、ここで確実に止まる。
+            if (!DecisionMeterEffects.MarkMeterApplied(d)) return;
+
             // 先頭の選択肢（裁可/締結など能動側）でのみメーターを動かす。見送り（既定=現状維持）は受動圧に任せる。
             if (choiceIndex != 0) return;
             if (!DecisionMeterEffects.TryGet(d.effectKey, out var delta)) return;
@@ -288,7 +292,10 @@ namespace Ginei
             windowRoot.anchorMin = new Vector2(1f, 1f);
             windowRoot.anchorMax = new Vector2(1f, 1f);
             windowRoot.pivot = new Vector2(1f, 1f);
-            windowRoot.anchoredPosition = new Vector2(-16f, -116f); // 右上＝上メニュー(0.10×1080≈108)の直下
+            // 右カラム（MAP の右）に収める。x は右端の余白、y は上メニュー(0.10×1080≈108)の直下。
+            // 余白は StrategyMapWindow の割り付けと同じ基準から出す＝解像度が変わっても MAP に被らない。
+            float rightMargin = StrategyMapWindow.RightColumnDesignMargin;
+            windowRoot.anchoredPosition = new Vector2(-rightMargin, -116f);
             var wbg = window.AddComponent<Image>();
             wbg.color = new Color(0.06f, 0.08f, 0.12f, 0.9f);
             var wvlg = window.AddComponent<VerticalLayoutGroup>();
@@ -299,25 +306,33 @@ namespace Ginei
             wfitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             wfitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // メーター本体（横並びバー）＝ウィンドウ本文。サイズは LayoutElement で明示（入れ子 CSF を避ける）。
+            // メーター本体＝ウィンドウ本文。#戦略MAP刷新：5本を1列に並べると 660px 必要で、
+            // 右カラム（画面の約23%＝設計 450px 弱）に収まらず MAP へせり出していた。**3本＋2本の2段**に畳み、
+            // 幅は StrategyMapWindow が定める右カラム幅から導く＝解像度が変わっても MAP と重ならない。
+            float panelW = Mathf.Max(240f, StrategyMapWindow.RightColumnDesignWidth - 24f);
+            float barW = Mathf.Floor((panelW - 20f - 2f * 8f) / 3f); // 左右余白20＋バー間隔8×2 を差し引いて3等分
+
             meterPanel = new GameObject("MeterPanel");
             meterPanel.transform.SetParent(window.transform, false);
             meterPanel.AddComponent<RectTransform>();
-            var hlg = meterPanel.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(10, 10, 6, 6);
-            hlg.spacing = 10f;
-            hlg.childControlWidth = true; hlg.childControlHeight = true;
-            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
-            hlg.childAlignment = TextAnchor.MiddleCenter;
+            var mvlg = meterPanel.AddComponent<VerticalLayoutGroup>();
+            mvlg.padding = new RectOffset(10, 10, 6, 6);
+            mvlg.spacing = 6f;
+            mvlg.childControlWidth = true; mvlg.childControlHeight = true;
+            mvlg.childForceExpandWidth = true; mvlg.childForceExpandHeight = false;
+            mvlg.childAlignment = TextAnchor.UpperCenter;
             var ple = meterPanel.AddComponent<LayoutElement>();
-            ple.preferredWidth = 660f;  // 5バー×120 + 間隔4×10 + 余白20
-            ple.preferredHeight = 50f;
+            ple.preferredWidth = panelW;
+            ple.preferredHeight = 106f; // 2段（1段=50）＋段間
 
-            AddBar(meterPanel.transform, "軍事", new Color(0.85f, 0.35f, 0.30f), () => Meters.military);
-            AddBar(meterPanel.transform, "民心", new Color(0.35f, 0.78f, 0.45f), () => Meters.support);
-            AddBar(meterPanel.transform, "国庫", new Color(0.90f, 0.78f, 0.30f), () => Meters.treasury);
-            AddBar(meterPanel.transform, "統制", new Color(0.45f, 0.62f, 0.95f), () => Meters.control);
-            AddBar(meterPanel.transform, "覇権", new Color(0.80f, 0.55f, 0.95f), () => Meters.hegemony);
+            Transform row1 = AddMeterRow(meterPanel.transform, "MeterRow1");
+            Transform row2 = AddMeterRow(meterPanel.transform, "MeterRow2");
+
+            AddBar(row1, "軍事", new Color(0.85f, 0.35f, 0.30f), () => Meters.military, barW);
+            AddBar(row1, "民心", new Color(0.35f, 0.78f, 0.45f), () => Meters.support, barW);
+            AddBar(row1, "国庫", new Color(0.90f, 0.78f, 0.30f), () => Meters.treasury, barW);
+            AddBar(row2, "統制", new Color(0.45f, 0.62f, 0.95f), () => Meters.control, barW);
+            AddBar(row2, "覇権", new Color(0.80f, 0.55f, 0.95f), () => Meters.hegemony, barW);
 
             // タイトルバー（VLG 先頭へ差し込み）：× は隠す／－は本文を畳む。
             WindowChrome.AddTitleBarLayout(windowRoot, "勝敗メーター",
@@ -337,10 +352,24 @@ namespace Ginei
             if (windowRoot != null) windowRoot.gameObject.SetActive(!windowRoot.gameObject.activeSelf);
         }
 
-        private void AddBar(Transform parent, string name, Color color, System.Func<float> value)
+        /// <summary>メーターの1段（横並びの器）を作る。5本を3+2に畳んで右カラム幅へ収めるための行。</summary>
+        private static Transform AddMeterRow(Transform parent, string name)
         {
-            const float barWidth = 120f;
+            var row = new GameObject(name);
+            row.transform.SetParent(parent, false);
+            row.AddComponent<RectTransform>();
+            var hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 8f;
+            hlg.childControlWidth = true; hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            var le = row.AddComponent<LayoutElement>();
+            le.minHeight = 46f; le.preferredHeight = 46f;
+            return row.transform;
+        }
 
+        private void AddBar(Transform parent, string name, Color color, System.Func<float> value, float barWidth)
+        {
             var col = new GameObject("Meter_" + name);
             col.transform.SetParent(parent, false);
             var cvlg = col.AddComponent<VerticalLayoutGroup>();

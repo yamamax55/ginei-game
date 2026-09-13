@@ -1125,6 +1125,106 @@ namespace Ginei
         /// <summary>星系ごとの造船所一覧（建艦キュー/進捗・#884）。観測層（造船オブザーバ）専用＝read-only。</summary>
         public System.Collections.Generic.IReadOnlyList<Shipyard> Shipyards => shipyards;
 
+        /// <summary>
+        /// 決裁の執行が触れる盤面をひとまとめにする（#稟議完成③）。
+        /// Core の <see cref="PetitionActionRules"/> は MonoBehaviour を知らないので、
+        /// 盤面の参照を集めるのは Game 層のここ1か所にする。
+        /// プレイヤー勢力ぶんを既定にし、造船所はその勢力のものだけ渡す。
+        /// </summary>
+        public PetitionActionContext BuildPetitionActionContext()
+        {
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            return BuildPetitionActionContext(player);
+        }
+
+        /// <summary>
+        /// 状況起案（#稟議完成④）のために盤面を測る。<b>実状態だけ</b>を数える＝
+        /// ここで作った数字が建白の理由になるので、推測や定数で埋めない。
+        /// </summary>
+        public PetitionSituation MeasurePetitionSituation(Faction faction)
+        {
+            FactionState fs = null;
+            CampaignState campaign = StrategySession.Campaign;
+            if (campaign?.states != null)
+                for (int i = 0; i < campaign.states.Count; i++)
+                    if (campaign.states[i] != null && campaign.states[i].faction == faction) fs = campaign.states[i];
+
+            float treasury = fs != null ? fs.treasury : 0f;
+            float taxRate = fs != null ? fs.taxRate : 0f;
+            float hope = fs?.community != null ? fs.community.hope : 1f;
+
+            // 敵の接近＝自勢力の星系に居る／その星系へ向かっている敵対艦隊。
+            int approaching = 0;
+            int weakened = 0;
+            if (map?.systems != null)
+            {
+                for (int i = 0; i < map.systems.Count; i++)
+                {
+                    StarSystem s = map.systems[i];
+                    if (s == null) continue;
+                    if (s.planet != null && s.planet.owner == faction
+                        && s.planet.maxOrbitalDefense - s.planet.orbitalDefense > 0.01f) weakened++;
+                    if (s.owner != faction) continue;
+                    if (reg?.fleets == null) continue;
+                    for (int k = 0; k < reg.fleets.Count; k++)
+                    {
+                        StrategicFleet f = reg.fleets[k];
+                        if (f == null || f.strength <= 0) continue;
+                        if (!FactionRelations.IsHostile(null, faction, null, f.faction)) continue;
+                        bool here = !f.IsOnCorridor && f.currentSystemId == s.id;
+                        bool inbound = f.IsOnCorridor && f.destinationSystemId == s.id;
+                        if (here || inbound) approaching++;
+                    }
+                }
+            }
+
+            // 戦争と厭戦（外交・戦争台帳がある場合のみ）。
+            bool atWar = false;
+            float weariness = 0f;
+            DiplomacyState dip = DiplomacySession.State;
+            if (dip != null)
+            {
+                string me = faction.ToString();
+                var all = (Faction[])System.Enum.GetValues(typeof(Faction));
+                for (int i = 0; i < all.Length; i++)
+                {
+                    if (all[i] == faction) continue;
+                    string other = all[i].ToString();
+                    if (dip.Status(me, other) != DiplomacyState.DiplomaticStatus.交戦) continue;
+                    atWar = true;
+                    WarState w = WarLedger.Get(me, other);
+                    if (w != null)
+                        weariness = Mathf.Max(weariness,
+                            WarStateRules.Weariness(w, WarGoalRules.WarGoalParams.Default));
+                }
+            }
+
+            // 艦艇プールの余り（未配分）。
+            int spare = FleetPoolRules.Available(faction);
+
+            return new PetitionSituation(treasury, taxRate, hope, approaching, atWar, weariness, weakened, spare);
+        }
+
+        /// <summary><inheritdoc cref="BuildPetitionActionContext()"/></summary>
+        public PetitionActionContext BuildPetitionActionContext(Faction faction)
+        {
+            var mine = new System.Collections.Generic.List<Shipyard>();
+            if (shipyards != null)
+                for (int i = 0; i < shipyards.Count; i++)
+                    if (shipyards[i] != null && shipyards[i].faction == faction) mine.Add(shipyards[i]);
+
+            return new PetitionActionContext
+            {
+                campaign = StrategySession.Campaign,
+                map = map,
+                fleets = reg,
+                faction = faction,
+                shipyards = mine,
+                diplomacy = DiplomacySession.State,
+                staffCompetence = StaffCompetence(faction),
+            };
+        }
+
         /// <summary>国家ごとに所有惑星から産出→行政・インフラが消費→不足で統治逼迫＝安定度低下（STATEDEM-6）。</summary>
         private const float MonthDt = 1f / 12f; // 月次Tickの年比 dt（年次総量を保ちつつ滑らかに・Tick順#P3）
         private const float DayDt = 1f / 360f;  // 日次Tickの年比 dt（30日×12月＝360日／株価は日次収束＝30回で月次総量と一致）

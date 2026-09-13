@@ -653,10 +653,13 @@ namespace Ginei
             }
 
             // 兵力の集中（孫子＝戦力の逐次投入をしない）：集中が満たせない有能な参謀本部は発動せず待機する。
+            // ★プレイヤーへ出す規模は<b>艦艇数（隻）</b>だけ（内部の抽象兵力は画面に出さない）。
+            // 動員ぶんは実在艦隊の Ships の合計、必要ぶんは計画値なので FleetShipCountRules で換算する。
             if (!plan.launched)
             {
                 NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.注意,
-                    $"任務：{s.systemName} 攻略は戦力集中まで待機（逐次投入を避ける）。動員可能{plan.committedStrength:0}/必要{plan.requiredStrength:0}");
+                    $"任務：{s.systemName} 攻略は戦力集中まで待機（逐次投入を避ける）。" +
+                    $"動員可能{MissionShips(plan):N0}隻／必要{RequiredShips(plan):N0}隻");
                 return;
             }
 
@@ -668,11 +671,32 @@ namespace Ginei
             }
 
             string scale = plan.echelon.ToString();
-            string note = plan.piecemeal ? "（逐次投入＝兵力不足のまま発動）" : "";
+            string note = plan.piecemeal ? "（逐次投入＝戦力不足のまま発動）" : "";
             NotificationCenter.Push(NotificationCategory.占領,
                 plan.piecemeal ? NotificationSeverity.注意 : NotificationSeverity.情報,
-                $"任務：{s.systemName} 攻略。{scale}を集中動員（{plan.fleetIds.Count}隊・兵力{plan.committedStrength:0}/{plan.requiredStrength:0}）{note}");
+                $"任務：{s.systemName} 攻略。{scale}を集中動員（{plan.fleetIds.Count}隊・" +
+                $"{MissionShips(plan):N0}隻／必要{RequiredShips(plan):N0}隻）{note}");
         }
+
+        /// <summary>動員した艦隊の<b>実艦艇数</b>の合計（プレイヤー向けの規模表示・抽象兵力は出さない）。</summary>
+        private int MissionShips(MissionPlan plan)
+        {
+            if (reg == null || plan.fleetIds == null) return 0;
+            long total = 0;
+            for (int i = 0; i < plan.fleetIds.Count; i++)
+            {
+                StrategicFleet f = reg.GetFleet(plan.fleetIds[i]);
+                if (f != null) total += Mathf.Max(0, f.Ships);
+            }
+            return total > int.MaxValue ? int.MaxValue : (int)total;
+        }
+
+        /// <summary>
+        /// 任務に必要な規模を艦艇数へ換算する。必要量は計画値（実在艦隊の裏付けが無い）なので、
+        /// 換算は <see cref="FleetShipCountRules.FromStrength"/> の一本の窓口を通す。
+        /// </summary>
+        private static int RequiredShips(MissionPlan plan)
+            => FleetShipCountRules.FromStrength(Mathf.RoundToInt(Mathf.Max(0f, plan.requiredStrength)));
 
         /// <summary>参謀本部の実力（0..1）＝その勢力の最有能指揮官の文才（運営/情報の平均）を正規化。指揮官不在は中庸0.5。</summary>
         private float StaffCompetence(Faction faction)

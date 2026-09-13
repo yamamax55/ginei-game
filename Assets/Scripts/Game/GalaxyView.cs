@@ -72,6 +72,100 @@ namespace Ginei
         public float dragThresholdPixels = 8f;
         [Tooltip("カメラ中心の移動可能範囲（±このワールド距離でクランプ＝迷子防止）")]
         public float panLimit = 22f;
+
+        [Tooltip("全体表示（FitAll）で銀河の外周に足す余白（ワールド単位）。星名やリングが窓の縁で切れないための逃げ")]
+        public float fitMargin = 2.2f;
+        [Tooltip("敵対勢力を結ぶ回廊（前線）の長さの下限。配置を締めても開幕の接敵が早くなりすぎないようにする＝旧配置の前線距離（約12）に近い水準を保つ")]
+        public float frontCorridorMinLength = 9f;
+
+        [Header("星系の意匠（#戦略MAP刷新・発光核＋細いリング）")]
+        [Tooltip("発光核の半径（星系ノード半径に対する割合）。小さいほど点として締まる")]
+        [Range(0.05f, 0.6f)] public float coreRadiusFactor = 0.26f;
+        [Tooltip("核を白へ寄せる量（0=陣営色のまま／1=白）。中心だけ明るく光って見せる")]
+        [Range(0f, 1f)] public float coreWhiten = 0.55f;
+        [Tooltip("光暈（にじみ）の半径。リングの外側へ淡く広がる")]
+        [Range(0.5f, 3f)] public float glowRadiusFactor = 1.55f;
+        [Tooltip("光暈の不透明度。濃紺の航宙図で沈まない程度に薄く")]
+        [Range(0f, 0.5f)] public float glowAlpha = 0.13f;
+        [Tooltip("リングの線の太さ（半径に対する割合）。細いほど精密な航宙図に見える")]
+        [Range(0.02f, 0.3f)] public float ringThickness = 0.085f;
+        [Tooltip("通商路の線幅。背景へ沈める最も細い層")]
+        public float tradeCorridorWidth = 0.045f;
+        [Tooltip("要衝回廊の線幅。金色でわずかに手前・太くして前線と隘路を際立たせる")]
+        public float chokeCorridorWidth = 0.085f;
+
+        [Header("要塞モデル（#要所の3D差し替え・描画のみ）")]
+        [Tooltip("Resources 配下の要塞モデルのパス。見つからなければ従来表示のまま（素材未納品でも壊れない）")]
+        public string fortressResourcePath = "Models/Fortress/SphericalFortress";
+        [Tooltip("3Dメッシュへ差し替える要所の数（前線の要衝回廊の端点から選ぶ）。0で無効")]
+        public int fortressCount = 2;
+        [Tooltip("普通の星（リング直径）の何倍の外接直径で見せるか。外接にはアンテナ/砲塔も含むので、球本体は概ねこの7割")]
+        public float fortressDiameterFactor = 2.4f;
+        [Tooltip("自動照準が効かないときの向き（度）。通常は主砲の実位置から自動で決まる")]
+        public Vector3 fortressEuler = new Vector3(16f, 208f, -6f);
+        [Tooltip("主砲を向ける方向（ワールド）。-Z がカメラ側。既定は右上へ振った 3/4 の見え方")]
+        public Vector3 fortressAimDirection = new Vector3(-0.42f, 0.30f, -1f);
+        [Tooltip("スプライトより手前へ出す量（ワールド単位）。奥行きの競合を避ける")]
+        public float fortressDepthOffset = 0.35f;
+        [Tooltip("要塞の陰影を作るキーライトの向き（ワールド）。実ライトではなくシェーダー内の擬似光源＝2D Rendererでも効く")]
+        public Vector3 fortressKeyLightDir = new Vector3(-0.45f, 0.72f, -0.53f);
+        [Tooltip("要塞星系の所有リングを、要塞の実測直径の何倍にするか。1.0で外接と同じ＝アンテナの先が少し出る程度")]
+        public float fortressRingScale = 1.06f;
+        [Tooltip("要塞星系の星名を、リングの上端からさらに持ち上げる量（ワールド単位）")]
+        public float fortressLabelLift = 0.30f;
+
+        [Header("恒星モデル（#星系名ごとの3D恒星・描画のみ）")]
+        [Tooltip("星系名ごとの恒星FBX（Models/Stars/Star_NN）へ差し替える。OFF で従来の発光核に戻せる")]
+        public bool useStarModels = true;
+
+        [Tooltip("停泊中の艦隊も戦略MAPに描く（#E 既定 off＝航行中だけ描いて混雑を解消。停泊艦は「軍団編成」メニューで見る）")]
+        public bool showStationaryFleetsOnMap = false;
+        [Tooltip("恒星本体の直径を、普通の星のリング直径の何倍にするか。所有リングの内側に収まる小ささに")]
+        public float starDiameterFactor = 0.62f;
+        [Tooltip("コロナ（光暈）の直径を恒星本体の何倍にするか。控えめにしてリングと混ざらないようにする")]
+        public float starCoronaScale = 1.55f;
+        [Tooltip("コロナの不透明度。恒星と同色で淡く出す（所有色はリングが担う）")]
+        [Range(0f, 0.6f)] public float starCoronaAlpha = 0.20f;
+        [Tooltip("スプライトより手前へ出す量（ワールド単位）")]
+        public float starDepthOffset = 0.25f;
+        [Tooltip("恒星モデルの向き（度）。球なので見た目はほぼ変わらないが、紅炎の出る位置が変わる")]
+        public Vector3 starEuler = new Vector3(10f, 200f, 0f);
+
+        [Header("星系名の可読性（#星系名が小さく密集する）")]
+        [Tooltip("星系名がちょうど良い大きさに見える orthographicSize。ここを基準に、引くほどラベルを大きくして画面上の文字サイズを一定に保つ")]
+        public float labelReferenceZoom = 6f;
+        [Tooltip("星系名の重なり判定に使う見かけの幅（スクリーンピクセル）。近すぎる名前は後着を隠す")]
+        public float starLabelScreenWidth = 108f;
+        [Tooltip("同・高さ（スクリーンピクセル）")]
+        public float starLabelScreenHeight = 26f;
+        [Tooltip("星系名の実ピクセル高さの下限。密集時はここまで縮めてから重なりを間引く（#縦長で名前が全消え）")]
+        public float starLabelMinScreenHeight = 15f;
+
+        [Header("回廊要塞（#40 C-7）")]
+        [Tooltip("要塞を制圧した艦隊が守備として要塞へ残す兵力の割合。0＝残さない＝すぐ落とし返される")]
+        public float captureGarrisonShare = 0.2f;
+        [Tooltip("制圧直後の要塞シールド健全度（0..1）。落とした直後は傷んでいる＝奪還されやすい")]
+        public float capturedFortressShield = 0.5f;
+        [Tooltip("ラベル拡大の上限倍率（引きすぎたときに文字が巨大化して盤面を埋めるのを防ぐ）")]
+        public float labelMaxScale = 1.8f;
+        [Tooltip("これより寄っていれば艦隊の兵力/ETA を出す。引くと消えて盤面が澄む（選択中と交戦中は常に表示）")]
+        public float fleetDetailZoom = 7f;
+        [Tooltip("これより寄っていれば「第N艦隊」を出す。兵力より先に消える（選択中と交戦中は常に表示）")]
+        public float fleetNameZoom = 5f;
+
+        [Header("艦隊マーカーの集約（#戦略MAPの艦艇表示）")]
+        [Tooltip("この距離以内の同陣営・同じ航行状態の艦隊を1つのマーカーへまとめる（ワールド単位）")]
+        public float clusterMergeRadius = 0.55f;
+        [Tooltip("これより寄ったらまとまりを個別表示へ展開する。引いている間は集約表示のまま")]
+        public float clusterExpandZoom = 4.0f;
+        [Tooltip("集約マーカー（代表の駒）を何倍に見せるか。1隊でないことを形で示す")]
+        public float clusterMarkerScale = 1.45f;
+        [Tooltip("集約マーカーをクリックしたと見なす半径（ワールド単位）。低解像度でも押せる大きさに")]
+        public float clusterClickRadius = 0.85f;
+        [Tooltip("同一星系の艦隊を散らす輪の半径の上限（ワールド単位）。艦隊数が増えても銀河全域へ広がらない")]
+        public float maxFleetSpreadRadius = 0.55f;
+        [Tooltip("畳んだまとまりの中で選択中の艦隊を強調表示する位置（星系中心からの下方向オフセット・ワールド単位）")]
+        public float selectedHighlightOffset = 0.45f;
         [Header("ナビ（キーパン）")]
         [Tooltip("キーボード（WASD/矢印）パンの速度")]
         public float keyPanSpeed = 26f;
@@ -98,6 +192,11 @@ namespace Ginei
 
         private GalaxyMap map;
         private StrategicFleetRegistry reg;
+
+        /// <summary>盤面の銀河グラフ（読み取り専用の窓口＝Editor の QA メニューや観測層が引く）。</summary>
+        public GalaxyMap Map => map;
+        /// <summary>盤面の艦隊レジストリ（同上・読み取り用）。</summary>
+        public StrategicFleetRegistry Registry => reg;
         private Camera cam;
         private Sprite disc;
         private Material lineMat;
@@ -136,6 +235,8 @@ namespace Ginei
         [Tooltip("矩形選択（左ドラッグ）の枠の色")]
         public Color marqueeColor = new Color(0.4f, 1f, 0.55f, 0.9f);
         private bool midPressOverUI;        // 中押下が UI 上で始まったか
+        private int pendingFitFrames;       // マップ窓の camera.rect 確定後に全体表示を詰め直す残りフレーム数
+        private bool anchoredZoom;          // ホイールズーム中だけ true＝カーソル下のワールド点を固定する補正を掛ける
         private float zoomTarget;           // ホイールズームの目標 orthographicSize（滑らかに追従）
         private bool zoomInit;              // zoomTarget 初期化済みか
         private Vector2 zoomAnchorScreen;   // ズーム中心に保つスクリーン点（最後のホイール時のカーソル）
@@ -145,6 +246,29 @@ namespace Ginei
 
         private readonly List<StrategicFleet> selectedFleets = new List<StrategicFleet>();
         private readonly Dictionary<int, SpriteRenderer> systemDots = new Dictionary<int, SpriteRenderer>();
+        private readonly Dictionary<int, SpriteRenderer> systemGlows = new Dictionary<int, SpriteRenderer>(); // 光暈（所有色の淡いにじみ）
+        private readonly Dictionary<int, SpriteRenderer> systemCores = new Dictionary<int, SpriteRenderer>(); // 発光核（中心の明るい点）
+        private Sprite ringSprite;          // 星系の細いリング（#戦略MAP刷新）
+        private readonly List<int> fortressSystems = new List<int>(); // 3D要塞へ差し替えた星系id
+        private float fortressHitRadius;    // 要塞星系の当たり判定半径（見た目に合わせて広げる）
+        private readonly Dictionary<int, Transform> systemNameLabelById = new Dictionary<int, Transform>(); // 星名ラベル（id引き）
+        // FBX のマテリアル名→専用マテリアル（URP Lit で作り直す＝黒/マゼンタ化を防ぐ）。要塞は1〜2個なので使い回す。
+        private readonly Dictionary<string, Material> fortressMaterials = new Dictionary<string, Material>();
+        private readonly List<int> starSystems = new List<int>();   // 恒星3Dモデルへ差し替えた星系id
+        // 艦隊マーカーの集約（#戦略MAPの艦艇表示）。毎フレーム作り直すので再利用バッファで GC を避ける。
+        private readonly List<FleetMarkerInput> clusterInputs = new List<FleetMarkerInput>();
+        private readonly List<FleetCluster> fleetClusters = new List<FleetCluster>();
+        private readonly Dictionary<int, FleetCluster> clusterOfFleet = new Dictionary<int, FleetCluster>();
+        // #40：要塞に駐留している艦隊id（集約から除いて二重計上を防ぐ／駒のラベルを「駐留」にする）。
+        // 毎艦隊ごとに盤面を走査しないよう、集約の作り直しのときに1回だけ集める。
+        private readonly HashSet<int> garrisonedFleetIds = new HashSet<int>();
+        private FleetCluster openedCluster;  // 一覧を開いているまとまり（展開表示にする）
+        private FleetMarkerBadgeLayer badgeLayer;                       // 集約バッジ（画面空間・描画＝当たり判定）
+        private readonly List<FleetCluster> badgeClusters = new List<FleetCluster>(); // バッジを出す対象
+        private readonly List<Rect> labelScreenRects = new List<Rect>();              // 星系名の重なり判定（画面px）
+        private readonly List<Vector2> labelScreenPoints = new List<Vector2>();      // 画面内の星系名の位置（混み具合の測定用）
+        private readonly List<int> labelVisibleIndex = new List<int>();              // 上と同じ並びの systemNameLabels 添字
+        private readonly List<float> labelNeighborDist = new List<float>();          // 最近傍距離（中央値で縮小率を決める）
         private readonly List<LineRenderer> corridorLines = new List<LineRenderer>();
         private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetMarks = new Dictionary<StrategicFleet, SpriteRenderer>();
         // 勢力別の艦隊スプライト（帝国/同盟）。未登録の勢力はマル（disc）のまま。Start で Resources から読み込む。
@@ -260,6 +384,7 @@ namespace Ginei
             cam.backgroundColor = new Color(0.03f, 0.03f, 0.07f);
 
             disc = MakeDiscSprite(256); // 高解像度＋AA縁＝深ズームでも星系ドットが滑らかな円を保つ
+            ringSprite = MakeRingSprite(256, ringThickness); // 星系の細いリング（#戦略MAP刷新）
             lineMat = new Material(Shader.Find("Sprites/Default"));
             LoadFleetSprites();
 
@@ -274,9 +399,25 @@ namespace Ginei
             SetupEvents(); // S6：支持低下イベント（#116 エンジン）を用意
             BuildVisuals();
 
+            // 新規・セーブ読み込みのどちらでも、開幕は銀河全体が入った状態から始める（#戦略MAP刷新）。
+            // カメラ矩形はマップ窓（StrategyMapWindow）が1フレーム目に確定させるため、次フレームで詰め直す。
+            FitAll(instant: true);
+            pendingFitFrames = 2;
+
+            DrainBattleResults();
+        }
+
+        /// <summary>
+        /// 会戦から戻った結果を戦略へ反映する（#WIN-3／#131／#38／#40）。
+        /// ★<b>Start だけでなく毎フレーム</b>呼ぶ。ウィンドウ化会戦（既定 ON）では戦略シーンが
+        /// ロードされたまま残るので Start は二度と走らず、Start 限定だと結果が永久に反映されない。
+        /// </summary>
+        private void DrainBattleResults()
+        {
             // WIN-3：複数同時会戦の結果を1フレーム1件ずつ global へ復元して既存の反映処理へ流す
             //（各会戦は自分のスナップショットを BattleResultQueue へ積む＝global を奪い合わない）。
             if (!BattleHandoff.Pending && !BattleHandoff.Resolved && !BattleHandoff.siegeResolved
+                && !BattleHandoff.fortressResolved
                 && BattleResultQueue.Count > 0 && BattleResultQueue.TryPop(out BattleHandoff.State bres))
             {
                 BattleHandoff.Restore(bres);
@@ -317,10 +458,19 @@ namespace Ginei
 
             // 惑星攻城の戦術マップでの進捗を惑星へ書き戻す（#131）
             if (BattleHandoff.siegeResolved) ApplySiegeResult();
+
+            // 回廊要塞の戦術マップでの結末を回廊へ書き戻す（#40）
+            if (BattleHandoff.fortressResolved) ApplyFortressResult();
+
+            // 会戦が終わって差し戻された援軍を盤面へ戻す（#38）＝派遣した艦隊を宙に浮かせない
+            ApplyReinforcementReturns();
         }
 
         private void Update()
         {
+            // 会戦から戻った結果を毎フレーム1件ずつ反映する（ウィンドウ化会戦は Strategy が生き続けるため）。
+            DrainBattleResults();
+
             // ESC（#ウィンドウESC）：重ねたウィンドウを最前面から1枚ずつ閉じ、無くなったらシステムメニュー。
             // モーダル窓が盤面入力を塞ぐ前（下の early-return より前）に評価し、閉じた窓自身もここで処理する。
             if (GameInput.WasPressed(GameAction.キャンセル)) HandleStrategyEscape();
@@ -352,6 +502,9 @@ namespace Ginei
             calendarCompression = TimeFlowRules.Ease(
                 calendarCompression, TimeFlowRules.TargetCompression(IsActionSalient(), flow), flow, frameDt);
             if (clock != null) clock.Advance(frameDt * calendarCompression);
+            // #38：援軍の到着は<b>統一クロックの絶対時刻</b>へ同期する（差分加算しない）。
+            // 絶対同期なので会戦側と二重に呼んでもずれず、倍速・ポーズでも到着 game-時刻が動かない。
+            if (clock != null) StrategySession.Reinforcements?.SyncTo(clock.ElapsedSeconds);
             reg.Tick(dt);
 
             // 回廊要塞（#40）：要塞で封鎖された回廊上の敵対艦隊を固着（迂回不可）し、一定間隔で力攻めを自動解決する。
@@ -615,7 +768,15 @@ namespace Ginei
         /// <summary>背景星雲をカメラ視野に追従させ常に覆う（ズーム/パンに連動）。</summary>
         private void LateUpdate()
         {
+            // マップ窓が camera.rect を確定させた後のアスペクトで全体表示を詰め直す（起動直後の1〜2フレーム）。
+            if (pendingFitFrames > 0)
+            {
+                pendingFitFrames--;
+                FitAll(instant: true);
+            }
+
             SmoothPan(); // パン目標へカメラを滑らかに追従（ドラッグ/端/キー共通の慣性的な動き）
+            UpdateLabelLegibility(); // 星系名を画面上で一定サイズに保ち、引きすぎたら隠す
 
             if (backdrop == null || cam == null) return;
             Vector3 cp = cam.transform.position;
@@ -710,6 +871,11 @@ namespace Ginei
         /// <summary>会戦の決着を通知し、発生回廊に控えめな結果ピンを残す（#接敵通知）。</summary>
         private void AnnounceOutcome(EncounterOutcome o, bool manual)
         {
+            // #38：決着した戦場を閉じ、まだ着いていない援軍を差し戻す。
+            // 潜行して戻った会戦は BattleManager が閉じるが、**放置して自動解決した会戦もここで必ず閉じる**
+            // （閉じ忘れると派遣した艦隊が「増援航行中」のまま宙に浮く）。
+            CloseBattlefieldAndReturn(BattlefieldKey.Corridor(o.sysMin, o.sysMax));
+
             string place = $"{SystemName(o.sysMin)}〜{SystemName(o.sysMax)}";
             string mode = manual ? "・潜行" : "・自動解決";
             NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
@@ -885,7 +1051,9 @@ namespace Ginei
             int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
             foreach (var f in reg.fleets)
             {
-                if (f == null || !f.engaged) continue;
+                // 「戦場である」の判定は EngagedBattlefields と同じ述語を使う＝艦隊同士の交戦だけでなく
+                // 要塞に足止めされている回廊も戦場に数える（要塞の固着は engaged を立てないため）。
+                if (!IsBattlefieldFleet(f)) continue;
                 int fMin = Mathf.Min(f.currentSystemId, f.destinationSystemId);
                 int fMax = Mathf.Max(f.currentSystemId, f.destinationSystemId);
                 if (fMin == min && fMax == max) return true;
@@ -893,76 +1061,491 @@ namespace Ginei
             return false;
         }
 
+        /// <summary>
+        /// その艦隊が「進行中の戦場」に居るか（#38 援軍の宛先・回廊の戦闘表示で共通の述語）。
+        /// 艦隊同士の交戦（<see cref="StrategicFleet.engaged"/>）に加えて、
+        /// 要塞に釘付けにされている艦隊（<see cref="StrategicFleet.IsBlockadedByFortress"/>）も数える。
+        /// </summary>
+        internal static bool IsBattlefieldFleet(StrategicFleet f)
+            => f != null && f.IsOnCorridor && (f.engaged || f.IsBlockadedByFortress);
+
         // ===== 回廊要塞＝戦略ノード（#40 C-7）=====
 
         private float fortressAssaultTimer = 0f;
         private const float FortressAssaultInterval = 4f; // 力攻め判定の間隔（game-秒）。毎フレーム解決して瞬殺しない
         private readonly List<StrategicFleet> fortressAttackers = new List<StrategicFleet>();
+        private readonly List<Faction> fortressAssaultFactions = new List<Faction>(); // 同じ要塞に取り付いた勢力（合算しない）
 
         /// <summary>
-        /// 回廊要塞（#40）の封鎖と力攻めを進める。要塞で封鎖された回廊上にいる敵対艦隊を固着（前進停止＝
-        /// 迂回不可）させ、<see cref="FortressAssaultInterval"/> ごとに合計兵力で力攻めを自動解決する。
-        /// 制圧で回廊が開通＋要塞所有が攻撃側へ移転（<see cref="StrategyRules.AssaultFortress"/> が更新）、
-        /// 撃退なら攻撃側が消耗して足止め継続（難攻不落）。要塞なし・非敵対は素通り（フェザーン型）。
+        /// 回廊要塞（#40）の力攻めを進める。<b>前進の足止めそのものは Core の
+        /// <see cref="FortressBlockadeRules"/>／<see cref="StrategicFleet"/> が移動実行の中で行う</b>ので、
+        /// ここは「要塞の手前に釘付けになった敵対艦隊」を集めて <see cref="FortressAssaultInterval"/> ごとに
+        /// 力攻めを自動解決するだけにする（<see cref="StrategicFleet.engaged"/> は艦隊同士の会戦の印なので触らない）。
+        ///
+        /// 制圧すると要塞は攻撃側のものになり、生き残りの一部が守備に入って<b>今度は元の持ち主を締め出す</b>
+        /// （再占領の整合）。撃退なら攻撃側が消耗して足止めが続く（難攻不落）。
+        /// 複数の勢力が同じ要塞に取り付いている場合は<b>勢力ごとに別々に</b>解決する（合算して他勢力の戦果にしない）。
         /// </summary>
         private void TickFortressBlockades(float dt)
         {
             if (map == null || map.corridors == null || reg == null || reg.fleets == null) return;
 
-            bool doAssault = false;
             fortressAssaultTimer += dt;
-            if (fortressAssaultTimer >= FortressAssaultInterval) { fortressAssaultTimer = 0f; doAssault = true; }
+            if (fortressAssaultTimer < FortressAssaultInterval) return;
+            fortressAssaultTimer = 0f;
 
             for (int ci = 0; ci < map.corridors.Count; ci++)
             {
                 Corridor c = map.corridors[ci];
                 if (c == null || c.fortress == null) continue;
 
-                int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
-                fortressAttackers.Clear();
-                int total = 0;
+                // ★プレイヤーがいま潜行して戦っている要塞は、戦略側で勝手に解決しない。
+                // 放っておくと、戦術マップで戦っている最中に戦略が力攻めを片付けて所有まで移し、
+                // 戻ったときの書き戻しと二重適用になる（突入中の艦隊の兵力も勝手に削られる）。
+                if (IsDescendedFortressCorridor(c)) continue;
+
+                // 取り付いている敵対勢力を洗い出す（艦隊の並び順＝決定論。合算はしない）。
+                fortressAssaultFactions.Clear();
                 for (int fi = 0; fi < reg.fleets.Count; fi++)
                 {
                     StrategicFleet f = reg.fleets[fi];
-                    if (f == null || !f.IsOnCorridor) continue;
-                    if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) continue;
-                    if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) continue;
-                    if (!StrategyRules.IsFortressBlocked(c, f.faction)) continue;
-                    f.engaged = true; // 固着＝前進停止（封鎖＝通れない）
-                    fortressAttackers.Add(f);
-                    total += Mathf.Max(0, f.strength);
+                    if (!IsPinnedAtFortress(f, c)) continue;
+                    if (!fortressAssaultFactions.Contains(f.faction)) fortressAssaultFactions.Add(f.faction);
                 }
-                if (fortressAttackers.Count == 0 || !doAssault || total <= 0) continue;
 
-                Faction attacker = fortressAttackers[0].faction;
-                Faction defender = c.fortress.owner;
-                string fname = c.fortress.fortressName;
-                FortressAssaultResult r = StrategyRules.AssaultFortress(c.fortress, attacker, total);
+                NotifyFortressBlockade(c);
 
-                if (r.captured)
+                for (int ai = 0; ai < fortressAssaultFactions.Count; ai++)
                 {
-                    for (int i = 0; i < fortressAttackers.Count; i++) fortressAttackers[i].engaged = false; // 固着解除＝前進再開
-                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
-                        $"{fname} を {attacker} が制圧した（回廊が開通）");
-                }
-                else
-                {
+                    if (c.fortress == null || !FortressRules.BlocksPassage(c.fortress)) break; // 先の勢力が落とした
+                    Faction attacker = fortressAssaultFactions[ai];
+                    if (!StrategyRules.IsFortressBlocked(c, attacker)) continue;                // 既に味方の要塞
+
+                    fortressAttackers.Clear();
+                    int total = 0;
+                    for (int fi = 0; fi < reg.fleets.Count; fi++)
+                    {
+                        StrategicFleet f = reg.fleets[fi];
+                        if (!IsPinnedAtFortress(f, c) || f.faction != attacker) continue;
+                        fortressAttackers.Add(f);
+                        total += Mathf.Max(0, f.strength);
+                    }
+                    if (fortressAttackers.Count == 0 || total <= 0) continue;
+
+                    Faction defender = c.fortress.owner;
+                    string fname = c.fortress.fortressName;
+                    FortressAssaultResult r = StrategyRules.AssaultFortress(c.fortress, attacker, total);
+
+                    // 成功でも失敗でも攻撃側は消耗する（制圧をタダにしない）。
                     ScaleAndCullAttackers(fortressAttackers, r.attackerSurvivor, total);
-                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
-                        $"{fname}（{defender}）の攻略に失敗＝難攻不落（{attacker} 軍が損害）");
+
+                    if (r.captured)
+                    {
+                        int garrison = GarrisonFromSurvivors(fortressAttackers);
+                        FortressBlockadeRules.Regarrison(c.fortress, attacker, garrison, capturedFortressShield);
+                        // 要塞が落ちればその回廊の戦いは終わり＝未到着の援軍を帰投させる（宙に浮かせない）。
+                        CloseBattlefieldAndReturn(BattlefieldKey.Corridor(c.aId, c.bId));
+                        NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
+                            garrison > 0
+                                ? $"{fname} を {attacker} が制圧した（回廊が開通・守備力 {garrison} を残置）"
+                                : $"{fname} を {attacker} が制圧した（回廊が開通・守備を残せず無防備）");
+                    }
+                    else
+                    {
+                        NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                            $"{fname}（{defender}）の攻略に失敗＝難攻不落（{attacker} 軍が損害）");
+                    }
                 }
             }
         }
 
-        /// <summary>力攻めの残存兵力を攻撃側艦隊へ原兵力比で按分し、0以下は盤面から除去する。</summary>
-        private void ScaleAndCullAttackers(List<StrategicFleet> fleets, int survivor, int total)
+        /// <summary>
+        /// 回廊要塞の戦術マップ（#40）の結末を戦略の回廊へ書き戻す。
+        /// 突破＝要塞は攻撃側のものになり、突入した艦隊から守備を残置して回廊が開く（戦略の自動解決と同じ扱い）。
+        /// 未突破＝要塞は守備側のまま封鎖が続く。守備が尽きていれば無防備な要塞として残る。
+        /// </summary>
+        private void ApplyFortressResult()
         {
-            if (total <= 0) return;
+            Corridor c = map != null
+                ? map.GetCorridor(BattleHandoff.fortressCorridorA, BattleHandoff.fortressCorridorB)
+                : null;
+
+            // ★まず会戦の損害を戦略へ反映する（突入した本隊＋参戦した援軍）。
+            // 突破の可否より先に行う＝守備の残置は「戦い抜いた後の生き残り」から取ることになる。
+            ApplyFortressAttrition(c);
+
+            if (c != null && c.fortress != null)
+            {
+                string fname = c.fortress.fortressName;
+                if (BattleHandoff.fortressBreached)
+                {
+                    // 突破：所有が移り、突入した艦隊から守備を残置する（残せなければ無防備）。
+                    Faction attacker = BattleHandoff.fortressAttacker;
+                    // 徴発は<b>突破した勢力の艦隊だけ</b>から。勢力で絞らないと、同じ要塞に足止めされている
+                    // 第三勢力の艦隊からも守備兵力を抜いてしまう。
+                    fortressAttackers.Clear();
+                    for (int i = 0; i < reg.fleets.Count; i++)
+                    {
+                        StrategicFleet pf = reg.fleets[i];
+                        if (pf == null || pf.faction != attacker) continue;
+                        if (IsPinnedAtFortress(pf, c)) fortressAttackers.Add(pf);
+                    }
+                    int garrison = GarrisonFromSurvivors(fortressAttackers);
+                    FortressBlockadeRules.Regarrison(c.fortress, attacker, garrison, capturedFortressShield);
+                    NotificationCenter.Push(NotificationCategory.占領, NotificationSeverity.警告,
+                        $"{fname} を {attacker} が戦術突破で制圧した（回廊が開通・守備力 {garrison}）");
+                }
+                else if (!BattleHandoff.fortressStillHolds)
+                {
+                    // 要塞は撃破したが突破線までは届かなかった＝封鎖は解けたが所有は移らない。
+                    c.fortress.garrisonStrength = 0f;
+                    c.fortress.controlsCorridor = false;
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                        $"{fname} の守備は壊滅したが突破には至らなかった（封鎖のみ解除）");
+                }
+                else
+                {
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                        $"{fname} は持ちこたえた（回廊の封鎖は続く）");
+                }
+            }
+
+            BattleHandoff.ClearFortress();
+            BattleHandoff.Clear();
+        }
+
+        // ===== 援軍（ワープイン・#38 C-5）=====
+
+        private readonly List<WarpReinforcement> reinforcementReturns = new List<WarpReinforcement>();
+        private readonly List<WarpReinforcement> reinforcementPeek = new List<WarpReinforcement>();
+
+        /// <summary>
+        /// 交戦中の回廊へ自軍の艦隊を援軍として派遣する（#38）。所要時間は回廊の長さと艦隊のワープ速度から出し、
+        /// <b>戦場の両端のうち早く着く側＝自陣側の入口</b>へ向かう。受理できたら true。
+        ///
+        /// 派遣した艦隊は盤面から消さず「増援航行中」にする＝到着しても戦闘が終わっていても、
+        /// 同じ艦隊として戻せる（消失しない）。
+        /// </summary>
+        public bool DispatchReinforcement(StrategicFleet fleet, int sysA, int sysB)
+        {
+            if (fleet == null || map == null || reg == null) return false;
+            if (fleet.warpingAsReinforcement || fleet.engaged || fleet.strength <= 0) return false;
+
+            var ledger = StrategySession.Reinforcements;
+            if (ledger == null) return false;
+
+            var key = BattlefieldKey.Corridor(sysA, sysB);
+            float travel = WarpReinforcementRules.TravelSecondsToBattlefield(
+                map, fleet.currentSystemId, key, fleet.warpSpeed, fleet.sublightFactor, out int entrySystemId);
+
+            long id = ledger.Dispatch(key, fleet.faction, fleet.id, fleet.strength, travel);
+            if (id <= 0)
+            {
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    $"第{fleet.id}艦隊は {SystemName(sysA)}–{SystemName(sysB)} へ派遣できません（到達不能か戦闘終了）");
+                return false;
+            }
+
+            fleet.warpingAsReinforcement = true;
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                $"第{fleet.id}艦隊を {SystemName(sysA)}–{SystemName(sysB)} へ派遣（{SystemName(entrySystemId)} 側から到着予定 " +
+                $"{FormatEta(travel)}）");
+            return true;
+        }
+
+        /// <summary>指定回廊へ到着待ちの自軍援軍を「あと mm:ss」の形で1行にまとめる（UI 表示用）。</summary>
+        public string ReinforcementEtaText(int sysA, int sysB, Faction faction)
+        {
+            var ledger = StrategySession.Reinforcements;
+            if (ledger == null) return "";
+            reinforcementPeek.Clear();
+            if (ledger.PeekPending(BattlefieldKey.Corridor(sysA, sysB), faction, reinforcementPeek) <= 0) return "";
+
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < reinforcementPeek.Count; i++)
+            {
+                WarpReinforcement o = reinforcementPeek[i];
+                if (i > 0) sb.Append("　");
+                sb.Append($"第{o.fleetId}艦隊 あと{FormatEta(WarpReinforcementRules.RemainingSeconds(o.arrivalTime, ledger.Elapsed))}");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 戦場を閉じ、未到着の援軍をその場で盤面へ戻す（#38・戦略側で決着したとき）。
+        /// 会戦シーンを経由しない自動解決でも派遣艦隊が確実に帰ってくるようにする。
+        /// </summary>
+        private void CloseBattlefieldAndReturn(BattlefieldKey key)
+        {
+            var ledger = StrategySession.Reinforcements;
+            if (ledger == null || reg == null || !key.IsValid) return;
+
+            reinforcementReturns.Clear();
+            if (ledger.CloseBattlefield(key, reinforcementReturns) <= 0) return;
+
+            for (int i = 0; i < reinforcementReturns.Count; i++)
+            {
+                StrategicFleet f = reg.GetFleet(reinforcementReturns[i].fleetId);
+                if (f == null) continue;
+                f.warpingAsReinforcement = false;
+                NotificationCenter.Push(NotificationCategory.戦闘,
+                    $"第{f.id}艦隊は戦闘終了により帰投しました");
+            }
+        }
+
+        /// <summary>秒を mm:ss に整形する（到着予定の表示）。</summary>
+        private static string FormatEta(float seconds)
+        {
+            if (float.IsPositiveInfinity(seconds)) return "到達不能";
+            int s = Mathf.Max(0, Mathf.RoundToInt(seconds));
+            return $"{s / 60:00}:{s % 60:00}";
+        }
+
+        /// <summary>
+        /// 会戦が終わって差し戻された援軍を盤面へ戻す（#38）。
+        /// 「増援航行中」を解いて元の星系に停泊させる＝派遣した艦隊が消えない。
+        /// </summary>
+        private void ApplyReinforcementReturns()
+        {
+            if (reg == null) return;
+
+            // ① まだ着いていなかった援軍＝そのまま盤面へ戻す。
+            reinforcementReturns.Clear();
+            if (ReinforcementReturnQueue.TakeAll(reinforcementReturns))
+            {
+                for (int i = 0; i < reinforcementReturns.Count; i++)
+                {
+                    StrategicFleet f = reg.GetFleet(reinforcementReturns[i].fleetId);
+                    if (f == null) continue;
+                    f.warpingAsReinforcement = false;
+                    NotificationCenter.Push(NotificationCategory.戦闘,
+                        $"第{f.id}艦隊は戦闘終了により帰投しました");
+                }
+            }
+
+            // ② 戦場に到着して参戦した援軍＝印を外して操作できる状態に戻す。
+            // これをやらないと「増援航行中」のまま盤面に残り、二度と動かせない（実機QAで判明）。
+            reinforcementArrivedIds.Clear();
+            if (ReinforcementReturnQueue.TakeArrivedIds(reinforcementArrivedIds))
+            {
+                for (int i = 0; i < reinforcementArrivedIds.Count; i++)
+                {
+                    StrategicFleet f = reg.GetFleet(reinforcementArrivedIds[i]);
+                    if (f == null) continue;
+                    f.warpingAsReinforcement = false;
+                    NotificationCenter.Push(NotificationCategory.戦闘,
+                        $"第{f.id}艦隊は援軍として参戦し、戦線へ復帰しました");
+                }
+            }
+        }
+
+        private readonly List<int> reinforcementArrivedIds = new List<int>();
+
+        // 封鎖の通知を出した回廊（同じ足止めで通知を毎回積まない）。要塞が落ちる/開通したら忘れる。
+        private readonly HashSet<int> notifiedBlockades = new HashSet<int>();
+
+        /// <summary>
+        /// プレイヤーの艦隊が要塞に足止めされたら、<b>ダブルクリックで要塞戦へ潜行できる通知</b>を1度だけ出す
+        /// （#40 の操作導線）。放置すれば <see cref="TickFortressBlockades"/> が自動で力攻めを解決する。
+        /// </summary>
+        private void NotifyFortressBlockade(Corridor c)
+        {
+            int key = Mathf.Min(c.aId, c.bId) * 10007 + Mathf.Max(c.aId, c.bId);
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+
+            if (c.fortress == null || !StrategyRules.IsFortressBlocked(c, player))
+            {
+                notifiedBlockades.Remove(key);   // 開通/制圧＝次に封鎖されたらまた知らせる
+                return;
+            }
+            if (!fortressAssaultFactions.Contains(player)) return; // 自軍が取り付いていない
+            if (!notifiedBlockades.Add(key)) return;               // 同じ足止めでは1度だけ
+
+            long seq = NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.警告,
+                $"{c.fortress.fortressName}（{c.fortress.owner}）が回廊を扼している＝迂回不可。" +
+                $"ダブルクリックで要塞戦へ");
+            int a = c.aId, b = c.bId;
+            NotificationActionRegistry.Register(seq, () => DescendFortressBySystems(a, b));
+        }
+
+        /// <summary>
+        /// その回廊が「いまプレイヤーが潜行して戦っている要塞戦」か（＝戦略側の自動解決から外す）。
+        /// 会戦ウィンドウでも全画面でも、受け渡しの戦場キーで判定する。
+        /// </summary>
+        private static bool IsDescendedFortressCorridor(Corridor c)
+        {
+            // ★受け渡し（BattleHandoff）ではなく <see cref="ActiveBattlefields"/> を見る。
+            // ウィンドウ化会戦では BattleDirector がロード完了時に global の受け渡しを空けるので、
+            // 受け渡しで判定すると必ず false になり、戦っている最中に戦略側が横取りしてしまう。
+            return c != null && ActiveBattlefields.IsCorridorActive(c.aId, c.bId);
+        }
+
+        /// <summary>
+        /// 要塞戦（#40）の損害を戦略の艦隊へ反映する。参戦した艦隊＝<b>要塞の手前に釘付けの本隊</b>＋
+        /// <b>戦場に到着して参戦した援軍</b>。会戦が返した残存兵力を、参戦時の兵力比で按分する。
+        ///
+        /// ・生存＝実際の残存兵力（按分）／全滅＝0（盤面から除去）
+        /// ・未到着で帰投した援軍は<b>この対象に入れない</b>＝派遣時の兵力を保持する
+        /// ・<see cref="ScaleAndCullAttackers"/> と同じ按分の窓口を使い、二重に減らさない
+        ///   （放置の自動解決はこのメソッドを通らず、逆にこちらは自動解決を通らない）
+        /// </summary>
+        private void ApplyFortressAttrition(Corridor c)
+        {
+            if (reg == null || c == null) return;
+
+            Faction attacker = BattleHandoff.fortressAttacker;
+
+            // 参戦者を集める（重複させない）。本隊＝この回廊で釘付けの自勢力艦隊。
+            fortressAttackers.Clear();
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f == null || f.faction != attacker) continue;
+                if (IsPinnedAtFortress(f, c)) fortressAttackers.Add(f);
+            }
+
+            // 参戦した援軍（到着済み）。まだ着かずに帰投したぶんは含めない＝派遣時の兵力のまま。
+            reinforcementArrivedIds.Clear();
+            ReinforcementReturnQueue.PeekArrivedIds(reinforcementArrivedIds);
+            for (int i = 0; i < reinforcementArrivedIds.Count; i++)
+            {
+                StrategicFleet f = reg.GetFleet(reinforcementArrivedIds[i]);
+                if (f == null || f.faction != attacker) continue;
+                if (!fortressAttackers.Contains(f)) fortressAttackers.Add(f);
+            }
+
+            if (fortressAttackers.Count == 0) return;
+
+            int before = 0, shipsBefore = 0;
+            for (int i = 0; i < fortressAttackers.Count; i++)
+            {
+                before += Mathf.Max(0, fortressAttackers[i].strength);
+                shipsBefore += Mathf.Max(0, fortressAttackers[i].Ships);   // 損害の通知に使う実隻数
+            }
+            if (before <= 0) return;
+
+            // ★手動で戦った会戦は<b>艦隊ごとの実残存</b>を使う。無傷の隊と全滅した隊を合計して
+            // 按分すると両方が半減してしまうため、明細があるかぎり按分にはしない。
+            int survivor;
+            if (BattleHandoff.fortressSurvivors.Count > 0)
+            {
+                survivor = ApplyPerFleetSurvivors(fortressAttackers);
+            }
+            else
+            {
+                // 明細が無い＝抽象的な自動解決の結果。従来どおり合計を兵力比で按分する。
+                survivor = Mathf.Clamp(BattleHandoff.fortressAttackerSurvivor, 0, before);
+                ScaleAndCullAttackers(fortressAttackers, survivor, before);
+            }
+
+            // 損害の通知も<b>艦艇数</b>で出す（抽象兵力はプレイヤーに見せない）。
+            // 反映後の実隻数を数え直し、差分を失った隻数として出す＝兵力に「隻」を付け替えない。
+            int shipsAfter = 0;
+            for (int i = 0; i < fortressAttackers.Count; i++)
+                if (fortressAttackers[i] != null) shipsAfter += Mathf.Max(0, fortressAttackers[i].Ships);
+            int shipsLost = Mathf.Max(0, shipsBefore - shipsAfter);
+            if (shipsLost > 0)
+                NotificationCenter.Push(NotificationCategory.戦闘,
+                    $"要塞戦の損害：{attacker} 軍が {shipsLost:N0}隻 を失いました（残存 {shipsAfter:N0}隻）");
+        }
+
+        /// <summary>
+        /// 会戦が返した<b>艦隊別の実残存</b>をそのまま各艦隊へ書き込む（#40 手動突入）。
+        /// 明細に無い艦隊は戦っていない＝無傷として触らない。0 の艦隊は盤面から除去する。
+        /// 艦艇数も<b>その艦隊自身の</b>兵力の減り方だけで決める（他隊の損失を混ぜない）。
+        /// 反映後の残存合計を返す。
+        /// </summary>
+        private int ApplyPerFleetSurvivors(List<StrategicFleet> fleets)
+        {
+            int survivorTotal = 0;
             for (int i = fleets.Count - 1; i >= 0; i--)
             {
                 StrategicFleet f = fleets[i];
                 if (f == null) continue;
-                f.strength = Mathf.RoundToInt(f.strength * (survivor / (float)total));
+
+                bool found = false;
+                int after = 0;
+                for (int k = 0; k < BattleHandoff.fortressSurvivors.Count; k++)
+                {
+                    if (BattleHandoff.fortressSurvivors[k].fleetId != f.id) continue;
+                    after = Mathf.Max(0, BattleHandoff.fortressSurvivors[k].survivor);
+                    found = true;
+                    break;
+                }
+                if (!found) { survivorTotal += Mathf.Max(0, f.strength); continue; } // 参戦していない＝無傷
+
+                int before = Mathf.Max(0, f.strength);
+                after = Mathf.Min(after, before);   // 会戦で増えることはない
+                FleetShipCountRules.ApplyPhysicalLoss(f, after);
+                survivorTotal += after;
+                if (f.strength <= 0) reg.Remove(f);
+            }
+            return survivorTotal;
+        }
+
+        /// <summary>この艦隊が当該回廊の要塞に釘付けにされているか（＝力攻めに参加する）。</summary>
+        private static bool IsPinnedAtFortress(StrategicFleet f, Corridor c)
+        {
+            if (f == null || !f.IsOnCorridor) return false;
+            int min = Mathf.Min(c.aId, c.bId), max = Mathf.Max(c.aId, c.bId);
+            if (Mathf.Min(f.currentSystemId, f.destinationSystemId) != min) return false;
+            if (Mathf.Max(f.currentSystemId, f.destinationSystemId) != max) return false;
+            return StrategyRules.IsFortressBlocked(c, f.faction);
+        }
+
+        /// <summary>
+        /// 制圧した艦隊から守備兵力を差し引いて要塞へ残置する（占領のコスト＝落としたぶん野戦戦力が減る）。
+        /// これが 0 だと要塞は無防備＝すぐ落とし返される。
+        /// </summary>
+        private int GarrisonFromSurvivors(List<StrategicFleet> fleets)
+        {
+            int garrison = 0;
+            for (int i = fleets.Count - 1; i >= 0; i--)
+            {
+                StrategicFleet f = fleets[i];
+                if (f == null || f.strength <= 0) continue;
+                int take = Mathf.FloorToInt(f.strength * Mathf.Clamp01(captureGarrisonShare));
+                if (take <= 0) continue;
+                int before = f.strength;
+                f.strength -= take;
+                // 要塞へ残す兵力ぶんの艦艇もその艦隊から抜ける（隻数と兵力の整合を保つ）。
+                f.SetShips(FleetShipCountRules.AfterLosses(f.Ships, before, f.strength));
+                garrison += take;
+                if (f.strength <= 0) reg.Remove(f);
+            }
+            return garrison;
+        }
+
+        private readonly List<int> attritionBefore = new List<int>();
+        private readonly List<int> attritionAfter = new List<int>();
+
+        /// <summary>
+        /// 会戦・力攻めの残存兵力を参加艦隊へ按分し、0 になった隊は盤面から除去する。
+        /// 按分は Core の <see cref="FleetAttritionRules.Distribute"/> が唯一の窓口＝合計が必ず残存に一致する
+        /// （四捨五入だけだと合計がずれて兵力が勝手に増減する）。
+        ///
+        /// <b>艦艇数（隻）も同時に減らす</b>。減るのは<b>その艦隊自身の</b>兵力比だけで、
+        /// 他の艦隊へ損失を均等割りしない（艦隊ごとに独立して持ち歩く数のため）。
+        /// </summary>
+        private void ScaleAndCullAttackers(List<StrategicFleet> fleets, int survivor, int total)
+        {
+            if (fleets == null || fleets.Count == 0 || total <= 0) return;
+
+            attritionBefore.Clear();
+            for (int i = 0; i < fleets.Count; i++)
+                attritionBefore.Add(fleets[i] != null ? Mathf.Max(0, fleets[i].strength) : 0);
+
+            FleetAttritionRules.Distribute(attritionBefore, survivor, attritionAfter);
+
+            for (int i = fleets.Count - 1; i >= 0; i--)
+            {
+                StrategicFleet f = fleets[i];
+                if (f == null) continue;
+                int before = attritionBefore[i];
+                int after = (i < attritionAfter.Count) ? attritionAfter[i] : 0;
+
+                // 艦艇数はこの艦隊の兵力の減り方だけで決める（他隊の損失を混ぜない）。
+                FleetShipCountRules.ApplyPhysicalLoss(f, after);
                 if (f.strength <= 0) reg.Remove(f);
             }
         }
@@ -972,6 +1555,12 @@ namespace Ginei
             if (Active == this) Active = null;
             if (lineMat != null) Destroy(lineMat);
             if (disc != null && disc.texture != null) Destroy(disc.texture);
+            if (ringSprite != null && ringSprite.texture != null) Destroy(ringSprite.texture);
+            // 実行時生成したマテリアルはリークするので明示的に破棄する（規約）。
+            foreach (var kv in fortressMaterials) if (kv.Value != null) Destroy(kv.Value);
+            fortressMaterials.Clear();
+            // 恒星マテリアルは StarMaterialFactory が持つ（盤面とプレビューで共有）＝そこへ解放を任せる。
+            StarMaterialFactory.ReleaseAll();
         }
     }
 }

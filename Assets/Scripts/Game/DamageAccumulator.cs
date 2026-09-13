@@ -26,9 +26,9 @@ namespace Ginei
         }
 
         // 標的の InstanceID をキーに溜め込む（Transform を直接キーにすると破棄後の参照が残るため ID 経由）。
-        private readonly Dictionary<int, Pending> pending = new Dictionary<int, Pending>();
+        private readonly Dictionary<long, Pending> pending = new Dictionary<long, Pending>();
         // Update 中に辞書を変更しないための吐き出し対象バッファ（再利用してGC節約）。
-        private readonly List<int> dueKeys = new List<int>();
+        private readonly List<long> dueKeys = new List<long>();
 
         private static DamageAccumulator instance;
 
@@ -51,7 +51,7 @@ namespace Ginei
                 return;
             }
 
-            int key = target.GetInstanceID();
+            long key = EntityKey.Of(target);
             if (instance.pending.TryGetValue(key, out Pending p))
             {
                 p.sumDamage += damage;

@@ -79,6 +79,8 @@ namespace Ginei
         [Header("艦隊編制（#146・任意）")]
         [Tooltip("艦隊番号（0＝未指定＝従来どおり提督名のみ表示）")]
         public int fleetNumber = 0;
+        [Tooltip("この部隊の元になった戦略艦隊のID（0=紐付けなし）。会戦の損害を艦隊ごとに戦略へ返すのに使う")]
+        public int strategicFleetId = 0;
         [Tooltip("艦隊の固有名（無ければ「第N艦隊」）")]
         public string fleetUnitName = "";
 

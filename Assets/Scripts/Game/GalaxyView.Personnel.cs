@@ -8,6 +8,114 @@ namespace Ginei
 {
     public partial class GalaxyView
     {
+        // ===== 艦隊の司令官（艦隊メニューの「指揮官」列の出所）=====
+
+        /// <summary>
+        /// その戦略艦隊の司令官（人物）。任命されていない／人物が見つからない（戦死・除籍）なら null。
+        /// <b>ここが唯一の窓口</b>＝UI は名前を合成せず、これが null なら「未任命」と出す。
+        /// 軍団長を艦隊司令として代用しない（軍団長は軍団旗艦に乗る別の人物）。
+        /// </summary>
+        public Person FleetCommanderOf(StrategicFleet fleet)
+        {
+            if (fleet == null || !fleet.HasCommander) return null;
+            Person p = ResolveCommander(fleet.commanderPersonId);
+            return p != null && !p.IsDeceased ? p : null;
+        }
+
+        /// <summary>
+        /// 艦隊司令の表示名（階級つき・未任命は「未任命」）。文言は Core の
+        /// <see cref="FleetCommandLabelRules.CommanderLabel"/> が決める＝表示規則を UI 側で二重実装しない。
+        /// </summary>
+        public string FleetCommanderLabel(StrategicFleet fleet)
+        {
+            Person p = FleetCommanderOf(fleet);
+            if (p == null) return FleetCommandLabelRules.Unassigned;
+            // ★階級名は<b>立身出世ラダー</b>で解決する（RankSystem.CareerRankName）。
+            // 将官専用のフォールバック（ResolveRankNameOrDefault）だと尉官・佐官（tier1〜4）が
+            // 空文字になり、若手の士官だけ階級が出ない（実機報告：軍団編成の "同盟の士1"）。
+            string rank = RankSystem.CareerRankName(null, p.rankTier);
+            return FleetCommandLabelRules.CommanderLabel(p.name, rank);
+        }
+
+        /// <summary>
+        /// 艦隊司令の任命条件（<see cref="CommandCapacityRules.Tier艦隊"/>＝中将）に足りないときの但し書き。
+        /// 足りていれば空文字。人手が足りず下位の士官が艦隊を預かっている状態を<b>隠さない</b>
+        /// ＝辻褄合わせに勝手な昇進をさせないための表示。
+        /// </summary>
+        public string FleetCommandGateNote(StrategicFleet fleet)
+        {
+            Person p = FleetCommanderOf(fleet);
+            return p == null ? "" : OfficerRankRules.CommandGateNote(p.rankTier, EchelonType.艦隊);
+        }
+
+        /// <summary>
+        /// 未任命の艦隊へ、同じ勢力の実在する武官を司令として割り当てる。
+        ///
+        /// <b>埋めるだけ</b>＝既に任命されている艦隊（セーブから復元した割当を含む）には触れない。
+        /// 1人が2隊を兼任しないよう、割り当て済みの人物は除く。人物が足りなければ<b>そこで止める</b>
+        /// ＝名前を作らず「未任命」のまま残す。
+        /// 上位階級から順に、軍団旗艦（軍団の指揮を担う艦隊）→ その他、の順で配る（決定論）。
+        /// </summary>
+        private void AssignFleetCommanders()
+        {
+            if (reg == null || reg.fleets == null || commanders == null) return;
+
+            // すでに使われている人物ID（兼任を防ぐ）。
+            var taken = new HashSet<int>();
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f != null && f.HasCommander) taken.Add(f.commanderPersonId);
+            }
+
+            // 配る順：軍団旗艦を先に、次に艦隊ID順（決定論＝毎回同じ結果）。
+            var targets = new List<StrategicFleet>();
+            for (int i = 0; i < reg.fleets.Count; i++)
+            {
+                StrategicFleet f = reg.fleets[i];
+                if (f != null && !f.HasCommander) targets.Add(f);
+            }
+            targets.Sort((a, b) =>
+            {
+                if (a.isCorpsFlagship != b.isCorpsFlagship) return a.isCorpsFlagship ? -1 : 1;
+                return a.id.CompareTo(b.id);
+            });
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                StrategicFleet f = targets[i];
+                // ★任命条件（艦隊司令＝中将）を満たす人物を先に使い切ってから、下位の士官へ降りる。
+                // 人手が足りずに若手が艦隊を預かること自体は起こりうる（史実的にもある）ので禁止はしない。
+                // ただし<b>そのために階級を上げたりしない</b>＝実際の階級のまま任命し、
+                // 足りない事実は FleetCommandGateNote が画面に出す。
+                Person best = PickCommander(f.faction, taken, requireGate: true)
+                           ?? PickCommander(f.faction, taken, requireGate: false);
+                if (best == null) continue;   // 人がいなければ未任命のまま（名前を作らない）
+                f.commanderPersonId = best.id;
+                taken.Add(best.id);
+            }
+        }
+
+        /// <summary>
+        /// 未配属の武官から1人選ぶ（上位階級を優先・同位は id の小さいほう＝決定論）。
+        /// <paramref name="requireGate"/>＝艦隊司令の任命条件（中将）を満たす人物だけを候補にする。
+        /// </summary>
+        private Person PickCommander(Faction faction, HashSet<int> taken, bool requireGate)
+        {
+            Person best = null;
+            for (int k = 0; k < commanders.Count; k++)
+            {
+                Person p = commanders[k];
+                if (p == null || p.IsDeceased) continue;
+                if (p.faction != faction) continue;
+                if (taken.Contains(p.id)) continue;
+                if (requireGate && !OfficerRankRules.MeetsCommandGate(p.rankTier, EchelonType.艦隊)) continue;
+                if (best == null || p.rankTier > best.rankTier
+                    || (p.rankTier == best.rankTier && p.id < best.id)) best = p;
+            }
+            return best;
+        }
+
         /// <summary>
         /// 加齢/老衰デモ用の提督ロスターを用意する（TIME-6 #952・LIFE-2 #152）。各勢力に若年・老齢を混ぜ、
         /// 暦の年境界で <see cref="AnnualLifecycleRules.ProcessMortality"/> により老衰死しうる。配下の継承は後段。
@@ -33,6 +141,10 @@ namespace Ginei
                 }
                 nextPersonId = maxId + 1;
                 StrategySession.PendingPeople = null; // 消費（再構築は一度きり）
+
+                // 旧セーブ互換：階級が入っていない武官に最初の段（少尉）を補う。
+                // すでに階級のある人物は<b>触らない</b>＝一律昇格・降格をしない。
+                OfficerRankRules.EnsureRanks(commanders);
             }
             else
             {
@@ -47,6 +159,10 @@ namespace Ginei
                 id = SeedDemoCivilService(id, y); // 指導者/政治家/文官/官僚/技術者をシード（人事観測層のテスト）
                 nextPersonId = id; // 卒業生はこの続き番号で採番
             }
+
+            // 艦隊の司令官を実在の人物へ結び付ける（未任命の艦隊だけ）。
+            // ロスターが揃ってから行う＝艦隊配置（PopulateDemoFleets）より後でなければ人物が居ない。
+            AssignFleetCommanders();
 
             // 特殊作戦部隊（#SOF・SEAL型選抜）：勢力ごとに候補を多段の苛烈な選抜で篩い、認定者を SOF 出身にする。
             RunSofSelection();
@@ -914,7 +1030,10 @@ namespace Ginei
                     {
                         sex = sex,
                         birthYear = year - (20 + k), // 成年（20〜23歳）
-                        rankTier = 0,
+                        // 任官したばかりの若手＝立身出世ラダーの最初の段（少尉）。
+                        // 0（未設定）のままだと画面で「階級のない指揮官」になる（実機報告）。
+                        // 上の階級は昇進で得るもので、ここで底上げはしない。
+                        rankTier = OfficerRankRules.EntryTier,
                         leadership = 45, attack = 45, defense = 45, mobility = 45, operation = 45, intelligence = 45,
                     });
                 }

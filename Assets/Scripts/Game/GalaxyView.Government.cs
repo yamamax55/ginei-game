@@ -80,6 +80,67 @@ namespace Ginei
             return list;
         }
 
+        // ===== 誰が操作しているか（GitHub #67 の権限判定の入口）=====
+
+        /// <summary>
+        /// いま操作している人物（主人公）。特定できなければ null。
+        /// 決裁の権限判定（<see cref="DecisionAuthorityRules"/>）と、会戦の指揮系統の判定に使う。
+        /// <b>役職・階級はこの人物のものを見る</b>＝プレイヤーを全能の裁可者にしない。
+        /// </summary>
+        public Person PlayerCharacter()
+        {
+            var career = FindAnyObjectByType<ProtagonistCareerDirector>();
+            return career != null ? career.Protagonist : null;
+        }
+
+        /// <summary>その勢力の軍政型（文民統制／君主統帥など）。権限判定の独立した制約。</summary>
+        public CivilianControlType CivilianControlOf(Faction f) => FactionControl(f);
+
+        /// <summary>人物IDから人物を引く（上申先の在否・資質の確認に使う）。居なければ null。</summary>
+        public Person FindPersonById(int personId)
+        {
+            if (personId <= 0) return null;
+            Person p = FindIn(commanders, personId);
+            return p ?? FindIn(civilians, personId);
+        }
+
+        private static Person FindIn(System.Collections.Generic.List<Person> roster, int id)
+        {
+            if (roster == null) return null;
+            for (int i = 0; i < roster.Count; i++)
+                if (roster[i] != null && roster[i].id == id) return roster[i];
+            return null;
+        }
+
+        /// <summary>
+        /// その所掌を決裁できる役職に就いている人物を探す（上申先）。
+        /// <paramref name="exclude"/>（本人）は除く。見つからなければ null＝<b>代行を勝手に作らない</b>。
+        /// </summary>
+        public Person FindOfficeHolder(Faction faction, OfficeDomain domain, Person exclude = null)
+        {
+            Person best = null;
+            best = SearchHolder(commanders, faction, domain, exclude, best);
+            best = SearchHolder(civilians, faction, domain, exclude, best);
+            return best;
+        }
+
+        private static Person SearchHolder(System.Collections.Generic.List<Person> roster, Faction faction,
+                                           OfficeDomain domain, Person exclude, Person best)
+        {
+            if (roster == null) return best;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                Person p = roster[i];
+                if (p == null || p.IsDeceased || p.faction != faction) continue;
+                if (exclude != null && p.id == exclude.id) continue;
+                if (!OfficeRules.CanPropose(GovernmentRegistry.GetOffices(p), domain, OfficeScope.国家)) continue;
+                // 同条件なら階級の高いほう＝同位は id の小さいほう（決定論）。
+                if (best == null || p.rankTier > best.rankTier
+                    || (p.rankTier == best.rankTier && p.id < best.id)) best = p;
+            }
+            return best;
+        }
+
         /// <summary>勢力の軍政型を現在の政体形態から導く（捕虜処遇 DefaultDisposition 等が政体に追従＝共産化で処断的に等）。</summary>
         private static CivilianControlType FactionControl(Faction f)
         {

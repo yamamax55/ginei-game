@@ -296,7 +296,8 @@ namespace Ginei
             if (detailArtHolder != null) detailArtHolder.SetActive(flavor != null);
 
             detailTitle.text = $"<b>[{d.severity}]</b> {d.title}";
-            detailBody.text = string.IsNullOrEmpty(d.body) ? "（詳細なし）" : d.body;
+            // 本文＋「誰が出して誰が決めるか・何を対象にするか・権限の根拠・結果」（#67／⑤）。
+            detailBody.text = DecisionAttributionRules.DetailText(d);
 
             for (int i = detailChoices.childCount - 1; i >= 0; i--)
                 Destroy(detailChoices.GetChild(i).gameObject);
@@ -323,12 +324,20 @@ namespace Ginei
 
         private void CloseDetail() { if (detailRoot != null) detailRoot.SetActive(false); }
 
+        /// <summary>
+        /// 決裁ボードからの裁可。★<b>右下カードと同じ窓口</b>（<see cref="DecisionDeck.Resolve"/>）を通す。
+        ///
+        /// 以前はここが <c>DecisionDeck.Queue.Resolve</c> を直に呼んでいた。それは状態を書き換えて
+        /// effectKey を返すだけの関数なので、<see cref="DecisionDeck.Resolved"/> が飛ばず
+        /// <see cref="RingiDirector"/>／<see cref="FleetRingiDirector"/>／<see cref="DecisionCampaignDirector"/>
+        /// に届かない＝<b>税率も艦隊もメーターも動かないのに「裁可」通知だけ出る</b>状態だった。
+        /// さらに稟議の pending 枠が解放されず、新しい建白が上がらなくなっていた。
+        /// </summary>
         private void ResolveFromDetail(PendingDecision d, int idx)
         {
             if (d == null) return;
-            DecisionDeck.Queue.Resolve(d, idx);
-            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
-                $"［裁可］{d.title} → {ChoiceLabel(d, idx)}");
+            // 通知も執行も窓口側が行う（ここで二重に通知しない）。
+            DecisionDeck.Resolve(d.id, idx);
             CloseDetail();
             lastSig = ""; RefreshColumns(); // 列を即更新（決裁済へ移動）
         }
@@ -445,7 +454,7 @@ namespace Ginei
             go.transform.SetParent(parent, false);
             var tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.fontSize = size; tmp.color = color; tmp.alignment = TextAlignmentOptions.TopLeft;
-            tmp.enableWordWrapping = true; tmp.raycastTarget = false;
+            tmp.textWrappingMode = TMPro.TextWrappingModes.Normal; tmp.raycastTarget = false;
             if (jpFont != null) tmp.font = jpFont;
             var le = go.AddComponent<LayoutElement>(); le.minHeight = minHeight;
             return tmp;
@@ -590,18 +599,45 @@ namespace Ginei
             if (jpFont != null) head.font = jpFont;
             columnHeaders[index] = head;
 
-            // 中身（上詰め・はみ出しはクリップ）
-            var body = new GameObject("Body");
-            body.transform.SetParent(col.transform, false);
-            var ble = body.AddComponent<LayoutElement>(); ble.flexibleHeight = 1f;
-            body.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.2f);
-            body.AddComponent<RectMask2D>();
+            // 中身（上詰め）。★件数が増えると下が切れるので<b>スクロールできる</b>ようにし、
+            // 見えて掴めるバーを付ける（#H の窓口を再利用＝バーを二重実装しない）。
+            var scrollGo = new GameObject("Body");
+            scrollGo.transform.SetParent(col.transform, false);
+            var ble = scrollGo.AddComponent<LayoutElement>(); ble.flexibleHeight = 1f;
+            scrollGo.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.2f);
+
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 26f;
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform));
+            viewport.transform.SetParent(scrollGo.transform, false);
+            var vpRT = (RectTransform)viewport.transform;
+            vpRT.anchorMin = Vector2.zero; vpRT.anchorMax = Vector2.one;
+            vpRT.offsetMin = Vector2.zero; vpRT.offsetMax = Vector2.zero;
+            viewport.AddComponent<RectMask2D>();
+
+            var body = new GameObject("Content", typeof(RectTransform));
+            body.transform.SetParent(viewport.transform, false);
+            var cRT = (RectTransform)body.transform;
+            cRT.anchorMin = new Vector2(0f, 1f); cRT.anchorMax = new Vector2(1f, 1f);
+            cRT.pivot = new Vector2(0.5f, 1f);
+            cRT.sizeDelta = Vector2.zero;   // 左右のはみ出しを防ぐ（既知の罠）
+
             var bvlg = body.AddComponent<VerticalLayoutGroup>();
             bvlg.padding = new RectOffset(6, 6, 6, 6);
             bvlg.spacing = 6f;
             bvlg.childControlWidth = true; bvlg.childControlHeight = true;
             bvlg.childForceExpandWidth = true; bvlg.childForceExpandHeight = false;
             bvlg.childAlignment = TextAnchor.UpperCenter;
+            var fitter = body.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = vpRT;
+            scroll.content = cRT;
+            UiScrollbars.Attach(scroll);   // #H スクロールできることを画面で示す（見えて掴めるバー）
 
             return body.transform;
         }
@@ -614,7 +650,7 @@ namespace Ginei
             label.text = text;
             label.fontSize = size;
             label.color = color;
-            label.enableWordWrapping = true;
+            label.textWrappingMode = TMPro.TextWrappingModes.Normal;
             label.raycastTarget = false;
             if (jpFont != null) label.font = jpFont;
             return label;

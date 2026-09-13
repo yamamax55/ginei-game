@@ -221,7 +221,7 @@ namespace Ginei
             float fQual = Mathf.Max(0f, qualityFactor);          // 軍の質（C4・ForceQualityRules）
             // 武名の鼓舞（ADM-3 #2304・1.0..1.2）：名将の旗の下では味方がよく戦う。fame0＝1.0＝従来動作。
             // 実効武名＝max(基準 AdmiralData.fame, 実行時 FameRegistry＝会戦で稼いだ武名)＝基準非破壊（実効値パターン）。
-            int effFame = admiral != null ? Mathf.Max(admiral.fame, FameRegistry.Get(admiral.GetInstanceID())) : 0;
+            int effFame = admiral != null ? Mathf.Max(admiral.fame, FameRegistry.Get(EntityKey.Of(admiral))) : 0;
             float fRenown = RenownRules.InspirationFactor(effFame);
 
             // 総合倍率をクランプ（#2252）＝修飾子の乗算スタックが暴れない。

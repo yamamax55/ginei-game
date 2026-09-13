@@ -40,6 +40,19 @@ namespace Ginei
         public float beamWidth = 0.16f;
         public float beamDuration = 0.18f;
 
+        [Header("3Dモデル（浮遊砲台）")]
+        [Tooltip("納品された浮遊砲台の3Dモデルを載せる（未納品なら従来の丸いスプライト）")]
+        public bool useModel = true;
+
+        [Tooltip("モデルの直径（ワールド単位）")]
+        public float modelDiameter = 1.6f;
+
+        [Tooltip("砲塔（見た目）の旋回速度（度/秒）。射界の基準は動かさない")]
+        public float turnSpeed = 180f;
+
+        [Tooltip("この角度以内を向いたら撃つ（度）")]
+        public float fireTolerance = 6f;
+
         // 所属要塞（陣営・通知の出所）
         private FortressUnit owner;
         private SpriteRenderer body;
@@ -49,6 +62,7 @@ namespace Ginei
 
         // ビーム（自前 LineRenderer・OnDestroy で破棄）
         private LineRenderer beamLine;
+        private TurretModelRig rig;            // 3Dモデル（見た目の旋回・反動・砲口）
         private Material beamMaterial;
         private Color gradientColor = new Color(-1f, -1f, -1f, -1f);
 
@@ -82,6 +96,25 @@ namespace Ginei
             liveColor = factionColor;
             SetupBeam(factionColor);
 
+            // 浮遊砲台の3Dモデル（ChatGPT 制作）。載れば丸いスプライトは隠す。
+            // ★載せるのは<b>見た目だけ</b>＝射界の基準（transform.up）は動かさない。
+            if (useModel)
+            {
+                rig = gameObject.AddComponent<TurretModelRig>();
+                rig.SetParams(new TurretAimParams(turnSpeed, fireTolerance,
+                                                  TurretAimParams.Default.recoilKick,
+                                                  TurretAimParams.Default.recoilRecover));
+                if (rig.Attach(modelDiameter, factionColor))
+                {
+                    if (body != null) body.enabled = false;   // 従来のスプライトは隠す（二重表示にしない）
+                }
+                else
+                {
+                    Destroy(rig);
+                    rig = null;                                // 未納品＝従来表示のまま
+                }
+            }
+
             FleetRegistry.Register(this);
             // 全砲台が同フレームに索敵・発砲しないよう初回タイミングをばらけさせる
             nextFireTime = Time.time + Random.Range(0f, fireInterval);
@@ -90,14 +123,29 @@ namespace Ginei
         private void Update()
         {
             if (silenced) return;
-            if (Time.time < nextFireTime) return;
-            nextFireTime = Time.time + fireInterval;
 
             // 地形（星雲/小惑星帯 #2181）による射程低下を自分の位置で反映。
+            // ★索敵は<b>固定基準</b>（transform.up＝要塞が配置時に決めた外向き）で行う。
+            // モデルの砲塔がどこを向いていようとこの扇は動かない＝旋回で射界が広がらない
+            // （砲台を潰すと死角ができる、という要塞戦の攻め口を壊さない）。
             float effRange = range * BattleTerrain.RangeFactorAt(transform.position);
             IShipTarget target = ShipCombat.FindNearestEnemyInArc(transform.position, transform.up,
                 FactionData, Faction, effRange, halfAngle);
-            if (target != null) PerformAttack(target);
+
+            // 見た目の砲塔だけを実対象へ向ける。標的が消えた／射界外なら旋回を止める（追い回さない）。
+            if (rig != null)
+            {
+                if (target != null) rig.AimAt((Vector2)(target.Transform.position - transform.position));
+                else rig.ClearAim();
+            }
+
+            if (Time.time < nextFireTime) return;
+            if (target == null) return;
+            // 向き終えるまでは撃たない（許容角の内側に入ってから）。撃てない間は間隔を消費しない。
+            if (rig != null && !rig.Aligned) return;
+
+            nextFireTime = Time.time + fireInterval;
+            PerformAttack(target);
         }
 
         private void PerformAttack(IShipTarget target)
@@ -111,6 +159,7 @@ namespace Ginei
             target.TakeDamage(finalDamage);
             DamageAccumulator.Add(target.Transform, finalDamage, isFlank, targetPos);
             FireBeam(targetPos);
+            if (rig != null) rig.OnFired();   // 反動（見た目だけ・当たり判定には無関係）
             if (AudioManager.Instance != null) AudioManager.Instance.PlayBeam();
         }
 
@@ -132,6 +181,7 @@ namespace Ginei
             shipCount = 0;
             FleetRegistry.Unregister(this);
             if (body != null) body.color = new Color(0.25f, 0.25f, 0.28f, 0.85f); // 焼け落ちた残骸
+            if (rig != null) rig.Silence();   // 3Dモデルは発光を消し、旋回も止めて暗い残骸にする
             Collider2D col = GetComponent<Collider2D>();
             if (col != null) col.enabled = false;
             if (owner != null) owner.OnTurretSilenced();
@@ -152,7 +202,8 @@ namespace Ginei
         {
             if (beamLine == null) return;
             StopAllCoroutines();
-            Vector3 origin = transform.position;
+            // ビームは<b>モデルの砲口</b>から出す（モデルが無ければ砲台の中心＝従来どおり）。
+            Vector3 origin = rig != null ? rig.MuzzleWorldPosition : transform.position;
             StartCoroutine(BeamFx.Play(beamLine, beamMaterial, beamWidth, beamDuration,
                 origin, ClampBeamEnd(origin, targetPos)));
         }

@@ -114,7 +114,9 @@ namespace Ginei
             canvasObj.transform.SetParent(transform, false);
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1000; // 観測窓(1090台)とは別流れ。フォールバック時は単独で開くため十分手前
+            // 観測窓(1090台)・決裁ボード(1100)・執務机(1115)より手前。ESC フォールバックでは単独で開くが、
+            // 上メニューの「≡」から直接開くと他の窓が出たままになるため、確実に最前面へ出す（1000 だと隠れていた）。
+            canvas.sortingOrder = 1200;
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);

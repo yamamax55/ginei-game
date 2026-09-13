@@ -29,7 +29,11 @@ namespace Ginei
         private readonly Dictionary<int, Pending> pending = new Dictionary<int, Pending>();
 
         private float accum;
-        private int nextDecisionId = 80000; // デモ決裁(9001+)と衝突させない番号帯
+        /// <summary>
+        /// この Director が使う決裁idの番号帯（デモ決裁 9001+ と衝突させない）。
+        /// 実際の採番は <see cref="DecisionDeck.NextDecisionId"/>＝シーン往復で巻き戻らない。
+        /// </summary>
+        private const int DecisionIdBand = 80000;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -65,14 +69,175 @@ namespace Ginei
             if (accum < raiseInterval) return;
             accum = 0f;
 
-            if (pending.Count >= maxConcurrent) return;
-            if (Random.value > raiseChance) return;
-            TryRaisePetition(forced: false, sampleIndex: -1);
+            // ★状況起案（作業票④）：実状態を見て意味のある建白だけを出す。
+            // 出すものが無ければ<b>何も出さない</b>（間を持たせるための定型案を混ぜない）。
+            TryRaiseFromSituation();
         }
 
         /// <summary>サンプル建白を1件起こす（同時上限を無視＝F7/スクリプト/テスト用）。決裁デスクへ載った決裁id（&lt;0=官僚機構で死んだ）を返す。
         /// sampleIndex&lt;0 はランダム、0以上は <see cref="RingiSampleData"/> の指定サンプル。</summary>
         public int ForceRaise(int sampleIndex = -1) => TryRaisePetition(forced: true, sampleIndex: sampleIndex);
+
+        // ----- 状況起案（作業票④）-----
+
+        /// <summary>その状況で最後に建白した game-秒（クールダウンの判定に使う）。</summary>
+        private readonly Dictionary<PetitionTrigger, float> lastRaisedAt = new Dictionary<PetitionTrigger, float>();
+
+        /// <summary>状況起案の調整値。</summary>
+        public PetitionAgendaParams AgendaParams => new PetitionAgendaParams(
+            120f, 0.35f, 0.35f, 0.5f, agendaCooldownSeconds, maxConcurrent);
+
+        [Tooltip("同じ状況の建白を再び上げるまでの間隔（game-秒）")]
+        public float agendaCooldownSeconds = 180f;
+
+        /// <summary>
+        /// 実状態から建白を1件起こす。上げるものが無ければ何もしない。
+        /// 重複抑止＝①同じ状況の未解決案件があれば出さない ②クールダウン ③同時件数の上限。
+        /// </summary>
+        private void TryRaiseFromSituation()
+        {
+            FactionState fs = PlayerState();
+            GalaxyView gv = GalaxyView.Active;
+            if (fs == null || gv == null) return;
+
+            PetitionSituation sit = gv.MeasurePetitionSituation(fs.faction);
+            float now = StrategySession.Clock != null ? (float)StrategySession.Clock.ElapsedSeconds : 0f;
+
+            PetitionAgendaItem item = PetitionAgendaRules.Next(
+                sit, AgendaParams, ActivePendingCount(),
+                trigger => HasPendingFor(trigger),
+                trigger => lastRaisedAt.TryGetValue(trigger, out float t) ? now - t : float.MaxValue);
+
+            if (!item.IsValid) return;
+            if (RaiseAgendaItem(fs, item) >= 0) lastRaisedAt[item.trigger] = now;
+        }
+
+        /// <summary>いま決裁待ちで残っている（この Director が出した）案件の数。</summary>
+        private int ActivePendingCount()
+        {
+            DecisionQueue q = DecisionDeck.Queue;
+            if (q == null) return 0;
+            int n = 0;
+            for (int i = 0; i < q.items.Count; i++)
+            {
+                PendingDecision d = q.items[i];
+                if (d == null || d.petitionId <= 0) continue;
+                if (DecisionResolutionRules.IsSettled(d)) continue;
+                if (Ledger.Get(d.petitionId) != null) n++;
+            }
+            return n;
+        }
+
+        /// <summary>その状況の建白が未解決で残っているか（同じ対象を二重に出さない）。</summary>
+        private bool HasPendingFor(PetitionTrigger trigger)
+        {
+            DecisionQueue q = DecisionDeck.Queue;
+            if (q == null) return false;
+            for (int i = 0; i < q.items.Count; i++)
+            {
+                PendingDecision d = q.items[i];
+                if (d == null || DecisionResolutionRules.IsSettled(d)) continue;
+                if (PetitionAgendaRules.TriggerOf(d.effectKey) == trigger) return true;
+            }
+            return false;
+        }
+
+        /// <summary>状況から起きた建白を官僚機構へ通し、抜けたら決裁デスクへ積む。決裁id（&lt;0＝不発）。</summary>
+        private int RaiseAgendaItem(FactionState fs, in PetitionAgendaItem item)
+        {
+            string title = TitleFor(item.trigger);
+            var pet = new Petition(0, title, fs.faction, BoxKind.政治家, PetitionOrigin.建白, item.effectKey);
+            if (!RingiPipeline.Submit(Ledger, pet)) return -1;
+
+            float heed = CredibilityRules.Heed(fs.credibility, BoxKind.政治家);
+            float friction = MinistryFriction(fs.faction, DomainOf(item.effectKey));
+            float legitimacy = FactionLoyaltyRules.BaselineLoyalty(fs);
+            var step = RingiPipeline.Propagate(pet, heed, friction, legitimacy, Random.value);
+            if (step != PetitionStep.通過)
+            {
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                    $"［{(step == PetitionStep.握り潰し ? "握り潰し" : "黙殺")}］{title}（官僚機構で止まった）");
+                return -1;
+            }
+
+            RingiPipeline.SendToDecision(pet);
+            // ★決裁前に判断材料を出す（作業票⑤）：なぜ上がったか・費用・対象・期待効果・実行時期。
+            string body = item.reason + "\n" + PetitionBriefingRules.Brief(item.effectKey, BriefingContext());
+            var pd = new PendingDecision(DecisionDeck.NextDecisionId(DecisionIdBand), title, DecisionSeverity.通常,
+                DecisionSource.建白結果, pet.effectKey, defaultChoiceIndex: 1, body: body);
+            pd.choices.Add("裁可する");
+            pd.choices.Add("見送る（現状維持）");
+            pd.petitionId = pet.id;
+            pd.friction = friction;
+
+            // ★提案の時点で対象を固定する（承認後に別の対象へ勝手に振り替えないため）。
+            pd.SetTarget(PetitionActionRules.PlanTarget(item.effectKey, BriefingContext()));
+
+            // ★提案者・決裁権者・権限の根拠をカードへ載せる（#67・実在の人物だけ）。
+            StampAttribution(pd, item.effectKey);
+
+            DecisionDeck.Enqueue(pd);
+
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                $"［建白］{title} が決裁待ち（右下の決裁デスクへ）");
+            return pd.id;
+        }
+
+        /// <summary>
+        /// 提案者・決裁権者・権限の根拠をカードへ記録する（#67）。
+        /// <b>実在の人物からしか名前を取らない</b>＝分からなければ空のままにする（架空の名前を作らない）。
+        /// </summary>
+        private static void StampAttribution(PendingDecision pd, string effectKey)
+        {
+            GalaxyView gv = GalaxyView.Active;
+            if (gv == null || pd == null) return;
+
+            Person actor = gv.PlayerCharacter();
+            if (actor != null) { pd.proposerId = actor.id; pd.proposerName = actor.name; }
+
+            OfficeDomain domain = DecisionAuthorityRules.DomainOf(effectKey);
+            CivilianControlType control = gv.CivilianControlOf(
+                actor != null ? actor.faction
+                              : (GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟));
+
+            if (actor != null)
+            {
+                DecisionAuthorityResult auth = DecisionAuthorityRules.Evaluate(
+                    actor, effectKey, OfficeScope.国家, GovernmentRegistry.GetOffices(actor), control,
+                    dm => gv.FindOfficeHolder(actor.faction, dm, actor));
+                pd.authorityBasis = auth.basis;
+                if (auth.CanDecide) { pd.deciderId = actor.id; pd.deciderName = actor.name; }
+                else if (auth.addresseeId > 0) { pd.deciderId = auth.addresseeId; pd.deciderName = auth.addresseeName; }
+            }
+            else
+            {
+                Person holder = gv.FindOfficeHolder(
+                    GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟, domain);
+                if (holder != null) { pd.deciderId = holder.id; pd.deciderName = holder.name; }
+            }
+        }
+
+        /// <summary>判断材料を組み立てるための盤面（無ければ null＝見込みは出せる範囲で出す）。</summary>
+        private static PetitionActionContext BriefingContext()
+        {
+            GalaxyView gv = GalaxyView.Active;
+            return gv != null ? gv.BuildPetitionActionContext() : null;
+        }
+
+        /// <summary>状況に対応する建白の題目。</summary>
+        private static string TitleFor(PetitionTrigger trigger)
+        {
+            switch (trigger)
+            {
+                case PetitionTrigger.財政難: return "増税の建白（国庫窮迫）";
+                case PetitionTrigger.重税の不満: return "減税の建白（重税の不満）";
+                case PetitionTrigger.敵の接近: return "動員令の建白（敵が接近）";
+                case PetitionTrigger.守りの綻び: return "防衛強化の建白（守りの綻び）";
+                case PetitionTrigger.戦争の長期化: return "講和の建白（戦の長期化）";
+                case PetitionTrigger.余剰の艦艇: return "攻勢の建白（艦艇に余剰）";
+                default: return "建白";
+            }
+        }
 
         // ----- 建白の起案＋官僚機構の伝播 -----
 
@@ -106,12 +271,15 @@ namespace Ginei
 
             // 浮上＝権力者の決裁待ちへ。決裁デスク（右下）へカードを積む
             RingiPipeline.SendToDecision(pet);
-            var pd = new PendingDecision(nextDecisionId++, $"{sample.title}（{sample.box}箱）", DecisionSeverity.通常,
+            var pd = new PendingDecision(DecisionDeck.NextDecisionId(DecisionIdBand), $"{sample.title}（{sample.box}箱）", DecisionSeverity.通常,
                 DecisionSource.建白結果, pet.effectKey, defaultChoiceIndex: 1, body: sample.body);
             pd.choices.Add("裁可する");
             pd.choices.Add("見送る（現状維持）");
+            // ★稟議との対応と摩擦を<b>カード自身に持たせる</b>＝シーン往復で Director の
+            //   インスタンス状態が消えても対応を失わない（幽霊カードを作らない・保存もできる）。
+            pd.petitionId = pet.id;
+            pd.friction = friction;
             DecisionDeck.Enqueue(pd);
-            pending[pd.id] = new Pending { pet = pet, friction = friction };
 
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
                 $"［建白］{sample.title} が決裁待ち（右下の決裁デスクへ）");
@@ -120,25 +288,72 @@ namespace Ginei
 
         // ----- 決裁の確定（人 or 自動）→ 執行で世界が動く -----
 
+        /// <summary>
+        /// 決裁の確定を受けて稟議を執行する。
+        ///
+        /// ★対応する稟議は<b>カードが持つ <see cref="PendingDecision.petitionId"/></b> から静的台帳を引く
+        /// （以前は Director のインスタンス辞書を引いていたため、Strategy→Battle→Strategy の往復で
+        /// 辞書が消え、裁可が黙って無視されて稟議が「決裁待ち」のまま台帳を永久占有していた）。
+        /// ★効果の適用は <see cref="DecisionResolutionRules.ClaimForApply"/> を勝ち取った1回だけ。
+        /// </summary>
         private void OnResolved(PendingDecision d, int choiceIndex)
         {
-            if (d == null || !pending.TryGetValue(d.id, out var e)) return; // 自分の稟議でなければ無視
-            pending.Remove(d.id);
+            if (d == null || d.petitionId <= 0) return;      // 稟議に紐づかない決裁は対象外
+            Petition pet = Ledger.Get(d.petitionId);
+            if (pet == null) return;                          // 台帳から消えている＝もう扱わない
+
+            if (!DecisionResolutionRules.ClaimForApply(d)) return; // 二重適用を防ぐ（どの経路から来ても1回）
+            pending.Remove(d.id);                             // 旧経路の在庫も掃除（枠を空ける）
 
             bool approve = choiceIndex == 0; // 0=裁可する / 1=見送る
-            RingiPipeline.Decide(e.pet, approve);
+            RingiPipeline.Decide(pet, approve);
 
             if (!approve)
             {
+                DecisionResolutionRules.RecordResult(d,
+                    new PetitionActionResult(PetitionActionOutcome.対象外, "見送り（現状維持）"));
                 NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
-                    $"［見送り］{e.pet.title}（現状維持）");
+                    $"［見送り］{pet.title}（現状維持）");
                 return;
             }
 
             // 執行：官僚の執行忠実度（friction）で骨抜き＝通っても満額は効かない
-            float applied = RingiPipeline.ExecuteAndApply(e.pet, StrategySession.Campaign, e.friction);
+            float applied = RingiPipeline.ExecuteAndApply(pet, StrategySession.Campaign, d.friction);
+
+            // ★盤面まで届く効果（動員・攻勢・防衛・講和）は、ここで実際にゲームを動かす。
+            // 国庫と民心だけ動かして終わり、にしない（作業票③）。
+            PetitionActionResult action = ExecuteBoardAction(pet.effectKey, applied, d.Target);
+            DecisionResolutionRules.RecordResult(d, action);
+
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
-                $"［執行］{e.pet.title}：実効 {applied * 100f:0}%（官僚に骨抜きされた）");
+                $"［執行］{pet.title}：実効 {applied * 100f:0}%（官僚に骨抜きされた）" +
+                (string.IsNullOrEmpty(action.detail) ? "" : $" ／ {action.detail}"));
+        }
+
+        /// <summary>
+        /// 盤面まで届く執行（<see cref="PetitionActionRules"/>）。対象外のキーなら何もしない。
+        /// 盤面の参照は <see cref="GalaxyView"/> から集める＝Core は MonoBehaviour を知らない。
+        /// </summary>
+        private static PetitionActionResult ExecuteBoardAction(string effectKey, float magnitude,
+                                                              PetitionTarget target)
+        {
+            if (!PetitionActionRules.IsActionKey(effectKey))
+            {
+                // ★盤面へ届かない効果キーを「成功」に見せない。
+                // 未登録キー（例：treaty.sign）は<b>未対応と明示</b>して失敗として返す。
+                if (!PetitionEffects.Has(effectKey))
+                    return PetitionActionResult.Fail(PetitionActionOutcome.対象外,
+                        $"この決裁（{effectKey}）に対応する効果がまだ実装されていません");
+                return new PetitionActionResult(PetitionActionOutcome.対象外, "");
+            }
+
+            GalaxyView gv = GalaxyView.Active;
+            PetitionActionContext ctx = gv != null ? gv.BuildPetitionActionContext() : null;
+            if (ctx == null)
+                return PetitionActionResult.Fail(PetitionActionOutcome.対象外, "盤面がありません");
+
+            // ★提案時に固定した対象で執行する（別の対象へ振り替えない）。
+            return PetitionActionRules.Execute(effectKey, ctx, magnitude, target);
         }
 
         /// <summary>稟議の効果分野→所管 <see cref="OfficeDomain"/>（税は財政＝大蔵省の省益が抵抗する）。</summary>

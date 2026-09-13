@@ -409,6 +409,7 @@ namespace Ginei
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             scrollRect.content = contentRT;
+            UiScrollbars.Attach(scrollRect);   // #H スクロールできることを画面で示す（見えて掴めるバー）
 
             // 2カラムを作成し、各セクションを項目数の少ない側へ振り分けて高さを均す
             leftColumn = CreateColumn(content.transform);

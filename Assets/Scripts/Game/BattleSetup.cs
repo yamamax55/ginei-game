@@ -32,6 +32,47 @@ namespace Ginei
         private float reinforcementElapsed;
         private Faction reinforcementPlayerFaction;
 
+        // 固定会戦QA（SPEED-08）が自分の使い捨てシーンに限って時限増援の実経路を使うための許可。
+        // 既定＝無し＝従来どおり（Battle シーン以外の Awake は警告して何もしない）。
+        private static Scene qaHostScene;
+
+        /// <summary>このシーンに置いた個体だけ、QAの時限増援の予約を受け付ける（QA専用・終了時に <see cref="ClearQaHostScene"/>）。</summary>
+        public static void AllowQaHostScene(Scene scene) => qaHostScene = scene;
+
+        /// <summary>QAの許可を解く。</summary>
+        public static void ClearQaHostScene() => qaHostScene = default;
+
+        /// <summary>QAの許可が残っているか（試験・復元確認用）。</summary>
+        public static bool HasQaHostScene => qaHostScene.IsValid();
+
+        private static bool IsQaHost(Scene scene) => qaHostScene.IsValid() && scene == qaHostScene && scene.isLoaded;
+
+        /// <summary>予約中の時限増援の件数（観測用）。</summary>
+        public int PendingReinforcementCount => pendingReinforcements.Count;
+        /// <summary>時限増援で実際に生成した件数（観測用）。</summary>
+        public int SpawnedReinforcementCount { get; private set; }
+        /// <summary>時限増援の経過（game-time・観測用）。</summary>
+        public float ReinforcementElapsed => reinforcementElapsed;
+
+        /// <summary>時限増援が出現した直後（配置・向きを決めた後・通知の前）に呼ぶ。null＝何もしない（通常会戦は未使用）。</summary>
+        public System.Action<GameObject, ScenarioData.FleetEntry> ReinforcementSpawned { get; set; }
+
+        /// <summary>通知の送り先。null＝従来どおり <see cref="NotificationCenter"/>（QAはローカルログへ差し替える）。</summary>
+        public System.Action<NotificationCategory, NotificationSeverity, string> NotificationSink { get; set; }
+
+        /// <summary>
+        /// 固定会戦QA専用：時限増援を1件予約する（シナリオ解決・開戦時の生成は通らない）。以後は通常と同じ
+        /// <see cref="Update"/>→<see cref="SpawnReinforcement"/>→<see cref="SpawnFleet"/> で生成される。
+        /// QA許可のシーンの個体で、到着遅延&gt;0・fleetPrefab 設定済みのときだけ受け付ける。
+        /// </summary>
+        public bool ScheduleReinforcementForQa(ScenarioData.FleetEntry entry, Faction playerFaction)
+        {
+            if (!IsQaHost(gameObject.scene) || entry == null || fleetPrefab == null || !(entry.reinforcementDelay > 0f)) return false;
+            reinforcementPlayerFaction = playerFaction;
+            pendingReinforcements.Add(entry);
+            return true;
+        }
+
         [Header("惑星攻城（戦略マップから突入・#131）")]
         [Tooltip("アルテミスの首飾り射程＝接近限界リングの半径（艦隊はここまでしか近づけない）")]
         public float siegeApproachRadius = 5f;
@@ -46,6 +87,9 @@ namespace Ginei
 
         private void Awake()
         {
+            // 固定会戦QAの使い捨てシーン：通常の初期化はせず、QAが予約する時限増援だけを扱う（台帳のクリアもしない）。
+            if (IsQaHost(gameObject.scene)) return;
+
             // Battle シーン以外では一切動作しない（Title 等に誤って置かれても戦闘を始めない）。
             // additive ロード（WIN-1 ウィンドウ化会戦）では active シーンが Strategy のため、自分のシーン名で判定する。
             if (gameObject.scene.name != "Battle")
@@ -80,6 +124,7 @@ namespace Ginei
             if (BattleHandoff.Pending)
             {
                 if (BattleHandoff.IsSystemView) SetupSystemView();      // 非戦闘＝星系の閲覧（恒星系ビュー）
+                else if (BattleHandoff.IsCorridorFortress) SetupCorridorFortress(); // #40 回廊要塞＝岩壁の水路
                 else if (BattleHandoff.IsPlanetSiege) SetupPlanetSiege();
                 else SetupFromHandoff();
                 ApplyWorldOffset();
@@ -254,6 +299,7 @@ namespace Ginei
         {
             GameObject fleet = SpawnFleet(entry, reinforcementPlayerFaction);
             if (fleet == null) return;
+            SpawnedReinforcementCount++;
 
             // 自陣側の戦場端へ配置し直す（時間差で駆けつける）。
             Vector2 edge = ReinforcementRules.EdgePosition(entry.faction, entry.spawnPosition.y, reinforcementEdgeRadius);
@@ -264,9 +310,12 @@ namespace Ginei
             if (toCenter.sqrMagnitude > 0.0001f)
                 fleet.transform.up = toCenter.normalized;
 
+            ReinforcementSpawned?.Invoke(fleet, entry);
+
             string who = entry.admiral != null ? entry.admiral.admiralName : "増援部隊";
-            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
-                $"増援到着：{who} 隊が戦場に駆けつけた（{entry.faction}）");
+            string msg = $"増援到着：{who} 隊が戦場に駆けつけた（{entry.faction}）";
+            if (NotificationSink != null) NotificationSink(NotificationCategory.戦闘, NotificationSeverity.注意, msg);
+            else NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意, msg);
         }
 
         /// <summary>
@@ -675,6 +724,213 @@ namespace Ginei
             }
 
             Debug.Log($"BattleSetup: 惑星攻城マップを生成（{BattleHandoff.planetName} / {BattleHandoff.besiegerFaction} {n}隊が包囲）。");
+        }
+
+        [Header("援軍のワープイン（#38 C-5）")]
+        [Tooltip("同時に到着した援軍どうしの縦の間隔（重なり回避）")]
+        public float reinforcementSpacing = 6f;
+        [Tooltip("戦略から派遣された援軍が現れる端までの距離。0以下なら回廊要塞アリーナの水路長／既定 40")]
+        public float warpInEdgeRadius = 0f;
+
+        /// <summary>
+        /// 戦略から派遣されて<b>到着した援軍</b>を自陣側の端へワープインさせる（#38 C-5）。
+        /// シナリオ定義の時限増援（#2182・<see cref="SpawnReinforcement(ScenarioData.FleetEntry)"/>）とは別経路で、
+        /// こちらは<b>戦略マップの艦隊</b>が銀河時間ぶんかけて駆けつけてくる。
+        /// 出現端の座標は既存の <see cref="ReinforcementRules.EdgePosition"/> を唯一の窓口として使う。
+        /// 同時到着は <paramref name="index"/>／<paramref name="total"/> で縦にずらして重ならないようにする。
+        /// 生成できたら true。
+        /// </summary>
+        public bool SpawnWarpReinforcement(WarpReinforcement order, int index, int total)
+        {
+            if (fleetPrefab == null) return false;
+
+            float radius = warpInEdgeRadius > 0f ? warpInEdgeRadius : DefaultEdgeRadius();
+            float baseY = (total <= 1) ? 0f : (index - (total - 1) * 0.5f) * reinforcementSpacing;
+            Vector2 pos = ReinforcementRules.EdgePosition(order.faction, baseY, radius);
+
+            // ★回廊要塞アリーナ（#40）は勢力に依らず攻撃側を −x・守備側を +x に置く。
+            // 既定の EdgePosition は「帝国＝−x／他＝+x」の固定なので、攻撃側が同盟だと
+            // 援軍が<b>要塞の裏（突破線の向こう）</b>に湧いて、誰も突破していないのに突破成立になる。
+            // アリーナがあるときは、その戦場の攻撃/守備の向きに合わせて端を選び直す。
+            var arena = CorridorFortressArena.For(gameObject.scene) ?? CorridorFortressArena.Any();
+            if (arena != null)
+            {
+                bool attackerSide = !FactionRelations.IsHostile(null, order.faction, null, arena.attackerFaction);
+                pos = new Vector2(attackerSide ? -Mathf.Abs(radius) : Mathf.Abs(radius), baseY);
+            }
+
+            // 戦略の抽象兵力 → 戦術の基準兵力（既存の換算率を使う＝戦果の書き戻しと整合する）。
+            int baseStrength = Mathf.Max(1, order.strength * BattleHandoff.StrengthScale);
+            var entry = MakeBesiegerEntry(order.faction, baseStrength, pos);
+            entry.admiral.admiralName = $"{order.faction}第{order.fleetId}艦隊";
+            entry.fleetNumber = order.fleetId;
+
+            GameObject g = SpawnFleet(entry, GameSettings.Instance.playerFaction);
+            if (g == null) return false;
+
+            // spawnSeparation を無視して端の実位置へ置き、戦場の中央へ正対させる。
+            Vector2 world = pos + BattleField.OriginFor(gameObject.scene);
+            g.transform.position = new Vector3(world.x, world.y, 0f);
+            float ang = Mathf.Atan2(-pos.y, -pos.x) * Mathf.Rad2Deg - 90f;
+            g.transform.rotation = Quaternion.Euler(0f, 0f, ang);
+
+            // 元の戦略艦隊と紐付ける＝会戦後にこの援軍の実残存だけをその艦隊へ返せる。
+            var fsLink = g.GetComponent<FleetStrength>();
+            if (fsLink != null) fsLink.strategicFleetId = order.fleetId;
+
+            FleetAI ai = g.GetComponent<FleetAI>();
+            if (ai != null)
+            {
+                ai.playerCommanded = order.faction == GameSettings.Instance.playerFaction;
+                ai.enabled = true;
+            }
+            return true;
+        }
+
+        /// <summary>援軍が現れる端までの既定距離（回廊要塞アリーナがあればその水路長）。</summary>
+        private float DefaultEdgeRadius()
+        {
+            var arena = CorridorFortressArena.For(gameObject.scene) ?? CorridorFortressArena.Any();
+            return arena != null ? arena.channelHalfLength : 40f;
+        }
+
+        [Header("回廊要塞の戦術マップ（#40 C-7）")]
+        [Tooltip("突入する攻撃側の艦隊数（水路の入口に縦列で並ぶ）")]
+        public int corridorAttackerCount = 5;
+        [Tooltip("要塞側の守備艦隊数（要塞の背後＝守備側に置く）")]
+        public int corridorDefenderCount = 2;
+
+        /// <summary>
+        /// 回廊要塞の戦術マップを生成する（#40）。両側が岩壁の一本の水路に要塞を据え、攻撃側を入口（−x）へ、
+        /// 守備艦隊を要塞の背後（+x）へ置く。<see cref="CorridorFortressArena"/> が壁と封鎖線で位置を拘束するので、
+        /// <b>要塞を撃破するまで攻撃側は反対側へ抜けられず、外周を回り込むこともできない</b>。
+        /// </summary>
+        private void SetupCorridorFortress()
+        {
+            if (fleetPrefab == null) { Debug.LogError("BattleSetup: fleetPrefab が未設定です。"); return; }
+            ClearExistingFleets();
+            ScenarioData.ActiveScenario = null; // 勝利条件なし（決着は要塞の撃破と突破線の到達）
+
+            var arena = new GameObject("CorridorFortressArena").AddComponent<CorridorFortressArena>();
+            arena.transform.position = Vector3.zero;
+            arena.Configure(BattleHandoff.fortressOwner, BattleHandoff.fortressAttacker,
+                            BattleHandoff.fortressName, BattleHandoff.fortressGarrison);
+
+            // 要塞の実体（砲台＋主砲）。守備戦力を耐久へ写して「守備が厚いほど固い」を戦術側にも通す。
+            var fgo = new GameObject("Fortress");
+            var unit = fgo.AddComponent<FortressUnit>();
+            int core = Mathf.Max(1, Mathf.RoundToInt(BattleHandoff.fortressGarrison * BattleHandoff.fortressShield));
+            unit.hasMainCannon = true;
+            unit.Setup(BattleHandoff.fortressOwner, null, BattleHandoff.fortressName, -1, core);
+            fgo.name = $"Fortress_{BattleHandoff.fortressOwner}_{BattleHandoff.fortressName}";
+            arena.AttachFortress(unit);
+
+            Faction playerFaction = GameSettings.Instance.playerFaction;
+
+            // ★戦略兵力 → 戦術の基準兵力は必ず StrengthScale を掛ける（他の経路と同じ換算）。
+            // 掛け忘れると、同じ戦場へ来る援軍（×40 済み）と 40 倍の差が付いて戦場が塗り潰される。
+            int attackerPerFleet = Mathf.Max(1, Mathf.RoundToInt(
+                BattleHandoff.besiegerStrength * BattleHandoff.StrengthScale
+                / (float)Mathf.Max(1, corridorAttackerCount)));
+
+            // 守備艦隊の規模は<b>要塞の守備戦力</b>から出す（攻撃側の兵力から決めるのは論理が逆）。
+            int defenderPerFleet = Mathf.Max(1, Mathf.RoundToInt(
+                BattleHandoff.fortressGarrison * BattleHandoff.StrengthScale
+                / (float)Mathf.Max(1, corridorDefenderCount)));
+
+            // 攻撃側：受け渡しの明細があれば<b>戦略艦隊と1対1</b>で生成する（損害を艦隊ごとに返すため）。
+            // 明細が無い場合だけ、従来どおり均等に分けた仮の隊で組む（後方互換）。
+            var attackers = new System.Collections.Generic.List<BattleHandoff.HandoffFleet>();
+            for (int i = 0; i < BattleHandoff.fleets.Count; i++)
+                if (BattleHandoff.fleets[i].faction == BattleHandoff.fortressAttacker)
+                    attackers.Add(BattleHandoff.fleets[i]);
+
+            if (attackers.Count > 0)
+            {
+                for (int i = 0; i < attackers.Count; i++)
+                {
+                    float y = SpreadOffset(i, attackers.Count, arena.channelHalfWidth * 0.7f);
+                    var pos = new Vector2(-arena.channelHalfLength * 0.75f - (i % 2) * 4f, y);
+                    int baseStrength = Mathf.Max(1, attackers[i].strategicStrength * BattleHandoff.StrengthScale);
+                    PlaceCorridorFleet(BattleHandoff.fortressAttacker, baseStrength, pos, 0f, playerFaction, true,
+                                       attackers[i].fleetId);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < Mathf.Max(1, corridorAttackerCount); i++)
+                {
+                    float y = SpreadOffset(i, corridorAttackerCount, arena.channelHalfWidth * 0.7f);
+                    var pos = new Vector2(-arena.channelHalfLength * 0.75f - (i % 2) * 4f, y);
+                    PlaceCorridorFleet(BattleHandoff.fortressAttacker, attackerPerFleet, pos, 0f, playerFaction, true, 0);
+                }
+            }
+
+            // 守備側＝要塞の背後（+x）。要塞を抜かれたら迎え撃つ位置。
+            // ★駐留艦隊（#40）が渡されていれば<b>実在の艦隊をそのまま</b>並べる（匿名の守備艦隊を作らない）。
+            // 渡されていない要塞（旧セーブ等・施設の守備値だけ）は、従来どおり仮の守備隊で組む（後方互換）。
+            var defenders = new System.Collections.Generic.List<BattleHandoff.HandoffFleet>();
+            for (int i = 0; i < BattleHandoff.fleets.Count; i++)
+                if (BattleHandoff.fleets[i].faction == BattleHandoff.fortressOwner)
+                    defenders.Add(BattleHandoff.fleets[i]);
+
+            if (defenders.Count > 0)
+            {
+                for (int i = 0; i < defenders.Count; i++)
+                {
+                    float y = SpreadOffset(i, defenders.Count, arena.channelHalfWidth * 0.6f);
+                    var pos = new Vector2(arena.fortressX + arena.fortressBlockRadius + 6f + i * 4f, y);
+                    int baseStrength = Mathf.Max(1, defenders[i].strategicStrength * BattleHandoff.StrengthScale);
+                    PlaceCorridorFleet(BattleHandoff.fortressOwner, baseStrength, pos, 180f, playerFaction, false,
+                                       defenders[i].fleetId);
+                }
+            }
+            else if (BattleHandoff.fortressGarrison > 0f)
+            {
+                // ★駐留艦隊が居ない要塞＝<b>施設の守備値だけ</b>（旧セーブ・占領直後の残置守備）。
+                // ここで並べる隊は「新しい艦隊」ではなく施設の守備値（要塞兵・砲台要員）を戦術の駒に
+                // 割り付けたもの＝規模は必ず fortressGarrison から出す。会戦の結果で施設の守備値は
+                // 戦略側へ書き戻される（GalaxyView.ApplyFortressResult：壊滅なら 0・制圧なら残置ぶん）ので、
+                // 守備値が尽きた要塞では 0 隊になり<b>毎戦闘で守備隊が湧き直すことはない</b>。
+                for (int i = 0; i < Mathf.Max(0, corridorDefenderCount); i++)
+                {
+                    float y = SpreadOffset(i, corridorDefenderCount, arena.channelHalfWidth * 0.6f);
+                    var pos = new Vector2(arena.fortressX + arena.fortressBlockRadius + 6f + i * 4f, y);
+                    PlaceCorridorFleet(BattleHandoff.fortressOwner, defenderPerFleet, pos, 180f, playerFaction, false, 0);
+                }
+            }
+
+            Debug.Log($"BattleSetup: 回廊要塞マップを生成（{BattleHandoff.fortressName} / " +
+                      $"{BattleHandoff.fortressOwner} 保持・{BattleHandoff.fortressAttacker} が突破を試行）。");
+        }
+
+        /// <summary>水路の幅に収まる範囲で i 番目を左右に散らす（縦列が重ならないように）。</summary>
+        private static float SpreadOffset(int i, int count, float halfSpan)
+        {
+            if (count <= 1) return 0f;
+            float t = i / (float)(count - 1);          // 0..1
+            return Mathf.Lerp(-halfSpan, halfSpan, t);
+        }
+
+        /// <summary>回廊アリーナへ艦隊を1隊置く（spawnSeparation を無視して実位置へ配置する）。</summary>
+        private void PlaceCorridorFleet(Faction fac, int baseStrength, Vector2 pos, float headingDeg,
+                                        Faction playerFaction, bool playerCommanded, int strategicFleetId)
+        {
+            var entry = MakeBesiegerEntry(fac, baseStrength, pos);
+            entry.formation = Formation.紡錘陣; // 隘路は正面が狭い＝縦に細い陣
+            GameObject g = SpawnFleet(entry, playerFaction);
+            if (g == null) return;
+            g.transform.position = new Vector3(pos.x, pos.y, 0f);
+            g.transform.rotation = Quaternion.Euler(0f, 0f, headingDeg - 90f); // 前方=Transform.up を +x/−x へ
+            // 元の戦略艦隊と紐付ける＝会戦後にこの隊の実残存だけをその艦隊へ返せる。
+            var fsLink = g.GetComponent<FleetStrength>();
+            if (fsLink != null) fsLink.strategicFleetId = strategicFleetId;
+            FleetAI ai = g.GetComponent<FleetAI>();
+            if (ai != null)
+            {
+                ai.playerCommanded = playerCommanded && fac == playerFaction;
+                ai.enabled = true;
+            }
         }
 
         /// <summary>攻城艦隊1隊ぶんのエントリ（StrengthScale を掛けない素の基準兵力）。</summary>

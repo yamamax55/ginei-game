@@ -38,6 +38,22 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 要塞の駐留艦隊名簿（#40）から、いない艦隊のIDを取り除く。
+        /// セーブ間で全滅・除去された艦隊のIDが残ると「駐留しているのに実体が無い」幽霊になるため、
+        /// 艦隊レジストリを読み終えたあとに1回だけ通す。名簿が空の旧セーブでは何もしない。
+        /// </summary>
+        private static void PruneFortressGarrisons(GalaxyMap map, StrategicFleetRegistry reg)
+        {
+            if (map == null || map.corridors == null || reg == null) return;
+            for (int i = 0; i < map.corridors.Count; i++)
+            {
+                Corridor c = map.corridors[i];
+                if (c == null || c.fortress == null) continue;
+                FortressGarrisonRules.PruneMissing(c.fortress, reg.GetFleet);
+            }
+        }
+
+        /// <summary>
         /// 戦役の<b>全状態</b>（銀河/勢力/財政/政体/人物/戦略艦隊/統一時間）を保存する（continue・全永続化）。
         /// </summary>
         public static void SaveSession(CampaignState campaign, IEnumerable<Person> people, StrategicFleetRegistry reg, GameClock clock, Dictionary<int, Province> provinces = null, CourtAuthority court = null, ProtagonistCareerSave career = null)
@@ -48,6 +64,12 @@ namespace Ginei
             CampaignSerializer.WriteFleets(save, reg);
             CampaignSerializer.WriteProvinces(save, provinces);
             CampaignSerializer.WriteClock(save, clock);
+            // #38：航行中の援軍も保存する（到着は絶対 game-秒なのでクロックと一緒に往復すれば残り時間が保たれる）。
+            CampaignSerializer.WriteReinforcements(save, StrategySession.Reinforcements);
+            // #稟議完成②：進行中の稟議と決裁カードも保存する（適用済みフラグごと＝ロード後に二重執行しない）。
+            CampaignSerializer.WritePetitions(save.petitions, StrategySession.Petitions);
+            CampaignSerializer.WritePetitions(save.fleetPetitions, StrategySession.FleetPetitions);
+            CampaignSerializer.WriteDecisions(save, StrategySession.Decisions);
             if (court != null) save.courtAuthority = court.authority; // 朝廷の権威を永続（官僚制基盤）
             if (career != null && career.hasData) save.protagonistCareer = career; // 主人公の立身出世を永続（TKO #2477・P1-c）
             WriteAdmiralGrowth(save); // 全提督の会戦成長を安定キーで永続（ADM-2 #2303）
@@ -69,8 +91,17 @@ namespace Ginei
             ResolveFactionData(campaign, save);
             StrategySession.Map = campaign.map;
             StrategySession.Reg = CampaignSerializer.ReadFleets(save, campaign.map);
+            // #40 駐留艦隊：セーブ間で消えた艦隊IDが名簿に残らないよう掃除する
+            //（艦隊レジストリを読み終えた後でないと生死が判定できないのでここで行う）。
+            PruneFortressGarrisons(campaign.map, StrategySession.Reg);
             StrategySession.Campaign = campaign;
             StrategySession.Clock = CampaignSerializer.ReadClock(save);
+            // #38：援軍台帳を復元（旧セーブは空＝援軍なし）。台帳の現在時刻はクロックへ合わせる。
+            StrategySession.Reinforcements = CampaignSerializer.ReadReinforcements(save, StrategySession.Clock);
+            // #稟議完成②：稟議と決裁カードを復元（旧セーブは空＝案件なしで読める）。
+            CampaignSerializer.ReadPetitions(save.petitions, StrategySession.Petitions);
+            CampaignSerializer.ReadPetitions(save.fleetPetitions, StrategySession.FleetPetitions);
+            StrategySession.Decisions = CampaignSerializer.ReadDecisions(save);
             StrategySession.Provinces = CampaignSerializer.ReadProvinces(save); // 内政を復元（空=後方互換）
             StrategySession.PendingPeople = CampaignSerializer.ReadPeople(save);
             StrategySession.CourtAuthority = new CourtAuthority(save.courtAuthority); // 朝廷の権威を復元（官僚制基盤）
@@ -82,7 +113,7 @@ namespace Ginei
 
         /// <summary>
         /// 全提督の会戦成長（<see cref="GrowthRegistry"/>）を安定キー（<see cref="AdmiralData.admiralName"/>）で書き出す（ADM-2 #2303）。
-        /// 実行時キー（InstanceID）は不安定なため、`ContentDatabase` の全提督を走査し成長があるものだけ名前で保存する。
+        /// 実行時キー（EntityKey）は不安定なため、`ContentDatabase` の全提督を走査し成長があるものだけ名前で保存する。
         /// </summary>
         private static void WriteAdmiralGrowth(CampaignSaveData save)
         {
@@ -92,7 +123,7 @@ namespace Ginei
             {
                 AdmiralData a = all[i];
                 if (a == null || string.IsNullOrEmpty(a.admiralName)) continue;
-                Growth g = GrowthRegistry.Get(a.GetInstanceID());
+                Growth g = GrowthRegistry.Get(EntityKey.Of(a));
                 if (g == null || g.experience <= 0f) continue;
                 save.admiralGrowth.Add(new AdmiralGrowthSave
                 {
@@ -113,7 +144,7 @@ namespace Ginei
                 if (e == null || string.IsNullOrEmpty(e.admiralName)) continue;
                 AdmiralData a = ContentDatabase.AdmiralByName(e.admiralName);
                 if (a == null) continue;
-                GrowthRegistry.GetOrCreate(a.GetInstanceID(), (GrowthArchetype)e.archetype).experience = e.experience;
+                GrowthRegistry.GetOrCreate(EntityKey.Of(a), (GrowthArchetype)e.archetype).experience = e.experience;
             }
         }
 

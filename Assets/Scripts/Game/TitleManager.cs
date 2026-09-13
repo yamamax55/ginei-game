@@ -152,6 +152,9 @@ namespace Ginei
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 24f;
+            // #H スクロールできることを画面で示す（見えて掴めるバー）。
+            // ★ビューポートと向きを決めたあとに呼ぶ（先に呼ぶとビューポートを詰められない）。
+            UiScrollbars.Attach(scroll);
 
             // シナリオ一覧
             CreateLabel(panel.transform, "■ シナリオ選択", 22f);
@@ -459,6 +462,9 @@ namespace Ginei
             CanvasScaler scaler = go.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // 既定(0=幅基準)だと 16:9 より横長の画面で参照高さが 1080 を下回り、上端固定の見出しと
+            // 中央基準のメニューが寄って重なっていた（実機報告）。他の Canvas と同じ 0.5 に揃える。
+            scaler.matchWidthOrHeight = 0.5f;
             go.AddComponent<GraphicRaycaster>();
 
             // 背景（銀河画像。無ければ濃紺で代替）
@@ -525,7 +531,7 @@ namespace Ginei
             t.fontSize = 150f;
             t.fontStyle = FontStyles.Bold;
             t.alignment = TextAlignmentOptions.Center;
-            t.enableWordWrapping = false;
+            t.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
             ApplyJaFont(t);
 
             // シルバー→スチールブルーの縦グラデーション
@@ -569,11 +575,13 @@ namespace Ginei
         {
             GameObject menu = new GameObject("MainMenu", typeof(RectTransform), typeof(VerticalLayoutGroup));
             menu.transform.SetParent(parent, false);
+            // 見出し(-120..-360)・副題(-310..-360)と同じ「上端基準」に揃え、その下へ確実に置く。
+            // 画面中央基準のままだと画面が低いほどメニューが上へ寄り、副題や見出しに重なっていた（実機報告）。
             RectTransform rt = menu.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(0f, -40f);
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, -1000f); // 上端から 1000px 下＝副題(-360)の十分下に先頭ボタンが来る
             rt.sizeDelta = new Vector2(560f, 10f);
 
             // ボタン数が増えても収まるよう内容高さに合わせて自動サイズ＝中央寄せのまま見切れない。

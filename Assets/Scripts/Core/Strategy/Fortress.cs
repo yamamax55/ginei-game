@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ginei
@@ -17,6 +18,19 @@ namespace Ginei
         public bool controlsCorridor;    // この要塞が回廊通過を扼すか
         public Faction owner = Faction.帝国; // 所有勢力（#40 戦略ノード化＝この勢力に敵対する艦隊の通過を封じる）
         public string fortressName = "要塞"; // 表示名（戦略マップのラベル・潜行会戦の名称）
+
+        /// <summary>
+        /// この要塞に<b>駐留している実在の戦略艦隊</b>のID列（<see cref="StrategicFleet.id"/>）。
+        ///
+        /// <b><see cref="garrisonStrength"/> とは別物</b>：あちらは要塞<b>施設そのもの</b>が抱える守備値
+        /// （砲台・要塞兵・旧セーブの守備力）で、こちらは「盤面に実在する艦隊が、いまこの要塞に居る」という
+        /// 名簿。艦艇数・指揮官・所属はあくまで <see cref="StrategicFleet"/> の側に在り、ここは<b>ID の参照だけ</b>を
+        /// 持つ＝要塞側で艦隊を複製・生成しない（匿名の守備艦隊を毎戦闘で湧かせない）。
+        ///
+        /// 出し入れ・可否判定・合計艦艇数は <see cref="FortressGarrisonRules"/> が唯一の窓口
+        /// （ここを直接 Add/Remove しない）。空＝駐留艦隊なし＝旧セーブと同じ振る舞い（後方互換）。
+        /// </summary>
+        public List<int> garrisonFleetIds = new List<int>();
 
         public Fortress() { shieldIntegrity = 1f; controlsCorridor = true; }
 

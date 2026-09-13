@@ -38,8 +38,28 @@ namespace Ginei
         /// <summary>軍団名（表示用・空＝なし）。</summary>
         public string corpsName;
 
-        /// <summary>この艦隊に軍団長が乗艦しているか＝軍団旗艦（CSG・打撃群指揮官モデル）。戦略マップで識別表示する。</summary>
+        /// <summary>
+        /// この艦隊に<b>軍団長が乗艦している</b>か＝軍団旗艦（CSG・打撃群指揮官モデル）。戦略マップで識別表示する。
+        ///
+        /// ★誤解しやすい点：これは「軍団の指揮を担う艦隊か」であって、<b>旗艦の有無ではない</b>。
+        /// 艦隊にはどれも旗艦（司令の乗艦）がある（戦術側＝<see cref="ShipNameRegistry"/> が各艦隊の旗艦に艦名を与える）。
+        /// UI で単に「旗艦」と出すと「他の艦隊には旗艦が無い」と読まれるので、
+        /// <b>「軍団旗艦」「軍団指揮」</b>など軍団の指揮を担うことが分かる語で出すこと。
+        /// </summary>
         public bool isCorpsFlagship;
+
+        /// <summary>
+        /// この艦隊の<b>司令官</b>（人物 <see cref="Person.id"/>）。-1＝未任命（既定）。
+        ///
+        /// 名前・階級は人物側にあり、ここは参照だけを持つ＝<b>艦隊側で名前を作らない</b>
+        /// （表示は盤面の人物ロスターから引く。解決できなければ「未任命」と出す）。
+        /// 軍団長（<see cref="isCorpsFlagship"/> の艦隊に乗る上位指揮官）とは<b>別</b>＝
+        /// 軍団長の名前を艦隊司令として代用しない。
+        /// </summary>
+        public int commanderPersonId = -1;
+
+        /// <summary>司令官が任命されているか（<see cref="commanderPersonId"/> が有効）。</summary>
+        public bool HasCommander => commanderPersonId >= 0;
 
         /// <summary>軍団に属するか（<see cref="corpsId"/> が有効）。</summary>
         public bool HasCorps => corpsId >= 0;
@@ -62,7 +82,40 @@ namespace Ginei
         /// ＝回廊上に「交戦中の回廊」として留まり、プレイヤーが潜行（ダブルクリック）するか
         /// 自動解決されるまで動かない（C-2 二層遷移 #586）。決着で解除される。
         /// </summary>
+        /// <summary>
+        /// この艦隊に所属する<b>艦艇数（隻）</b>。<see cref="strength"/>（抽象兵力）とは別物で、
+        /// 艦隊ごとに独立して持ち歩く＝会戦で失った船はこの艦隊からだけ減り、他艦隊へ均等割りしない。
+        /// 0 のままなら未初期化＝<see cref="FleetShipCountRules.EnsureInitialized"/> が兵力から埋める
+        /// （旧セーブ・既存の盤面との後方互換）。
+        /// </summary>
+        public int shipCount;
+
+        /// <summary>
+        /// <see cref="shipCount"/> が「本当に設定された値」か（0 が全滅を意味するか）。
+        /// false のときだけ兵力から導出して埋める。これが無いと<b>全滅して0隻になった艦隊が
+        /// 未初期化と誤解されて艦艇が復活</b>してしまう。
+        /// </summary>
+        public bool shipCountSet;
+
+        /// <summary>艦艇数（未初期化なら兵力から導出した値）。表示・集計はこちらを読む。</summary>
+        public int Ships => shipCountSet ? Mathf.Max(0, shipCount)
+                                         : FleetShipCountRules.EnsureInitialized(shipCount, strength);
+
+        /// <summary>艦艇数を確定して設定する（0＝全滅も正しく保持される）。</summary>
+        public void SetShips(int count)
+        {
+            shipCount = Mathf.Max(0, count);
+            shipCountSet = true;
+        }
+
         public bool engaged;
+
+        /// <summary>
+        /// 進行中の戦場へ援軍として航行中か（#38 C-5）。true のあいだ盤面では「増援航行中」として扱い、
+        /// 通常の移動・接敵判定から外す。到着（会戦へ出現）か差し戻し（戦闘終了）で false へ戻る。
+        /// 実際の到着時刻は <see cref="WarpReinforcementLedger"/> が持ち、こちらは表示と進行の抑止だけ。
+        /// </summary>
+        public bool warpingAsReinforcement;
 
         private bool onCorridor;
         private float corridorLength;
@@ -80,7 +133,20 @@ namespace Ginei
         /// <summary>回廊上の指定位置で停止保持しているか。</summary>
         public bool IsHolding => onCorridor && traveled >= HoldDistance;
 
-        private float HoldDistance => Mathf.Clamp01(holdFraction) * corridorLength;
+        /// <summary>
+        /// #40：敵の要塞が扼する回廊で前進できる上限割合（1＝制限なし）。回廊へ入るとき（<see cref="BeginWarp"/>）と
+        /// 毎 Tick に引き直す＝<b>要塞が落ちれば同じ艦隊がその場から先へ進める</b>／落とし返されればまた止まる。
+        /// 派生値なのでセーブしない（盤面から毎回求まる）。
+        /// </summary>
+        private float blockadeCap = 1f;
+
+        /// <summary>保持指示（holdFraction）と要塞の封鎖（blockadeCap）の<b>厳しいほう</b>が実際の停止位置。</summary>
+        private float EffectiveHoldFraction => Mathf.Min(Mathf.Clamp01(holdFraction), Mathf.Clamp01(blockadeCap));
+
+        private float HoldDistance => EffectiveHoldFraction * corridorLength;
+
+        /// <summary>#40：敵要塞に前進を止められているか（回廊上で要塞の手前に釘付け）。</summary>
+        public bool IsBlockadedByFortress => onCorridor && blockadeCap < 1f;
 
         /// <summary>現在のホップの実効速度（前線は亜光速で遅い）。</summary>
         private float CurrentSpeed => warpSpeed * (sublightHop ? Mathf.Max(0f, sublightFactor) : 1f);
@@ -96,6 +162,15 @@ namespace Ginei
 
         /// <summary>多ホップ経路がまだ残っているか（途中星系を経由中）。</summary>
         public bool HasRoute => route != null && route.Count > 0;
+
+        /// <summary>
+        /// 実際に保持している残り経路（次の目的地より先の星系ID列・読み取り専用）。
+        /// 盤面の経路表示は<b>これをそのまま描く</b>こと。改めて最短経路を計算し直すと、要塞回避や
+        /// 飛び石禁止で切り詰めた実航路とずれた線を描いてしまう（実機QAで判明）。
+        /// </summary>
+        public IReadOnlyList<int> RemainingRoute => route ?? EmptyRoute;
+
+        private static readonly List<int> EmptyRoute = new List<int>();
 
         /// <summary>最終目的地の星系ID（経路があればその終点／移動中なら現在の目的地／停泊中は現在地）。</summary>
         public int FinalDestinationId =>
@@ -126,6 +201,8 @@ namespace Ginei
             traveled = 0f;
             holdFraction = Mathf.Clamp01(holdFrac);
             sublightHop = StrategyRules.IsFtlBlocked(map, c);  // 前線回廊は亜光速（FTL不可でも遅い航行は可）
+            // #40：敵要塞が扼していれば、この回廊は途中までしか進めない（制圧するまで反対側へ抜けられない）。
+            blockadeCap = FortressBlockadeRules.MaxAdvanceFraction(c, faction);
             onCorridor = true;
             return true;
         }
@@ -152,7 +229,7 @@ namespace Ginei
                     holdFraction = 1f; // 保持解除＝到達予定星系まで前進し、そこで止まる
                     return true;
                 }
-                List<int> p = GalaxyPathfinder.FindPath(map, destinationSystemId, goalId);
+                List<int> p = PlanRoute(map, destinationSystemId, goalId);
                 if (p.Count == 0) return false; // 到達不能
                 int stop = FirstUnownedIndex(map, p); // 自勢力領を抜けて最初の非所有星系で止まる
                 route = (stop >= 1) ? p.GetRange(1, stop) : new List<int>();
@@ -161,7 +238,7 @@ namespace Ginei
             }
 
             if (goalId == currentSystemId) return false;
-            List<int> path = GalaxyPathfinder.FindPath(map, currentSystemId, goalId);
+            List<int> path = PlanRoute(map, currentSystemId, goalId);
             if (path == null || path.Count < 2) return false; // 到達不能
 
             // 飛び石禁止＝必ず占領してから移動：自勢力の所有星系は通り抜けられるが、経路上の最初の非所有星系で
@@ -173,18 +250,26 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 経路を引く（#40）。まず<b>敵要塞の封鎖を避けた</b>経路を探し、無ければ封鎖を承知の最短経路へ落とす。
+        ///
+        /// 迂回路があるならそちらを通る＝要塞を無視して素通りする計画を立てない。迂回路が無いなら
+        /// 「制圧しに行くしかない」ので、あえて封鎖回廊へ向かわせる（移動実行側が要塞の手前で足を止め、
+        /// そこで力攻めが起きる）。命令そのものを拒否しないので、プレイヤーの進軍指示は常に受理される。
+        /// </summary>
+        private List<int> PlanRoute(GalaxyMap map, int fromId, int goalId)
+        {
+            List<int> detour = GalaxyPathfinder.FindPath(
+                map, fromId, goalId, GalaxyPathfinder.PathQuery.AvoidingFortresses(faction));
+            if (detour != null && detour.Count > 0) return detour;
+            return GalaxyPathfinder.FindPath(map, fromId, goalId);
+        }
+
+        /// <summary>
         /// 飛び石移動の禁止＝<paramref name="path"/>(path[0]=起点) を歩き、<b>自勢力 owner でない最初の星系の index</b>
         /// を返す（その星系へ入って占領するため、そこで経路を打ち切る）。全て自勢力所有なら末尾 index＝目的地まで進める。
         /// </summary>
         private int FirstUnownedIndex(GalaxyMap map, List<int> path)
-        {
-            for (int i = 1; i < path.Count; i++)
-            {
-                StarSystem s = map.GetSystem(path[i]);
-                if (s == null || s.owner != faction) return i;
-            }
-            return path.Count - 1;
-        }
+            => FleetOrderRules.FirstUnownedIndex(map, path, faction);
 
         /// <summary>
         /// towardSystemId 方向の回廊に入り、その回廊上の fraction（0..1・towardSystem へ向かう向き）の位置で
@@ -223,18 +308,30 @@ namespace Ginei
         private bool TickInternal(GalaxyMap map, float deltaTime)
         {
             if (engaged) return false;   // 交戦中は回廊上で固着（前進しない）
-            if (!IsMoving) return false; // 前進中のみ進む（保持中・停泊中は動かない）
+            if (warpingAsReinforcement) return false; // 援軍として別の戦場へ航行中＝盤面では動かさない（#38）
+
+            // #40：要塞の封鎖状態を毎 Tick 引き直す。制圧された（守備0/所有移転）なら封鎖が解けて先へ進め、
+            // 逆に落とし返されればまた止まる＝「制圧後は通行状態が更新される」を移動実行の側で保証する。
+            if (map != null && onCorridor)
+            {
+                blockadeCap = FortressBlockadeRules.MaxAdvanceFraction(
+                    map.GetCorridor(currentSystemId, destinationSystemId), faction);
+            }
+
+            if (!IsMoving) return false; // 前進中のみ進む（保持中・要塞前で足止め中・停泊中は動かない）
             traveled += CurrentSpeed * deltaTime;
             float hold = HoldDistance;
             if (traveled >= hold)
             {
-                if (holdFraction >= 1f)
+                // 保持指示と要塞の封鎖の両方が解けているときだけ「到着」＝封鎖中は反対側へ抜けない。
+                if (EffectiveHoldFraction >= 1f)
                 {
                     // 目的地の星系に到達
                     currentSystemId = destinationSystemId;
                     onCorridor = false;
                     traveled = 0f;
                     corridorLength = 0f;
+                    blockadeCap = 1f;   // 回廊を出たので封鎖の足止めは解除（次の回廊で引き直す）
 
                     // 残り経路があれば次のホップへ自動継続（map が要る）
                     if (map != null && route != null && route.Count > 0)

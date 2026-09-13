@@ -15,6 +15,20 @@ namespace Ginei
         public const int StrengthScale = 40;
 
         public static bool Pending;   // 実会戦を予約済み（Battleシーンはこれを見て遭遇から生成）
+
+        // ===== 会戦の操作モードと指揮系統（GitHub #67）=====
+        // 戦略から潜行した会戦は「戦役」＝プレイヤーはいち人物として自系統だけを直接動かす。
+        // タイトルから直接始めた単体シナリオは「自由操作」＝全部隊を動かす（演習）。
+        // ★<b>不在や不明を全権限に読み替えない</b>ため、ここへ明示的に持ち込む。
+
+        /// <summary>この会戦が戦役から潜行したものか（false＝単体シナリオ＝自由操作）。</summary>
+        public static bool FromCampaign;
+
+        /// <summary>プレイヤーが全軍の指揮権（国家規模の軍事所掌）を持つか。</summary>
+        public static bool PlayerCommandsWholeFleet;
+
+        /// <summary>プレイヤーが指揮する軍団名（空＝軍団を持たない）。</summary>
+        public static string PlayerCorpsName = "";
         public static bool Resolved;  // Battleシーンが結果を書き込んだ
 
         // 入力：2勢力の戦力
@@ -55,6 +69,71 @@ namespace Ginei
         public static int planetMaxGarrison;        // 守備隊の最大（名）
         public static float planetGarrisonRatio = 1f; // 突入時の守備隊残り割合(0..1)
         public static float planetGarrisonMorale = 1f; // 突入時の守備隊士気(0..1)
+
+        /// <summary>
+        /// この会戦がどの戦場か（#38 C-5）。援軍台帳（<see cref="WarpReinforcementLedger"/>）は
+        /// このキーで戦場を厳密に分けるので、**別の戦場へ援軍が紛れ込まない**。
+        /// 会戦を予約する側（<see cref="GalaxyView"/>）が必ず設定する。
+        /// </summary>
+        public static BattlefieldKey battlefield;
+
+        // ===== 回廊要塞モード（#40 C-7）=====
+        // 戦略マップで要塞に封鎖された回廊へ潜行すると、岩壁に挟まれた水路＋中央の要塞という戦術マップになる。
+        // 攻撃側は要塞を撃破しないと反対側へ抜けられない（外周の回り込みも壁で塞がる）。
+        public static bool IsCorridorFortress;      // この受け渡しが回廊要塞戦か
+        public static int fortressCorridorA, fortressCorridorB; // 対象回廊の両端星系ID（戻ってから回廊を引く）
+        public static string fortressName = "要塞"; // 表示名
+        public static Faction fortressOwner;        // 要塞の所有勢力（守備側）
+        public static Faction fortressAttacker;     // 突破を目指す勢力
+        public static float fortressGarrison;       // 突入時の守備戦力（0＝すでに無防備）
+        public static float fortressShield = 1f;    // 突入時のシールド健全度(0..1)
+
+        // 戦術マップの結末を戦略へ書き戻す
+        public static bool fortressResolved;        // 結果が書き込まれた
+        public static bool fortressBreached;        // 突破して要塞を制圧したか
+        public static bool fortressStillHolds;      // 要塞の守備が残っているか
+
+        /// <summary>
+        /// 攻撃側の<b>残存兵力（戦略スケール）</b>。突入した本隊と、途中で参戦した援軍の生き残りの合計。
+        /// これを持ち帰らないと会戦の損害が戦略へ返らず、戦って負けても兵力が減らない（戦闘が無意味になる）。
+        /// 換算は通常の会戦と同じ <see cref="StrengthScale"/>。
+        /// </summary>
+        public static int fortressAttackerSurvivor;
+
+        /// <summary>
+        /// 1隊ぶんの残存（#40 手動突入）。<b>戦略艦隊IDごと</b>の実残存兵力を運ぶ。
+        /// 合計だけを按分すると、無傷の艦隊と全滅した艦隊を足して両方を半減させてしまうため、
+        /// 手動で戦った会戦は必ずこの明細で返す（自動解決だけが合計の按分にフォールバックする）。
+        /// </summary>
+        [System.Serializable]
+        public struct FleetSurvivor
+        {
+            public int fleetId;    // 戦略側の艦隊ID
+            public int survivor;   // 残存兵力（戦略スケール・全滅は0）
+        }
+
+        /// <summary>手動で戦った会戦の艦隊別残存（空＝明細なし＝合計の按分にフォールバック）。</summary>
+        public static readonly List<FleetSurvivor> fortressSurvivors = new List<FleetSurvivor>();
+
+        /// <summary>回廊要塞戦の結末を書き込む（#40）。<paramref name="attackerSurvivor"/> は戦略スケール。</summary>
+        public static void SetFortressResult(bool breached, bool stillHolds, int attackerSurvivor)
+        {
+            fortressBreached = breached;
+            fortressStillHolds = stillHolds;
+            fortressAttackerSurvivor = Mathf.Max(0, attackerSurvivor);
+            fortressResolved = true;
+        }
+
+        /// <summary>回廊要塞モードの受け渡しを片付ける（戦略へ反映したあと呼ぶ）。</summary>
+        public static void ClearFortress()
+        {
+            IsCorridorFortress = false;
+            fortressResolved = false;
+            fortressBreached = false;
+            fortressStillHolds = false;
+            fortressAttackerSurvivor = 0;
+            fortressSurvivors.Clear();
+        }
 
         // ===== システムビュー（戦闘中でなくても星系をダブルクリックで戦術マップへ入る・恒星系の閲覧）=====
         public static bool IsSystemView;        // この受け渡しが非戦闘のシステムビューか
@@ -100,6 +179,7 @@ namespace Ginei
         {
             IsPlanetSiege = true;
             IsSystemView = false;
+            IsCorridorFortress = false;   // モードは排他＝要塞戦の残りを持ち込まない（#40）
             planetSystemId = systemId;
             planetName = name;
             planetOwner = owner;
@@ -126,6 +206,7 @@ namespace Ginei
         {
             IsSystemView = true;
             IsPlanetSiege = false;
+            IsCorridorFortress = false;   // モードは排他（#40）
             systemViewId = systemId;
             systemViewName = name;
             systemViewOwner = owner;
@@ -141,6 +222,7 @@ namespace Ginei
             if (a == null || b == null) return;
             IsPlanetSiege = false;
             IsSystemView = false;
+            IsCorridorFortress = false;   // モードは排他（#40）
             factionA = a.faction; strengthA = a.strength; fleetIdA = a.id; admiralA = null;
             factionB = b.faction; strengthB = b.strength; fleetIdB = b.id; admiralB = null;
             loyaltyA = loyaltyB = 1f;   // 旗幟は既定＝完全忠誠（戦略側が国家状態から上書きする・#817）
@@ -184,6 +266,7 @@ namespace Ginei
         {
             IsPlanetSiege = false;
             IsSystemView = false;
+            IsCorridorFortress = false;   // モードは排他（#40）
             fleets.Clear();
             int sa = 0, sb = 0;
             if (entries != null)
@@ -235,6 +318,17 @@ namespace Ginei
             hasDefender = false;
             admiralA = admiralB = null;
             fleets.Clear();
+
+            // 操作モードと指揮系統も落とす（次の会戦へ前の権限を持ち越さない・#67）。
+            FromCampaign = false;
+            PlayerCommandsWholeFleet = false;
+            PlayerCorpsName = "";
+
+            // ★回廊要塞（#40）と戦場キー（#38）も必ず落とす。
+            // ここを落とさないと、要塞戦の次の会戦が要塞マップとして組まれたり、
+            // 前の回廊宛ての援軍を別の会戦が吸い込んだりする（受け渡しは static 単一スロットのため）。
+            ClearFortress();
+            battlefield = default;
         }
 
         // ===== スナップショット（WIN-3 #2570 複数同時会戦）=====
@@ -277,6 +371,17 @@ namespace Ginei
             public bool siegeResultCaptured;
             public float siegeResultGarrison, siegeResultMorale;
             public bool siegeResultSurrendered;
+            // 戦場の同定（#38 援軍の宛先）
+            public BattlefieldKey battlefield;
+            // 回廊要塞（#40）
+            public bool IsCorridorFortress;
+            public int fortressCorridorA, fortressCorridorB;
+            public string fortressName;
+            public Faction fortressOwner, fortressAttacker;
+            public float fortressGarrison, fortressShield;
+            public bool fortressResolved, fortressBreached, fortressStillHolds;
+            public int fortressAttackerSurvivor;
+            public readonly List<FleetSurvivor> fortressSurvivors = new List<FleetSurvivor>();
             public readonly List<HandoffFleet> fleets = new List<HandoffFleet>();
         }
 
@@ -308,8 +413,16 @@ namespace Ginei
                 siegeResultInvasion = siegeResultInvasion, siegeResultCaptured = siegeResultCaptured,
                 siegeResultGarrison = siegeResultGarrison, siegeResultMorale = siegeResultMorale,
                 siegeResultSurrendered = siegeResultSurrendered,
+                battlefield = battlefield,
+                IsCorridorFortress = IsCorridorFortress,
+                fortressCorridorA = fortressCorridorA, fortressCorridorB = fortressCorridorB,
+                fortressName = fortressName, fortressOwner = fortressOwner, fortressAttacker = fortressAttacker,
+                fortressGarrison = fortressGarrison, fortressShield = fortressShield,
+                fortressResolved = fortressResolved, fortressBreached = fortressBreached,
+                fortressStillHolds = fortressStillHolds,
             };
             s.fleets.AddRange(fleets);
+            s.fortressSurvivors.AddRange(fortressSurvivors);
             return s;
         }
 
@@ -340,8 +453,17 @@ namespace Ginei
             siegeResultInvasion = s.siegeResultInvasion; siegeResultCaptured = s.siegeResultCaptured;
             siegeResultGarrison = s.siegeResultGarrison; siegeResultMorale = s.siegeResultMorale;
             siegeResultSurrendered = s.siegeResultSurrendered;
+            battlefield = s.battlefield;
+            IsCorridorFortress = s.IsCorridorFortress;
+            fortressCorridorA = s.fortressCorridorA; fortressCorridorB = s.fortressCorridorB;
+            fortressName = s.fortressName; fortressOwner = s.fortressOwner; fortressAttacker = s.fortressAttacker;
+            fortressGarrison = s.fortressGarrison; fortressShield = s.fortressShield;
+            fortressResolved = s.fortressResolved; fortressBreached = s.fortressBreached;
+            fortressStillHolds = s.fortressStillHolds;
             fleets.Clear();
             fleets.AddRange(s.fleets);
+            fortressSurvivors.Clear();
+            fortressSurvivors.AddRange(s.fortressSurvivors);
         }
     }
 }

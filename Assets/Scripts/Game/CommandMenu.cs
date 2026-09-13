@@ -155,11 +155,13 @@ namespace Ginei
                 CreateButton("陣形 ▸", () => OpenCategory("formation", FormationItems(false)));
                 buttonCount++;
 
-                // 4. 軍団 ▸（軍団長が乗艦している軍団旗艦の選択時のみ＝CSG）。軍団陣形＋前列交代をまとめる。
-                FleetStrength sel0 = commander.SelectedFleets[0] != null ? commander.SelectedFleets[0].GetComponent<FleetStrength>() : null;
-                if (sel0 != null && sel0.IsCorpsFlagship)
+                // 4. 軍団 ▸（軍団旗艦＝CSG、または軍団に属する艦隊の選択時）。軍団全体の隊形＋前列交代＋解除をまとめる。
+                //    適用中の軍団命令（軍団名・隊形・手動/自動・形成中/完了）をラベルに出して状態を確認できるようにする。
+                if (SelectionHasCorps())
                 {
-                    CreateButton("軍団 ▸", () => OpenCategory("corps", FormationItems(true)));
+                    string status = CorpsStatusOfSelection();
+                    string label = string.IsNullOrEmpty(status) ? "軍団 ▸" : $"軍団 ▸  {status}";
+                    CreateButton(label, () => OpenCategory("corps", FormationItems(true)));
                     buttonCount++;
                 }
 
@@ -211,7 +213,7 @@ namespace Ginei
                 }
                 // 長いラベル（アタックムーブ/その場保持）が折り返して縦に伸び・見切れるのを防ぐ：
                 // 折り返し禁止＋自動縮小で常に1行に収める（ボタン高さ・メニュー高さを一定に保つ）。
-                textComp.enableWordWrapping = false;
+                textComp.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
                 float baseSize = textComp.fontSize;
                 textComp.enableAutoSizing = true;
                 textComp.fontSizeMin = 10f;
@@ -369,6 +371,48 @@ namespace Ginei
             ("その場保持", CommandHold),
         };
 
+        /// <summary>
+        /// 「配下艦隊の陣形を一括指定 ▸」の項目（確定仕様1）。
+        /// 軍団隊形（艦隊の並べ方）ではなく<b>各艦隊の中の陣形</b>をまとめて指定する。
+        /// 対象と権限の判定は <see cref="FleetCommander.ChangeFormationForCorps"/> が #67 の関門で行う。
+        /// </summary>
+        private List<(string, UnityEngine.Events.UnityAction)> CorpsFleetFormationItems()
+        {
+            var items = new List<(string, UnityEngine.Events.UnityAction)>();
+            bool anyTranscendent = SelectionHasTranscendent();
+            var values = (Formation[])System.Enum.GetValues(typeof(Formation));
+            for (int i = 0; i < values.Length; i++)
+            {
+                Formation f = values[i];
+                if (FormationAccessRules.IsTranscendentOnly(f) && !anyTranscendent) continue;
+                int idx = (int)f;
+                items.Add((f.ToString(), () =>
+                {
+                    if (commander != null) commander.ChangeFormationForCorps(idx);
+                    CloseMenu();
+                }));
+            }
+            return items;
+        }
+
+        /// <summary>
+        /// 選択中の艦隊の<b>陣形の保持</b>を解いて AI 自動へ返す（確定仕様1）。
+        /// 移動・攻撃の命令には触らない。#67 の関門を通した対象だけが動く。
+        /// </summary>
+        private void ReleaseSelectedFormationHold()
+        {
+            List<FleetStrength> targets = SelectedFleetStrengths("陣形の保持を解除");
+            int released = 0;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                Squadron sq = targets[i] != null ? targets[i].GetComponent<Squadron>() : null;
+                if (sq != null && sq.ReleaseFormationHold("指揮官の解除")) released++;
+            }
+            if (released == 0)
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    "陣形を保持している艦隊がありません");
+        }
+
         /// <summary>「陣形 ▸」「軍団 ▸」の項目（Formation enum から動的生成・軍団モードは前列交代を追加）。</summary>
         private List<(string, UnityEngine.Events.UnityAction)> FormationItems(bool corps)
         {
@@ -384,8 +428,91 @@ namespace Ginei
                 items.Add((f.ToString(), () => ApplyFormation(idx, corps)));
             }
             if (corps)
-                items.Add(("前列交代", () => { if (CorpsFormation.Instance != null) CorpsFormation.Instance.RotateCorps(); CloseMenu(); }));
+            {
+                // ★対象を明示して渡す＝「最後に操作した軍団」ではなく<b>選択中の艦隊が属する軍団だけ</b>が交代する
+                //   （A軍団の前列交代がB軍団へ波及しない）。
+                items.Add(("前列交代", () => { RotateSelectedCorps(); CloseMenu(); }));
+                // 手動指定の明示解除＝AI 自動（ドクトリン）へ返す唯一のプレイヤー操作。
+                items.Add(("軍団指定を解除", () => { ReleaseSelectedCorps(); CloseMenu(); }));
+                // ★軍団隊形（艦隊の並べ方）とは別に、配下<b>各艦隊の陣形</b>をまとめて指定する（確定仕様1）。
+                //   ここは軍団隊形を変えない＝2つのレイヤーを混ぜない。
+                items.Add(("配下艦隊の陣形を一括指定 ▸",
+                    () => OpenCategory("corpsFleetFormation", CorpsFleetFormationItems())));
+            }
+            else
+            {
+                // 艦隊の陣形保持を解いて AI 自動（ドクトリン）へ返す（確定仕様1）。
+                items.Add(("陣形の保持を解除", () => { ReleaseSelectedFormationHold(); CloseMenu(); }));
+            }
             return items;
+        }
+
+        /// <summary>選択中の艦隊が属する軍団だけを前列交代させる（他軍団へ波及しない）。</summary>
+        private void RotateSelectedCorps()
+        {
+            if (CorpsFormation.Instance == null) return;
+            int n = CorpsFormation.Instance.RotateCorps(SelectedFleetStrengths());
+            if (n == 0)
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                    "前列交代：選択中の艦隊に軍団隊形の命令がありません");
+        }
+
+        /// <summary>選択中の艦隊が属する軍団の手動指定を解除して AI 自動へ返す。</summary>
+        private void ReleaseSelectedCorps()
+        {
+            if (CorpsFormation.Instance == null) return;
+            // #67：解除もプレイヤーの命令。選択を関門（CommandableSelection）へ通し、
+            // 解除側でも軍団ごとに指揮権を確かめる（系統外の軍団は解けない）。
+            CorpsFormation.Instance.ReleaseCorps(SelectedFleetStrengths("軍団指定の解除"),
+                                                 CommandOrderSource.プレイヤー);
+        }
+
+        /// <summary>選択中の艦隊（旗艦コア）を集める共通処理。</summary>
+        /// <summary>
+        /// 命令の対象になる選択（<b>指揮系統の内側だけ</b>・#67）。
+        /// ★<see cref="FleetCommander.CommandableSelection"/> を通すので、軍団隊形・特殊指揮・交戦規定など
+        /// <see cref="FleetCommander"/> を経由しない命令も系統外へ漏れない。
+        /// </summary>
+        private List<FleetStrength> SelectedFleetStrengths(string orderName = "命令")
+        {
+            var members = new List<FleetStrength>();
+            if (commander == null) return members;
+            List<Selectable> targets = commander.CommandableSelection(orderName);
+            for (int i = 0; i < targets.Count; i++)
+            {
+                FleetStrength fs = targets[i] != null ? targets[i].GetComponent<FleetStrength>() : null;
+                if (fs != null) members.Add(fs);
+            }
+            return members;
+        }
+
+        /// <summary>選択中に軍団旗艦（軍団長乗艦）または軍団所属の艦隊がいるか＝「軍団 ▸」を出す条件。</summary>
+        private bool SelectionHasCorps()
+        {
+            if (commander == null) return false;
+            for (int i = 0; i < commander.SelectedFleets.Count; i++)
+            {
+                Selectable sel = commander.SelectedFleets[i];
+                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+                if (fs == null) continue;
+                if (fs.IsCorpsFlagship || !string.IsNullOrEmpty(fs.corpsName)) return true;
+                if (!string.IsNullOrEmpty(CorpsFormation.StatusFor(fs))) return true; // 臨時編成でも命令中なら出す
+            }
+            return false;
+        }
+
+        /// <summary>選択中の艦隊に適用中の軍団命令の表示文字列（軍団名・隊形・手動/自動・形成中/完了）。無ければ空。</summary>
+        private string CorpsStatusOfSelection()
+        {
+            if (commander == null) return "";
+            for (int i = 0; i < commander.SelectedFleets.Count; i++)
+            {
+                Selectable sel = commander.SelectedFleets[i];
+                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+                string s = CorpsFormation.StatusFor(fs);
+                if (!string.IsNullOrEmpty(s)) return s;
+            }
+            return "";
         }
 
         /// <summary>選択中の艦隊に軍神（限界突破型・車懸かり可）がいるか。</summary>
@@ -465,15 +592,11 @@ namespace Ginei
         private void IssueActiveCommand(ActiveCommand cmd)
         {
             if (commander == null) return;
-            int issued = 0, total = 0;
-            for (int i = 0; i < commander.SelectedFleets.Count; i++)
-            {
-                Selectable sel = commander.SelectedFleets[i];
-                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
-                if (fs == null) continue;
-                total++;
-                if (ActiveCommandState.Issue(fs, cmd)) issued++;
-            }
+            // #67：特殊指揮も指揮系統の内側だけ。
+            List<FleetStrength> members = SelectedFleetStrengths("特殊指揮 " + cmd);
+            int issued = 0, total = members.Count;
+            for (int i = 0; i < members.Count; i++)
+                if (ActiveCommandState.Issue(members[i], cmd)) issued++;
             if (total > 0 && issued == 0)
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
                     $"特殊指揮『{cmd}』は今は使えません（クールダウン/効果中）");
@@ -485,12 +608,9 @@ namespace Ginei
         private void SetStanceAll(EngagementStance newStance)
         {
             if (commander == null) return;
-            for (int i = 0; i < commander.SelectedFleets.Count; i++)
-            {
-                Selectable sel = commander.SelectedFleets[i];
-                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
-                if (fs != null) fs.stance = newStance;
-            }
+            // #67：交戦規定も指揮系統の内側だけ（FleetCommander を経由しない命令なのでここで通す）。
+            List<FleetStrength> members = SelectedFleetStrengths("交戦規定の変更");
+            for (int i = 0; i < members.Count; i++) members[i].stance = newStance;
             NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
                 $"交戦規定を「{newStance}」に設定しました");
         }
@@ -499,19 +619,12 @@ namespace Ginei
         {
             if (corpsFormationMode)
             {
-                // 軍団陣形：選択中の艦隊（どの隷下艦隊を含めるか＝プレイヤーの選択）で陣形を組む。
+                // 軍団<b>全体</b>の隊形（軍団内で艦隊をどう並べるか）＝各艦隊内の配下艦の陣形（Squadron）とは別レイヤー。
+                // 選択中の艦隊（どの隷下艦隊を含めるか＝プレイヤーの選択）で組む。選択が複数の軍団に跨っていても
+                // CorpsFormation が軍団ごとに別命令へ束ねる＝A軍団とB軍団で別々の隊形を同時に維持できる。
                 // 1隊だけ選択ならその軍団を自動集結。敗走中の艦隊は CorpsFormation 側で除外。
                 if (commander != null && CorpsFormation.Instance != null && commander.SelectedFleets.Count > 0)
-                {
-                    var members = new List<FleetStrength>(commander.SelectedFleets.Count);
-                    for (int i = 0; i < commander.SelectedFleets.Count; i++)
-                    {
-                        FleetStrength fs = commander.SelectedFleets[i] != null
-                            ? commander.SelectedFleets[i].GetComponent<FleetStrength>() : null;
-                        if (fs != null) members.Add(fs);
-                    }
-                    CorpsFormation.Instance.FormCorpsFromSelection(members, (Formation)formationIdx);
-                }
+                    CorpsFormation.Instance.FormCorpsFromSelection(SelectedFleetStrengths("軍団隊形"), (Formation)formationIdx);
                 corpsFormationMode = false;
                 CloseMenu();
                 return;

@@ -26,7 +26,8 @@ namespace Ginei
             }
             f.supply = Mathf.Clamp01(f.supply - Mathf.Max(0f, depleteStep));
             int lost = Mathf.RoundToInt(MilitarySupplyFulfillmentRules.AttritionFromShortage(f.strength, f.supply, attritionRate));
-            f.strength = Mathf.Max(0, f.strength - lost);
+            // 補給切れの損耗は<b>実際に艦を失う</b>（戦闘力の一時低下ではない）ので、艦艇数も追随させる。
+            FleetShipCountRules.ApplyPhysicalLoss(f, f.strength - lost);
             return lost;
         }
 

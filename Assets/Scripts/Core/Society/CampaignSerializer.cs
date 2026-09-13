@@ -58,7 +58,23 @@ namespace Ginei
                 {
                     Corridor co = c.map.corridors[i];
                     if (co == null) continue;
-                    save.corridors.Add(new CorridorSave { aId = co.aId, bId = co.bId, length = co.length, type = (int)co.type });
+                    var cs = new CorridorSave { aId = co.aId, bId = co.bId, length = co.length, type = (int)co.type };
+                    // #40：回廊要塞は所有・守備・シールドまで保存する（積み残すとロードで封鎖が消える）。
+                    if (co.fortress != null)
+                    {
+                        cs.hasFortress = true;
+                        cs.fortGarrison = co.fortress.garrisonStrength;
+                        cs.fortShield = co.fortress.shieldIntegrity;
+                        cs.fortMainGun = co.fortress.mainGunPower;
+                        cs.fortControlsCorridor = co.fortress.controlsCorridor;
+                        cs.fortOwner = (int)co.fortress.owner;
+                        cs.fortName = co.fortress.fortressName;
+                        // 駐留艦隊はIDだけ保存する（艦隊の実体は fleets 側にあるので二重に持たない）。
+                        cs.fortGarrisonFleetIds = co.fortress.garrisonFleetIds == null
+                            ? new System.Collections.Generic.List<int>()
+                            : new System.Collections.Generic.List<int>(co.fortress.garrisonFleetIds);
+                    }
+                    save.corridors.Add(cs);
                 }
             }
 
@@ -140,7 +156,22 @@ namespace Ginei
             {
                 CorridorSave co = save.corridors[i];
                 if (co == null) continue;
-                map.AddCorridor(new Corridor(co.aId, co.bId, co.length, (CorridorType)co.type));
+                var corridor = new Corridor(co.aId, co.bId, co.length, (CorridorType)co.type);
+                // #40：hasFortress=false（旧セーブ含む）は要塞なし＝フェザーン型の自由通行で復元する。
+                if (co.hasFortress)
+                {
+                    corridor.fortress = new Fortress(co.fortGarrison, co.fortMainGun, co.fortShield, co.fortControlsCorridor)
+                    {
+                        owner = (Faction)co.fortOwner,
+                        fortressName = string.IsNullOrEmpty(co.fortName) ? "要塞" : co.fortName,
+                        // JsonUtility は欠落したリストを null で返すので必ず作り直す。
+                        // 旧セーブはここが空になり、施設の守備値（fortGarrison）だけが効く＝従来動作。
+                        garrisonFleetIds = co.fortGarrisonFleetIds == null
+                            ? new System.Collections.Generic.List<int>()
+                            : new System.Collections.Generic.List<int>(co.fortGarrisonFleetIds),
+                    };
+                }
+                map.AddCorridor(corridor);
             }
 
             for (int i = 0; i < save.states.Count; i++)
@@ -289,7 +320,13 @@ namespace Ginei
                     id = f.id, faction = (int)f.faction, strength = f.strength,
                     supply = f.supply, warpSpeed = f.warpSpeed, sublightFactor = f.sublightFactor,
                     currentSystemId = f.currentSystemId, destinationSystemId = f.destinationSystemId,
-                    moving = f.IsMoving, engaged = f.engaged
+                    moving = f.IsMoving, engaged = f.engaged,
+                    // 艦隊ごとの艦艇数は必ず確定値で保存する（0＝全滅もそのまま持ち帰る）。
+                    shipCount = f.Ships, shipCountSet = true,
+                    // 編制と司令官は「実値+1」で保存する（0＝無所属／未任命。旧セーブは 0 で読まれる）。
+                    corpsIdPlus1 = f.corpsId + 1, corpsName = f.corpsName, isCorpsFlagship = f.isCorpsFlagship,
+                    armyGroupIdPlus1 = f.armyGroupId + 1, armyGroupName = f.armyGroupName,
+                    commanderPersonIdPlus1 = f.commanderPersonId + 1,
                 });
             }
         }
@@ -305,7 +342,20 @@ namespace Ginei
                 if (d == null) continue;
                 var f = new StrategicFleet(d.id, d.currentSystemId, (Faction)d.faction, d.warpSpeed)
                 {
-                    strength = d.strength, supply = d.supply, sublightFactor = d.sublightFactor
+                    strength = d.strength, supply = d.supply, sublightFactor = d.sublightFactor,
+                    // 旧セーブは shipCountSet を持たない（＝false）ので兵力から導出して埋める（後方互換）。
+                    // 新セーブは確定値なので 0（全滅）もそのまま復元し、艦艇が勝手に復活しない。
+                    shipCount = d.shipCountSet ? Mathf.Max(0, d.shipCount)
+                                               : FleetShipCountRules.FromStrength(d.strength),
+                    shipCountSet = true,
+                    // 編制と司令官は「実値+1」で保存してある＝0（旧セーブ・欠落）は -1（無所属／未任命）へ戻す。
+                    // 旧セーブが「0番の軍団に所属」「0番の人物が司令」と誤読されないための符号化。
+                    corpsId = d.corpsIdPlus1 - 1,
+                    corpsName = d.corpsName,
+                    isCorpsFlagship = d.isCorpsFlagship,
+                    armyGroupId = d.armyGroupIdPlus1 - 1,
+                    armyGroupName = d.armyGroupName,
+                    commanderPersonId = d.commanderPersonIdPlus1 - 1,
                 };
                 if (d.moving && d.destinationSystemId > 0 && map != null) f.WarpTo(map, d.destinationSystemId);
                 f.engaged = d.engaged;
@@ -395,6 +445,175 @@ namespace Ginei
                 clock.speed = save.clockSpeed <= 0f ? 1f : save.clockSpeed;
             }
             return clock;
+        }
+
+        // ===== 航行中の援軍（#38 C-5） =====
+
+        /// <summary>
+        /// 援軍台帳を保存データへ（#38）。到着は<b>絶対 game-秒</b>なので、クロックと一緒に往復すれば
+        /// 残り時間が保たれる。到着済み・閉鎖済みは持ち越さない（戦場は再開時に張り直す）。
+        /// </summary>
+        public static void WriteReinforcements(CampaignSaveData save, WarpReinforcementLedger ledger)
+        {
+            if (save == null) return;
+            save.reinforcements.Clear();
+            if (ledger == null) return;
+
+            var buf = new System.Collections.Generic.List<WarpReinforcement>();
+            ledger.PeekAll(buf);
+            for (int i = 0; i < buf.Count; i++)
+            {
+                WarpReinforcement o = buf[i];
+                save.reinforcements.Add(new ReinforcementSave
+                {
+                    systemA = o.battlefield.systemA,
+                    systemB = o.battlefield.systemB,
+                    faction = (int)o.faction,
+                    fleetId = o.fleetId,
+                    strength = o.strength,
+                    dispatchTime = o.dispatchTime,
+                    arrivalTime = o.arrivalTime,
+                });
+            }
+        }
+
+        /// <summary>
+        /// 保存データから援軍台帳を復元する（#38）。リストが無い旧セーブは空の台帳＝援軍なし（前方互換）。
+        /// 台帳の現在時刻はクロックへ合わせる＝ロード直後に過去ぶんが一気に到着扱いにならない。
+        /// </summary>
+        public static WarpReinforcementLedger ReadReinforcements(CampaignSaveData save, GameClock clock)
+        {
+            var ledger = new WarpReinforcementLedger();
+            if (clock != null) ledger.SyncTo(clock.elapsedSeconds);
+            if (save == null || save.reinforcements == null) return ledger;
+
+            for (int i = 0; i < save.reinforcements.Count; i++)
+            {
+                ReinforcementSave r = save.reinforcements[i];
+                if (r == null) continue;
+                BattlefieldKey key = r.systemA == r.systemB
+                    ? BattlefieldKey.System(r.systemA)
+                    : BattlefieldKey.Corridor(r.systemA, r.systemB);
+                ledger.DispatchAt(key, (Faction)r.faction, r.fleetId, r.strength, r.arrivalTime);
+            }
+            return ledger;
+        }
+
+        // ===== 稟議・決裁（#稟議完成②） =====
+
+        /// <summary>稟議台帳を保存データへ。活性・決着済みの区別は <see cref="Petition.status"/> が持つ。</summary>
+        public static void WritePetitions(System.Collections.Generic.List<PetitionSave> into, PetitionLedger ledger)
+        {
+            if (into == null) return;
+            into.Clear();
+            if (ledger == null || ledger.items == null) return;
+
+            for (int i = 0; i < ledger.items.Count; i++)
+            {
+                Petition p = ledger.items[i];
+                if (p == null) continue;
+                into.Add(new PetitionSave
+                {
+                    id = p.id, title = p.title ?? "", faction = (int)p.faction,
+                    box = (int)p.box, regionKey = p.regionKey ?? "", origin = (int)p.origin,
+                    drafterId = p.drafterId, addresseeId = p.addresseeId,
+                    effectKey = p.effectKey ?? "", status = (int)p.status,
+                    carrierId = p.carrierId, distorted = p.distorted, vindicated = p.vindicated,
+                });
+            }
+        }
+
+        /// <summary>保存データから稟議台帳へ戻す（リストが無い旧セーブは空＝案件なし）。</summary>
+        public static void ReadPetitions(System.Collections.Generic.List<PetitionSave> from, PetitionLedger ledger)
+        {
+            if (ledger == null) return;
+            ledger.Clear();
+            if (from == null) return;
+
+            for (int i = 0; i < from.Count; i++)
+            {
+                PetitionSave s = from[i];
+                if (s == null) continue;
+                var p = new Petition(s.id, s.title, (Faction)s.faction, (BoxKind)s.box,
+                                     (PetitionOrigin)s.origin, s.effectKey)
+                {
+                    regionKey = s.regionKey ?? "",
+                    drafterId = s.drafterId,
+                    addresseeId = s.addresseeId,
+                    status = (PetitionStatus)s.status,
+                    carrierId = s.carrierId,
+                    distorted = s.distorted,
+                    vindicated = s.vindicated,
+                };
+                ledger.Add(p);
+            }
+        }
+
+        /// <summary>決裁カードを保存データへ（未決も決裁済みの履歴も・適用済みフラグを含む）。</summary>
+        public static void WriteDecisions(CampaignSaveData save, DecisionQueue queue)
+        {
+            if (save == null) return;
+            save.decisions.Clear();
+            if (queue == null || queue.items == null) return;
+
+            for (int i = 0; i < queue.items.Count; i++)
+            {
+                PendingDecision d = queue.items[i];
+                if (d == null) continue;
+                var rec = new DecisionSave
+                {
+                    id = d.id, title = d.title ?? "", body = d.body ?? "", imageKey = d.imageKey ?? "",
+                    severity = (int)d.severity, source = (int)d.source,
+                    defaultChoiceIndex = d.defaultChoiceIndex, effectKey = d.effectKey ?? "",
+                    status = (int)d.status, elapsed = d.elapsed, chosenIndex = d.chosenIndex,
+                    applied = d.applied, meterApplied = d.meterApplied,
+                    outcome = (int)d.outcome, resultDetail = d.resultDetail ?? "",
+                    petitionId = d.petitionId, friction = d.friction,
+                    proposerId = d.proposerId, proposerName = d.proposerName ?? "",
+                    deciderId = d.deciderId, deciderName = d.deciderName ?? "",
+                    authorityBasis = d.authorityBasis ?? "", targetKey = d.targetKey ?? "",
+                    escalated = d.escalated,
+                };
+                if (d.choices != null) rec.choices.AddRange(d.choices);
+                save.decisions.Add(rec);
+            }
+        }
+
+        /// <summary>
+        /// 保存データから決裁キューを復元する（リストが無い旧セーブは空＝カードなし）。
+        /// <b>適用済みフラグごと戻す</b>ので、ロード後に同じ案件を裁可しても効果は二度出ない。
+        /// </summary>
+        public static DecisionQueue ReadDecisions(CampaignSaveData save)
+        {
+            var queue = new DecisionQueue();
+            if (save == null || save.decisions == null) return queue;
+
+            for (int i = 0; i < save.decisions.Count; i++)
+            {
+                DecisionSave s = save.decisions[i];
+                if (s == null) continue;
+                var d = new PendingDecision(s.id, s.title, (DecisionSeverity)s.severity,
+                                            (DecisionSource)s.source, s.effectKey, s.defaultChoiceIndex, s.body)
+                {
+                    imageKey = s.imageKey ?? "",
+                    status = (DecisionStatus)s.status,
+                    elapsed = s.elapsed,
+                    chosenIndex = s.chosenIndex,
+                    applied = s.applied,
+                    meterApplied = s.meterApplied,
+                    outcome = (PetitionActionOutcome)s.outcome,
+                    resultDetail = s.resultDetail ?? "",
+                    petitionId = s.petitionId,
+                    friction = s.friction,
+                    proposerId = s.proposerId, proposerName = s.proposerName ?? "",
+                    deciderId = s.deciderId, deciderName = s.deciderName ?? "",
+                    authorityBasis = s.authorityBasis ?? "", targetKey = s.targetKey ?? "",
+                    escalated = s.escalated,
+                };
+                if (s.choices != null) d.choices.AddRange(s.choices);
+                queue.Enqueue(d);
+            }
+            return queue;
         }
 
         // ===== JSON 文字列 =====

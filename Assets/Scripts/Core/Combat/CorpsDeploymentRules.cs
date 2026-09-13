@@ -6,12 +6,12 @@ namespace Ginei
     /// <summary>軍団陣形の配置候補（1艦隊）。前線適性の算定に使う。</summary>
     public struct DeploymentCandidate
     {
-        public int id;
+        public long id;
         public float combatAptitude; // 提督の戦闘適性 0..100（攻撃/防御/統率の実効平均など）
         public float meritDesire;    // 功名心 0..100（高いほど前線を志願）
         public float morale;         // 士気 0..1（高いほど前線に耐える）
 
-        public DeploymentCandidate(int id, float combatAptitude, float meritDesire, float morale)
+        public DeploymentCandidate(long id, float combatAptitude, float meritDesire, float morale)
         {
             this.id = id; this.combatAptitude = combatAptitude; this.meritDesire = meritDesire; this.morale = morale;
         }
@@ -71,10 +71,10 @@ namespace Ginei
         /// 候補を前→後の順（前線適性の見立てが高い順）に並べた id 配列を返す。roll は決定論注入（id→0..1）。
         /// 軍団長が有能なら強兵・功名の士・高士気を前へ、無能なら roll に流される。
         /// </summary>
-        public static int[] OrderFrontToBack(IReadOnlyList<DeploymentCandidate> candidates, float commanderSkill,
-            System.Func<int, float> roll, DeploymentWeights weights)
+        public static long[] OrderFrontToBack(IReadOnlyList<DeploymentCandidate> candidates, float commanderSkill,
+            System.Func<long, float> roll, DeploymentWeights weights)
         {
-            if (candidates == null || candidates.Count == 0) return new int[0];
+            if (candidates == null || candidates.Count == 0) return new long[0];
 
             int n = candidates.Count;
             var idx = new int[n];
@@ -95,13 +95,13 @@ namespace Ginei
                 return cmp != 0 ? cmp : candidates[a].id.CompareTo(candidates[b].id);
             });
 
-            var order = new int[n];
+            var order = new long[n];
             for (int i = 0; i < n; i++) order[i] = candidates[idx[i]].id;
             return order;
         }
 
         /// <summary>既定加重版。</summary>
-        public static int[] OrderFrontToBack(IReadOnlyList<DeploymentCandidate> candidates, float commanderSkill, System.Func<int, float> roll)
+        public static long[] OrderFrontToBack(IReadOnlyList<DeploymentCandidate> candidates, float commanderSkill, System.Func<long, float> roll)
             => OrderFrontToBack(candidates, commanderSkill, roll, DeploymentWeights.Default);
     }
 }

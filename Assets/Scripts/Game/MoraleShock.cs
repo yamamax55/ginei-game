@@ -38,8 +38,20 @@ namespace Ginei
                 if (delta == 0f) continue;
 
                 FleetMorale mo = f.GetComponent<FleetMorale>();
-                if (mo != null) mo.ApplyMoraleDelta(delta);
+                // 原因の札は観測台帳（MoraleAuditLog）用＝増減の計算には関与しない。
+                // 撃墜の高揚と会戦イベントはどちらも士気を上げるので、後から言い分けられるようにする。
+                if (mo != null) mo.ApplyMoraleDelta(delta, AuditSourceOf(ev, delta), ev.ToString());
             }
+        }
+
+        /// <summary>観測台帳へ残す原因の種別（高揚か衝撃かは符号で決まる）。</summary>
+        private static MoraleChangeSource AuditSourceOf(MoraleEvent ev, float delta)
+        {
+            if (ev == MoraleEvent.捨てがまり成功) return MoraleChangeSource.捨てがまり高揚;
+            if (ev == MoraleEvent.旗艦撃墜) return delta > 0f
+                ? MoraleChangeSource.撃墜高揚      // 敵が落ちた＝高揚
+                : MoraleChangeSource.敗走衝撃;     // 味方が落ちた＝パニック
+            return MoraleChangeSource.敗走衝撃;
         }
 
         /// <summary>事象と敵味方から符号付き士気増減を決める。</summary>

@@ -47,7 +47,9 @@ namespace Ginei
         private GameObject hudStrengthRow, hudMoraleRow, hudShipsObj;
         private Image hudStrengthFill, hudMoraleFill;
         private bool hudBuilt;
-        private bool windowAttachDone; // 窓内へHUDを親替え済みか（WIN-4・ウィンドウ化会戦のみ）
+        private bool windowAttachDone;    // 窓内へHUDパネルを親替え済みか（WIN-4・ウィンドウ化会戦のみ）
+        private bool messageAttachDone;   // 窓内へ画面メッセージを親替え済みか（同上・生成が遅延するので別管理）
+        private bool fullscreenBattle;    // 会戦＝アクティブシーン＝フルスクリーン会戦（従来動作）
 
         /// <summary>選択艦隊の陣営色を決定する。FactionData があればその color、無ければ enum の既定色。</summary>
         private Color ResolveFactionColor(FleetStrength fs)
@@ -76,14 +78,26 @@ namespace Ginei
         }
 
         /// <summary>
-        /// ウィンドウ化会戦（WIN-4）では HUD パネルを自分の窓内 UI 親へ親替えする（全画面に広げない・重なり解消）。
+        /// ウィンドウ化会戦（WIN-4）では HUD を自分の窓内 UI 親へ親替えする（全画面に広げない・重なり解消）。
+        /// 対象は<b>HUDパネルと画面メッセージの両方</b>。メッセージは初回 <see cref="ShowMessage"/> で遅延生成されるため
+        /// パネルとは別に追従させる（従来はメッセージだけ全画面 Canvas に残り、窓の枠外＝背後の戦略HUDへ重なっていた）。
         /// フルスクリーン会戦（会戦シーン＝アクティブシーン）では何もしない＝従来どおり全画面表示（後方互換）。
         /// </summary>
         private void TryWindowAttach()
         {
-            if (windowAttachDone || hudPanel == null) return;
-            if (gameObject.scene == SceneManager.GetActiveScene()) { windowAttachDone = true; return; }
-            if (BattleWindowUI.TryAttach(gameObject.scene, hudPanel.GetComponent<RectTransform>())) windowAttachDone = true;
+            if (fullscreenBattle) return;
+            if (gameObject.scene == SceneManager.GetActiveScene())
+            {
+                fullscreenBattle = true;
+                windowAttachDone = messageAttachDone = true;
+                return;
+            }
+            if (!windowAttachDone && hudPanel != null
+                && BattleWindowUI.TryAttach(gameObject.scene, hudPanel.GetComponent<RectTransform>()))
+                windowAttachDone = true;
+            if (!messageAttachDone && messageText != null
+                && BattleWindowUI.TryAttach(gameObject.scene, messageText.rectTransform))
+                messageAttachDone = true;
         }
 
         // ===== HUD生成 =====
@@ -93,6 +107,9 @@ namespace Ginei
             if (hudBuilt) return;
 
             GameObject canvasObj = new GameObject("FleetHUDCanvas");
+            // 親なし生成はアクティブ（戦略）シーンに置かれるため、会戦シーンへ移す。
+            // 移さないと会戦をアンロードしても空 Canvas が戦略側に残り続ける（会戦1回につき1個）。
+            SceneManager.MoveGameObjectToScene(canvasObj, gameObject.scene);
             hudCanvas = canvasObj.AddComponent<Canvas>();
             hudCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             hudCanvas.sortingOrder = 10; // ワールドより前面・モーダル（ポーズ/コマンド）より背面寄り
@@ -268,16 +285,20 @@ namespace Ginei
             if (squadron != null)
             {
                 AdmiralData ad = (strength != null) ? strength.admiralData : null;
+                // 保持状態と指定元（確定仕様1）。保持していなければ「（自律）」と出る。
+                string hold = FleetFormationOrderRules.HoldText(
+                    squadron.FormationHold, squadron.currentFormation, squadron.LastFormationSource);
+
                 if (ad != null && ad.hasPreferredFormation)
                 {
                     bool match = ad.IsPreferredFormation(squadron.currentFormation);
                     string star = match ? " ★" : "";
-                    hudFormation.text = $"現在陣形: {squadron.currentFormation}　得意陣形: {ad.preferredFormation}{star}";
+                    hudFormation.text = $"現在陣形: {hold}　得意陣形: {ad.preferredFormation}{star}";
                     hudFormation.color = match ? new Color(1f, 0.85f, 0.3f) : Color.white;
                 }
                 else
                 {
-                    hudFormation.text = $"現在陣形: {squadron.currentFormation}";
+                    hudFormation.text = $"現在陣形: {hold}";
                     hudFormation.color = Color.white;
                 }
                 hudFormation.gameObject.SetActive(true);
@@ -323,6 +344,7 @@ namespace Ginei
         {
             EnsureMessageText();
             if (messageText == null) return;
+            TryWindowAttach(); // 生成直後に窓内へ引き取る（1フレームでも全画面に出さない）
 
             messageText.text = text;
             messageText.gameObject.SetActive(true);
@@ -357,12 +379,14 @@ namespace Ginei
             messageText.raycastTarget = false;
             ApplyJapaneseFont(messageText);
 
+            // 親（全画面 Canvas／ウィンドウ化会戦なら窓の UI 矩形）の幅に追従させる＝窓を縮めても文字が枠外へ出ない。
+            // 全画面会戦では従来と同じ「上部中央の1行」に見える（中央揃えのまま横に広がるだけ＝後方互換）。
             RectTransform rt = messageText.rectTransform;
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(0f, -80f);
-            rt.sizeDelta = new Vector2(700f, 50f);
+            rt.sizeDelta = new Vector2(-32f, 50f); // 左右 16px の余白（折り返しは既定のまま）
 
             go.SetActive(false);
         }

@@ -20,6 +20,146 @@ namespace Ginei
 
         public List<Selectable> SelectedFleets => selectedFleets;
 
+        // ===== 指揮系統（GitHub #67）＝命令の唯一の関門 =====
+
+        [Header("指揮系統（#67）")]
+        [Tooltip("自分の指揮系統の外へは直接命令を通さず支援要請にする（off＝従来どおり全部直接命令）")]
+        public bool enforceChainOfCommand = true;
+
+        // 命令対象の作業用バッファ（毎回の確保を避ける）。
+        private readonly List<Selectable> commandableBuffer = new List<Selectable>();
+        private readonly List<Selectable> requestBuffer = new List<Selectable>();
+        // 移動要請は行き先が決まってから出すので、プレビュー時点の系統外リストを控えておく。
+        private readonly List<Selectable> outOfChainForMove = new List<Selectable>();
+
+        /// <summary>この会戦の操作モード（戦役／単体シナリオの自由操作）。</summary>
+        public BattleCommandMode Mode => BattleCommandModeRules.ModeOf(BattleHandoff.FromCampaign);
+
+        /// <summary>
+        /// いま操作している人物の指揮系統（#67）。
+        ///
+        /// <b>不在や不明を全権限に読み替えない</b>のが要点：
+        /// <list type="bullet">
+        ///   <item><b>単体シナリオ</b>（タイトルから直接始めた会戦・戦役外の演習）＝自由操作＝全部隊を直接操作。
+        ///   これは明示的なモードであって、判定に失敗した結果ではない。</item>
+        ///   <item><b>戦役</b>＝プレイヤーの役職・指揮する軍団・自分の乗艦だけが直接操作の範囲。
+        ///   主人公がこの戦場に居なくても<b>全権限にはしない</b>（自艦隊のみ、あるいは何も動かせない）。</item>
+        /// </list>
+        ///
+        /// 権限の素（総司令官か／どの軍団か）は戦略側が潜行時に <see cref="BattleHandoff"/> へ載せる
+        /// ＝会戦シーン単体でも、Strategy が破棄されるフルスクリーン会戦でも同じ判定になる。
+        /// </summary>
+        public BattleChain ActorChain()
+        {
+            if (!enforceChainOfCommand) return BattleChain.Everything;   // Inspector の逃げ道（既定 on）
+
+            BattleCommandMode mode = Mode;
+            if (mode == BattleCommandMode.自由操作) return BattleCommandModeRules.FreePlayChain();
+
+            // 戦役：戦略側が載せた権限をそのまま使う。軍団名が空でも全権限へ落とさない。
+            string corps = BattleHandoff.PlayerCorpsName;
+            if (string.IsNullOrEmpty(corps))
+            {
+                // 保険：この戦場に主人公が乗っていて軍団長ならその軍団（受け渡しが欠けた場合の補完）。
+                IReadOnlyList<FleetStrength> flags = FleetRegistry.FlagshipsIn(gameObject.scene);
+                for (int i = 0; i < flags.Count; i++)
+                {
+                    FleetStrength fs = flags[i];
+                    if (fs == null || !fs.IsAlive) continue;
+                    if (fs.admiralData == null || !fs.admiralData.isProtagonist) continue;
+                    corps = fs.corpsName;
+                    break;
+                }
+            }
+            return BattleCommandModeRules.CampaignChain(BattleHandoff.PlayerCommandsWholeFleet, corps);
+        }
+
+        /// <summary>操作者自身が乗っている部隊か（主人公の乗艦）。</summary>
+        private static bool IsActorsOwnShip(FleetStrength fs)
+            => fs != null && fs.admiralData != null && fs.admiralData.isProtagonist;
+
+        /// <summary>その部隊に対する権限（#67）。</summary>
+        public BattleCommandRight RightFor(Selectable sel)
+        {
+            FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+            if (fs == null || !fs.IsAlive) return BattleCommandRight.不可;
+
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : fs.faction;
+            bool ownSide = !FactionRelations.IsHostile(null, player, fs.factionData, fs.faction);
+            return BattleCommandAuthorityRules.RightFor(ActorChain(), ownSide, IsActorsOwnShip(fs), fs.corpsName);
+        }
+
+        /// <summary>
+        /// <b>命令を出してよい対象だけ</b>を返す唯一の関門（#67）。
+        /// 移動・攻撃・停止・保持・陣形・特殊指揮・交戦規定は<b>必ずここを通す</b>
+        /// ＝入口が増えても系統外への直接命令が漏れない。
+        ///
+        /// 系統外は <paramref name="orderName"/> の支援要請として通知だけ出す（実際に動かさない）。
+        /// </summary>
+        public List<Selectable> CommandableSelection(string orderName)
+        {
+            commandableBuffer.Clear();
+            requestBuffer.Clear();
+            int blocked = 0;
+
+            for (int i = 0; i < selectedFleets.Count; i++)
+            {
+                Selectable sel = selectedFleets[i];
+                if (sel == null) continue;
+                switch (RightFor(sel))
+                {
+                    case BattleCommandRight.直接命令: commandableBuffer.Add(sel); break;
+                    case BattleCommandRight.要請: requestBuffer.Add(sel); break;
+                    default: blocked++; break;
+                }
+            }
+
+            if (requestBuffer.Count > 0 || blocked > 0)
+            {
+                string note = BattleCommandAuthorityRules.SelectionNote(
+                    commandableBuffer.Count, requestBuffer.Count, blocked);
+                if (!string.IsNullOrEmpty(note))
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意, note);
+            }
+            // 系統外の分は呼び手が支援要請として出す（<see cref="PendingRequests"/>）。
+            // ここでは通知だけにせず、命令の中身を持てる呼び手側で要請を投げる。
+            return commandableBuffer;
+        }
+
+        /// <summary>
+        /// 直前の <see cref="CommandableSelection"/> で「支援要請」に回った部隊
+        /// （＝指揮系統外だが味方）。呼び手が命令の中身を添えて要請を出す。
+        /// </summary>
+        public IReadOnlyList<Selectable> PendingRequests => requestBuffer;
+
+        /// <summary>この会戦の支援要請の窓口（無ければ null）。</summary>
+        private SupportRequestDirector Requests
+            => SupportRequestDirector.FindInScene(gameObject.scene);
+
+        /// <summary>系統外へ移動を要請する（直前の <see cref="CommandableSelection"/> の残り）。</summary>
+        private void RequestMoveForOutOfChain(Vector2 position)
+        {
+            SupportRequestDirector dir = Requests;
+            if (dir == null) return;
+            for (int i = 0; i < requestBuffer.Count; i++) dir.RequestMove(requestBuffer[i], position);
+        }
+
+        /// <summary>系統外へ攻撃を要請する。</summary>
+        private void RequestAttackForOutOfChain(Squadron targetFleet)
+        {
+            SupportRequestDirector dir = Requests;
+            if (dir == null) return;
+            for (int i = 0; i < requestBuffer.Count; i++) dir.RequestAttack(requestBuffer[i], targetFleet);
+        }
+
+        /// <summary>系統外へ陣形変更を要請する。</summary>
+        private void RequestFormationForOutOfChain(int formationIndex)
+        {
+            SupportRequestDirector dir = Requests;
+            if (dir == null) return;
+            for (int i = 0; i < requestBuffer.Count; i++) dir.RequestFormation(requestBuffer[i], formationIndex);
+        }
+
         // 部隊グループ（#83・Alt＋数字）。グループ番号→割り当て艦隊。選択中ならそのグループへ割当、
         // 空なら呼び出して選択する（割当/呼出は同じキーで状況により切替＝GameInput の説明どおり）。
         private readonly Dictionary<int, List<Selectable>> controlGroups = new Dictionary<int, List<Selectable>>();
@@ -221,8 +361,7 @@ namespace Ginei
             // カーソル下の敵艦隊を判定（旗艦・配下艦どちらでも親の艦隊に解決）
             Squadron hoverFleet = null;
             FleetStrength hoverFlag = null;
-            bool overUI = UnityEngine.EventSystems.EventSystem.current != null &&
-                          UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+            bool overUI = IsPointerOverUI();
             if (!overUI)
             {
                 Collider2D collider = OverlapPointInScene(GetMouseWorldPosition());
@@ -421,7 +560,10 @@ namespace Ginei
         /// </summary>
         private void ConfirmAttack(Squadron targetFleet, string targetName, bool useMissile)
         {
-            foreach (var selectable in selectedFleets)
+            // #67：命令は指揮系統の内側だけへ通す（系統外は支援要請になる）。
+            List<Selectable> attackers = CommandableSelection("攻撃");
+            RequestAttackForOutOfChain(targetFleet);   // #67：系統外へは要請として出す（往復する）
+            foreach (var selectable in attackers)
             {
                 if (selectable == null) continue;
 
@@ -552,6 +694,9 @@ namespace Ginei
         /// </summary>
         private void ExecuteMoveCommand(Vector2 pos, float? facingAngleZ)
         {
+            // #67：系統外の艦隊へは命令ではなく<b>移動の支援要請</b>を出す（相手が応じたら動く）。
+            RequestMoveForOutOfChain(pos);
+
             // 隊形を保つため、各艦隊は「目標地点＋重心からのオフセット」へ向かう（重なり防止）
             foreach (var mu in movePreviews)
             {
@@ -617,7 +762,8 @@ namespace Ginei
         /// <summary>選択中の全艦隊を停止させる（標準命令解除＋追尾解除＋その場で停止）。#85</summary>
         public void StopSelected()
         {
-            foreach (var sel in selectedFleets)
+            // #67：停止も指揮系統の内側だけ。
+            foreach (var sel in CommandableSelection("停止"))
             {
                 if (sel == null) continue;
                 FleetStandardOrder order = sel.GetComponent<FleetStandardOrder>();
@@ -633,7 +779,8 @@ namespace Ginei
         /// <summary>選択中の全艦隊に「その場保持」を命じる（移動せず射界内の敵に自動発砲）。#85</summary>
         public void HoldSelected()
         {
-            foreach (var sel in selectedFleets)
+            // #67：その場保持も指揮系統の内側だけ。
+            foreach (var sel in CommandableSelection("保持"))
             {
                 if (sel == null) continue;
                 FleetStandardOrder order = EnsureStandardOrder(sel);
@@ -689,10 +836,18 @@ namespace Ginei
             ClearMovePreviews();
             if (selectedFleets.Count == 0) return;
 
+            // #67：移動・後退は movePreviews を回して発令するので、<b>ゴーストを作る時点で</b>
+            // 指揮系統の内側だけに絞る＝系統外へ移動命令が漏れない（要請の通知もここで出る）。
+            List<Selectable> targets = CommandableSelection("移動");
+            // 系統外のぶんは行き先が決まってから支援要請にする（ExecuteMoveCommand）。
+            outOfChainForMove.Clear();
+            outOfChainForMove.AddRange(PendingRequests);
+            if (targets.Count == 0) return;
+
             // 選択群の重心（null は除外）
             Vector2 centroid = Vector2.zero;
             int n = 0;
-            foreach (var s in selectedFleets)
+            foreach (var s in targets)
             {
                 if (s == null) continue;
                 centroid += (Vector2)s.transform.position;
@@ -826,6 +981,9 @@ namespace Ginei
         /// </summary>
         public void SelectFleet(Selectable selectable)
         {
+            // ★敵を選択に加えない（右クリックメニューの「選択」から敵旗艦を選べる穴を塞ぐ）。
+            // 指揮系統外の味方は選べる＝命令だけが支援要請になる（#67）。
+            if (selectable != null && RightFor(selectable) == BattleCommandRight.不可) return;
             if (selectable != null && !selectedFleets.Contains(selectable))
             {
                 selectable.SetSelected(true);
@@ -841,9 +999,13 @@ namespace Ginei
         public void ChangeFormation(int formationIdx)
         {
             Formation f = (Formation)formationIdx;
-            bool anyBlocked = false;        // 指揮スキルポイント不足で変更できなかった艦隊があるか
+            bool anyBlocked = false;        // 指揮スキルポイント不足等で変更できなかった艦隊があるか
             bool anyAccessDenied = false;   // 軍神専用陣形を非軍神に指示した艦隊があるか
-            foreach (var selectable in selectedFleets)
+            int accepted = 0;               // 受理して保持に入った隊数
+            // #67：陣形変更も指揮系統の内側だけ（HUD／メニュー／直接呼び出しの3入口がここへ集まる）。
+            List<Selectable> formTargets = CommandableSelection("陣形変更");
+            RequestFormationForOutOfChain(formationIdx);   // #67：系統外へは要請
+            foreach (var selectable in formTargets)
             {
                 if (selectable == null) continue;
                 Squadron sq = selectable.GetComponent<Squadron>();
@@ -860,14 +1022,98 @@ namespace Ginei
                     }
                 }
                 // 陣形変更は指揮スキルポイントを消費（#陣形コスト）。戦闘中はコストが重く、多用できない。
-                if (!sq.TryChangeFormation(f)) anyBlocked = true;
+                // ★受理されると「手動保持」になり、AI（艦隊・軍団とも）は上書きしない（確定仕様1）。
+                //   断られたときは旧指定も保持もそのまま（消費なし・自動再試行なし）。
+                FormationOrderResult r = sq.RequestFormation(f, FormationOrderSource.直接命令);
+                if (r == FormationOrderResult.受理) { accepted++; continue; }
+
+                anyBlocked = true;
+                FleetStrength who = selectable.GetComponent<FleetStrength>();
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    FleetFormationOrderRules.ResultText(r, f, who != null ? who.admiralName : ""));
             }
             if (anyAccessDenied)
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
                     "車懸かりは軍神のみが布陣できる陣形だ");
-            if (anyBlocked)
+            if (accepted > 0)
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
-                    "指揮スキルポイント不足で陣形を変更できない隊があった（戦闘中はコストが重い）");
+                    $"{accepted} 隊の陣形を {f} に指定しました（保持＝AI は変更しません）");
+        }
+
+        /// <summary>
+        /// <b>配下艦隊の陣形を一括指定</b>する（確定仕様1・軍団隊形とは別操作）。
+        ///
+        /// 軍団の隊形（<see cref="CorpsFormation"/>）は艦隊の並べ方であって、各艦隊の中の陣形とは別物。
+        /// こちらは「自分が指揮する軍団の<b>各艦隊の陣形</b>」をまとめて指定する。
+        /// 対象は<b>指揮系統の内側だけ</b>＝#67 の関門（<see cref="CommandableSelection"/>）を必ず通し、
+        /// 系統外へは支援要請として出す（直接は動かさない）。
+        /// </summary>
+        public void ChangeFormationForCorps(int formationIdx)
+        {
+            Formation f = (Formation)formationIdx;
+
+            // ★対象は「いま選択している艦隊が属する軍団」だけ（複数選択なら選択された各軍団）。
+            //   自分の指揮系統（ActorChain）を使うと、軍団メニューを開いた文脈と関係のない艦隊まで
+            //   変えてしまう（総司令官なら全軍が対象になる）＝選択の文脈から外れない。
+            var corpsNames = new List<string>();
+            for (int i = 0; i < selectedFleets.Count; i++)
+            {
+                Selectable sel = selectedFleets[i];
+                FleetStrength fs = sel != null ? sel.GetComponent<FleetStrength>() : null;
+                if (fs == null || string.IsNullOrEmpty(fs.corpsName)) continue;
+                if (!corpsNames.Contains(fs.corpsName)) corpsNames.Add(fs.corpsName);
+            }
+
+            if (corpsNames.Count == 0)
+            {
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    "軍団に属する艦隊を選択してから実行してください（対象の軍団が決まりません）");
+                return;
+            }
+
+            // 選択された軍団の生存艦隊のうち、指揮権限の内側だけを対象にする。
+            var targets = new List<Selectable>();
+            int outOfChain = 0;
+            IReadOnlyList<FleetStrength> flags = FleetRegistry.FlagshipsIn(gameObject.scene);
+            for (int i = 0; i < flags.Count; i++)
+            {
+                FleetStrength fs = flags[i];
+                if (fs == null || !fs.IsAlive) continue;
+                if (!corpsNames.Contains(fs.corpsName)) continue;
+                Selectable sel = fs.GetComponent<Selectable>();
+                if (sel == null) continue;
+                if (RightFor(sel) != BattleCommandRight.直接命令) { outOfChain++; continue; }
+                targets.Add(sel);
+            }
+
+            string corpsLabel = string.Join("／", corpsNames);
+            if (targets.Count == 0)
+            {
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    outOfChain > 0
+                        ? $"{corpsLabel} に直接命令できる艦隊がありません（{outOfChain} 隊は指揮系統の外です）"
+                        : $"{corpsLabel} に対象の艦隊がいません");
+                return;
+            }
+
+            int accepted = 0;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                Squadron sq = targets[i].GetComponent<Squadron>();
+                if (sq == null) continue;
+                FormationOrderResult r = sq.RequestFormation(f, FormationOrderSource.直接命令);
+                if (r == FormationOrderResult.受理) { accepted++; continue; }
+
+                // ★対象ごとの失敗理由も出す（黙って一部だけ変わらない、を作らない）。
+                FleetStrength who = targets[i].GetComponent<FleetStrength>();
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    FleetFormationOrderRules.ResultText(r, f, who != null ? who.admiralName : ""));
+            }
+
+            string note = outOfChain > 0 ? $"（{outOfChain} 隊は指揮系統の外のため対象外）" : "";
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
+                $"{corpsLabel} の配下艦隊 {accepted}/{targets.Count} 隊の陣形を {f} に一括指定しました" +
+                $"{note}（軍団隊形は変更していません）");
         }
 
         /// <summary>
@@ -1057,10 +1303,19 @@ namespace Ginei
             return kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
         }
 
+        /// <summary>
+        /// ポインタが UI の上にあるか（＝盤面のクリックとして扱わない）。
+        ///
+        /// 本筋は EventSystem の <c>IsPointerOverGameObject()</c>。加えて
+        /// <see cref="BattlePauseButton"/> の矩形も直接見るのは、EventSystem が不調なときに
+        /// <b>停止ボタンを押したつもりのクリックが盤面へ抜けない</b>ようにするため
+        /// （ボタン側も同じときに直接判定へ切り替わる＝判定の食い違いを作らない）。
+        /// </summary>
         private static bool IsPointerOverUI()
         {
             var es = UnityEngine.EventSystems.EventSystem.current;
-            return es != null && es.IsPointerOverGameObject();
+            if (es != null && es.IsPointerOverGameObject()) return true;
+            return BattlePauseButton.IsPointerOverButton();
         }
 
         // ----- 選択矩形のビジュアル（スクリーン空間オーバーレイ・実行時生成）-----

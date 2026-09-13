@@ -313,7 +313,7 @@ namespace Ginei
             bodyLabel.fontSize = bodyFontSize;
             bodyLabel.color = new Color(0.92f, 0.94f, 0.97f);
             bodyLabel.alignment = TextAlignmentOptions.TopLeft;
-            bodyLabel.enableWordWrapping = true;
+            bodyLabel.textWrappingMode = TMPro.TextWrappingModes.Normal;
             bodyLabel.raycastTarget = false;
             if (jpFont != null) bodyLabel.font = jpFont;
 

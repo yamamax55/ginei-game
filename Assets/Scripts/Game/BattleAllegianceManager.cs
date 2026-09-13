@@ -33,7 +33,7 @@ namespace Ginei
         private bool active;           // 旗幟が揺らぐ艦隊が居るか（居なければ毎フレーム何もしない）
         private float timer;
         private readonly List<Allegiance> allegiances = new List<Allegiance>();
-        private readonly Dictionary<int, FleetStrength> fleetById = new Dictionary<int, FleetStrength>();
+        private readonly Dictionary<long, FleetStrength> fleetById = new Dictionary<long, FleetStrength>();
         private readonly List<StanceChange> changes = new List<StanceChange>();
         private Faction sideA, sideB;          // 会戦の2陣営（legacy enum）
         private FactionData dataA, dataB;      // 各陣営の代表 FactionData（寝返り先の色・敵対判定用。無ければ null）
@@ -101,7 +101,7 @@ namespace Ginei
                 if (!sides.Contains(fs.faction)) sides.Add(fs.faction);
                 if (fs.loyalty < 1f || fs.intrigue > 0f) anyWavering = true;
 
-                int id = fs.GetInstanceID();
+                long id = EntityKey.Of(fs);
                 allegiances.Add(new Allegiance(id, fs.faction, fs.strength, fs.loyalty, fs.intrigue));
                 fleetById[id] = fs;
 

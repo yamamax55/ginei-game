@@ -1,0 +1,716 @@
+[
+  {
+    "index": 0,
+    "name": "エベレスト",
+    "resource": "Models/Stars/Star_00",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 1,
+    "name": "チョゴリ",
+    "resource": "Models/Stars/Star_01",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 2,
+    "name": "カンチェンジュンガ",
+    "resource": "Models/Stars/Star_02",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 3,
+    "name": "ローツェ",
+    "resource": "Models/Stars/Star_03",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 4,
+    "name": "マカルー",
+    "resource": "Models/Stars/Star_04",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 5,
+    "name": "チョオユー",
+    "resource": "Models/Stars/Star_05",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 6,
+    "name": "ダウラギリ",
+    "resource": "Models/Stars/Star_06",
+    "type": "赤色巨星",
+    "family": "giant",
+    "color": [
+      1.0,
+      0.22,
+      0.1
+    ],
+    "association": "雄大な山塊を思わせる大きく緩やかな対流模様",
+    "triangles": 9888
+  },
+  {
+    "index": 7,
+    "name": "マナスル",
+    "resource": "Models/Stars/Star_07",
+    "type": "G型黄色主系列星",
+    "family": "gold",
+    "color": [
+      1.0,
+      0.64,
+      0.17
+    ],
+    "association": "陽光・神話を思わせる黄金の光",
+    "triangles": 9888
+  },
+  {
+    "index": 8,
+    "name": "アンナプルナ",
+    "resource": "Models/Stars/Star_08",
+    "type": "G型黄色主系列星",
+    "family": "gold",
+    "color": [
+      1.0,
+      0.64,
+      0.17
+    ],
+    "association": "陽光・神話を思わせる黄金の光",
+    "triangles": 9888
+  },
+  {
+    "index": 9,
+    "name": "ナンガパルバット",
+    "resource": "Models/Stars/Star_09",
+    "type": "赤色巨星",
+    "family": "giant",
+    "color": [
+      1.0,
+      0.22,
+      0.1
+    ],
+    "association": "雄大な山塊を思わせる大きく緩やかな対流模様",
+    "triangles": 9888
+  },
+  {
+    "index": 10,
+    "name": "ガッシャーブルム",
+    "resource": "Models/Stars/Star_10",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 11,
+    "name": "ブロードピーク",
+    "resource": "Models/Stars/Star_11",
+    "type": "赤色巨星",
+    "family": "giant",
+    "color": [
+      1.0,
+      0.22,
+      0.1
+    ],
+    "association": "雄大な山塊を思わせる大きく緩やかな対流模様",
+    "triangles": 9888
+  },
+  {
+    "index": 12,
+    "name": "シシャパンマ",
+    "resource": "Models/Stars/Star_12",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 13,
+    "name": "ナムチャバルワ",
+    "resource": "Models/Stars/Star_13",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 14,
+    "name": "カイラス",
+    "resource": "Models/Stars/Star_14",
+    "type": "G型黄色主系列星",
+    "family": "gold",
+    "color": [
+      1.0,
+      0.64,
+      0.17
+    ],
+    "association": "陽光・神話を思わせる黄金の光",
+    "triangles": 9888
+  },
+  {
+    "index": 15,
+    "name": "アマダブラム",
+    "resource": "Models/Stars/Star_15",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 16,
+    "name": "プモリ",
+    "resource": "Models/Stars/Star_16",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 17,
+    "name": "ティリチミール",
+    "resource": "Models/Stars/Star_17",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 18,
+    "name": "ハンテングリ",
+    "resource": "Models/Stars/Star_18",
+    "type": "G型黄色主系列星",
+    "family": "gold",
+    "color": [
+      1.0,
+      0.64,
+      0.17
+    ],
+    "association": "陽光・神話を思わせる黄金の光",
+    "triangles": 9888
+  },
+  {
+    "index": 19,
+    "name": "ポベーダ",
+    "resource": "Models/Stars/Star_19",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 20,
+    "name": "レーニン",
+    "resource": "Models/Stars/Star_20",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 21,
+    "name": "ソモニ",
+    "resource": "Models/Stars/Star_21",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 22,
+    "name": "ムスターグアタ",
+    "resource": "Models/Stars/Star_22",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 23,
+    "name": "ベルーハ",
+    "resource": "Models/Stars/Star_23",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 24,
+    "name": "モンブラン",
+    "resource": "Models/Stars/Star_24",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 25,
+    "name": "マッターホルン",
+    "resource": "Models/Stars/Star_25",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 26,
+    "name": "アイガー",
+    "resource": "Models/Stars/Star_26",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 27,
+    "name": "ユングフラウ",
+    "resource": "Models/Stars/Star_27",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 28,
+    "name": "モンテローザ",
+    "resource": "Models/Stars/Star_28",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 29,
+    "name": "エルブルス",
+    "resource": "Models/Stars/Star_29",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 30,
+    "name": "カズベク",
+    "resource": "Models/Stars/Star_30",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 31,
+    "name": "ウシュバ",
+    "resource": "Models/Stars/Star_31",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 32,
+    "name": "オリンポス",
+    "resource": "Models/Stars/Star_32",
+    "type": "G型黄色主系列星",
+    "family": "gold",
+    "color": [
+      1.0,
+      0.64,
+      0.17
+    ],
+    "association": "陽光・神話を思わせる黄金の光",
+    "triangles": 9888
+  },
+  {
+    "index": 33,
+    "name": "アコンカグア",
+    "resource": "Models/Stars/Star_33",
+    "type": "赤色巨星",
+    "family": "giant",
+    "color": [
+      1.0,
+      0.22,
+      0.1
+    ],
+    "association": "雄大な山塊を思わせる大きく緩やかな対流模様",
+    "triangles": 9888
+  },
+  {
+    "index": 34,
+    "name": "チンボラソ",
+    "resource": "Models/Stars/Star_34",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 35,
+    "name": "コトパクシ",
+    "resource": "Models/Stars/Star_35",
+    "type": "M型赤色矮星",
+    "family": "red",
+    "color": [
+      1.0,
+      0.095,
+      0.025
+    ],
+    "association": "火山を思わせる赤い表面と活発な紅炎",
+    "triangles": 10464
+  },
+  {
+    "index": 36,
+    "name": "フィッツロイ",
+    "resource": "Models/Stars/Star_36",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 37,
+    "name": "セロトーレ",
+    "resource": "Models/Stars/Star_37",
+    "type": "A型白色主系列星",
+    "family": "white",
+    "color": [
+      0.66,
+      0.79,
+      1.0
+    ],
+    "association": "白い峰を思わせる澄んだ白光",
+    "triangles": 9888
+  },
+  {
+    "index": 38,
+    "name": "オホスデルサラド",
+    "resource": "Models/Stars/Star_38",
+    "type": "M型赤色矮星",
+    "family": "red",
+    "color": [
+      1.0,
+      0.095,
+      0.025
+    ],
+    "association": "火山を思わせる赤い表面と活発な紅炎",
+    "triangles": 10464
+  },
+  {
+    "index": 39,
+    "name": "ローガン",
+    "resource": "Models/Stars/Star_39",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 40,
+    "name": "レーニア",
+    "resource": "Models/Stars/Star_40",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 41,
+    "name": "フッド",
+    "resource": "Models/Stars/Star_41",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 42,
+    "name": "ウィットニー",
+    "resource": "Models/Stars/Star_42",
+    "type": "G型黄色主系列星",
+    "family": "gold",
+    "color": [
+      1.0,
+      0.64,
+      0.17
+    ],
+    "association": "陽光・神話を思わせる黄金の光",
+    "triangles": 9888
+  },
+  {
+    "index": 43,
+    "name": "ポポカテペトル",
+    "resource": "Models/Stars/Star_43",
+    "type": "M型赤色矮星",
+    "family": "red",
+    "color": [
+      1.0,
+      0.095,
+      0.025
+    ],
+    "association": "火山を思わせる赤い表面と活発な紅炎",
+    "triangles": 10464
+  },
+  {
+    "index": 44,
+    "name": "オリサバ",
+    "resource": "Models/Stars/Star_44",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 45,
+    "name": "ケニア",
+    "resource": "Models/Stars/Star_45",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 46,
+    "name": "トゥブカル",
+    "resource": "Models/Stars/Star_46",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 47,
+    "name": "ダマーバンド",
+    "resource": "Models/Stars/Star_47",
+    "type": "M型赤色矮星",
+    "family": "red",
+    "color": [
+      1.0,
+      0.095,
+      0.025
+    ],
+    "association": "火山を思わせる赤い表面と活発な紅炎",
+    "triangles": 10464
+  },
+  {
+    "index": 48,
+    "name": "アララト",
+    "resource": "Models/Stars/Star_48",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  },
+  {
+    "index": 49,
+    "name": "ビンソン",
+    "resource": "Models/Stars/Star_49",
+    "type": "B型青白色主系列星",
+    "family": "blue",
+    "color": [
+      0.22,
+      0.53,
+      1.0
+    ],
+    "association": "雪峰・氷河を思わせる青白い光",
+    "triangles": 9888
+  },
+  {
+    "index": 50,
+    "name": "コジオスコ",
+    "resource": "Models/Stars/Star_50",
+    "type": "K型橙色主系列星",
+    "family": "orange",
+    "color": [
+      1.0,
+      0.32,
+      0.065
+    ],
+    "association": "岩壁・乾いた山岳を思わせる橙色の光",
+    "triangles": 9888
+  }
+]

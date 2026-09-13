@@ -65,13 +65,44 @@ namespace Ginei
             owner = GetComponent<FortressUnit>();
             SetupWarningLine();
             SetupBeamLine();
+            // 主砲の演出層（#F）。見た目だけの装置で、当たり判定・射線・クールダウンには触れない。
+            fx = gameObject.AddComponent<MainCannonFx>();
+            fx.beamDuration = beamDuration;
+            // 3Dモデルに砲口があればそこから撃つ（モデルの内側から光が湧くのを避ける）。
+            muzzle = FindDeep(transform, "MainGunMuzzle");
             // 開幕直後の即撃ちを避け、最初の1発まで少し溜める。
             readyTime = Time.time + Mathf.Min(cooldown, 2f);
         }
 
+        [Tooltip("砲口の位置（要塞中心から射線方向へこの距離）。モデルに MainGunMuzzle があればそちらを使う")]
+        public float muzzleOffset = 2.2f;
+
+        private MainCannonFx fx;
+        private Transform muzzle;
+
+        /// <summary>名前で子孫を探す（モデルの砲口マーカー用）。</summary>
+        private static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            if (root.name == name) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform found = FindDeep(root.GetChild(i), name);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         private void Update()
         {
-            if (owner == null || !owner.IsAlive) { HideWarning(); return; }
+            // 要塞が落ちた／沈黙した＝溜めも残留ビームも残さずに消す（撃ち続けない・#F 後片付け）。
+            if (owner == null || !owner.IsAlive)
+            {
+                HideWarning();
+                if (fx != null) fx.StopAll();
+                phase = Phase.待機;
+                return;
+            }
 
             switch (phase)
             {
@@ -90,6 +121,12 @@ namespace Ginei
 
                 case Phase.チャージ:
                     UpdateWarningPulse();
+                    // 集光（光の粒が砲口へ寄る）＝これから主砲が来ると分かる（#F）。
+                    if (fx != null)
+                    {
+                        float p = Mathf.Clamp01(1f - (chargeEndTime - Time.time) / Mathf.Max(0.1f, chargeTime));
+                        fx.UpdateCharge(MuzzlePosition(aimDir), aimDir, p);
+                    }
                     if (Time.time >= chargeEndTime)
                     {
                         Fire();
@@ -175,9 +212,32 @@ namespace Ginei
             }
 
             FireBeam(origin, origin + dir * maxRange);
+            // 主砲の豪華な層（砲口閃光→芯＋外光の大口径ビーム→着弾衝撃波→残光・#F）。
+            // ★ダメージはこの直前で確定済み＝演出は当たり判定に一切関与しない。
+            if (fx != null) fx.PlayShot(MuzzlePosition(dir), origin + (Vector2)(dir * maxRange));
             if (AudioManager.Instance != null) AudioManager.Instance.PlayExplosion();
-            CameraController cam = Object.FindAnyObjectByType<CameraController>();
+            // ★カメラ揺れは<b>この会戦のカメラだけ</b>（複数会戦が同時に開いていても他の窓を揺らさない）。
+            CameraController cam = FindInScene<CameraController>();
             if (cam != null) cam.Shake();
+        }
+
+        /// <summary>この会戦シーンのコンポーネントだけを探す（他会戦へ落ちない）。</summary>
+        private T FindInScene<T>() where T : Component
+        {
+            T[] all = Object.FindObjectsByType<T>(FindObjectsSortMode.None);
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && all[i].gameObject.scene == gameObject.scene) return all[i];
+            return null;
+        }
+
+        /// <summary>
+        /// 砲口の位置。要塞の3Dモデルに開口（<c>MainGunMuzzle</c>）があればそこ、無ければ
+        /// 要塞の中心から射線方向へ <see cref="muzzleOffset"/> だけ出した点＝モデルの内側から光が湧かない。
+        /// </summary>
+        private Vector3 MuzzlePosition(Vector2 dir)
+        {
+            if (muzzle != null) return muzzle.position;
+            return transform.position + (Vector3)(dir.normalized * muzzleOffset);
         }
 
         // ── 予告線（警告）──

@@ -296,7 +296,7 @@ namespace Ginei
 
         /// <summary>実行時の成長（会戦XP・ADM-2 #2303）。`GrowthRegistry`（id キー・P1-b 永続＝会戦で蓄積）を優先し、
         /// 無ければ SO の <see cref="growth"/> フィールド（設計時の初期成長）。null＝成長なし＝従来動作（後方互換）。</summary>
-        private Growth RuntimeGrowth => GrowthRegistry.Get(GetInstanceID()) ?? growth;
+        private Growth RuntimeGrowth => GrowthRegistry.Get(EntityKey.Of(this)) ?? growth;
 
         /// <summary>
         /// 基準値に「参謀（最大MaxStaff名）の当該能力の最高値×staffBonusRatio」を加えた実効値を返す。

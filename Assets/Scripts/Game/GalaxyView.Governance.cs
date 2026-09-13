@@ -134,10 +134,146 @@ namespace Ginei
             return false;
         }
 
+        /// <summary>
+        /// 星系の座標だけを <see cref="GalaxyLayoutRules"/> で決め直す（#戦略MAP刷新）。
+        /// <b>星系id・所有・回廊接続・艦隊の所在には一切触れない</b>＝セーブ整合と進行への影響なし。
+        /// fresh=true は新規生成（陣営の帯へ層化して配る）、false は既存座標を活かした調整（読み込み後）。
+        /// </summary>
+        private void ApplyGalaxyLayout(bool fresh, System.Func<float> roll)
+        {
+            if (map == null || map.systems == null || map.systems.Count == 0) return;
+
+            var nodes = new List<LayoutNode>(map.systems.Count);
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                nodes.Add(new LayoutNode(s.id, LayoutSideOf(s.owner), s.position));
+            }
+            if (nodes.Count == 0) return;
+
+            GalaxyLayoutParams p = GalaxyLayoutParams.Default;
+            if (fresh) GalaxyLayoutRules.Layout(nodes, p, roll);
+            else GalaxyLayoutRules.Refine(nodes, p);
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                StarSystem s = map.GetSystem(nodes[i].id);
+                if (s != null) s.position = nodes[i].position;
+            }
+        }
+
+        /// <summary>
+        /// 航路の交差を座標だけで解く（#航路が交錯する）。<b>回廊は読むだけ＝接続も本数も変えない</b>
+        /// （消すと進軍経路が失われる）。解けたら true。非平面などで解けなければ false を返し、
+        /// 残った交差数を通知に出す＝黙って諦めない。
+        /// </summary>
+        private bool UntangleCorridors(System.Func<float> roll)
+        {
+            if (map == null || map.systems == null || map.corridors == null) return true;
+
+            var nodes = new List<LayoutNode>(map.systems.Count);
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null) continue;
+                nodes.Add(new LayoutNode(s.id, LayoutSideOf(s.owner), s.position));
+            }
+            if (nodes.Count == 0) return true;
+
+            var edges = new List<LayoutEdge>(map.corridors.Count);
+            for (int i = 0; i < map.corridors.Count; i++)
+            {
+                Corridor c = map.corridors[i];
+                if (c != null) edges.Add(new LayoutEdge(c.aId, c.bId));
+            }
+
+            bool ok = GalaxyPlanarityRules.Untangle(
+                nodes, edges, GalaxyLayoutParams.Default, GalaxyPlanarityParams.Default, roll, out int remaining);
+
+            // 座標だけ書き戻す（id で引く＝並び順に依存しない）。
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                StarSystem s = map.GetSystem(nodes[i].id);
+                if (s != null) s.position = nodes[i].position;
+            }
+
+            if (!ok)
+            {
+                // 平面に描けないグラフ（K5/K3,3 を含む等）。辺は消さずに最小の交差で描く＝経路は全て残る。
+                Debug.LogWarning($"[GalaxyView] 航路の交差を解ききれませんでした（残り {remaining}）。" +
+                                 "平面に描けないグラフの可能性があります。航路は削除していません。");
+                NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.注意,
+                    $"航路の交差が {remaining} 箇所残りました（経路は保持）");
+            }
+            return ok;
+        }
+
+        /// <summary>
+        /// 盤面から決まる種（星系idと回廊の端点から作る）。読み込みのたびに同じ結果になるようにする＝
+        /// 同じセーブを何度開いても同じ配置になり、プレイヤーが位置を覚えられる。
+        /// </summary>
+        private int SeedFromMap()
+        {
+            unchecked
+            {
+                int h = 17;
+                if (map?.systems != null)
+                    for (int i = 0; i < map.systems.Count; i++)
+                        if (map.systems[i] != null) h = h * 31 + map.systems[i].id;
+                if (map?.corridors != null)
+                    for (int i = 0; i < map.corridors.Count; i++)
+                        if (map.corridors[i] != null) h = h * 31 + map.corridors[i].aId * 7 + map.corridors[i].bId;
+                return h;
+            }
+        }
+
+        /// <summary>決定論的な roll(0..1) を作る（同じ種なら毎回同じ列）。</summary>
+        private static System.Func<float> DeterministicRoll(int seed)
+        {
+            var rng = new System.Random(seed);
+            return () => (float)rng.NextDouble();
+        }
+
+        /// <summary>回廊長を現在の座標から作り直す（新規生成のみ）。見た目の距離とワープ所要時間を一致させる。</summary>
+        private void RecomputeCorridorLengths()
+        {
+            if (map == null || map.corridors == null) return;
+            for (int i = 0; i < map.corridors.Count; i++)
+            {
+                Corridor c = map.corridors[i];
+                if (c == null) continue;
+                StarSystem a = map.GetSystem(c.aId), b = map.GetSystem(c.bId);
+                if (a == null || b == null) continue;
+                c.length = Mathf.Max(2f, Vector2.Distance(a.position, b.position));
+            }
+        }
+
+        /// <summary>所有勢力を配置の帯へ写す（同盟＝左／帝国＝右／その他＝中央の係争帯）。</summary>
+        private static int LayoutSideOf(Faction owner)
+        {
+            if (owner == Faction.同盟) return -1;
+            if (owner == Faction.帝国) return +1;
+            return 0;
+        }
+
         private void BuildDemoGalaxy()
         {
             // 戦略↔実会戦の往復で世界状態を保持（あれば再利用）
-            if (StrategySession.HasState) { map = StrategySession.Map; reg = StrategySession.Reg; return; }
+            if (StrategySession.HasState)
+            {
+                map = StrategySession.Map; reg = StrategySession.Reg;
+                // セーブから戻った盤面にも新しい見た目を適用する（#戦略MAP刷新）。
+                // Refine は「重なりを解く＋枠いっぱいへ寄せる」だけで相対の位置関係を保ち、
+                // **保存済みの回廊長には触れない**＝ワープ所要時間と航路接続は完全に不変。
+                // 収束済みの盤面では何も動かないため、会戦との往復で毎回呼ばれても座標は流れない（冪等）。
+                ApplyGalaxyLayout(fresh: false, roll: null);
+                // 航路の交差も座標だけで解く（#航路が交錯する）。回廊の接続・保存済みの長さ・星系idは不変＝
+                // 進軍中の艦隊の参照（currentSystemId/destinationSystemId と回廊長）に影響しない。
+                // 既に交差0なら1mmも動かさない（冪等）＝会戦との往復や再読み込みで座標が流れない。
+                UntangleCorridors(DeterministicRoll(SeedFromMap()));
+                return;
+            }
 
             // 新規戦役ごとに銀河マップを手続き生成して多様化する（#いろんなマップ）。
             // 不変条件：両勢力の星系数を等しくして約50:50（支配率しきい値70%＝開幕で決着しない）／
@@ -172,6 +308,13 @@ namespace Ginei
             foreach (var f in reg.fleets)
                 if (f != null)
                     f.strength = Mathf.Max(1, Mathf.RoundToInt(f.strength * (f.faction == pf ? pFac : eFac)));
+
+            // ★難易度補正で兵力が確定したこの時点で、各艦隊の初期艦艇数を<b>引き直して確定</b>させる。
+            // 盤面へ加えた時点（reg.Add）でも一度確定しているが、それは補正前の兵力に基づく値なので、
+            // 補正後の兵力で上書きする。ここで確定しておけば以後は毎回の導出に頼らない
+            //（導出は旧セーブ・旧データを読むときだけの後方互換）。
+            foreach (var f in reg.fleets)
+                if (f != null) f.SetShips(FleetShipCountRules.FromStrength(f.strength));
 
             StrategySession.Set(map, reg);
         }
@@ -234,6 +377,12 @@ namespace Ginei
                 hub = id; (ho == Faction.帝国 ? imp : ally).Add(id++);
             }
 
+            // --- 配置の確定（#戦略MAP刷新）---
+            // ここまでの座標は「どのクラスタに属するか」を決めるための仮置き。回廊を張る前に本配置へ均し、
+            // 陣営の帯・最小星間距離・画面いっぱいの使用を満たす。**回廊長はこの後の Link で確定座標から作る**
+            // ＝見た目の距離とワープ所要時間が一致する。枠の尺は従来と同程度なので所要時間の水準は変わらない。
+            ApplyGalaxyLayout(fresh: true, roll: () => (float)rng.NextDouble());
+
             // 近傍解決（位置が近い候補id。from は除外）。
             int Nearest(int from, List<int> cand)
             {
@@ -263,36 +412,137 @@ namespace Ginei
                 map.AddCorridor(new Corridor(a, b, len, t));
             }
 
+            // 候補の航路が既存の航路と交差するか（#航路が交錯する＝張る前に弾く）。
+            bool WouldCross(int a, int b)
+            {
+                StarSystem sa = map.GetSystem(a), sb = map.GetSystem(b);
+                if (sa == null || sb == null) return false;
+                for (int i = 0; i < map.corridors.Count; i++)
+                {
+                    Corridor c = map.corridors[i];
+                    if (c == null) continue;
+                    StarSystem ca = map.GetSystem(c.aId), cb = map.GetSystem(c.bId);
+                    if (ca == null || cb == null) continue;
+                    if (GalaxyPlanarityRules.SegmentsCross(sa.position, sb.position, ca.position, cb.position, 1e-4f))
+                        return true;
+                }
+                return false;
+            }
+
             // 各クラスタを連結（鎖＋ランダムな弦を0〜2本＝形に変化）。
+            // 鎖は<b>位置順（下から上）</b>に張る＝生成順のままだと鎖自身が折り返して交差するため。
+            // 弦は交差しない対だけを採る（連結性は鎖が担保済みなので、張れなければ諦めてよい）。
             void Wire(List<int> cluster)
             {
-                for (int i = 1; i < cluster.Count; i++) Link(cluster[i - 1], cluster[i]);
-                int chords = cluster.Count >= 4 ? 1 + rng.Next(2) : 0;
-                for (int c = 0; c < chords && cluster.Count > 2; c++)
-                    Link(cluster[rng.Next(cluster.Count)], cluster[rng.Next(cluster.Count)], CorridorType.要衝);
+                var ordered = new List<int>(cluster);
+                ordered.Sort((x, y) =>
+                {
+                    StarSystem sx = map.GetSystem(x), sy = map.GetSystem(y);
+                    if (sx == null || sy == null) return 0;
+                    int cmp = sx.position.y.CompareTo(sy.position.y);
+                    return cmp != 0 ? cmp : sx.position.x.CompareTo(sy.position.x);
+                });
+                for (int i = 1; i < ordered.Count; i++) Link(ordered[i - 1], ordered[i]);
+
+                int chords = ordered.Count >= 4 ? 1 + rng.Next(2) : 0;
+                for (int c = 0; c < chords && ordered.Count > 2; c++)
+                {
+                    // 交差しない弦を何回か探し、見つからなければこの弦は張らない。
+                    for (int attempt = 0; attempt < 8; attempt++)
+                    {
+                        int a = ordered[rng.Next(ordered.Count)];
+                        int b = ordered[rng.Next(ordered.Count)];
+                        if (a == b || WouldCross(a, b)) continue;
+                        Link(a, b, CorridorType.要衝);
+                        break;
+                    }
+                }
             }
             Wire(ally); Wire(imp);
+
+            // y の低い順に並べ替えた写し（前線の張り方を「順位どうし」に揃えて交差を防ぐ）。
+            List<int> ByHeight(List<int> src)
+            {
+                var o = new List<int>(src);
+                o.Sort((x, y) =>
+                {
+                    StarSystem sx = map.GetSystem(x), sy = map.GetSystem(y);
+                    if (sx == null || sy == null) return 0;
+                    return sx.position.y.CompareTo(sy.position.y);
+                });
+                return o;
+            }
+
+            // 交差しない相手を優先して選ぶ（見つからなければ最近傍＝連結性を優先し、後段の untangle が解く）。
+            int NearestNonCrossing(int from, List<int> cand)
+            {
+                int best = -1; float bd = float.MaxValue;
+                StarSystem f = map.GetSystem(from);
+                if (f == null) return Nearest(from, cand);
+                for (int i = 0; i < cand.Count; i++)
+                {
+                    int c = cand[i];
+                    if (c == from) continue;
+                    StarSystem s = map.GetSystem(c);
+                    if (s == null || WouldCross(from, c)) continue;
+                    float d = Vector2.Distance(f.position, s.position);
+                    if (d < bd) { bd = d; best = c; }
+                }
+                return best >= 0 ? best : Nearest(from, cand);
+            }
 
             // 前線：敵対クラスタ間を橋渡し（最低1本＝会戦が生起する）。
             if (archetype == 2)
             {
-                for (int r = 0; r < perSide; r++) Link(ally[r], imp[r], CorridorType.要衝); // 各行で前線
+                // 各行で前線。**双方を y 順に並べて同順位どうしを結ぶ**＝生成順のままだと橋が互いに交差する。
+                List<int> a2 = ByHeight(ally), i2 = ByHeight(imp);
+                int rows = Mathf.Min(a2.Count, i2.Count);
+                for (int r = 0; r < rows; r++) Link(a2[r], i2[r], CorridorType.要衝);
             }
             else if (hub >= 0)
             {
-                Link(hub, Nearest(hub, ally), CorridorType.要衝); // ハブ＝前線（両側へ）
-                Link(hub, Nearest(hub, imp), CorridorType.要衝);
-                if (rng.Next(2) == 0) { int a = ally[rng.Next(ally.Count)]; Link(a, Nearest(a, imp), CorridorType.要衝); }
+                Link(hub, NearestNonCrossing(hub, ally), CorridorType.要衝); // ハブ＝前線（両側へ）
+                Link(hub, NearestNonCrossing(hub, imp), CorridorType.要衝);
+                if (rng.Next(2) == 0) { int a = ally[rng.Next(ally.Count)]; Link(a, NearestNonCrossing(a, imp), CorridorType.要衝); }
             }
             else
             {
                 int bridges = 1 + rng.Next(2); // 対峙：内側どうしを1〜2本
                 for (int b = 0; b < bridges; b++)
-                { int a = ally[rng.Next(ally.Count)]; Link(a, Nearest(a, imp), CorridorType.要衝); }
+                { int a = ally[rng.Next(ally.Count)]; Link(a, NearestNonCrossing(a, imp), CorridorType.要衝); }
             }
+
+            // 航路の交差を座標だけで解く（#航路が交錯する）。回廊を張った後に位置を詰めるので、
+            // このあと長さを作り直して「見た目の距離＝ワープ所要時間」を一致させる。
+            UntangleCorridors(() => (float)rng.NextDouble());
+            RecomputeCorridorLengths();
+
+            // 新配置では陣営の帯が中央へ寄るぶん、前線回廊の見た目の距離が旧配置（左右 ±6＝約12）より短い。
+            // 素通りだと開幕から数日で接敵してしまうため、敵対どうしを結ぶ回廊にだけ長さの下限を課し、
+            // 「前線へ出るまでに時間がかかる」という従来のテンポを保つ（陣営内の移動時間は従来の振れ幅の内）。
+            EnforceFrontCorridorLength();
 
             // #40 戦略ノード：前線の要衝回廊を1本だけ要塞で封鎖する（帝国側）。同盟は撃破/制圧しないと通れない。
             PlaceDemoFortress();
+        }
+
+        /// <summary>
+        /// 敵対勢力どうしを結ぶ回廊（＝前線）の長さに下限を課す（#戦略MAP刷新）。
+        /// 長さはワープ所要時間の素なので、配置を締めても開幕の接敵タイミングが早くなりすぎない。
+        /// 陣営内の回廊には触れない＝territory 内の機動は見た目どおりの時間で動く。
+        /// </summary>
+        private void EnforceFrontCorridorLength()
+        {
+            if (map == null || map.corridors == null) return;
+            for (int i = 0; i < map.corridors.Count; i++)
+            {
+                Corridor c = map.corridors[i];
+                if (c == null) continue;
+                StarSystem a = map.GetSystem(c.aId), b = map.GetSystem(c.bId);
+                if (a == null || b == null) continue;
+                if (!FactionRelations.IsHostile(null, a.owner, null, b.owner)) continue;
+                if (c.length < frontCorridorMinLength) c.length = frontCorridorMinLength;
+            }
         }
 
         /// <summary>#40 デモ：敵対勢力をつなぐ前線の要衝回廊を1本だけ要塞で封鎖する（要塞所有は帝国側）。</summary>

@@ -453,7 +453,16 @@ namespace Ginei
             float dt = Time.deltaTime;
 
             // 攻城姿勢の切替（強襲↔包囲・T）。
-            if (GameInput.WasPressed(GameAction.攻城戦術切替)) posture = SiegePostureRules.Toggle(posture);
+            // #67：これは<b>攻城側の部隊への命令</b>なので、指揮系統の内側からしか変えられない。
+            // 攻城している自軍の艦隊を1隊でも直接指揮できるなら切替できる（戦役外の演習は常に可）。
+            if (GameInput.WasPressed(GameAction.攻城戦術切替))
+            {
+                if (CanChangePosture())
+                    posture = SiegePostureRules.Toggle(posture);
+                else
+                    NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                        "攻城の姿勢を変えられません（指揮系統外の部隊です）");
+            }
 
             // 攻撃側の地上戦力（在席数×1隊あたり陸戦隊）。守備隊との二者消耗（#131・GroundInvasionRules）。
             float attackerGround = alive * Mathf.Max(0, groundTroopsPerFleet);
@@ -505,6 +514,28 @@ namespace Ginei
                                * SiegePostureRules.CasualtyMultiplier(posture), dt);
             UpdateGauges();
             UpdateCraft(alive);
+        }
+
+        /// <summary>
+        /// 攻城の姿勢を変えてよいか（#67）。攻城側の艦隊のうち<b>1隊でも直接指揮できる</b>なら可。
+        /// 指揮官が居ない（テスト等）／戦役外の演習は従来どおり可。
+        /// </summary>
+        private bool CanChangePosture()
+        {
+            FleetCommander commander = BattleWindowUI.FindInSceneOrAny<FleetCommander>(gameObject.scene);
+            if (commander == null) return true;
+
+            System.Collections.Generic.IReadOnlyList<FleetStrength> flags = FleetRegistry.FlagshipsIn(gameObject.scene);
+            bool anyBesieger = false;
+            for (int i = 0; i < flags.Count; i++)
+            {
+                FleetStrength fs = flags[i];
+                if (fs == null || !fs.IsAlive || fs.faction != besiegerFaction) continue;
+                anyBesieger = true;
+                Selectable sel = fs.GetComponent<Selectable>();
+                if (sel != null && commander.RightFor(sel) == BattleCommandRight.直接命令) return true;
+            }
+            return !anyBesieger;   // 攻城側が居ない＝判定対象なし（従来どおり）
         }
 
         private int CountBesiegers()

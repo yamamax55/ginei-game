@@ -23,7 +23,8 @@ namespace Ginei
         public float juniorServiceMerit = 14f;
 
         // 艦隊指揮の下限（准将＝tier5）。これ未満は尉官/佐官＝モンタージュで駆け上がる。
-        private const int FlagRankTier = 5;
+        /// <summary>艦隊指揮の下限（准将＝tier5）。これ未満は尉官/佐官＝昇進モンタージュ中で出陣できない。</summary>
+        public const int FlagRankTier = 5;
 
         // 会戦→武勲の換算（P1-a #2477）。与ダメをこの量で割って撃沈功績の magnitude に（上限 MaxBattleMerit）。
         private const float DamagePerSinkMerit = 50f;
@@ -58,7 +59,7 @@ namespace Ginei
         private List<CascadeLevel> cascade;
         private Faction pf = Faction.同盟;
         private int lastCouncilMonth;
-        private int heroAdmiralKey; // 主人公の AdmiralData.GetInstanceID()＝会戦成長台帳 GrowthRegistry のキー（P1-b 永続）
+        private long heroAdmiralKey; // 主人公の EntityKey.Of(AdmiralData)＝会戦成長台帳 GrowthRegistry のキー（P1-b 永続）
         private float grievance;    // 不満（主命失敗で増・達成で減）＝岐路判定 CareerForkRules 用
         private int fame;           // 武名（ADM-3 #2304・戦功で上がり政界転身の資本に・RenownRules）
         private int pendingPetitions; // 未裁可の具申（TKO-4・月次評定で上官が裁可＝序列内・MEYASU の決裁デスクは通さない）
@@ -539,7 +540,7 @@ namespace Ginei
             FactionRanks = BuildCareerLadder();
 
             AdmiralData pa = gs != null ? ContentDatabase.AdmiralByName(gs.selectedAdmiral) : null;
-            heroAdmiralKey = pa != null ? pa.GetInstanceID() : 0; // 会戦成長台帳のキー（BattleManager と同じ GetInstanceID）
+            heroAdmiralKey = pa != null ? EntityKey.Of(pa) : 0; // 会戦成長台帳のキー（BattleManager と同じ EntityKey）
             Protagonist = new Person(ProtagonistId, pa != null ? pa.FullName : "主人公", pf, PersonRole.軍人);
             if (pa != null)
             {

@@ -5,11 +5,11 @@ namespace Ginei
     /// <summary>会戦中の旗幟遷移1件（どの諸侯が・どの旗幟から・どの旗幟へ）。</summary>
     public readonly struct StanceChange
     {
-        public readonly int id;       // Allegiance.id（＝会戦側で艦隊と紐付けるキー）
+        public readonly long id;      // Allegiance.id（＝会戦側で艦隊と紐付けるキー）
         public readonly Stance from;
         public readonly Stance to;
 
-        public StanceChange(int id, Stance from, Stance to)
+        public StanceChange(long id, Stance from, Stance to)
         {
             this.id = id;
             this.from = from;

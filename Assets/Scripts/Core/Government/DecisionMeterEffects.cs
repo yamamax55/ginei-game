@@ -76,5 +76,19 @@ namespace Ginei
             if (string.IsNullOrEmpty(effectKey)) return;
             registry[effectKey] = delta;
         }
+
+        /// <summary>
+        /// その案件でメーターを動かす権利を<b>1回だけ</b>取る（取れたら true）。
+        ///
+        /// メーターは勝敗に直結するので、同じ決裁で二度動くと実害が大きい。
+        /// 効果の適用（<see cref="DecisionResolutionRules.ClaimForApply"/>）とは別勘定にしてある＝
+        /// 稟議の執行に失敗してもメーターの二重加算は起きないし、その逆も起きない。
+        /// </summary>
+        public static bool MarkMeterApplied(PendingDecision d)
+        {
+            if (d == null || d.meterApplied) return false;
+            d.meterApplied = true;
+            return true;
+        }
     }
 }

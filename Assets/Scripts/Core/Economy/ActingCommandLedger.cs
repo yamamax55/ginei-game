@@ -9,7 +9,7 @@ namespace Ginei
     /// </summary>
     public static class ActingCommandLedger
     {
-        class Entry { public string postKey; public int originalId; public int actingId; }
+        class Entry { public string postKey; public long originalId; public long actingId; }
         static readonly List<Entry> entries = new List<Entry>();
 
         public static int Count => entries.Count;
@@ -22,7 +22,7 @@ namespace Ginei
         }
 
         /// <summary>臨時指揮を記録。初回はその時点の指揮官を「正規」として刻み、以後は actingId のみ更新（正規は固定）。</summary>
-        public static void Record(string postKey, int originalId, int actingId)
+        public static void Record(string postKey, long originalId, long actingId)
         {
             if (string.IsNullOrEmpty(postKey)) return;
             var e = Find(postKey);
@@ -35,10 +35,10 @@ namespace Ginei
         }
 
         /// <summary>現在の指揮官id（臨時含む）。無ければ -1。</summary>
-        public static int ActingFor(string postKey) { var e = Find(postKey); return e != null ? e.actingId : -1; }
+        public static long ActingFor(string postKey) { var e = Find(postKey); return e != null ? e.actingId : -1; }
 
         /// <summary>正規（戦闘開始時）の指揮官id。無ければ -1。</summary>
-        public static int OriginalFor(string postKey) { var e = Find(postKey); return e != null ? e.originalId : -1; }
+        public static long OriginalFor(string postKey) { var e = Find(postKey); return e != null ? e.originalId : -1; }
 
         /// <summary>臨時指揮中か＝現在の指揮官が正規と異なる（上官を失い下位が臨時継承）。</summary>
         public static bool IsActing(string postKey)

@@ -5,10 +5,10 @@ namespace Ginei
     /// <summary>臨時指揮の後任候補（#147 拡張・会戦の臨時指揮）。id・階級tier・先任順位（小さいほど先任）。</summary>
     public struct CommandCandidate
     {
-        public int id;
+        public long id;
         public int rankTier;
         public int seniority; // 先任順位（同階級の序列・小さいほど上位）
-        public CommandCandidate(int id, int rankTier, int seniority)
+        public CommandCandidate(long id, int rankTier, int seniority)
         {
             this.id = id; this.rankTier = rankTier; this.seniority = seniority;
         }

@@ -42,8 +42,8 @@ namespace Ginei.Tests
                 new DeploymentCandidate(3, 60f, 50f, 0.5f),  // 中
             };
             // 有能な軍団長(skill=1)＝roll 無視で真値どおり：強兵2→中3→弱兵1
-            int[] order = CorpsDeploymentRules.OrderFrontToBack(cands, 1f, _ => 0.5f);
-            Assert.AreEqual(new[] { 2, 3, 1 }, order);
+            long[] order = CorpsDeploymentRules.OrderFrontToBack(cands, 1f, _ => 0.5f);
+            Assert.AreEqual(new long[] { 2, 3, 1 }, order);
         }
 
         [Test]
@@ -54,7 +54,7 @@ namespace Ginei.Tests
                 new DeploymentCandidate(1, 60f, 10f, 0.5f),  // 戦闘力やや上だが功名心低
                 new DeploymentCandidate(2, 55f, 95f, 0.5f),  // 功名心が非常に高い＝前線志願
             };
-            int[] order = CorpsDeploymentRules.OrderFrontToBack(cands, 1f, _ => 0.5f);
+            long[] order = CorpsDeploymentRules.OrderFrontToBack(cands, 1f, _ => 0.5f);
             Assert.AreEqual(2, order[0]); // 功を求める提督が前線へ
         }
 
@@ -67,7 +67,7 @@ namespace Ginei.Tests
                 new DeploymentCandidate(2, 30f, 50f, 0.5f),  // 真値は弱兵
             };
             // 無能(skill=0)＝roll に流される。roll で弱兵2を高く評価→誤って前へ。
-            int[] order = CorpsDeploymentRules.OrderFrontToBack(cands, 0f, id => id == 2 ? 0.9f : 0.1f);
+            long[] order = CorpsDeploymentRules.OrderFrontToBack(cands, 0f, id => id == 2 ? 0.9f : 0.1f);
             Assert.AreEqual(2, order[0]); // 弱兵を前に出す誤配置
         }
     }

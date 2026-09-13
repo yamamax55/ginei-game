@@ -144,12 +144,13 @@ namespace Ginei
             bool actionable = NotificationActionRegistry.Has(n.seq);
 
             var label = go.AddComponent<TextMeshProUGUI>();
-            label.text = (actionable ? "⚔ " : "▸ ") + n.message;
+            // 「⚔」は日本語フォントに無く豆腐になる＝押せる行だと分かる短い日本語にする。
+            label.text = (actionable ? "【操作】" : "▸ ") + n.message;
             label.fontSize = 18f;
             label.color = SeverityColor(n.severity);
             label.raycastTarget = actionable;                  // 通常はクリックスルー／操作可能行だけ受ける
             label.alignment = TextAlignmentOptions.Left;
-            label.enableWordWrapping = false;                  // 1行固定（枠の高さを安定させる）
+            label.textWrappingMode = TMPro.TextWrappingModes.NoWrap;                  // 1行固定（枠の高さを安定させる）
             label.overflowMode = TextOverflowModes.Ellipsis;   // 長文は…で省略（全文は N で）
             if (jpFont != null) label.font = jpFont;
 
@@ -207,10 +208,25 @@ namespace Ginei
             var win = new GameObject("NotificationWindow");
             win.transform.SetParent(canvasObj.transform, false);
             window = win.AddComponent<RectTransform>();
-            window.anchorMin = new Vector2(0f, 0f);
-            window.anchorMax = new Vector2(0f, 0f);
-            window.pivot = new Vector2(0f, 0f);
-            window.anchoredPosition = margin;
+            if (battleContext)
+            {
+                // 会戦は従来どおり画面左下（盤面を塞がない位置）。
+                window.anchorMin = new Vector2(0f, 0f);
+                window.anchorMax = new Vector2(0f, 0f);
+                window.pivot = new Vector2(0f, 0f);
+                window.anchoredPosition = margin;
+            }
+            else
+            {
+                // 戦略は MAP の下端（画面高に対する割合）へ直接アンカーし、そこから下へ伸ばす（#戦略MAP刷新）。
+                // 画面下端からの固定余白だと、Canvas が幅基準スケールのため縦長/横長の画面で高さが変わり
+                // MAP に食い込むことがあった（実機QAで星と凡例を隠した）。割合アンカーなら比率が変わっても当たらない。
+                float mapBottom = StrategyScreenLayout.Default.mapBottom;
+                window.anchorMin = new Vector2(0f, mapBottom);
+                window.anchorMax = new Vector2(0f, mapBottom);
+                window.pivot = new Vector2(0f, 1f);              // 上端を基準に下へ伸びる
+                window.anchoredPosition = new Vector2(margin.x, -8f); // MAP 下端のすぐ下
+            }
             window.sizeDelta = new Vector2(panelWidth, 0f);
 
             var bg = win.AddComponent<Image>();

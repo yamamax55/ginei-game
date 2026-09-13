@@ -18,6 +18,17 @@ namespace Ginei
         public List<PersonSave> people = new List<PersonSave>(); // ネームド人物ロスター（提督/文官・空=後方互換）
         public List<StrategicFleetSave> fleets = new List<StrategicFleetSave>(); // 戦略艦隊（盤面の駒・空=後方互換）
         public List<ProvinceSave> provinces = new List<ProvinceSave>(); // 惑星内政（#109/#759・空=後方互換）
+        // 航行中の援軍（#38 C-5・空=後方互換＝旧セーブは援軍なしで読める）。
+        public List<ReinforcementSave> reinforcements = new List<ReinforcementSave>();
+
+        // ===== 稟議・決裁（#稟議完成②）=====
+        // 進行中の稟議と決裁カードを保存する。無い旧セーブは空＝案件なしで読める（前方互換）。
+        /// <summary>税などの稟議在庫（<see cref="RingiDirector"/> の台帳）。</summary>
+        public List<PetitionSave> petitions = new List<PetitionSave>();
+        /// <summary>編制の稟議在庫（<see cref="FleetRingiDirector"/> の台帳）。</summary>
+        public List<PetitionSave> fleetPetitions = new List<PetitionSave>();
+        /// <summary>決裁カード（未決も決裁済みの履歴も）。</summary>
+        public List<DecisionSave> decisions = new List<DecisionSave>();
         // 統一時間（GameClock）。0=未設定（後方互換＝既定クロック）。
         public double clockElapsed;
         public float clockSpeed = 1f;
@@ -134,6 +145,80 @@ namespace Ginei
         public float orbitalDefense, maxOrbitalDefense, invasionProgress, invasionThreshold;
     }
 
+    /// <summary>
+    /// 航行中の援軍（ワープイン）のセーブ平データ（#38 C-5）。
+    /// 旧セーブにはこのリストが無い＝空で読める（前方互換）＝援軍なしとして復元される。
+    /// 到着は<b>絶対 game-秒</b>で持つので、復元時に残り時間を計算し直さなくても整合する。
+    /// </summary>
+    [Serializable]
+    public class ReinforcementSave
+    {
+        public int systemA, systemB;   // 戦場キー（回廊は両端／星系戦は同じ値）
+        public int faction;            // (int)Faction
+        public int fleetId;            // 戦略側の艦隊ID（帰投・到着の紐付け）
+        public int strength;           // 抽象兵力
+        public double dispatchTime;    // 派遣した game-秒
+        public double arrivalTime;     // 到着する game-秒（絶対）
+    }
+
+    /// <summary>
+    /// 稟議1件のセーブ平データ（#稟議完成②）。案件ID・対象・効果・状態・執行済みかを保つ。
+    /// enum は int（JsonUtility 安全・前方互換）。
+    /// </summary>
+    [Serializable]
+    public class PetitionSave
+    {
+        public int id;
+        public string title = "";
+        public int faction;        // (int)Faction
+        public int box;            // (int)BoxKind
+        public string regionKey = "";
+        public int origin;         // (int)PetitionOrigin
+        public int drafterId;
+        public int addresseeId;
+        public string effectKey = "";
+        public int status;         // (int)PetitionStatus（執行済もここに入る）
+        public int carrierId;
+        public bool distorted;
+        public bool vindicated;
+    }
+
+    /// <summary>
+    /// 決裁カード1件のセーブ平データ（#稟議完成②）。
+    /// <b>効果を適用済みか</b>（<see cref="PendingDecision.applied"/>）と、対応する稟議・摩擦も保存する
+    /// ＝ロード後に同じ案件がもう一度効かない／稟議との対応を失わない。
+    /// </summary>
+    [Serializable]
+    public class DecisionSave
+    {
+        public int id;
+        public string title = "";
+        public string body = "";
+        public string imageKey = "";
+        public int severity;       // (int)DecisionSeverity
+        public int source;         // (int)DecisionSource
+        public List<string> choices = new List<string>();
+        public int defaultChoiceIndex;
+        public string effectKey = "";
+        public int status;         // (int)DecisionStatus
+        public float elapsed;      // 提示からの経過 game-秒（残り期限の復元に要る）
+        public int chosenIndex = -1;
+        public bool applied;       // 効果を適用済みか（二重執行の防止）
+        public bool meterApplied;  // 勝敗メーターへ反映済みか
+        public int outcome;        // (int)PetitionActionOutcome
+        public string resultDetail = "";
+        public int petitionId;     // 対応する稟議（0=なし）
+        // 誰が出して誰が決めるか・何を対象にするか（#67・提案対象の固定）
+        public int proposerId;
+        public string proposerName = "";
+        public int deciderId;
+        public string deciderName = "";
+        public string authorityBasis = "";
+        public string targetKey = "";   // PetitionTarget.Encode（空＝勢力全体）
+        public bool escalated;          // 上申中（決裁権者の返事待ち）
+        public float friction;     // 官僚の摩擦（執行忠実度の材料）
+    }
+
     /// <summary>回廊のセーブ平データ。</summary>
     [Serializable]
     public class CorridorSave
@@ -141,6 +226,20 @@ namespace Ginei
         public int aId, bId;
         public float length;
         public int type; // (int)CorridorType
+
+        // ===== 回廊要塞（#40 C-7）=====
+        // 旧セーブには無いフィールド＝JsonUtility は欠落を既定値で埋めるので hasFortress=false のまま読める
+        // ＝要塞なしの通商回廊として復元される（前方互換）。新セーブだけが要塞を持ち帰る。
+        public bool hasFortress;          // false＝要塞なし（フェザーン型／旧セーブ）
+        public float fortGarrison;        // 守備戦力
+        public float fortShield;          // 反射シールド健全度 0..1
+        public float fortMainGun;         // 主砲威力
+        public bool fortControlsCorridor; // 回廊を扼しているか（陥落後は false）
+        public int fortOwner;             // (int)Faction
+        public string fortName;           // 表示名
+        // 駐留艦隊のID名簿（#40 駐留艦隊）。施設の守備値 fortGarrison とは<b>別勘定</b>で、
+        // 空/欠落（旧セーブ）＝駐留なし＝従来どおり施設の守備値だけが効く。
+        public List<int> fortGarrisonFleetIds;
     }
 
     /// <summary>勢力の国家状態のセーブ平データ（王朝/統治体/組織/共同体＋統治スタイル）。</summary>
@@ -179,6 +278,23 @@ namespace Ginei
         public int destinationSystemId; // 移動中の目的地（0以下=停泊）
         public bool moving;             // 移動中だったか（ロードで再ワープ）
         public bool engaged;            // 交戦固着
+        // 艦隊ごとの艦艇数（隻）。旧セーブにはこのフィールドが無い＝0 で読まれるので、
+        // 復元時に FleetShipCountRules.EnsureInitialized が兵力から導出して埋める（後方互換）。
+        public int shipCount;
+        // 上の値が確定値か（旧セーブは false＝兵力から導出）。true なら 0 も「全滅」として保持する。
+        public bool shipCountSet;
+
+        // ── 編制と司令官（#軍団列・#指揮官列）──
+        // ★いずれも「実値+1」で持つ。JsonUtility は旧セーブに無いフィールドを 0 で埋めるため、
+        // 生の id をそのまま入れると「0 番の軍団／0 番の人物に所属」と誤読される。
+        // 0＝無所属／未任命（＝旧セーブの既定）、1 以上＝実値+1、と決めておけば旧セーブが必ず安全側に落ちる。
+        public int corpsIdPlus1;
+        public string corpsName;
+        public bool isCorpsFlagship;
+        public int armyGroupIdPlus1;
+        public string armyGroupName;
+        /// <summary>司令官の人物ID+1（0＝未任命）。名前は保存せず、人物ロスターから引き直す。</summary>
+        public int commanderPersonIdPlus1;
     }
 
     /// <summary>ネームド人物（<see cref="Person"/>）の平データ（軍人/文民ロスターの永続化）。enum は int で持つ（JsonUtility 安全・前方互換）。</summary>

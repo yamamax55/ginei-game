@@ -243,6 +243,12 @@ namespace Ginei
         /// <summary>現在の手動攻撃目標があるか（単艦または艦隊）。</summary>
         public bool HasManualTarget => ShipCombat.IsValidTarget(manualTarget) || IsFleetAlive(manualTargetFleet);
 
+        /// <summary>
+        /// 手動で指定している攻撃目標の艦隊（無ければ null）。<b>読み取り専用</b>＝QA の観測用。
+        /// 生死は判定せず参照をそのまま返す（「狙っていた相手が消えた」遷移を記録できるようにするため）。
+        /// </summary>
+        public Squadron ManualTargetFleet => manualTargetFleet;
+
         /// <summary>ミサイルの残弾数（HUD等の表示用）。</summary>
         public int MissileAmmo => missileAmmo;
 

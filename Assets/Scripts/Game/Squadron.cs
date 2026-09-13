@@ -572,6 +572,7 @@ namespace Ginei
         private void Update()
         {
             RegenSkillPoints(Time.deltaTime); // 指揮スキルポイントの回復（フレームレート非依存・timeScale 追従＝ポーズで0）
+            MaintainFormationHold();          // 陣形の保持（所属変更で解除・ずれたら無料で復帰・確定仕様1）
             UpdateEncircleTarget();
             UpdateShipPositions();
         }
@@ -610,17 +611,133 @@ namespace Ginei
         /// プレイヤー（FleetCommander）・AI（FleetAI）・軍団長（BattlefieldCommandManager）はこの窓口を呼ぶ。
         /// 同一陣形は無償（true）。スキルポイント不足なら変更せず false。戦闘中はコストが重い。
         /// </summary>
-        public bool TryChangeFormation(Formation f)
+        public bool TryChangeFormation(Formation f, FormationOrderSource source)
+            => RequestFormation(f, source) == FormationOrderResult.受理;
+
+        /// <summary>
+        /// 陣形指定の<b>唯一の窓口</b>（確定仕様1）。受理／拒否の理由まで返す。
+        ///
+        /// 保持・優先順位・拒否の判定は Core（<see cref="FleetFormationOrderRules"/>）に委譲し、
+        /// ここは盤面の事情（スキルポイント・資格・撤退中・軍団キー）を渡して結果を適用するだけ。
+        /// <b>断ったときは何も変えない</b>（旧指定・保持・スキルポイントをそのまま残す＝消費なし）。
+        /// </summary>
+        public FormationOrderResult RequestFormation(Formation f, FormationOrderSource source)
         {
-            if (f == currentFormation) return true; // 同一陣形＝無償（実質ノーオペ）
             EnsureSkillInit();
+
+            bool same = f == currentFormation;
             bool inCombat = flagshipWeapon != null && flagshipWeapon.IsInCombat;
-            var p = SkillCostParams();
-            float cost = FormationChangeCostRules.Cost(inCombat, p);
-            if (skillPoints < cost) return false; // スキルポイント不足＝多用できない
-            skillPoints -= cost;
-            currentFormation = f;
+            float cost = FormationChangeCostRules.Cost(inCombat, SkillCostParams());
+            bool hasPoints = skillPoints >= cost;
+            bool qualified = IsQualifiedFor(f);
+            bool retreating = IsRetreatingNow();
+
+            FormationOrderResult result = FleetFormationOrderRules.Decide(
+                formationHold, source, same, hasPoints, qualified, retreating);
+            if (result != FormationOrderResult.受理) return result;
+
+            if (!same)
+            {
+                skillPoints -= cost;
+                currentFormation = f;
+            }
+            formationHold = FleetFormationOrderRules.Apply(formationHold, source, f, CurrentCorpsKey());
+            lastFormationSource = source;   // 保持しない AI の指定でも「誰が決めたか」は残す（HUD 用）
+
+            // ★指定を受理したら包囲（陣形を崩す群がり）は解いて、隊形の形成へ移る。
+            if (formationHold.held) encircleTarget = null;
+            return result;
+        }
+
+        // ===== 陣形の保持（確定仕様1） =====
+
+        [System.NonSerialized] private FleetFormationHold formationHold = FleetFormationHold.None;
+
+        /// <summary>最後に陣形を決めた出どころ（保持しない AI の指定も含む・HUD の表示用）。</summary>
+        [System.NonSerialized] private FormationOrderSource lastFormationSource = FormationOrderSource.なし;
+
+        /// <summary>いまの陣形の保持状態（読み取り専用・HUD と QA が見る）。</summary>
+        public FleetFormationHold FormationHold => formationHold;
+
+        /// <summary>
+        /// 最後に陣形を決めた出どころ（読み取り専用）。
+        /// 保持していないときに「軍団長の指示で布いている」のか「艦隊が自分で選んだ」のかを区別する。
+        /// </summary>
+        public FormationOrderSource LastFormationSource => lastFormationSource;
+
+        /// <summary>手動保持中か（＝AI が陣形を上書きしない）。</summary>
+        public bool IsFormationHeld => formationHold.held;
+
+        /// <summary>
+        /// 陣形の保持を解く（敗走・総退却・所属変更・会戦終了）。
+        /// <b>解くのは陣形の保持だけ</b>＝移動命令も攻撃命令もここでは触らない。
+        /// 解いたら true。
+        /// </summary>
+        public bool ReleaseFormationHold(string reason)
+        {
+            if (!formationHold.held) return false;
+            formationHold = FleetFormationHold.None;
+            string who = flagshipStrength != null ? flagshipStrength.admiralName : name;
+            NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                FleetFormationOrderRules.ReleaseText(who, reason));
             return true;
+        }
+
+        /// <summary>
+        /// 保持の面倒を見る（毎フレーム・軽い）。
+        /// ① 指揮系統が変わっていたら解く ② 陣形がずれていたら<b>無料で</b>戻す。
+        /// 復帰は陣形だけで、移動・攻撃には触らない。
+        /// </summary>
+        private void MaintainFormationHold()
+        {
+            if (!formationHold.held) return;
+
+            if (FleetFormationOrderRules.ShouldReleaseOnCorpsChange(formationHold, CurrentCorpsKey()))
+            {
+                ReleaseFormationHold("指揮系統の変更");
+                return;
+            }
+
+            // 自動復帰：保持している陣形からずれていたら戻す（費用はかからない）。
+            if (FleetFormationOrderRules.ShouldRestore(formationHold, currentFormation))
+                currentFormation = formationHold.formation;
+        }
+
+        /// <summary>いまの軍団キー（所属なしは空文字）。</summary>
+        private string CurrentCorpsKey()
+            => flagshipStrength != null ? (CorpsFormation.KeyFor(flagshipStrength) ?? "") : "";
+
+        /// <summary>その陣形を布く資格があるか（軍神専用の車懸かり＝#軍神）。</summary>
+        private bool IsQualifiedFor(Formation f)
+        {
+            if (!FormationAccessRules.IsTranscendentOnly(f)) return true;
+            AdmiralData ad = flagshipStrength != null ? flagshipStrength.admiralData : null;
+            return FormationAccessRules.CanUse(f, ad != null && ad.isTranscendent);
+        }
+
+        private bool IsRoutedNow()
+        {
+            FleetMorale mo = flagshipStrength != null ? flagshipStrength.GetComponent<FleetMorale>() : null;
+            return mo != null && mo.IsRouted;
+        }
+
+        /// <summary>
+        /// いま陣形を受け付けられない<b>退却の状態</b>か（判定は Core へ委譲）。
+        ///
+        /// <b>★士気が正常なまま総退却で下がっている最中</b>は
+        /// <see cref="FleetStrength.IsRetreating"/> がまだ false（戦場端で立つ）なので、
+        /// <see cref="FleetAI.AIState.撤退"/> と<b>軍団の総退却の発令状態</b>も見ないと取りこぼす。
+        /// 取りこぼすと、次の軍団周期で解除される陣形を受理して
+        /// ちらつきとスキルポイントの無駄遣いが起きる。
+        /// </summary>
+        private bool IsRetreatingNow()
+        {
+            bool withdrawing = flagshipStrength != null && flagshipStrength.IsRetreating;
+            FleetAI ai = flagshipStrength != null ? flagshipStrength.GetComponent<FleetAI>() : null;
+            bool aiRetreating = ai != null && ai.currentState == FleetAI.AIState.撤退;
+            bool corpsRetreat = BattlefieldCommandManager.IsCorpsRetreatOrdered(CurrentCorpsKey());
+            return FleetFormationOrderRules.IsRetreatingState(
+                withdrawing, IsRoutedNow(), aiRetreating, corpsRetreat);
         }
 
         /// <summary>
@@ -630,6 +747,10 @@ namespace Ginei
         private void UpdateEncircleTarget()
         {
             if (!enableEncircleExposed || SutegamariActive) { encircleTarget = null; return; }
+
+            // ★手動で陣形を保持している間は、陣形を崩す群がり（包囲）を抑止する（確定仕様1）。
+            //   艦隊ごと側面へ回り込む移動は別経路なので妨げない。
+            if (formationHold.held) { encircleTarget = null; return; }
 
             // 既存対象は毎フレーム軽く有効性チェック（裸でなくなった/退却した/遠ざかった等で解除）
             if (encircleTarget != null && !IsValidEncircleTarget(encircleTarget)) encircleTarget = null;

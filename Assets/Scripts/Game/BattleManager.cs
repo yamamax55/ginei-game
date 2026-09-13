@@ -52,12 +52,17 @@ namespace Ginei
         private bool HPending => ctx != null ? ctx.Pending : BattleHandoff.Pending;
         private bool HSystemView => ctx != null ? ctx.IsSystemView : BattleHandoff.IsSystemView;
         private bool HPlanetSiege => ctx != null ? ctx.IsPlanetSiege : BattleHandoff.IsPlanetSiege;
+        private bool HCorridorFortress => ctx != null ? ctx.IsCorridorFortress : BattleHandoff.IsCorridorFortress;
         private Faction HFactionA => ctx != null ? ctx.factionA : BattleHandoff.factionA;
         private Faction HFactionB => ctx != null ? ctx.factionB : BattleHandoff.factionB;
         private string HReturnScene => ctx != null ? ctx.returnScene : BattleHandoff.returnScene;
 
         private void Start()
         {
+            // この会戦が扱っている戦場を登録する＝戦略側の自動解決に横取りさせない（#40 二重解決の防止）。
+            // 受け渡し（BattleHandoff）はウィンドウ化会戦だとロード後に空けられるので、ここで控えておく。
+            if (HBattlefield.IsValid) ActiveBattlefields.Register(gameObject.scene, HBattlefield);
+
             // 開始時にタイムスケールをリセット
             Time.timeScale = 1f;
             GameInput.SetContext(InputContext.会戦); // 入力コンテキストを会戦に（#107）
@@ -78,6 +83,10 @@ namespace Ginei
                 clock.paused = Time.timeScale <= 0f;
                 clock.Advance(Time.unscaledDeltaTime);
             }
+            // #38：援軍台帳を統一クロックの絶対時刻へ同期し、到着したぶんをこの戦場へ出す。
+            // 絶対同期なので戦略側と二重に呼んでも到着時刻はずれない（ウィンドウ化会戦でも同じ）。
+            if (clock != null) StrategySession.Reinforcements?.SyncTo(clock.ElapsedSeconds);
+            TakeArrivedReinforcements();
 
             // システムビュー（非戦闘・恒星系の閲覧）：戦闘判定はせず、Backspace で戦略マップへ戻るだけ。
             if (HSystemView)
@@ -146,6 +155,12 @@ namespace Ginei
         /// </summary>
         private void CheckVictory()
         {
+            // ★回廊要塞戦（#40）は<b>殲滅では終わらせない</b>。
+            // 「基本は占領」＝守備を制圧しただけでは決着せず、その後に攻撃側が制圧線へ進んで初めて占領が成立する。
+            // 通常の殲滅条件をそのまま使うと、最後の守備艦隊を倒した瞬間に自動決着して戦略へ帰され、
+            // 制圧線まで進む時間が無くなって<b>永久に占領できない</b>（統合QAでの指摘）。
+            if (HCorridorFortress) { CheckCorridorFortressEnd(); return; }
+
             if (!EvaluateVictory(out Faction winner, out string reason, out FleetStrength winnerRep)) return;
 
             isBattleOver = true;
@@ -153,9 +168,14 @@ namespace Ginei
             // 決着時に時間を停止（ウィンドウ化会戦では全体時間を止めない＝戦略を凍結しない）
             if (!SceneWindowed) Time.timeScale = 0f;
 
-            // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る
+            // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る。
+            // ★特殊モード（回廊要塞 #40／惑星攻城 #131）は専用の書き戻しへ分岐する。
+            // ここを分けないと、要塞戦で守備艦隊を掃討して<b>自動決着した場合だけ</b>
+            // 突破の成否が戦略へ返らず、受け渡しの要塞フラグも消えないまま次の会戦へ漏れる。
             if (HPending)
             {
+                if (HCorridorFortress) { ReturnFromCorridorFortress(); return; }
+                if (HPlanetSiege) { ReturnFromPlanetSiege(); return; }
                 WriteHandoffResultAndReturn(winner);
                 return;
             }
@@ -164,6 +184,39 @@ namespace Ginei
 
             // 結果画面へ遷移（非同期ロード中も時間は停止しているが、SceneLoaderがunscaledTimeを使う）
             SceneLoader.Instance.LoadScene("Result");
+        }
+
+        /// <summary>
+        /// 回廊要塞戦（#40）の終局判定。<b>殲滅では終わらない</b>のがこの戦いの肝で、終わるのは次の2つだけ：
+        ///
+        /// ①<b>占領成立</b>＝守備を制圧したうえで攻撃側が制圧線へ到達した（<see cref="CorridorFortressArena.Captured"/>）。
+        /// ②<b>攻撃側の全滅</b>＝攻めた側がいなくなった（これ以上戦況が動かない）。
+        ///
+        /// 守備を制圧しただけでは決着させない＝攻撃側が制圧線まで進む時間を必ず残す。
+        /// 途中で戦略へ戻りたければ Backspace／× でいつでも離脱でき、そのときの状態が書き戻される。
+        /// </summary>
+        private void CheckCorridorFortressEnd()
+        {
+            CorridorFortressArena arena = CorridorFortressArena.For(gameObject.scene)
+                                          ?? CorridorFortressArena.Any();
+
+            bool captured = arena != null && arena.Captured;
+
+            // 攻撃側が1隊も残っていないか（＝攻略の続行が不可能）。
+            Faction attacker = ctx != null ? ctx.fortressAttacker : BattleHandoff.fortressAttacker;
+            bool attackerAlive = false;
+            IReadOnlyList<FleetStrength> alive = Flagships;
+            for (int i = 0; i < alive.Count && !attackerAlive; i++)
+            {
+                FleetStrength fs = alive[i];
+                if (fs != null && fs.IsAlive && LegacyOf(fs) == attacker) attackerAlive = true;
+            }
+
+            if (!captured && attackerAlive) return;   // まだ続く（守備制圧だけでは終わらない）
+
+            isBattleOver = true;
+            if (!SceneWindowed) Time.timeScale = 0f;
+            ReturnFromCorridorFortress();
         }
 
         /// <summary>
@@ -208,6 +261,11 @@ namespace Ginei
         /// </summary>
         private void ReturnToStrategy(string returnScene)
         {
+            // #38：戦略へ戻るすべての経路がここを通る＝未到着の援軍を必ず差し戻す（宙に浮かせない）。
+            CloseBattlefieldForReinforcements();
+            // 戦場の登録を外す＝以後は戦略側の自動解決に委ねる。
+            ActiveBattlefields.Unregister(gameObject.scene);
+
             if (Windowed)
             {
                 // 複数同時会戦（WIN-3）：自分のシーンのウィンドウを閉じてアンロード（戦略は背後に生存）。
@@ -227,7 +285,8 @@ namespace Ginei
             isBattleOver = true;
             if (!SceneWindowed) Time.timeScale = 0f;
             if (!HPending) { ReturnToStrategy(HReturnScene); return; }
-            if (HPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
+            if (HCorridorFortress) ReturnFromCorridorFortress(); // #40 回廊要塞＝突破の成否を書き戻す
+            else if (HPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
             else WriteHandoffResultAndReturn(LeadingFaction());
         }
 
@@ -272,6 +331,184 @@ namespace Ginei
             else
             {
                 BattleHandoff.SetSiegeResult(defR, invR, cap, garR, garM, surr);
+                ReturnToStrategy(BattleHandoff.returnScene);
+            }
+        }
+
+        // ===== 援軍（ワープイン・#38 C-5）=====
+
+        private readonly List<WarpReinforcement> arrivedReinforcements = new List<WarpReinforcement>();
+        private readonly List<WarpReinforcement> divertedReinforcements = new List<WarpReinforcement>();
+
+        // 戦略艦隊IDごとの実残存（戦術スケールで積み、最後に戦略スケールへ換算する）。
+        private readonly List<BattleHandoff.FleetSurvivor> fortressSurvivorBuf = new List<BattleHandoff.FleetSurvivor>();
+
+        // この会戦に<b>途中から参戦した</b>援軍の戦略艦隊ID（#38）。突入時の名簿には載らないので別に控える
+        // ＝参戦して全滅した援軍を「無傷」と取り違えないための名簿。
+        private readonly List<int> joinedReinforcementIds = new List<int>();
+
+        /// <summary>同じ戦略艦隊IDの残存を足し込む（1隊が複数の部隊に分かれていても合算できる）。</summary>
+        private void AccumulateSurvivor(int fleetId, int tacticalStrength)
+        {
+            int add = Mathf.Max(0, Mathf.RoundToInt(tacticalStrength / (float)BattleHandoff.StrengthScale));
+            for (int i = 0; i < fortressSurvivorBuf.Count; i++)
+            {
+                if (fortressSurvivorBuf[i].fleetId != fleetId) continue;
+                var e = fortressSurvivorBuf[i];
+                e.survivor += add;
+                fortressSurvivorBuf[i] = e;
+                return;
+            }
+            fortressSurvivorBuf.Add(new BattleHandoff.FleetSurvivor { fleetId = fleetId, survivor = add });
+        }
+
+        /// <summary>
+        /// 戦略艦隊の実艦艇数（隻）。プレイヤー向けの通知はこれを出す（抽象兵力は画面に出さない）。
+        /// 盤面から引けないとき（既に除去された等）だけ、兵力からの導出で埋める。
+        /// </summary>
+        private static int ShipsOfStrategicFleet(int fleetId, int fallbackStrength)
+        {
+            StrategicFleetRegistry reg = StrategySession.Reg;
+            StrategicFleet f = reg != null ? reg.GetFleet(fleetId) : null;
+            return f != null ? f.Ships : FleetShipCountRules.FromStrength(fallbackStrength);
+        }
+
+        private bool HasSurvivorEntry(int fleetId)
+        {
+            for (int i = 0; i < fortressSurvivorBuf.Count; i++)
+                if (fortressSurvivorBuf[i].fleetId == fleetId) return true;
+            return false;
+        }
+
+        /// <summary>この会戦の戦場キー（援軍の宛先）。ウィンドウ化会戦は自分の受け渡しから引く。</summary>
+        private BattlefieldKey HBattlefield => ctx != null ? ctx.battlefield : BattleHandoff.battlefield;
+
+        /// <summary>
+        /// 到着した援軍をこの戦場へ出す（#38）。<b>台帳から取り出した時点で消える</b>ので二重出現しない。
+        /// 戦場キーが厳密に一致するものだけを受け取る＝別の会戦の援軍は入ってこない。
+        /// 決着後は <see cref="CloseBattlefieldForReinforcements"/> が戦場を閉じるので、以後は到着しても出ない。
+        /// </summary>
+        private void TakeArrivedReinforcements()
+        {
+            if (isBattleOver || !HPending) return;
+            var ledger = StrategySession.Reinforcements;
+            BattlefieldKey key = HBattlefield;
+            if (ledger == null || !key.IsValid) return;
+
+            arrivedReinforcements.Clear();
+            if (ledger.TakeArrived(key, arrivedReinforcements) <= 0) return;
+
+            BattleSetup setup = FindAnyObjectByType<BattleSetup>();
+            for (int i = 0; i < arrivedReinforcements.Count; i++)
+            {
+                WarpReinforcement r = arrivedReinforcements[i];
+                bool spawned = setup != null && setup.SpawnWarpReinforcement(r, i, arrivedReinforcements.Count);
+
+                // 到着した艦隊は台帳から消えるので、ここで控えないと戦略側で「増援航行中」の印が外れず、
+                // 盤面に残ったまま永久に操作できなくなる（実機QAで判明）。展開の成否に関わらず控える。
+                ReinforcementReturnQueue.PushArrived(r.fleetId);
+                // この会戦の参戦者として控える（損害を合計の按分ではなく艦隊ごとに返すため）。
+                if (r.fleetId != 0 && !joinedReinforcementIds.Contains(r.fleetId))
+                    joinedReinforcementIds.Add(r.fleetId);
+
+                NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
+                    spawned
+                        ? $"{r.faction} 第{r.fleetId}艦隊がワープイン（{ShipsOfStrategicFleet(r.fleetId, r.strength):N0}隻）"
+                        : $"{r.faction} 第{r.fleetId}艦隊の増援が展開できませんでした（{ShipsOfStrategicFleet(r.fleetId, r.strength):N0}隻）");
+            }
+        }
+
+        /// <summary>
+        /// 決着・離脱でこの戦場を閉じ、まだ着いていない援軍を戦略盤面へ差し戻す（#38）。
+        /// 呼ばないと派遣した艦隊が宙に浮くので、<b>戦略へ戻るすべての経路で</b>通す。
+        /// </summary>
+        private void CloseBattlefieldForReinforcements()
+        {
+            var ledger = StrategySession.Reinforcements;
+            BattlefieldKey key = HBattlefield;
+            if (ledger == null || !key.IsValid) return;
+
+            divertedReinforcements.Clear();
+            int n = ledger.CloseBattlefield(key, divertedReinforcements);
+            if (n <= 0) return;
+
+            // 差し戻しは戦略側（GalaxyView）が艦隊を盤面へ戻す。ここでは知らせるだけ。
+            for (int i = 0; i < divertedReinforcements.Count; i++)
+                ReinforcementReturnQueue.Push(divertedReinforcements[i]);
+            NotificationCenter.Push(NotificationCategory.戦闘,
+                $"戦闘終了により援軍 {n} 隊が帰投します");
+        }
+
+        /// <summary>
+        /// 回廊要塞の戦術マップから戦略マップへ戻る（#40）。突破の成否と要塞の生存を書き戻す
+        /// （<see cref="GalaxyView"/> が回廊の所有・通行状態へ反映する）。
+        /// アリーナが無くても必ず resolve して受け渡しを完結させる（Pending の残留防止）。
+        /// </summary>
+        private void ReturnFromCorridorFortress()
+        {
+            // 自分のシーンのアリーナを引く（複数会戦が同時に走っても他戦場の結果を拾わない）。
+            CorridorFortressArena arena = CorridorFortressArena.For(gameObject.scene)
+                                          ?? CorridorFortressArena.Any();
+            bool breached = arena != null && arena.Breached;
+            bool holds = arena == null || arena.FortressHolds;
+
+            // ★攻撃側の生き残りを数えて戦略へ返す（通常の会戦と同じ換算・同じ数え方）。
+            // これを返さないと、突入した本隊も参戦した援軍も無傷で帰ってきて会戦の結果が無意味になる。
+            Faction attacker = ctx != null ? ctx.fortressAttacker : BattleHandoff.fortressAttacker;
+
+            // ★<b>戦略艦隊IDごと</b>に実残存を数える。合計だけ返して按分すると、無傷の隊と全滅した隊を
+            // 足して両方が半減してしまう（手動で戦った意味が消える）。紐付けは strategicFleetId。
+            fortressSurvivorBuf.Clear();
+            int survivorTactical = 0;
+            IReadOnlyList<FleetStrength> alive = Flagships;
+            for (int i = 0; i < alive.Count; i++)
+            {
+                FleetStrength fs = alive[i];
+                if (fs == null || LegacyOf(fs) != attacker) continue;
+                survivorTactical += fs.strength;
+                if (fs.strategicFleetId == 0) continue;
+                AccumulateSurvivor(fs.strategicFleetId, fs.strength);
+            }
+
+            // 紐付けのある艦隊で、全滅して盤面から消えたものは 0 として明細に載せる
+            // （明細に無いと「戦っていない＝無傷」と誤解されるため、突入時の名簿を基準に埋める）。
+            var roster = ctx != null ? ctx.fleets : BattleHandoff.fleets;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                if (roster[i].faction != attacker || roster[i].fleetId == 0) continue;
+                if (!HasSurvivorEntry(roster[i].fleetId)) AccumulateSurvivor(roster[i].fleetId, 0);
+            }
+
+            // ★途中でワープインした援軍（#38）は突入時の名簿に載っていない。
+            // ここで埋めないと、参戦して全滅した援軍が「戦っていない＝無傷」と誤解され、
+            // 元の兵力のまま戦略へ帰ってしまう（損害が消える）。
+            for (int i = 0; i < joinedReinforcementIds.Count; i++)
+            {
+                int id = joinedReinforcementIds[i];
+                if (id == 0) continue;
+                if (!HasSurvivorEntry(id)) AccumulateSurvivor(id, 0);
+            }
+            // 全滅なら 0（切り上げない）。通常の会戦は勝者に最低1を残すが、こちらは
+            // 「攻めて全滅した」を戦略へ正しく伝えるため 0 を許す。
+            int survivorStrategic = Mathf.Max(0, Mathf.RoundToInt(survivorTactical / (float)BattleHandoff.StrengthScale));
+
+            Time.timeScale = 1f;
+            if (Windowed)
+            {
+                ctx.fortressBreached = breached;
+                ctx.fortressStillHolds = holds;
+                ctx.fortressAttackerSurvivor = survivorStrategic;
+                ctx.fortressSurvivors.Clear();
+                ctx.fortressSurvivors.AddRange(fortressSurvivorBuf);
+                ctx.fortressResolved = true;
+                BattleResultQueue.Push(ctx);
+                ReturnToStrategy(null);
+            }
+            else
+            {
+                BattleHandoff.fortressSurvivors.Clear();
+                BattleHandoff.fortressSurvivors.AddRange(fortressSurvivorBuf);
+                BattleHandoff.SetFortressResult(breached, holds, survivorStrategic);
                 ReturnToStrategy(BattleHandoff.returnScene);
             }
         }
@@ -848,15 +1085,15 @@ namespace Ginei
                 if (amount <= 0f) continue;
 
                 // 会戦で得た経験を id キーの成長台帳へ蓄える（P1-b #2477＝捨てない）。基準能力は AdmiralData、経験はここ。
-                // 共有 ScriptableObject(AdmiralData) を実行時に書き換えず、GetInstanceID キーで分離（MedalRegistry と同型）。
+                // 共有 ScriptableObject(AdmiralData) を実行時に書き換えず、EntityKey キーで分離（MedalRegistry と同型）。
                 GrowthArchetype arch = fs.admiralData.growth != null ? fs.admiralData.growth.archetype : GrowthArchetype.叩き上げ;
-                GrowthRegistry.GainExperience(fs.admiralData.GetInstanceID(), arch, amount, dt: 1f);
+                GrowthRegistry.GainExperience(EntityKey.Of(fs.admiralData), arch, amount, dt: 1f);
 
                 // #2263 叙勲：戦功（与ダメ＋勝利）に応じて武功章を授与。次戦の士気底上げ（名誉）へ繋がる。
                 float merit = Mathf.Clamp(fs.DamageDealt / MedalMeritScale, 0f, 100f) + (isWinner ? MedalWinnerMeritBonus : 0f);
                 if (merit >= MedalAwardThreshold)
                 {
-                    int admiralId = fs.admiralData.GetInstanceID();
+                    long admiralId = EntityKey.Of(fs.admiralData);
                     Decoration d = MedalRegistry.Award(admiralId, MedalKind.武功章, merit, 0, $"{currentName(fs)} の戦功");
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                         $"{fs.admiralName} に武功章 {d.grade} を叙勲（戦功）");

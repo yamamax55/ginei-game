@@ -47,13 +47,56 @@ namespace Ginei
         private const float PrestigeMoraleScale = 250f;     // 名誉点÷これ＝士気倍率の加算（50点で+20%）
         private const float MaxPrestigeMoraleBonus = 0.20f; // 名誉による士気底上げの上限
 
-        public bool IsRouted => morale <= 0;
+        /// <summary>
+        /// 敗走しているか。<b>不退転（#2175）が効いている間は敗走にしない</b>
+        /// ＝被弾のタイミングや Update の順に関係なく、いつ読んでも同じ答えになる
+        /// （判定は <see cref="MoraleLockRules"/> に集約＝読む側ごとに解釈しない）。
+        /// </summary>
+        public bool IsRouted => MoraleLockRules.IsRouted(morale, MoraleLocked);
 
-        /// <summary>士気を増減する（士気の連鎖崩壊／高揚 #2176）。0〜maxMorale にクランプ。負で衝撃、正で高揚。</summary>
+        /// <summary>不退転が効いているか（士気の下限と敗走判定に効く）。</summary>
+        public bool MoraleLocked => strength != null && strength.activeMoraleLock;
+
+        /// <summary>
+        /// 士気を増減する（士気の連鎖崩壊／高揚 #2176）。下限〜maxMorale にクランプ。負で衝撃、正で高揚。
+        /// 下限は不退転中だけ <see cref="MoraleLockRules.LockedFloor"/>（平時は0＝従来どおり）。
+        /// </summary>
         public void ApplyMoraleDelta(float delta)
+            => ApplyMoraleDelta(delta, MoraleChangeSource.その他, null);
+
+        /// <summary>
+        /// 士気を増減する（原因を名乗る版）。<b>増減の計算は上と同一</b>で、
+        /// 観測台帳 <see cref="MoraleAuditLog"/> へ原因を1件残すだけ違う（既定は無効＝何もしない）。
+        /// 自然回復・会戦イベント・撃墜高揚はどれも士気を上げるので、
+        /// 値と時刻だけから原因を言い当てると推測になる＝<b>書いた側に名乗らせる</b>。
+        /// </summary>
+        public void ApplyMoraleDelta(float delta, MoraleChangeSource source, string detail)
         {
-            morale = Mathf.Clamp(morale + delta, 0f, Mathf.Max(1f, maxMorale));
+            ApplyWithAudit(delta, source, detail);
         }
+
+        /// <summary>
+        /// 士気を <see cref="MoraleLockRules.Clamp"/> で増減し、観測台帳へ原因を残す。
+        /// ★台帳が無効なら <see cref="MoraleAuditLog.Record"/> は即 return するので、
+        ///   通常プレイでは前後の読み取り以外に何もしない（挙動は従来どおり）。
+        /// </summary>
+        private void ApplyWithAudit(float delta, MoraleChangeSource source, string detail)
+        {
+            bool locked = MoraleLocked;
+            float before = morale;
+            bool routedBefore = MoraleLockRules.IsRouted(before, locked);
+
+            morale = MoraleLockRules.Clamp(before, delta, maxMorale, locked);
+
+            MoraleAuditLog.Record(Time.time, AuditName, source, detail,
+                before, morale, routedBefore, MoraleLockRules.IsRouted(morale, locked),
+                Time.time - lastCombatTime, locked);
+        }
+
+        /// <summary>観測台帳に出す艦隊名（提督名があればそれ、無ければ GameObject 名）。</summary>
+        private string AuditName
+            => (strength != null && !string.IsNullOrEmpty(strength.admiralName))
+                ? strength.admiralName : gameObject.name;
 
         private FleetStrength strength;
         private FleetWeapon weapon;
@@ -143,27 +186,40 @@ namespace Ginei
                 maxMorale = Mathf.Max(1f, strength.admiralData.EffectiveLeadership);
 
                 // #2263 名誉：勲章を持つ提督は名望で士気が底上げされる（前戦の叙勲が次戦に効く）。実効値パターン。
-                float prestige = MedalRegistry.Prestige(strength.admiralData.GetInstanceID());
+                float prestige = MedalRegistry.Prestige(EntityKey.Of(strength.admiralData));
                 if (prestige > 0f) maxMorale *= 1f + Mathf.Min(prestige / PrestigeMoraleScale, MaxPrestigeMoraleBonus);
 
+                float beforeInit = morale;
                 morale = maxMorale;
+                MoraleAuditLog.Record(Time.time, AuditName, MoraleChangeSource.初期化, null,
+                    beforeInit, morale, false, false, 0f, false);
             }
         }
 
         private void UpdateMorale()
         {
-            // 特殊指揮『不退転』（#2175）：効果中は敗走しない＝士気を最低1に保つ。
-            if (strength != null && strength.activeMoraleLock && morale < 1f) morale = 1f;
+            // 特殊指揮『不退転』（#2175）：効果中は敗走しない＝士気を下限で踏みとどまらせる。
+            // ★下限は ChangeMorale / ApplyMoraleDelta 側でも守っているので、ここは保険
+            //   （直接 morale を書いた経路があっても1フレームで整う）。判定は MoraleLockRules に集約。
+            if (MoraleLocked && morale < MoraleLockRules.LockedFloor)
+            {
+                float beforeFloor = morale;
+                morale = MoraleLockRules.LockedFloor;
+                MoraleAuditLog.Record(Time.time, AuditName, MoraleChangeSource.不退転下限, null,
+                    beforeFloor, morale, MoraleLockRules.IsRouted(beforeFloor, true), false,
+                    Time.time - lastCombatTime, true);
+            }
 
             bool inCombat = (weapon != null && weapon.IsInCombat);
             if (inCombat) lastCombatTime = Time.time;
 
             if (IsRouted)
             {
-                // 敗走中：交戦が routedRecoveryDelay 秒途切れたら回復を開始（士気>0で敗走解除）
-                if (!inCombat && Time.time - lastCombatTime >= routedRecoveryDelay)
+                // 敗走中：交戦が routedRecoveryDelay 秒途切れたら回復を開始（士気>0で敗走解除）。
+                // 判定は Core に集約（被弾も交戦として数え直す＝撃たれている間は立ち直らない）。
+                if (RoutRecoveryRules.CanRecover(inCombat, Time.time - lastCombatTime, routedRecoveryDelay))
                 {
-                    ChangeMorale(recoveryRate * Time.deltaTime);
+                    ChangeMorale(recoveryRate * Time.deltaTime, MoraleChangeSource.自然回復);
                 }
                 return;
             }
@@ -173,12 +229,18 @@ namespace Ginei
                 // 交戦中による低下。ただし床（combatMoraleFloor）までで止まる＝交戦だけでは敗走しない（崩れるのは被弾のみ）。
                 float floor = maxMorale * Mathf.Clamp01(combatMoraleFloor);
                 if (morale > floor)
+                {
+                    float beforeDrain = morale;
                     morale = Mathf.Max(floor, morale - combatDrainRate * Time.deltaTime);
+                    MoraleAuditLog.Record(Time.time, AuditName, MoraleChangeSource.交戦低下, null,
+                        beforeDrain, morale, MoraleLockRules.IsRouted(beforeDrain, MoraleLocked),
+                        IsRouted, Time.time - lastCombatTime, MoraleLocked);
+                }
             }
             else
             {
                 // 非交戦中による回復
-                ChangeMorale(recoveryRate * Time.deltaTime);
+                ChangeMorale(recoveryRate * Time.deltaTime, MoraleChangeSource.自然回復);
             }
 
             ApplyIntimidation(); // 武名の威圧（ADM-3）：近傍の高武名の敵将が士気を押し下げる
@@ -197,7 +259,13 @@ namespace Ginei
             if (currentIntimidation <= 0f) return;
             float floor = maxMorale * (1f - Mathf.Clamp01(currentIntimidation));
             if (morale > floor)
+            {
+                float beforeIntim = morale;
                 morale = Mathf.Max(floor, morale - currentIntimidation * intimidationDrainRate * maxMorale * Time.deltaTime);
+                MoraleAuditLog.Record(Time.time, AuditName, MoraleChangeSource.威圧, null,
+                    beforeIntim, morale, MoraleLockRules.IsRouted(beforeIntim, MoraleLocked),
+                    IsRouted, Time.time - lastCombatTime, MoraleLocked);
+            }
         }
 
         // 範囲内の敵旗艦の提督の実効武名から最大の威圧係数を返す（RenownRules.IntimidationFactor・平時 heroism=0）。
@@ -214,7 +282,7 @@ namespace Ginei
                 if (f == null || !f.IsAlive || f.admiralData == null) continue;
                 if (!FactionRelations.IsHostile(strength.factionData, strength.faction, f)) continue;
                 if (((Vector2)(f.transform.position - pos)).sqrMagnitude > r2) continue;
-                int effFame = Mathf.Max(f.admiralData.fame, FameRegistry.Get(f.admiralData.GetInstanceID()));
+                int effFame = Mathf.Max(f.admiralData.fame, FameRegistry.Get(EntityKey.Of(f.admiralData)));
                 float fac = RenownRules.IntimidationFactor(effFame, 0f);
                 if (fac > maxF) maxF = fac;
             }
@@ -226,16 +294,26 @@ namespace Ginei
         /// </summary>
         public void OnTakeDamage(int damageAmount)
         {
+            // ★被弾も「交戦」のうち（敗走の立ち直り待ちを数え直す）。
+            //   IsInCombat は「自分が撃った／自分の射界に敵がいる」だけなので、
+            //   射界の外から叩かれている・敗走して背を向けている部隊は非交戦と見なされ、
+            //   待ち時間を飛ばして次のフレームに立ち直ってしまう（実機の敗走/解除の反復）。
+            lastCombatTime = Time.time;
+
             float drain = damageAmount * damageDrainFactor;
             // 一撃で即敗走させない＝1回の被弾で減る士気を上限でクランプ（#会戦改善）。
             float cap = maxMorale * Mathf.Clamp01(maxSingleHitMoraleFraction);
             if (cap > 0f) drain = Mathf.Min(drain, cap);
-            ChangeMorale(-drain);
+            ChangeMorale(-drain, MoraleChangeSource.被弾);
         }
 
-        private void ChangeMorale(float amount)
+        private void ChangeMorale(float amount) => ChangeMorale(amount, MoraleChangeSource.その他);
+
+        private void ChangeMorale(float amount, MoraleChangeSource source)
         {
-            morale = Mathf.Clamp(morale + amount, 0, maxMorale);
+            // ★下限は不退転中だけ 1（平時は0＝従来どおり）。被弾はフレーム中の任意の時点で来るので、
+            //   ここで下限を守らないと「次の Update で1へ戻るまでのあいだだけ敗走」になる。
+            ApplyWithAudit(amount, source, null);
         }
 
         /// <summary>

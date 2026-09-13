@@ -25,7 +25,7 @@ namespace Ginei
         /// 完全重複（距離≈0）は selfId 由来の決定論方向で散らす（左右対称の膠着を防ぐ）。重なりが無ければゼロ。
         /// </summary>
         public static Vector2 SeparationPush(Vector2 self, float selfRadius, IReadOnlyList<Neighbor> friends,
-            float margin, float strength, int selfId = 0)
+            float margin, float strength, long selfId = 0)
         {
             Vector2 push = Vector2.zero;
             if (friends == null) return push;

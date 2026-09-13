@@ -39,6 +39,8 @@ namespace Ginei
         軍動態観測切替,
         稟議観測切替,
         執務机切替,
+        // 戦略：援軍（#38 C-5）＝選択中の自艦隊を、カーソル下の交戦中の回廊へ時間差で送る
+        援軍派遣,
         // 会戦
         ポーズ,
         倍速等速,
@@ -132,6 +134,9 @@ namespace Ginei
             new InputBinding(GameAction.イベント観測切替, Key.D,         InputContext.共通, alt: true),
             new InputBinding(GameAction.官僚機構観測切替, Key.K,         InputContext.共通, alt: true),
             new InputBinding(GameAction.研究観測切替,     Key.R,         InputContext.共通, alt: true),
+            // 援軍（#38 C-5）＝選択中の自艦隊を、カーソル下の交戦中の回廊へ送る（到着まで銀河時間がかかる）。
+            // 戦略でしか意味がないので 戦略コンテキストに限定。Alt+A は他と衝突しない。
+            new InputBinding(GameAction.援軍派遣,         Key.A,         InputContext.戦略, alt: true),
             new InputBinding(GameAction.財産観測切替,     Key.W,         InputContext.共通, alt: true),
             new InputBinding(GameAction.軍動態観測切替,   Key.V,         InputContext.共通, alt: true),
             new InputBinding(GameAction.稟議観測切替,     Key.I,         InputContext.共通, alt: true),

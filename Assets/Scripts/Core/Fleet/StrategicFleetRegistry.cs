@@ -15,7 +15,17 @@ namespace Ginei
         public StrategicFleetRegistry() { }
         public StrategicFleetRegistry(GalaxyMap map) { this.map = map; }
 
-        public void Add(StrategicFleet f) { if (f != null && !fleets.Contains(f)) fleets.Add(f); }
+        /// <summary>
+        /// 盤面へ艦隊を加える。艦艇数がまだ確定していなければ、この時点の兵力から確定させる
+        /// ＝造船や増設で後から加わった艦隊も「未初期化のまま毎回導出」に頼らない。
+        /// すでに確定している艦隊（セーブから復元した艦隊など）は触らない。
+        /// </summary>
+        public void Add(StrategicFleet f)
+        {
+            if (f == null || fleets.Contains(f)) return;
+            if (!f.shipCountSet) FleetShipCountRules.InitializeShips(f);
+            fleets.Add(f);
+        }
         public void Remove(StrategicFleet f) { fleets.Remove(f); }
 
         public StrategicFleet GetFleet(int id)

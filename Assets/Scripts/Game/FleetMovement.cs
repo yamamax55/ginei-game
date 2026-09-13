@@ -106,6 +106,12 @@ namespace Ginei
         /// <summary>目標地点へ移動中か（到達で false）。AIの手動上書き解除判定に使う。</summary>
         public bool IsMoving => isMoving;
 
+        /// <summary>
+        /// いま向かっている座標（読み取り専用・QA 診断用）。
+        /// <see cref="IsMoving"/> が false のときは意味を持たない。
+        /// </summary>
+        public Vector2 Destination => targetPosition;
+
         // 到着時の向き指定（null=指定なし＝従来通り）。到着後その場で回頭する。
         private float? arrivalFacing = null;
         private bool isOrientingAtArrival = false;
@@ -480,7 +486,7 @@ namespace Ginei
             }
 
             return FleetSpacingRules.SeparationPush((Vector2)myCenter, myRadius, separationBuffer,
-                separationMargin, separationStrength, strength.GetInstanceID());
+                separationMargin, separationStrength, EntityKey.Of(strength));
         }
 
         /// <summary>

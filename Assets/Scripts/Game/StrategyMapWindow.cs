@@ -24,7 +24,7 @@ namespace Ginei
 
         [Header("マップ窓")]
         [Tooltip("窓タイトルバーの高さ（ピクセル）")]
-        public float mapTitleHeight = 30f;
+        public float mapTitleHeight = 38f;   // 掴みやすい高さ（#MAPドラッグが効かない）
 
         [Header("配色（ゲーム意匠）")]
         public Color menuBarColor = new Color(0.11f, 0.15f, 0.22f, 1f);
@@ -35,13 +35,51 @@ namespace Ginei
 
         [Header("リサイズ")]
         [Tooltip("右下のリサイズグリップの一辺（ピクセル）")]
-        public float resizeGripSize = 22f;
+        public float resizeGripSize = 34f;   // 掴みやすい大きさ（#MAPドラッグが効かない）
         [Tooltip("マップ窓の最小幅/高さ（画面比 0〜1）")]
         public float minWindowFrac = 0.2f;
 
         // マップ窓の正規化矩形（画面全体を 0〜1 とした位置/大きさ）。camera.rect と窓UIの両方に使う＝必ず一致。
         // 初期は左寄せ・幅約63%・上メニュー直下から高さ約55%（右と下に通知/決裁の浮き窓ぶんの余白を残す）。
-        private Rect mapRect = new Rect(0.01f, 0.31f, 0.63f, 0.55f);
+        // #戦略MAP刷新：MAP を画面の主役にする。上メニュー(menuBarFrac)の直下から下端近くまで取り、
+        // 右端に観測/決裁の帯、下端に通知の帯だけを残す。ドラッグ/リサイズは従来どおり効く。
+        // ===== 画面レイアウトの取り決め（#戦略MAP刷新・パネルの重なり解消）=====
+        // MAP・右カラム（勝敗メーター/決裁デスク）・下の通知が、どの解像度でも同じ割り付けになるよう
+        // <b>この定数を唯一の基準</b>にする。割合なので 1920x1080 と 2560x1440（同じ16:9）で一致する。
+        // 各パネルはここを読んで自分の初期位置を決める＝個別に数値を持たせない（ずれの再発防止）。
+
+        /// <summary>
+        /// 割り付けの実体は Core（<see cref="StrategyScreenLayout"/>）＝TestHarness で不変条件を検証できる。
+        /// <b>実画面サイズから作る</b>＝16:9/4:3/21:9/縦長で通知帯の実寸が変わっても重ならない（#画面比率への適応）。
+        /// </summary>
+        public static StrategyScreenLayout Layout =>
+            StrategyScreenLayoutRules.ForScreen(Screen.width > 0 ? Screen.width : 1920f,
+                                                Screen.height > 0 ? Screen.height : 1080f);
+
+        /// <summary>右カラム（勝敗メーター・決裁デスク）の左端（画面幅に対する割合）。</summary>
+        public static float RightColumnLeftFrac => Layout.RightColumnLeft;
+        /// <summary>右カラムの幅（画面幅に対する割合）。</summary>
+        public static float RightColumnWidthFrac => Layout.RightColumnWidth;
+        /// <summary>右カラムの幅を参照解像度(1920)の設計ピクセルで返す（パネルの preferredWidth 用）。</summary>
+        public static float RightColumnDesignWidth => StrategyScreenLayoutRules.ToDesignWidth(Layout.RightColumnWidth);
+        /// <summary>右カラムの各パネルが右端を揃える余白（設計ピクセル）。</summary>
+        public static float RightColumnDesignMargin => StrategyScreenLayoutRules.ToDesignWidth(Layout.rightMargin);
+
+        private Rect mapRect = new Rect(
+            StrategyScreenLayout.Default.mapLeft, StrategyScreenLayout.Default.mapBottom,
+            StrategyScreenLayout.Default.mapWidth, StrategyScreenLayout.Default.MapHeight);
+
+        // プレイヤーが窓を動かした/大きさを変えたか。触っていない間は画面サイズの変化に既定配置で追従し、
+        // 一度でも触ったら位置は尊重して画面内へのクランプだけ行う（勝手に動かさない）。
+        private bool userMovedWindow;
+        private Vector2Int lastScreen;
+
+        /// <summary>いまの画面に合わせた既定の窓矩形。</summary>
+        private static Rect DefaultMapRect()
+        {
+            StrategyScreenLayout l = Layout;
+            return new Rect(l.mapLeft, l.mapBottom, l.mapWidth, l.MapHeight);
+        }
 
         private Camera cam;
         private Camera bgCam;
@@ -49,6 +87,9 @@ namespace Ginei
         private bool rectApplied;
 
         private RectTransform titleBarRT;
+        private RectTransform menuBarRT;      // 上メニューバー（折り返しに応じて縦に伸ばす）
+        private WrapLayoutGroup cmdWrap;      // コマンド行（何行になったかを高さで返す）
+        private float baseMenuBarFrac = 0.10f;
         private RectTransform contentRT;
         private RectTransform edgeLeft, edgeRight, edgeBottom;
         private RectTransform resizeGripRT;
@@ -66,6 +107,8 @@ namespace Ginei
         private TextMeshProUGUI hintLabel;
         private float objectiveTimer;
         private const float ObjectiveInterval = 0.5f; // 毎フレーム再計算しない（終盤ラグ規律）
+        private float nudgeFontSize = 14f;            // 配置パネルの文字（実ピクセル下限つきで決める）
+        private GameObject nudgePanel;                // 配置パネル（開いている間だけ存在＝解像度変更後も組み直す）
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -90,6 +133,8 @@ namespace Ginei
             if (cam == null) cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
             GalaxyView.HideWorldHud = true;
             SetupBackgroundCamera();
+            mapRect = DefaultMapRect();                       // 起動時は実画面に合わせた既定位置
+            lastScreen = new Vector2Int(Screen.width, Screen.height);
             BuildUI();
             ApplyLayout();
         }
@@ -121,7 +166,54 @@ namespace Ginei
         {
             // ドラッグで動かせる各窓（観測オーバーレイ等）が上メニューより上へ行かないよう、確保帯＝上メニュー高を公開。
             UIDragMove.TopReservedPx = menuBarFrac * Screen.height;
+
+            // 解像度/ウィンドウサイズが変わったら追従する（#画面比率への適応）。
+            // まだ触っていない窓は新しい比率の既定へ、触った窓は位置を尊重して画面内へ収め直すだけ。
+            var now = new Vector2Int(Screen.width, Screen.height);
+            if (now != lastScreen)
+            {
+                lastScreen = now;
+                if (!userMovedWindow) mapRect = DefaultMapRect();
+                // 開いている配置パネルは新しい実画面から組み直す（実機QA：縦長で 6px のまま残った）。
+                if (nudgePanel != null) { Destroy(nudgePanel); nudgePanel = BuildNudgePanel(); }
+                // 上段の文字・ボタンは生成時の画面幅で倍率が決まるので、切替のたびに計算し直す。
+                RescaleMenuBar();
+                // ★盤面のフィットは<b>次フレーム以降</b>に確定させる（実機QA：切替直後は端の星系が切れた）。
+                // このフレームではまだ camera.rect を入れ替えたばかりで cam.aspect が古く、
+                // その場で FitAll すると誤った縦横比で縮尺を決めてしまう。
+                Galaxy()?.RequestFitAfterLayout();
+            }
+            FitMenuBarToCommandRow();
             ApplyLayout();
+        }
+
+        /// <summary>コマンド行が占める上メニューバーの割合（残りは「≡ メニュー」行と目標行）。</summary>
+        private const float CommandRowFrac = 0.32f;
+
+        /// <summary>
+        /// コマンド行が<b>折り返して2行以上になったら上メニューバーを縦に伸ばす</b>（#低解像度での可読性）。
+        /// 文字を実ピクセル14px以上に保つと狭い画面ではボタン列が1行に収まらないので、
+        /// 潰すのでも枠外へ出すのでもなく、バーごと高さを増やして全部押せる状態にする。
+        /// マップ窓の上端は <see cref="ApplyLayout"/> が menuBarFrac から引き直すので自動で下がる。
+        /// </summary>
+        private void FitMenuBarToCommandRow()
+        {
+            if (cmdWrap == null || menuBarRT == null) return;
+            var parent = menuBarRT.parent as RectTransform;
+            if (parent == null) return;
+
+            float canvasH = parent.rect.height;
+            if (canvasH <= 1f) return;
+
+            float need = cmdWrap.PreferredHeight;   // 設計px（行数×ボタン高＋行間）
+            if (need <= 0f) return;
+
+            float frac = Mathf.Clamp(need / CommandRowFrac / canvasH, baseMenuBarFrac, 0.34f);
+            if (Mathf.Abs(frac - menuBarFrac) < 0.0015f) return;
+
+            menuBarFrac = frac;
+            menuBarRT.anchorMin = new Vector2(0f, 1f - menuBarFrac);
+            menuBarRT.anchorMax = new Vector2(1f, 1f);
         }
 
         // ===== カメラ =====
@@ -149,7 +241,21 @@ namespace Ginei
             float sh = Screen.height > 0 ? Screen.height : 1080f;
             mapRect.x += deltaPixels.x / sw;
             mapRect.y += deltaPixels.y / sh;
+            userMovedWindow = true;
             ApplyLayout();
+        }
+
+        /// <summary>窓の位置と大きさを既定へ戻す（掴み損ねて画面外へやってしまったときの復帰口）。</summary>
+        public void ResetWindow()
+        {
+            userMovedWindow = false;
+            mapRect = DefaultMapRect();
+            minimized = false;
+            ApplyLayout();
+            // 盤面も全体表示へ戻す＝「迷子になった」状態から一手で復帰できる。
+            Galaxy()?.FitAll();
+            NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
+                "マップ窓の位置と大きさを既定に戻しました");
         }
 
         /// <summary>右下グリップのドラッグで窓（mapRect）をリサイズする（上端＝top は固定し下/右辺を動かす）。</summary>
@@ -157,6 +263,7 @@ namespace Ginei
         {
             float sw = Screen.width > 0 ? Screen.width : 1920f;
             float sh = Screen.height > 0 ? Screen.height : 1080f;
+            userMovedWindow = true;
             float topY = mapRect.yMax;            // 上端を固定（上メニュー側を動かさない）
             mapRect.width = Mathf.Max(minWindowFrac, mapRect.width + deltaPixels.x / sw);
             mapRect.y += deltaPixels.y / sh;       // 下辺をカーソルに追従
@@ -171,7 +278,7 @@ namespace Ginei
             if (cam == null) return;
             float sh = Screen.height > 0 ? Screen.height : 1080f;
             // 上メニューバー＋窓タイトルバーのぶんを差し引いた上限＝窓の上端はここを越えない（#4）。
-            float titleFrac = mapTitleHeight / sh;
+            float titleFrac = TitleBarActualPx / sh;
             float topLimit = Mathf.Clamp01(1f - menuBarFrac - titleFrac);
 
             mapRect.width = Mathf.Clamp(mapRect.width, minWindowFrac, 1f);
@@ -196,7 +303,7 @@ namespace Ginei
                 titleBarRT.anchorMin = new Vector2(x0, y1);
                 titleBarRT.anchorMax = new Vector2(x1, y1);
                 titleBarRT.pivot = new Vector2(0.5f, 0f);
-                titleBarRT.sizeDelta = new Vector2(0f, mapTitleHeight);
+                titleBarRT.sizeDelta = new Vector2(0f, TitleBarDesign);
                 titleBarRT.anchoredPosition = Vector2.zero;
             }
             // 縁取り（細いバー）
@@ -262,9 +369,17 @@ namespace Ginei
             top.anchorMin = new Vector2(0f, 0.66f); top.anchorMax = new Vector2(1f, 1f);
             top.offsetMin = Vector2.zero; top.offsetMax = Vector2.zero;
 
-            var title = AddText(top, "≡ 戦略", 20f, accentColor, TextAlignmentOptions.Left);
+            // 「≡」はメニューの記号なのに従来はただのラベルで、押しても何も起きなかった（実機報告）。
+            // クリックでシステムメニュー（再開／セーブ／タイトルへ戻る）を開く＝ESC が効かない環境でも
+            // マウスだけでセーブと終了に到達できる導線を確保する。
+            var title = AddText(top, "≡ メニュー（セーブ / 終了）", 20f, accentColor, TextAlignmentOptions.Left);
             title.fontStyle = FontStyles.Bold;
-            SetAnchors(title.rectTransform, new Vector2(0f, 0f), new Vector2(0.20f, 1f), new Vector2(20f, 0f), new Vector2(-8f, 0f));
+            title.raycastTarget = true;
+            SetAnchors(title.rectTransform, new Vector2(0f, 0f), new Vector2(0.30f, 1f), new Vector2(20f, 0f), new Vector2(-8f, 0f));
+            var titleBtn = title.gameObject.AddComponent<Button>();
+            titleBtn.transition = UnityEngine.UI.Selectable.Transition.None;
+            titleBtn.targetGraphic = title;
+            titleBtn.onClick.AddListener(OpenSystemMenu);
 
             // 税率/国庫/民心/安定度の常時表示は廃止（じゃまなので削除）。出所は「勢力」(G)／「財政」(E) パネル。
             clockLabel = AddText(top, "", 16f, new Color(0.95f, 0.92f, 0.7f), TextAlignmentOptions.Right);
@@ -277,10 +392,14 @@ namespace Ginei
             cmd.transform.SetParent(bar.transform, false);
             cmd.anchorMin = new Vector2(0f, 0f); cmd.anchorMax = new Vector2(1f, 0.32f);
             cmd.offsetMin = new Vector2(16f, 4f); cmd.offsetMax = new Vector2(-16f, -2f);
-            var hlg = cmd.gameObject.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 4f; hlg.childAlignment = TextAnchor.MiddleLeft;
-            hlg.childControlWidth = true; hlg.childControlHeight = true;
-            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = true;
+            // ★1行に入らなければ折り返す（実機QA：縦長/1024幅でボタンが潰れて読めなくなった）。
+            // GridLayout ではなく Flexible なラッピングが要るので、行が溢れたら次の行へ送る単純な実装にする。
+            var hlg = cmd.gameObject.AddComponent<WrapLayoutGroup>();
+            hlg.spacing = 4f;
+            hlg.lineSpacing = 4f;
+            cmdWrap = hlg;
+            menuBarRT = (RectTransform)bar.transform;
+            baseMenuBarFrac = menuBarFrac;
 
             // 執務机（なりきり提督の一人称UI）を上メニューへ格上げ＝観測ウィンドウのシステムタブ内項目でなく、
             // コマンドバーの専用ボタンで直接開く（プレイヤーの主画面ゆえ最優先・観測の左に置く）。Alt+J も従来どおり。
@@ -289,11 +408,35 @@ namespace Ginei
 
             // 上メニューの集約：25個のボタンを「観測」1個に畳み、タブ化したウィンドウ（内政/経済/軍事/政治/
             // システムの5タブ）から各オブザーバを開く。既存ウィンドウ・単一文字ショートカット（G/J/M/…）は不変。
-            MakeBarButton(cmd.transform, "観測 ▾", 132f, ToggleObserverWindow);
+            MakeBarButton(cmd.transform, "観測", 116f, ToggleObserverWindow);
+
+            // 時間操作をマウスだけで完結させる（#キー入力が効かない）。キーと同じ実装を呼ぶので挙動が分岐しない。
+            // 自動入力ではキーが届かないことがあり、キーだけに依存すると操作不能になるため画面上にも置く。
+            MakeBarButton(cmd.transform, "停止 / 再開", 132f, TimeDisplay.TogglePause);
+            MakeBarButton(cmd.transform, "遅く", 82f, TimeDisplay.SlowDown);
+            MakeBarButton(cmd.transform, "速く", 82f, TimeDisplay.SpeedUp);
+
+            // 窓を画面外へやってしまったときの復帰口（掴み直せなくなるのを防ぐ）。
+            MakeBarButton(cmd.transform, "窓を戻す", 116f, ResetWindow);
+            // 艦隊メニュー：戦略的な移動命令の入口。MAP の右クリック発令は廃止したので、
+            // 「誰を・どこへ・出せるか」をここで確認してから出す（#艦隊メニューへ集約）。
+            MakeBarButton(cmd.transform, "艦隊", 92f, FleetOrderPanel.Toggle);
+            // 軍団編成：MAP から停泊中の艦隊表示を外した代わりに、軍団の枠と配下艦隊をここで見る（#E）。
+            MakeBarButton(cmd.transform, "軍団編成", 120f, CorpsOrganizationPanel.Toggle);
+
+            // 位置と大きさをクリックだけで調整するパネル（ドラッグが効かない環境の逃げ道）。
+            MakeBarButton(cmd.transform, "配置", 92f, ToggleNudgePanel);
 
             var rule = AddBar(bar.transform, "Rule", new Vector2(0f, 0f), new Vector2(1f, 0f),
                 new Color(accentColor.r, accentColor.g, accentColor.b, 0.6f));
             var rrt = (RectTransform)rule.transform; rrt.pivot = new Vector2(0.5f, 0f); rrt.sizeDelta = new Vector2(0f, 2f);
+        }
+
+        /// <summary>上メニューの「≡」からシステムメニュー（再開/セーブ/タイトルへ戻る）を開閉する。</summary>
+        private void OpenSystemMenu()
+        {
+            StrategySystemMenu menu = UnityEngine.Object.FindAnyObjectByType<StrategySystemMenu>();
+            if (menu != null) menu.Toggle();
         }
 
         private void BuildMapWindow(Transform root)
@@ -307,14 +450,20 @@ namespace Ginei
             var drag = bar.gameObject.AddComponent<MapWindowDrag>();
             drag.onDragDelta = OnTitleDrag;
             var cap = AddText(bar, "≡ 星系マップ　（ドラッグで移動）", 15f, accentColor, TextAlignmentOptions.Left);
+            TrackText(cap, 15f, MenuBarMinFontPx);
             SetAnchors(cap.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-44f, 0f));
 
             // 最小化／復元ボタン（右上の「—」）。タイトルバーだけ残してマップ表示を畳む。
             BuildMinimizeButton(bar);
+            BuildViewButtons(bar);   // 全体表示／ズーム（マウスだけで縮尺を操作できるようにする）
+            // 配置パネルは常設せず「配置」ボタンで開閉する（実機QA：右カラムの常設だと決裁デスクに隠れ、
+            // 超横長では他パネルと重なって押せなかった）。開いたときに実画面から組み直して常に前面へ出す。
 
             // 中身領域（透明＝マップを見せる・クリックを塞がない）。アンカーは ApplyLayout で mapRect に合わせる。
             contentRT = new GameObject("MapContent").AddComponent<RectTransform>();
             contentRT.transform.SetParent(root, false);
+
+            BuildLegend(contentRT);  // 色と線の意味を読み取れるようにする（#戦略MAP刷新）
 
             // 縁取り（細い金色バー・raycast しない）
             Color edge = new Color(accentColor.r, accentColor.g, accentColor.b, 0.5f);
@@ -333,6 +482,193 @@ namespace Ginei
             gripDrag.onDragDelta = OnResizeDrag;
         }
 
+        /// <summary>
+        /// 配置パネルの開閉（#MAPドラッグが効かない）。開くたびに<b>実画面から組み直す</b>ので、
+        /// 解像度を変えたあとでも文字が潰れず、画面内に収まる（実機QA：縦長で 6px になった）。
+        /// 常設ではなく前面の一時パネル＝決裁デスクや勝敗メーターと重ならない。
+        /// </summary>
+        private void ToggleNudgePanel()
+        {
+            if (nudgePanel != null) { Destroy(nudgePanel); nudgePanel = null; return; }
+            nudgePanel = BuildNudgePanel();
+        }
+
+        /// <summary>配置パネルを実画面サイズから組む（前面Canvas・画面内クランプ・実ピクセル下限）。</summary>
+        private GameObject BuildNudgePanel()
+        {
+            var canvasObj = new GameObject("WindowNudgeCanvas");
+            canvasObj.transform.SetParent(transform, false);
+            var canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 899;  // 通知/決裁/バッジより前・モーダル(900+)より後ろ
+            var scaler = canvasObj.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            canvasObj.AddComponent<GraphicRaycaster>();
+
+            // 実ピクセルの下限を課す（幅基準スケールなので縦長・小窓では設計値が縮む）。
+            float font = StrategyScreenLayoutRules.MinDesignForActual(14f, 14f, Screen.width);
+            float w = StrategyScreenLayoutRules.MinDesignForActual(300f, 260f, Screen.width);
+            float h = StrategyScreenLayoutRules.MinDesignForActual(210f, 190f, Screen.width);
+            nudgeFontSize = font;
+
+            var go = new GameObject("WindowNudgePanel", typeof(RectTransform));
+            go.transform.SetParent(canvasObj.transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = Vector2.zero;
+            rt.pivot = Vector2.zero;
+            rt.sizeDelta = new Vector2(w, h);
+
+            // 画面中央やや上に出し、画面内へクランプ（どの比率でも触れる位置に置く）。
+            float uiScale = Screen.width > 0 ? Screen.width / 1920f : 1f;
+            float wPx = w * uiScale, hPx = h * uiScale;
+            float x = Mathf.Clamp(Screen.width * 0.5f - wPx * 0.5f, 4f, Mathf.Max(4f, Screen.width - wPx - 4f));
+            float y = Mathf.Clamp(Screen.height * 0.55f, 4f, Mathf.Max(4f, Screen.height - hPx - 4f));
+            rt.anchoredPosition = new Vector2(x / uiScale, y / uiScale);
+
+            var bg = go.AddComponent<Image>();
+            bg.color = new Color(0.08f, 0.11f, 0.17f, 0.97f);
+            var outline = go.AddComponent<Outline>();
+            outline.effectColor = new Color(accentColor.r, accentColor.g, accentColor.b, 0.75f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            var cap = AddText(rt, "マップ窓の配置", font + 1f, accentColor, TextAlignmentOptions.Center);
+            SetAnchors(cap.rectTransform, new Vector2(0f, 0.80f), new Vector2(0.78f, 1f), Vector2.zero, Vector2.zero);
+            cap.raycastTarget = false;
+            NudgeButton(rt, "閉", 0.80f, 0.80f, 0.18f, 0.18f, ToggleNudgePanel);
+
+            const float step = 0.03f;    // 画面比 3%
+            NudgeButton(rt, "左", 0.02f, 0.55f, 0.23f, 0.22f, () => Nudge(-step, 0f));
+            NudgeButton(rt, "上", 0.27f, 0.55f, 0.23f, 0.22f, () => Nudge(0f, +step));
+            NudgeButton(rt, "下", 0.52f, 0.55f, 0.23f, 0.22f, () => Nudge(0f, -step));
+            NudgeButton(rt, "右", 0.77f, 0.55f, 0.21f, 0.22f, () => Nudge(+step, 0f));
+
+            NudgeButton(rt, "幅－", 0.02f, 0.30f, 0.23f, 0.22f, () => Resize(-step, 0f));
+            NudgeButton(rt, "幅＋", 0.27f, 0.30f, 0.23f, 0.22f, () => Resize(+step, 0f));
+            NudgeButton(rt, "高－", 0.52f, 0.30f, 0.23f, 0.22f, () => Resize(0f, -step));
+            NudgeButton(rt, "高＋", 0.77f, 0.30f, 0.21f, 0.22f, () => Resize(0f, +step));
+
+            NudgeButton(rt, "既定に戻す", 0.02f, 0.04f, 0.96f, 0.22f, ResetWindow);
+            return canvasObj;
+        }
+
+        private void NudgeButton(RectTransform parent, string label, float x, float y, float w, float h, System.Action onClick)
+        {
+            var go = new GameObject("Nudge_" + label, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(x, y);
+            rt.anchorMax = new Vector2(x + w, y + h);
+            rt.offsetMin = new Vector2(1f, 1f); rt.offsetMax = new Vector2(-1f, -1f);
+            var img = go.AddComponent<Image>();
+            img.color = buttonColor;
+            var btn = go.AddComponent<Button>();
+            btn.transition = UnityEngine.UI.Selectable.Transition.None;
+            btn.targetGraphic = img;
+            if (onClick != null) btn.onClick.AddListener(() => onClick());
+            var cap = AddText(rt, label, nudgeFontSize, new Color(0.9f, 0.94f, 1f), TextAlignmentOptions.Center);
+            SetAnchors(cap.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            cap.raycastTarget = false;
+        }
+
+        /// <summary>窓を平行移動（画面比）。</summary>
+        private void Nudge(float dx, float dy)
+        {
+            mapRect.x += dx; mapRect.y += dy;
+            userMovedWindow = true;
+            ApplyLayout();
+        }
+
+        /// <summary>窓の大きさを変える（上端は固定＝上メニュー側を動かさない）。</summary>
+        private void Resize(float dw, float dh)
+        {
+            float topY = mapRect.yMax;
+            mapRect.width = Mathf.Max(minWindowFrac, mapRect.width + dw);
+            mapRect.height = Mathf.Max(minWindowFrac, mapRect.height + dh);
+            mapRect.y = topY - mapRect.height;
+            userMovedWindow = true;
+            ApplyLayout();
+        }
+
+        /// <summary>
+        /// マップ左下に凡例を置く（#戦略MAP刷新）。色と線の意味（陣営・要衝・通商路・選択）を明示して、
+        /// 「何を見ているか」を説明なしで読み取れるようにする。<b>クリックは透過</b>させ盤面操作を妨げない。
+        /// </summary>
+        private void BuildLegend(RectTransform parent)
+        {
+            var go = new GameObject("MapLegend");
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0f, 0f);
+            rt.pivot = new Vector2(0f, 0f);
+            rt.anchoredPosition = new Vector2(12f, 12f);
+            rt.sizeDelta = new Vector2(250f, 122f);
+
+            var bg = go.AddComponent<Image>();
+            bg.color = new Color(0.04f, 0.06f, 0.11f, 0.72f); // 濃紺の航宙図に沈む半透明の板
+            bg.raycastTarget = false;                          // 盤面のクリック/ドラッグを塞がない
+
+            var body = AddText(rt,
+                "<color=#67A7F2>●</color> 同盟　<color=#EF7567>●</color> 帝国\n" +
+                "<color=#FAD26B>━</color> 要衝（隘路・前線）\n" +
+                "<color=#8E9BB8>─</color> 通商路\n" +
+                "<color=#FAD26B>○</color> 選択中\n" +
+                // ★プレイヤーに見せる艦隊規模は艦艇数（隻）だけ＝凡例の例文も実艦艇数で書く
+                // （FleetClusterRules.MarkerLabel が出す形と同じ。「兵力」は内部の戦闘計算専用で画面に出さない）。
+                "<color=#9FB4CC>まとまり</color> 例「3艦隊 48,000隻」＝押すと一覧",
+                14f, new Color(0.86f, 0.9f, 0.98f), TextAlignmentOptions.TopLeft);
+            TrackText(body, 14f, MenuBarMinFontPx);
+            SetAnchors(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 6f), new Vector2(-8f, -6f));
+            body.raycastTarget = false;
+        }
+
+        /// <summary>
+        /// タイトルバー右端（最小化の左）に「全体表示 / ＋ / −」を作る（#戦略MAP刷新）。
+        /// ホイールが使えない環境や、引きすぎて迷子になったときにマウスだけで縮尺を戻せる導線。
+        /// </summary>
+        private void BuildViewButtons(Transform titleBar)
+        {
+            // ★実ピクセルで 14px を下回らない文字にし、ボタン幅と並び位置も同じ比率で広げる
+            // （実機QA：縦長 900 幅／1024 幅で「全体」が 6〜8px になり読めなかった）。
+            // 右端の最小化ボタンから左へ、拡大した幅を足しながら並べる＝重ならない。
+            // 位置と幅は<b>設計値のまま</b>渡し、実際の倍率は TrackBox が掛ける（解像度変更にも追従する）。
+            float x = -4f - 38f - 4f;              // 最小化ボタン（幅38・右端から4）の左
+
+            MakeTitleBarButton(titleBar, "−", 30f, x, () => Galaxy()?.NudgeZoom(1.25f));
+            x -= 30f + 4f;
+            MakeTitleBarButton(titleBar, "＋", 30f, x, () => Galaxy()?.NudgeZoom(0.8f));
+            x -= 30f + 4f;
+            MakeTitleBarButton(titleBar, "全体", 52f, x, () => Galaxy()?.FitAll());
+        }
+
+        /// <summary>タイトルバー右寄せの小ボタン（右端から offsetX だけ左へ置く）。</summary>
+        private void MakeTitleBarButton(Transform titleBar, string label, float width, float offsetX, System.Action onClick)
+        {
+            var go = new GameObject("TitleBarButton_" + label);
+            go.transform.SetParent(titleBar, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 0.5f);
+            rt.sizeDelta = new Vector2(width, -6f);
+            rt.anchoredPosition = new Vector2(offsetX, 0f);
+            TrackBox(rt, width, offsetX);   // 幅と並び位置を実画面に合わせて拡大（以後の解像度変更にも追従）
+            var img = go.AddComponent<Image>();
+            img.color = buttonColor;
+            var btn = go.AddComponent<Button>();
+            btn.transition = UnityEngine.UI.Selectable.Transition.None;
+            btn.targetGraphic = img;
+            if (onClick != null) btn.onClick.AddListener(() => onClick());
+
+            var cap = AddText(rt, label, 15f, accentColor, TextAlignmentOptions.Center);
+            TrackText(cap, 15f, MenuBarMinFontPx);
+            SetAnchors(cap.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            cap.raycastTarget = false;
+        }
+
+        /// <summary>盤面（GalaxyView）を引く。シーンに1つ＝毎回探しても軽い（ボタン押下時のみ）。</summary>
+        private static GalaxyView Galaxy() => UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
+
         /// <summary>タイトルバー右端に最小化／復元ボタン（—／＋）を作る。</summary>
         private void BuildMinimizeButton(Transform titleBar)
         {
@@ -341,14 +677,17 @@ namespace Ginei
             var rt = go.AddComponent<RectTransform>();
             rt.anchorMin = new Vector2(1f, 0f); rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(1f, 0.5f);
+            // 「全体／＋／−」と同じ倍率で広げる（BuildViewButtons の並び計算と一致させる）。
             rt.sizeDelta = new Vector2(38f, 0f);
             rt.anchoredPosition = new Vector2(-4f, 0f);
+            TrackBox(rt, 38f, -4f);
             var img = go.AddComponent<Image>();
             img.color = buttonColor;
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(ToggleMinimize);
             minimizeLabel = AddText(go.transform, "—", 18f, accentColor, TextAlignmentOptions.Center);
+            TrackText(minimizeLabel, 18f, MenuBarMinFontPx);
             minimizeLabel.fontStyle = FontStyles.Bold;
             SetAnchors(minimizeLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         }
@@ -659,12 +998,106 @@ namespace Ginei
         }
 
         /// <summary>上メニューバーの固定幅ボタン（HLG 内・LayoutElement で幅を固定）。</summary>
+        /// <summary>
+        /// 上段の主要操作ボタン。<b>実ピクセルで 14px を下回らない文字</b>にし、幅も同じ比率で広げる
+        /// （実機QA：縦長 900 幅や 1024 幅で 6〜8px になり読めなかった）。
+        /// Canvas は幅基準スケールなので、画面が狭いほど設計値を積まないと実寸が保てない。
+        /// </summary>
         private void MakeBarButton(Transform parent, string label, float width, System.Action onClick)
         {
-            var btn = MakeButton(parent, "Cmd_" + label, label, 16f, TextAlignmentOptions.Center, onClick, out _);
+            float font = StrategyScreenLayoutRules.MinDesignForActual(16f, MenuBarMinFontPx, Screen.width);
+
+            var btn = MakeButton(parent, "Cmd_" + label, label, font, TextAlignmentOptions.Center, onClick, out _);
+            TrackText(btn.GetComponentInChildren<TMP_Text>(), 16f, MenuBarMinFontPx);
+
             var le = btn.gameObject.AddComponent<LayoutElement>();
-            le.minWidth = width; le.preferredWidth = width; le.flexibleWidth = 0f;
+            le.flexibleWidth = 0f; le.flexibleHeight = 0f;
+            // 幅は「文字を大きくしたぶん」と「ラベルの長さ」の大きいほう、
+            // 高さは文字に比例（親の行高に依存させると折り返し時に発散する）。ApplyCmd が唯一の式。
+            var e = new ScaledCmd { le = le, label = label, baseW = width };
+            scaledCmds.Add(e);
+            ApplyCmd(e);
         }
+
+        /// <summary>上段の主要操作の実ピクセル最小文字サイズ（可読性の下限）。</summary>
+        private const float MenuBarMinFontPx = 14f;
+
+        // ===== 解像度が変わっても実ピクセルを保つための追従（#低解像度での可読性）=====
+        // 上段のボタン/見出しは生成時の Screen.width で倍率を決めるので、Play 中に解像度を
+        // 切り替えると<b>古い倍率のまま</b>残る（実機QA：縦長へ切替後も 6〜8px のまま）。
+        // 作った要素と「元の設計値」を控えておき、切替時に同じ式で計算し直す。
+
+        private sealed class ScaledText { public TMP_Text text; public float baseFont; public float minPx; }
+        private sealed class ScaledBox { public RectTransform rt; public float baseW; public float baseOffsetX; }
+        private sealed class ScaledCmd { public LayoutElement le; public string label; public float baseW; }
+
+        private readonly List<ScaledText> scaledTexts = new List<ScaledText>();
+        private readonly List<ScaledBox> scaledBoxes = new List<ScaledBox>();
+        private readonly List<ScaledCmd> scaledCmds = new List<ScaledCmd>();
+
+        /// <summary>タイトルバーの小物（幅・並び位置）を広げる倍率。文字の下限確保と同じ比率にする。</summary>
+        private static float BarScale =>
+            StrategyScreenLayoutRules.MinDesignForActual(15f, MenuBarMinFontPx, Screen.width) / 15f;
+
+        /// <summary>文字を実ピクセル下限つきで設定し、以後の解像度変更にも追従させる。</summary>
+        private TMP_Text TrackText(TMP_Text t, float baseFont, float minPx)
+        {
+            if (t == null) return null;
+            var e = new ScaledText { text = t, baseFont = baseFont, minPx = minPx };
+            scaledTexts.Add(e);
+            ApplyText(e);
+            return t;
+        }
+
+        private static void ApplyText(ScaledText e)
+        {
+            if (e.text == null) return;
+            e.text.fontSize = StrategyScreenLayoutRules.MinDesignForActual(e.baseFont, e.minPx, Screen.width);
+        }
+
+        /// <summary>タイトルバー小ボタンの幅と右端からの位置を倍率つきで設定する。</summary>
+        private void TrackBox(RectTransform rt, float baseW, float baseOffsetX)
+        {
+            if (rt == null) return;
+            var e = new ScaledBox { rt = rt, baseW = baseW, baseOffsetX = baseOffsetX };
+            scaledBoxes.Add(e);
+            ApplyBox(e);
+        }
+
+        private static void ApplyBox(ScaledBox e)
+        {
+            if (e.rt == null) return;
+            float k = BarScale;
+            e.rt.sizeDelta = new Vector2(e.baseW * k, e.rt.sizeDelta.y);
+            e.rt.anchoredPosition = new Vector2(e.baseOffsetX * k, e.rt.anchoredPosition.y);
+        }
+
+        private static void ApplyCmd(ScaledCmd e)
+        {
+            if (e.le == null) return;
+            float font = StrategyScreenLayoutRules.MinDesignForActual(16f, MenuBarMinFontPx, Screen.width);
+            float w = Mathf.Max(e.baseW * (font / 16f), e.label.Length * font * 1.15f + 22f);
+            float h = font * 1.8f + 6f;
+            e.le.minWidth = w; e.le.preferredWidth = w;
+            e.le.minHeight = h; e.le.preferredHeight = h;
+        }
+
+        /// <summary>解像度が変わったとき、上段の文字とボタンを新しい実画面で計算し直す。</summary>
+        private void RescaleMenuBar()
+        {
+            for (int i = 0; i < scaledTexts.Count; i++) ApplyText(scaledTexts[i]);
+            for (int i = 0; i < scaledBoxes.Count; i++) ApplyBox(scaledBoxes[i]);
+            for (int i = 0; i < scaledCmds.Count; i++) ApplyCmd(scaledCmds[i]);
+            if (cmdWrap != null) LayoutRebuilder.MarkLayoutForRebuild(cmdWrap.transform as RectTransform);
+        }
+
+        /// <summary>マップ窓タイトルバーの高さ（設計px）。狭い画面ほど積み増して「全体」等の実寸を確保する。</summary>
+        private float TitleBarDesign =>
+            StrategyScreenLayoutRules.MinDesignForActual(mapTitleHeight, 26f, Screen.width);
+
+        /// <summary>同・実画面px。<see cref="Camera.rect"/> の割り付けは画面基準なので設計px から換算する。</summary>
+        private float TitleBarActualPx =>
+            TitleBarDesign * (Screen.width > 1f ? Screen.width / StrategyScreenLayoutRules.ReferenceWidth : 1f);
 
         /// <summary>汎用ボタン（背景＋ラベル＋色遷移）。<paramref name="bg"/> で背景 Image を受け取る（タブ強調等）。</summary>
         private Button MakeButton(Transform parent, string name, string label, float fontSize,

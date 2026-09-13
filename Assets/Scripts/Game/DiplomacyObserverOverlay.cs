@@ -136,7 +136,8 @@ namespace Ginei
                     WarState w = wars[i];
                     if (w == null) continue;
                     float weariness = WarStateRules.Weariness(w, p);
-                    sb.Append("  <color=#ff9a8a>⚔ ").Append(w.factionA).Append(" 対 ").Append(w.factionB)
+                    // 「⚔」は日本語フォントに無く豆腐になるため、外交状態と同じ語「交戦」で示す。
+                    sb.Append("  <color=#ff9a8a>交戦 ").Append(w.factionA).Append(" 対 ").Append(w.factionB)
                       .Append("</color>　経過 ").Append(w.turnsAtWar).Append(" ターン\n");
                     AppendBar(sb, "    損害", Mathf.Clamp01(w.casualties), "#ff9a8a");
                     AppendBar(sb, "    厭戦", Mathf.Clamp01(weariness), "#ffcc66");
@@ -305,6 +306,7 @@ namespace Ginei
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             scrollRect.content = contentRT;
+            UiScrollbars.Attach(scrollRect);   // #H スクロールできることを画面で示す（見えて掴めるバー）
 
             GameObject bodyObj = new GameObject("Body");
             bodyObj.transform.SetParent(content.transform, false);

@@ -40,18 +40,55 @@ namespace Ginei
         public float deadlineBlinkSpeed = 2f;
 
         /// <summary>共有の決裁キュー（他システムは <see cref="Enqueue"/> で積む）。</summary>
-        public static DecisionQueue Queue { get; private set; } = new DecisionQueue();
+        public static DecisionQueue Queue => StrategySession.Decisions;
 
         /// <summary>決裁を積む単一窓口（イベント/目安箱の諮問・裁可がここへ流す＝DESK-6）。</summary>
         public static void Enqueue(PendingDecision d)
         {
-            if (Queue == null) Queue = new DecisionQueue();
+            if (StrategySession.Decisions == null) StrategySession.Decisions = new DecisionQueue();
             Queue.Enqueue(d);
+        }
+
+        /// <summary>
+        /// 決裁カードを全部捨てる（新規戦役・ロードの直前）。#稟議完成②
+        /// <see cref="Queue"/> は static なので、消さないと前の戦役のカードが次へ持ち越される
+        /// （稟議台帳だけ消えると「稟議の無いカード」＝孤児になる）。
+        /// </summary>
+        public static void ClearQueue()
+        {
+            if (StrategySession.Decisions == null) { StrategySession.Decisions = new DecisionQueue(); return; }
+            Queue.items.Clear();
+        }
+
+        /// <summary>
+        /// 次に配る決裁カードの id。★戦役やシーンを跨いで<b>単調増加</b>させる。
+        /// 以前は Director のインスタンス値だったため Strategy へ戻るたびに番号が巻き戻り、
+        /// 生き残った古いカードと id が衝突して「別の案件を裁可したつもりが古い案件を再解決」しえた。
+        /// </summary>
+        public static int NextDecisionId(int bandStart)
+        {
+            int next = bandStart;
+            if (Queue != null)
+                for (int i = 0; i < Queue.items.Count; i++)
+                {
+                    PendingDecision it = Queue.items[i];
+                    if (it != null && it.id >= next) next = it.id + 1;
+                }
+            return next;
         }
 
         /// <summary>決裁が確定したとき（人が裁可 or AI が自動解決）に発火する（DESK-6 合流フック）。引数＝決裁・採択した選択肢index。
         /// 効果の実適用（effectKey→世界）は購読側が担う＝稟議は <see cref="RingiDirector"/> がここで執行する。</summary>
         public static event System.Action<PendingDecision, int> Resolved;
+
+        /// <summary>
+        /// 決裁の<b>権限</b>を判定するフック（GitHub #67）。null＝従来どおり誰でも裁可できる（後方互換）。
+        /// Game 層（<see cref="DecisionAuthorityDirector"/>）が「操作しているのは誰か」を知っているので、
+        /// そこで <see cref="DecisionAuthorityRules.Evaluate"/> を呼んで結果を返す。
+        /// <see cref="Resolve"/> は<b>必ず</b>ここを通るので、カード・ボード・スクリプトのどれからでも
+        /// 権限外の裁可が抜けない。
+        /// </summary>
+        public static System.Func<PendingDecision, DecisionAuthorityResult> AuthorityCheck;
 
         private static void RaiseResolved(PendingDecision d, int choiceIndex)
         {
@@ -220,7 +257,9 @@ namespace Ginei
             {
                 var d = Queue.items[i];
                 if (d == null) continue;
-                sb.Append(d.id).Append(':').Append((int)d.status).Append('|');
+                // 上申中かどうかも見出しに出るので指紋へ含める（変わったら作り直す）。
+                sb.Append(d.id).Append(':').Append((int)d.status)
+                  .Append(d.escalated ? 'E' : '-').Append('|');
             }
             return sb.ToString();
         }
@@ -299,8 +338,13 @@ namespace Ginei
             var hle = header.AddComponent<LayoutElement>();
             hle.minHeight = 30f;
 
-            // 要約（タイトル）＝可変幅で残りを占める
-            var summary = AddLabel(header.transform, $"<b>[{d.severity}]</b> {d.title}", 18f,
+            // 要約（タイトル）＝可変幅で残りを占める。
+            // ★誰が出した案件か・上申中かを見出しに添える（#67・提案者と決裁者を追えるように）。
+            // 実在の人物名が無ければ何も足さない（架空の名前を作らない）。
+            string note = DecisionAttributionRules.HeadlineNote(d);
+            var summary = AddLabel(header.transform,
+                $"<b>[{d.severity}]</b> {d.title}" +
+                (string.IsNullOrEmpty(note) ? "" : $" <size=80%><color=#a8b6c8>{note}</color></size>"), 18f,
                 d.severity == DecisionSeverity.重大 ? new Color(1f, 0.85f, 0.85f) : Color.white);
             var sle = summary.gameObject.AddComponent<LayoutElement>();
             sle.flexibleWidth = 1f;
@@ -391,14 +435,72 @@ namespace Ginei
         public static bool Resolve(int decisionId, int choiceIndex)
         {
             if (Queue == null) return false;
+
+            // ★未解決の案件を優先して探す（シーン往復で id が再発番されても、決裁済みの古い札を
+            //   掴んで「再解決」しないため）。見つからなければ id 一致の最初の1件。
             PendingDecision d = null;
             for (int i = 0; i < Queue.items.Count; i++)
-                if (Queue.items[i] != null && Queue.items[i].id == decisionId) { d = Queue.items[i]; break; }
+            {
+                PendingDecision it = Queue.items[i];
+                if (it == null || it.id != decisionId) continue;
+                if (!DecisionResolutionRules.IsSettled(it)) { d = it; break; }
+                if (d == null) d = it;
+            }
             if (d == null) return false;
-            Queue.Resolve(d, choiceIndex);
+
+            // ★権限の検証（GitHub #67）：プレイヤーはいち人物であって全能の裁可者ではない。
+            // カード・決裁ボード・スクリプトのどれから来ても<b>ここを通る</b>ので、
+            // 権限外の承認ボタンが迂回路にならない。
+            if (AuthorityCheck != null)
+            {
+                DecisionAuthorityResult auth = AuthorityCheck(d);
+                if (!auth.CanDecide)
+                {
+                    d.authorityBasis = auth.basis;
+                    if (auth.authority == DecisionAuthority.上申)
+                    {
+                        // ★拒否して終わりにしない＝適任者へ実際に上げる。
+                        // 決裁権者が審査し、可否が起案者へ戻る（承認なら効果は1回だけ出る）。
+                        DecisionAuthorityDirector.EscalateShared(d, auth);
+                    }
+                    else
+                    {
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                            $"［権限外］{d.title}：{auth.basis}");
+                    }
+                    return false;
+                }
+            }
+
+            // ★確定は Core の検証を必ず通す（解決済みの再解決・範囲外の選択肢をここで弾く）。
+            if (!DecisionResolutionRules.Settle(d, choiceIndex, auto: false,
+                                                out DecisionResolveRejection reason))
+            {
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"［裁可できません］{d.title}：{DecisionResolutionRules.RejectionText(reason)}");
+                return false;
+            }
+
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                 $"［裁可］{d.title} → {ChoiceLabel(d, choiceIndex)}");
-            RaiseResolved(d, choiceIndex); // DESK-6：効果を世界へ（購読側＝RingiDirector が effectKey を適用）
+
+            // ★どのレジストリも知らない効果キー＝<b>まだ実装されていない</b>。
+            // 「裁可」だけ出して何も起きない（無効果の成功）を作らないよう、理由付きで実行不可にする。
+            // 見送り（既定選択）を選んだ場合は元から何も起きないので対象外。
+            if (choiceIndex == 0 && !DecisionEffectRegistryRules.IsImplemented(d.effectKey))
+            {
+                if (DecisionResolutionRules.ClaimForApply(d))
+                {
+                    DecisionResolutionRules.RecordResult(d, PetitionActionResult.Fail(
+                        PetitionActionOutcome.対象外,
+                        DecisionEffectRegistryRules.NotImplementedText(d.effectKey)));
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                        $"［実行不可］{d.title}：{DecisionEffectRegistryRules.NotImplementedText(d.effectKey)}");
+                }
+                return true;   // 確定はしたが実行はしていない（承認と執行成功は別）
+            }
+
+            RaiseResolved(d, choiceIndex); // 効果を世界へ（購読側が effectKey を適用・適用は1回だけ）
             // 決裁済みは決裁ボードの「決裁済」列に残す（有界保持＝TrimToCapacity）
             return true;
         }
@@ -440,7 +542,9 @@ namespace Ginei
             container.anchorMin = new Vector2(1f, 0f); // 右下
             container.anchorMax = new Vector2(1f, 0f);
             container.pivot = new Vector2(1f, 0f);
-            container.anchoredPosition = new Vector2(-16f, 16f);
+            // 右端は勝敗メーターと同じ余白に揃える（#戦略MAP刷新・右カラムの整列）。
+            float rightMargin = StrategyMapWindow.RightColumnDesignMargin;
+            container.anchoredPosition = new Vector2(-rightMargin, 16f);
             container.sizeDelta = new Vector2(cardWidth + 8f, 0f);
 
             var vlg = cont.AddComponent<VerticalLayoutGroup>();
@@ -476,7 +580,7 @@ namespace Ginei
             label.text = text;
             label.fontSize = size;
             label.color = color;
-            label.enableWordWrapping = true;
+            label.textWrappingMode = TMPro.TextWrappingModes.Normal;
             label.raycastTarget = false;
             if (jpFont != null) label.font = jpFont;
             return label;
@@ -532,10 +636,15 @@ namespace Ginei
                       "ただし国庫はすでに細っており、減税は歳入を削る。財務官僚は強く難色を示している。");
             tax.choices.Add("裁可する"); tax.choices.Add("見送る（現状維持）");
 
+            // ★通商条約は効果（外交状態・交易路）が<b>まだ未実装</b>。
+            // 文面と違う効果へ結び替えると「条約と見せて別のことを実行する」ことになるので、
+            // <b>条約のまま</b>置き、締結を選んでも「未実装のため実行できません」と理由付きで失敗させる
+            // （<see cref="Resolve"/> が未登録の効果キーを検出して結果に記録する）。
             var treaty = new PendingDecision(9002, "辺境星系との通商条約", DecisionSeverity.重要,
                 DecisionSource.イベント, "treaty.sign", defaultChoiceIndex: 1,
                 body: "辺境の独立星系群が通商条約の締結を打診してきた。締結すれば交易路が開け国庫が潤うが、" +
-                      "隣接する大国を刺激し、外交関係が悪化する恐れがある。");
+                      "隣接する大国を刺激し、外交関係が悪化する恐れがある。\n" +
+                      "（注：条約の効果は未実装です。締結を選んでも実行されません）");
             treaty.choices.Add("締結する"); treaty.choices.Add("保留する");
 
             Queue.Enqueue(tax);

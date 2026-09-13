@@ -10,12 +10,47 @@ namespace Ginei
     public static class GalaxyPathfinder
     {
         /// <summary>
+        /// 経路探索の条件（#40）。既定＝どの回廊も通れる従来どおりの最短経路。
+        /// <paramref name="avoidFortressBlocked"/> を立てると、<paramref name="viewerFaction"/> にとって
+        /// 敵の要塞が封鎖している回廊（<see cref="FortressBlockadeRules.Blocks(Corridor,Faction)"/>）を通らない。
+        /// 要塞は迂回不可なので、封鎖回廊しか道が無ければ経路は<b>見つからない</b>＝呼び手は
+        /// 「回り道は無い＝制圧しに行くしかない」と判断できる。
+        /// </summary>
+        public readonly struct PathQuery
+        {
+            /// <summary>前線回廊（両端が敵対所有＝FTL不可）を避けるか。</summary>
+            public readonly bool avoidFtlBlocked;
+            /// <summary>敵要塞に封鎖された回廊を避けるか。</summary>
+            public readonly bool avoidFortressBlocked;
+            /// <summary>誰から見た封鎖か（要塞所有者と非敵対なら封鎖されない）。</summary>
+            public readonly Faction viewerFaction;
+
+            public PathQuery(bool avoidFtlBlocked, bool avoidFortressBlocked, Faction viewerFaction)
+            {
+                this.avoidFtlBlocked = avoidFtlBlocked;
+                this.avoidFortressBlocked = avoidFortressBlocked;
+                this.viewerFaction = viewerFaction;
+            }
+
+            /// <summary>従来どおり（どの回廊も通れる）。</summary>
+            public static PathQuery Default => new PathQuery(false, false, Faction.帝国);
+
+            /// <summary>敵要塞の封鎖を避ける（迂回路があるかを調べたいとき）。</summary>
+            public static PathQuery AvoidingFortresses(Faction viewer) => new PathQuery(false, true, viewer);
+        }
+
+        /// <summary>
         /// startId から goalId への最短経路（回廊 length 合計が最小）を星系ID列で返す。
         /// 先頭=start・末尾=goal を含む。start==goal は [start]。到達不能/未知ノードは空リスト。
         /// avoidFtlBlocked=true なら前線回廊（StrategyRules.IsFtlBlocked）を通らない経路を返す。
         /// </summary>
         public static List<int> FindPath(GalaxyMap map, int startId, int goalId, bool avoidFtlBlocked = false)
+            => FindPath(map, startId, goalId, new PathQuery(avoidFtlBlocked, false, Faction.帝国));
+
+        /// <summary><inheritdoc cref="FindPath(GalaxyMap,int,int,bool)"/> 条件は <see cref="PathQuery"/> で与える（#40）。</summary>
+        public static List<int> FindPath(GalaxyMap map, int startId, int goalId, PathQuery query)
         {
+            bool avoidFtlBlocked = query.avoidFtlBlocked;
             var result = new List<int>();
             if (map == null) return result;
             if (map.GetSystem(startId) == null || map.GetSystem(goalId) == null) return result;
@@ -48,6 +83,9 @@ namespace Ginei
                     Corridor c = map.GetCorridor(u, v);
                     if (c == null) continue;
                     if (avoidFtlBlocked && StrategyRules.IsFtlBlocked(map, c)) continue; // 前線はFTL不可
+                    // #40：敵の要塞が扼する回廊は、制圧するまで通り抜けられない（迂回不可＝ここで枝を切る）。
+                    if (query.avoidFortressBlocked
+                        && FortressBlockadeRules.Blocks(c, query.viewerFaction)) continue;
                     float nd = dist[u] + Mathf.Max(0f, c.length);
                     if (!dist.ContainsKey(v) || nd < dist[v]) { dist[v] = nd; prev[v] = u; }
                 }

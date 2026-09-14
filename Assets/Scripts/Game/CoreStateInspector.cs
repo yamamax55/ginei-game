@@ -122,6 +122,11 @@ namespace Ginei
             { "lowerSeats", "下院の確定議席" }, { "upperSeats", "上院の確定議席（区分A/B）" },
             { "government", "国政選挙で決まった政府（首相・与党・理由）" }, { "recentResults", "直近の国政選挙の開票記録" },
             { "locals", "星系知事選の状態" }, { "governorPersonId", "選出知事の人物ID（-1=空席）" },
+            { "legislators", "国政議員の個人記録（当選履歴・議員資格）" }, { "legislatorHistorySinceYear", "議員名簿の記録開始年" },
+            { "legislatorAssignedElectionIds", "名簿へ反映済みの国政選挙ID" }, { "lowerWins", "下院の当選回数（ゲーム内）" },
+            { "upperWins", "上院の当選回数（ゲーム内）" }, { "consecutiveWins", "連続当選回数" },
+            { "recordStartYear", "個人記録の開始年（それ以前は不明）" }, { "priorKnown", "開始前の当選歴がシナリオ明示か" },
+            { "seated", "議院は構成済みか／人物は現職議員か" }, { "seatPartyId", "議席の帰属政党" },
             // NationalBudget（国家予算＝歳出の分野配分）
             { "budget", "国家予算（歳出の分野配分）" }, { "military", "軍事費（艦隊維持・即応）" },
             { "shipbuilding", "建艦費（造船供給）" }, { "administration", "内政費（統治・安定）" },

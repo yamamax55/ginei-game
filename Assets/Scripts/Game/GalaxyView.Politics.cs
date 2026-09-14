@@ -149,11 +149,14 @@ namespace Ginei
 
                 var r = PoliticsTickRules.TickYear(s, year);
 
-                // 国政：開票→確定議席→組閣→宰相職（首相）へ反映
+                // 国政：開票→確定議席→組閣→宰相職（首相）へ反映→党別議席へ実在の議員を充てる（下院→上院）
+                List<RegionalElectorate> electorate = ElectorateOf(s.faction);
                 NationalYearOutcome national = ElectionCycleRules.RunNationalYear(
-                    s, year, r, ElectorateOf(s.faction), roster, NationalElectionParams);
+                    s, year, r, electorate, roster, NationalElectionParams);
                 NotifyNational(s, national);
                 ApplyElectedPremier(s);
+                AssignLegislators(s, national.lowerRecord, roster, electorate);
+                AssignLegislators(s, national.upperRecord, roster, electorate);
 
                 // 地方：所有星系と台帳を突き合わせ（占領/編入）→期日の知事選→知事職へ反映
                 List<LocalConstituency> owned = ConstituenciesOf(s.faction);
@@ -161,6 +164,7 @@ namespace Ginei
                 localEvents.AddRange(LocalElectionRules.RunDue(s.politics, s.faction, year, owned, roster, GovernorElectionParams));
                 ApplyLocalElectionEvents(s, localEvents);
                 SyncElectedGovernors(s);
+                ReconcileLegislators(s, roster, year, true); // 知事に就いた人・欠缺の議席を集計へ戻す
 
                 if (r.dividedCrisisOnset)
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
@@ -172,6 +176,29 @@ namespace Ginei
 
         private static readonly ElectionCycleParams NationalElectionParams = ElectionCycleParams.Default;
         private static readonly LocalElectionParams GovernorElectionParams = LocalElectionParams.Default;
+        private static readonly LegislatorRosterParams LegislatorParams = LegislatorRosterParams.Default;
+
+        /// <summary>開票結果を議員名簿へ反映し、実在議員と集計議席の内訳を1通だけ通知する（同じ選挙IDは反映済みなら何もしない）。</summary>
+        private void AssignLegislators(FactionState s, NationalElectionRecord rec, List<Person> roster, List<RegionalElectorate> electorate)
+        {
+            if (s == null || s.politics == null || rec == null) return;
+            LegislatorAssignment a = LegislatorRosterRules.AssignElection(s.politics, s.faction, rec, roster, electorate, LegislatorParams);
+            if (a.alreadyAssigned) return;
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                $"{s.faction} {rec.chamber}の当選議員（SE{rec.year}）：人物 {a.named}名（新 {a.newlyElected}・再 {a.reelected}）・集計議席 {a.aggregate}" +
+                (a.defeated > 0 ? $"・議席を失った現職 {a.defeated}名" : ""));
+        }
+
+        /// <summary>議員資格を現況へ合わせる（当選回数は変えない）。<paramref name="notify"/> が false なら通知しない（読込時）。</summary>
+        private void ReconcileLegislators(FactionState s, List<Person> roster, int year, bool notify)
+        {
+            if (s == null || s.politics == null) return;
+            List<LegislatorVacancy> vacated = LegislatorRosterRules.Reconcile(s.politics, s.faction, roster, year);
+            if (!notify) return;
+            for (int i = 0; i < vacated.Count; i++)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                    $"{s.faction} {vacated[i].chamber}議員 {ElectionPersonName(vacated[i].personId)} 失職（{vacated[i].reason}）");
+        }
 
         /// <summary>
         /// 選挙の暦年＝統一クロックの宇宙暦（画面の日付と同じ）。<c>campaignYear</c> はシーンを組み直すと開始年へ戻るため、
@@ -396,6 +423,7 @@ namespace Ginei
                 NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告, $"{s.faction} 国政選挙を停止：{reason}");
             }
             ApplyLocalElectionEvents(s, LocalElectionRules.Suspend(s.politics, reason));
+            LegislatorRosterRules.SuspendAll(s.politics, reason); // 議員資格を外す（当選履歴は残す）
         }
 
         /// <summary>
@@ -425,6 +453,7 @@ namespace Ginei
 
                 VacateUnavailableGovernors(s, year); // 読込時は通知しない（空席と理由は台帳に残る）
                 SyncElectedGovernors(s);
+                ReconcileLegislators(s, ElectionRoster(), year, false); // 議員資格だけ整える（当選回数は数えない）
             }
         }
 
@@ -496,6 +525,7 @@ namespace Ginei
             ApplyLocalElectionEvents(s, LocalElectionRules.Reconcile(s.politics, ConstituenciesOf(f), year, GovernorElectionParams));
             ApplyLocalElectionEvents(s, VacateUnavailableGovernors(s, year));
             SyncElectedGovernors(s);
+            ReconcileLegislators(s, ElectionRoster(), year, true); // 政治 Tick 後の死去・離反・知事就任で議席を残さない
         }
 
         /// <summary>選挙の無い年に首相が欠けたら現議席で組み直して宰相職へ反映する（年次の文官銓衡から呼ぶ）。</summary>

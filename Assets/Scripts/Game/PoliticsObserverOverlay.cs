@@ -244,6 +244,53 @@ namespace Ginei
             }
             if (n == 0) sb.Append("<color=#9aa7b2>議席なし</color>");
             sb.Append('\n');
+            AppendLegislators(sb, pol, seats);
+        }
+
+        [Header("議員名簿")]
+        [Tooltip("議院ごとに一覧表示する実在議員の上限（超えた分は件数だけ表示）")]
+        public int maxLegislatorsShown = 40;
+
+        /// <summary>党ごとの実在議員数と集計議席の内訳、実在議員の一覧（院・区分・当選回数・記録開始）。</summary>
+        private void AppendLegislators(StringBuilder sb, PoliticsState pol, ChamberSeats seats)
+        {
+            LegislativeChamber chamber = seats.chamber;
+            sb.Append("      <color=#9fb0c0>内訳</color> ");
+            int n = 0;
+            for (int i = 0; i < seats.parties.Count; i++)
+            {
+                PartySeatCount e = seats.parties[i];
+                if (e == null || e.Total <= 0) continue;
+                if (n++ > 0) sb.Append(" / ");
+                sb.Append(PartyName(pol, e.partyId)).Append(" 人物 <color=#a0e0a0>")
+                  .Append(LegislatorRosterRules.NamedSeats(pol, chamber, e.partyId)).Append("</color>・集計 ")
+                  .Append(LegislatorRosterRules.AggregateSeats(pol, chamber, e.partyId));
+            }
+            sb.Append('\n');
+
+            System.Collections.Generic.List<LegislatorRecord> members = LegislatorRosterRules.SeatedMembers(pol, chamber);
+            if (members.Count == 0)
+            {
+                sb.Append("      <color=#9aa7b2>実在の議員なし（全議席が集計議席）</color>\n");
+                return;
+            }
+            int shown = Mathf.Min(members.Count, Mathf.Max(0, maxLegislatorsShown));
+            for (int i = 0; i < shown; i++)
+            {
+                LegislatorRecord r = members[i];
+                sb.Append("      ・").Append(PersonName(r.personId)).Append("（").Append(PartyName(pol, r.seatPartyId)).Append("）");
+                if (chamber == LegislativeChamber.上院) sb.Append(" 区分").Append(r.seatClass == 0 ? "A" : "B");
+                sb.Append(" 当選").Append(r.TotalWins).Append("回（下").Append(r.TotalLowerWins).Append("・上").Append(r.TotalUpperWins)
+                  .Append("）連続").Append(r.consecutiveWins).Append("回");
+                if (r.firstWinYear > 0) sb.Append(" 初当選SE").Append(r.firstWinYear);
+                if (r.lastWinYear > 0) sb.Append(" 直近SE").Append(r.lastWinYear);
+                sb.Append(r.priorKnown
+                    ? "　<color=#6f8a9a>開始前の経歴はシナリオ明示</color>"
+                    : "　<color=#6f8a9a>記録開始SE" + r.recordStartYear + "（それ以前は不明）</color>");
+                sb.Append('\n');
+            }
+            if (members.Count > shown)
+                sb.Append("      <color=#9aa7b2>ほか ").Append(members.Count - shown).Append("名（表示上限）</color>\n");
         }
 
         private void AppendGovernment(StringBuilder sb, PoliticsState pol)

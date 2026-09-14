@@ -41,6 +41,15 @@ namespace Ginei
         /// <summary>知事選の日程を一度でも組んだか（初回は即時・以後の新規編入は猶予つき）。</summary>
         public bool localsSeeded;
 
+        /// <summary>国政議員の個人記録（当選履歴と現在の議員資格・<see cref="LegislatorRosterRules"/>）。旧セーブは空。</summary>
+        public List<LegislatorRecord> legislators = new List<LegislatorRecord>();
+
+        /// <summary>名簿へ反映済みの国政選挙ID（同じ開票を二重に数えない・上限つき）。</summary>
+        public List<string> legislatorAssignedElectionIds = new List<string>();
+
+        /// <summary>議員名簿の記録を始めた年（0=まだ。これより前の当選歴は不明）。</summary>
+        public int legislatorHistorySinceYear;
+
         public PoliticsState() { }
     }
 }

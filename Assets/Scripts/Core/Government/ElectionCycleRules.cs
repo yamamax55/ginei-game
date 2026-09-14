@@ -560,6 +560,8 @@ namespace Ginei
                 if (l.reason == null) l.reason = "";
                 if (l.lastElectionId == null) l.lastElectionId = "";
             }
+
+            LegislatorRosterRules.NormalizeLoaded(pol); // 議員名簿（旧セーブは空・議席総数を超えない）
         }
 
         private static ChamberSeats NormalizeSeats(ChamberSeats cs, LegislativeChamber chamber)

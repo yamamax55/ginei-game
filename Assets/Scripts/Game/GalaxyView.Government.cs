@@ -29,6 +29,13 @@ namespace Ginei
             return (civilOffices != null && idx >= 0 && idx < civilOffices.Length) ? civilOffices[idx] : null;
         }
 
+        /// <summary>その勢力の総督（知事）職（内政・星系スコープ）。未編成/非デモ勢力は null。在任は scopeKey=星系ID。</summary>
+        public Office GovernorOfficeOf(Faction f)
+        {
+            int idx = FactionIndex(f);
+            return (governorOffices != null && idx >= 0 && idx < governorOffices.Length) ? governorOffices[idx] : null;
+        }
+
         /// <summary>宰相の官位相当（年次の銓衡 <see cref="RunCivilAppointmentTick"/> と同じ要求位階）。</summary>
         public static CourtRank PremierRank => PremierRequiredRank;
 
@@ -171,6 +178,7 @@ namespace Ginei
         {
             SeedCommandOffices();      // 要職＝司令長官を最先任へ任命（GovernmentRegistry を初期化して任命・静か）
             RunMinistryStaffingTick(); // 二官八省を編成し文民を能力順で配属（位階ゲートなし・静か）
+            RestoreElectedOffices();   // 保存/在席の選挙結果（首相・知事）を役職へ戻す（選挙はしない・人物不在なら空席＋理由）
         }
 
         /// <summary>要職をシード（冪等）：勢力ごとに「宇宙艦隊司令長官」を1つ作り、最先任の現役へ任命。</summary>
@@ -232,6 +240,8 @@ namespace Ginei
                 Office office = civilOffices[f];
                 if (office == null) continue;
                 Faction fac = DemoFactions[f];
+                // 民主政で国政選挙が回っている勢力は、首相（＝この職）を選挙で決める＝官位の銓衡で上書きしない。
+                if (UsesElectedPremier(fac)) { MaintainElectedPremier(fac); continue; }
                 var holder = GovernmentRegistry.GetHolder(office) as Person;
                 if (holder != null && (!holder.IsAvailable
                     || JapaneseCourtRankRules.Compare(holder.courtRank, PremierRequiredRank) < 0))
@@ -275,16 +285,27 @@ namespace Ginei
                 for (int f = 0; f < civilOffices.Length; f++)
                     if (civilOffices[f] != null && GovernmentRegistry.GetHolder(civilOffices[f]) is Person pm) assigned.Add(pm.id);
 
+            // 選挙で知事を選ぶ勢力は、銓衡の前に在任を現況へ合わせる（政治 Tick 後の死亡・占領・兼任で権限を残さない）。
+            for (int f = 0; f < DemoFactions.Length; f++)
+                if (UsesElectedGovernors(DemoFactions[f])) RefreshElectedGovernors(DemoFactions[f]);
+
             int governed = 0;
             for (int i = 0; i < map.systems.Count; i++)
             {
                 if (governed >= MaxGovernedSystems) break;
                 StarSystem s = map.systems[i];
                 if (s == null) continue;
+                DismissForeignGovernors(s); // 占領・離反などで所有が変わった星系の旧勢力の総督/知事の権限を外す
                 int fIdx = FactionIndex(s.owner);
                 if (fIdx < 0) continue; // デモ勢力の領のみ
                 Office office = governorOffices[fIdx];
                 if (office == null) continue;
+                // 民主政で知事選が回っている勢力は、知事を選挙で決める＝官位の銓衡で上書きしない（政治 Tick が反映済み）。
+                if (UsesElectedGovernors(s.owner))
+                {
+                    if (GovernmentRegistry.GetHolder(office, s.id) is Person elected) assigned.Add(elected.id);
+                    continue;
+                }
 
                 var holder = GovernmentRegistry.GetHolder(office, s.id) as Person;
                 if (holder != null && (!holder.IsAvailable
@@ -304,6 +325,18 @@ namespace Ginei
                 if (gov != before)
                     NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                         $"{s.owner} {s.systemName}総督 に {gov.name}（{JapaneseCourtRankRules.Name(gov.courtRank)}）が就任");
+            }
+        }
+
+        /// <summary>その星系の所有勢力以外の総督/知事職に在任者が残っていれば外す（旧所有勢力の権限を残さない）。</summary>
+        private void DismissForeignGovernors(StarSystem s)
+        {
+            if (s == null || governorOffices == null) return;
+            for (int f = 0; f < governorOffices.Length; f++)
+            {
+                if (DemoFactions[f] == s.owner || governorOffices[f] == null) continue;
+                ICharacter stale = GovernmentRegistry.GetHolder(governorOffices[f], s.id);
+                if (stale != null) GovernmentRegistry.Dismiss(governorOffices[f], stale, s.id);
             }
         }
 

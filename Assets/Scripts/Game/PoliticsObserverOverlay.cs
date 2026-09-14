@@ -82,7 +82,7 @@ namespace Ginei
             var sb = new StringBuilder(2048);
             CampaignState c = StrategySession.Campaign;
 
-            sb.Append("<b>政治オブザーバ</b>　政党・有効政党数・分極化・衆参選挙　(O で閉じる)\n");
+            sb.Append("<b>政治オブザーバ</b>　政党・有効政党数・分極化・国政選挙（議席/政府）・地方選挙（星系知事）　(O で閉じる)\n");
             sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
 
             if (c == null || c.states == null || c.states.Count == 0)
@@ -104,14 +104,19 @@ namespace Ginei
             return sb.ToString();
         }
 
+        /// <summary>試験用：いま表示する本文（観測専用＝状態は変えない）。</summary>
+        public string DumpTextForTest => BuildDump();
+
         private void AppendFaction(StringBuilder sb, FactionState s)
         {
             sb.Append('\n').Append("<color=#e7e0b0>◤ ").Append(s.faction).Append("</color>\n");
 
             PoliticsState pol = s.politics;
+            bool electoral = ElectoralSystemRules.IsElectoral(s.governmentForm);
             if (pol == null || pol.parties == null || pol.parties.Count == 0)
             {
                 sb.Append("  <color=#9aa7b2>（非民主／政党なし＝選挙政治の対象外）</color>\n");
+                AppendElections(sb, s, electoral);
                 return;
             }
 
@@ -142,11 +147,165 @@ namespace Ginei
                 sb.Append('\n');
             }
 
-            // 衆参の選挙日程
-            sb.Append("  <color=#9fb0c0>選挙</color> ＝ ");
-            sb.Append("下院 ").Append(pol.lowerHouse != null ? "次 SE" + pol.lowerHouse.nextElectionYear : "—");
-            sb.Append("　上院 ").Append(pol.upperHouse != null ? "次 SE" + pol.upperHouse.nextElectionYear : "—");
+            AppendElections(sb, s, electoral);
+        }
+
+        // ===== 国政選挙・地方選挙 =====
+
+        private GalaxyView galaxy; // 人物名の解決に使う（無ければ ID 表示）
+
+        private void AppendElections(StringBuilder sb, FactionState s, bool electoral)
+        {
+            PoliticsState pol = s.politics;
+            if (galaxy == null) galaxy = Object.FindAnyObjectByType<GalaxyView>();
+
+            // --- 国政選挙 ---
+            sb.Append("  <color=#ffe08a>■ 国政選挙</color>\n");
+            if (!electoral)
+                sb.Append("    <color=#9aa7b2>対象外（政体 ").Append(s.governmentForm).Append("＝選挙なし・首相は任命/世襲の経路）</color>\n");
+            if (pol == null)
+            {
+                if (electoral) sb.Append("    <color=#9aa7b2>未実施（次の年次で政党と両院を編成して初回選挙）</color>\n");
+            }
+            else
+            {
+                AppendChamber(sb, pol, pol.lowerSeats, pol.lowerHouse, "下院", "任期4年・全議席改選");
+                AppendChamber(sb, pol, pol.upperSeats, pol.upperHouse, "上院", "任期6年・3年ごと半数改選");
+                AppendGovernment(sb, pol);
+                AppendRecentResults(sb, pol);
+            }
+
+            // --- 地方選挙 ---
+            sb.Append("  <color=#ffe08a>■ 地方選挙（星系知事・任期4年）</color>\n");
+            if (!electoral)
+                sb.Append("    <color=#9aa7b2>対象外（知事は官位による任命制）</color>\n");
+            if (pol == null || pol.locals == null || pol.locals.Count == 0)
+            {
+                if (electoral) sb.Append("    <color=#9aa7b2>未実施（次の年次で所有星系ごとに知事選の日程を組む）</color>\n");
+                return;
+            }
+            for (int i = 0; i < pol.locals.Count; i++)
+            {
+                LocalElectionState rec = pol.locals[i];
+                if (rec == null) continue;
+                sb.Append("    ").Append(SystemName(rec.systemId)).Append("：");
+                if (rec.governorPersonId >= 0)
+                    sb.Append("知事 <color=#a0e0a0>").Append(PersonName(rec.governorPersonId)).Append("</color>（")
+                      .Append(PartyName(pol, rec.governorPartyId)).Append("）任期〜SE").Append(rec.termEndYear);
+                else
+                    sb.Append("<color=#9aa7b2>知事 空席</color>");
+                sb.Append("　[").Append(rec.status).Append(']');
+                if (rec.nextElectionYear > 0) sb.Append("　次回 SE").Append(rec.nextElectionYear);
+                sb.Append('\n');
+
+                if (rec.lastResults != null && rec.lastResults.Count > 0 && rec.lastElectionYear > 0)
+                {
+                    sb.Append("      <color=#9fb0c0>直近 SE").Append(rec.lastElectionYear).Append("</color> ");
+                    int shown = System.Math.Min(3, rec.lastResults.Count);
+                    for (int k = 0; k < shown; k++)
+                    {
+                        LocalCandidateResult c = rec.lastResults[k];
+                        if (k > 0) sb.Append(" / ");
+                        sb.Append(PersonName(c.personId)).Append(' ').Append((c.voteShare * 100f).ToString("0")).Append('%');
+                    }
+                    if (rec.lastResults.Count > shown) sb.Append(" ほか").Append(rec.lastResults.Count - shown).Append('名');
+                    sb.Append('\n');
+                }
+                if (!string.IsNullOrEmpty(rec.reason))
+                    sb.Append("      <color=#ffb070>理由：").Append(rec.reason).Append("</color>\n");
+            }
+        }
+
+        private void AppendChamber(StringBuilder sb, PoliticsState pol, ChamberSeats seats, ChamberSchedule schedule, string label, string rule)
+        {
+            sb.Append("    <color=#9fb0c0>").Append(label).Append("</color>");
+            if (seats != null && seats.seated)
+            {
+                sb.Append(' ').Append(seats.TotalSeats).Append("議席（過半数 ")
+                  .Append(ElectionCycleRules.MajorityLine(seats.TotalSeats)).Append('）');
+            }
+            else sb.Append(" <color=#9aa7b2>未構成</color>");
+            sb.Append("　次回 ").Append(schedule != null ? "SE" + schedule.nextElectionYear : "—");
+            if (schedule != null && schedule.chamber == LegislativeChamber.上院 && seats != null && seats.seated)
+                sb.Append("（改選区分 ").Append(schedule.currentClass == 0 ? "A" : "B").Append('）');
+            sb.Append("　<color=#6f8a9a>").Append(rule).Append("</color>\n");
+
+            if (seats == null || !seats.seated || seats.parties == null) return;
+            bool upper = seats.chamber == LegislativeChamber.上院;
+            sb.Append("      ");
+            int n = 0;
+            for (int i = 0; i < seats.parties.Count; i++)
+            {
+                PartySeatCount e = seats.parties[i];
+                if (e == null || e.Total <= 0) continue;
+                if (n++ > 0) sb.Append(" / ");
+                sb.Append(PartyName(pol, e.partyId)).Append(' ').Append(e.Total);
+                if (upper) sb.Append("（A").Append(e.classA).Append("+B").Append(e.classB).Append('）');
+            }
+            if (n == 0) sb.Append("<color=#9aa7b2>議席なし</color>");
             sb.Append('\n');
+        }
+
+        private void AppendGovernment(StringBuilder sb, PoliticsState pol)
+        {
+            GovernmentFormation g = pol.government;
+            sb.Append("    <color=#9fb0c0>政府</color> ＝ ");
+            if (g == null) { sb.Append("<color=#9aa7b2>未組閣</color>\n"); return; }
+            if (g.premierPersonId >= 0)
+                sb.Append("首相 <color=#ffd700>").Append(PersonName(g.premierPersonId)).Append("</color>（")
+                  .Append(PartyName(pol, g.partyId)).Append(' ').Append(g.partySeats).Append('/').Append(g.totalSeats).Append("議席）");
+            else
+                sb.Append("<color=#ff7a6a>首相 空席</color>");
+            sb.Append("　[").Append(g.status).Append(']');
+            if (g.formedYear > 0) sb.Append("　SE").Append(g.formedYear);
+            sb.Append('\n');
+            if (!string.IsNullOrEmpty(g.reason))
+                sb.Append("      <color=#ffb070>理由：").Append(g.reason).Append("</color>\n");
+        }
+
+        private void AppendRecentResults(StringBuilder sb, PoliticsState pol)
+        {
+            if (pol.recentResults == null || pol.recentResults.Count == 0)
+            {
+                sb.Append("    <color=#9fb0c0>直近開票</color> ＝ <color=#9aa7b2>なし</color>\n");
+                return;
+            }
+            const int maxShown = 2; // 新しい順に2件
+            for (int i = pol.recentResults.Count - 1, shown = 0; i >= 0 && shown < maxShown; i--, shown++)
+            {
+                NationalElectionRecord r = pol.recentResults[i];
+                if (r == null) continue;
+                sb.Append("    <color=#9fb0c0>直近開票</color> SE").Append(r.year).Append(' ').Append(r.chamber)
+                  .Append(r.inaugural ? "（初回・" : "（").Append(r.classUp < 0 ? "全" : (r.classUp == 0 ? "区分A " : "区分B "))
+                  .Append(r.seatsUp).Append("議席）\n      ");
+                for (int k = 0; k < r.results.Count; k++)
+                {
+                    PartyVoteResult v = r.results[k];
+                    if (v == null) continue;
+                    if (k > 0) sb.Append(" / ");
+                    sb.Append(v.partyName).Append(' ').Append((v.voteShare * 100f).ToString("0")).Append("%→")
+                      .Append(v.seatsWon).Append("議席");
+                }
+                sb.Append('\n');
+            }
+        }
+
+        private string PersonName(int personId)
+        {
+            Person p = galaxy != null ? galaxy.FindPersonById(personId) : null;
+            return p != null ? p.name : "人物#" + personId;
+        }
+
+        private static string SystemName(int systemId)
+        {
+            StarSystem s = StrategySession.Map != null ? StrategySession.Map.GetSystem(systemId) : null;
+            return s != null ? s.systemName : "星系#" + systemId;
+        }
+
+        private static string PartyName(PoliticsState pol, int partyId)
+        {
+            Party p = ElectionCycleRules.FindParty(pol != null ? pol.parties : null, partyId);
+            return p != null ? p.partyName : "無所属";
         }
 
         private void AppendBar(StringBuilder sb, string label, float v01, string colorHex)

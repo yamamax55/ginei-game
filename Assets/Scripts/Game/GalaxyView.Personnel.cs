@@ -426,6 +426,9 @@ namespace Ginei
         /// 全員 <see cref="PersonRole.文民"/>＝<see cref="isSovereign"/>/<see cref="isPolitician"/> と文才/技才で
         /// <see cref="PersonVocationRules.VocationOf"/> が 君主/政治家/文官/技術者 に振り分ける。返り値は次の人物 id。
         /// </summary>
+        /// <summary>デモの地方政治家の人数（勢力ごと・知事選の候補の母数）。</summary>
+        private const int DemoLocalPoliticianCount = 4;
+
         private int SeedDemoCivilService(int id, int year)
         {
             if (DemoFactions == null || civilians == null) return id;
@@ -441,6 +444,14 @@ namespace Ginei
                 { isPolitician = true, birthYear = year - 48, leadership = 66, operation = 70, intelligence = 72 });
                 civilians.Add(new Person(id++, $"{fac}の政治家B", fac, PersonRole.文民)
                 { isPolitician = true, birthYear = year - 56, leadership = 60, operation = 66, intelligence = 68 });
+                // 地方政治家（知事選の候補の母数・新規戦役のみ＝既存セーブの人物は変えない）。人望に差をつけて票を割る。
+                for (int k = 0; k < DemoLocalPoliticianCount; k++)
+                    civilians.Add(new Person(id++, $"{fac}の地方政治家{(char)('C' + k)}", fac, PersonRole.文民)
+                    {
+                        isPolitician = true, birthYear = year - 40 - k * 3,
+                        leadership = 50 + k * 2, operation = 58 + k, intelligence = 60 - k,
+                        charisma = 45 + k * 5,
+                    });
 
                 // 文民：文官・官僚（行政の主流）
                 civilians.Add(new Person(id++, $"{fac}の文官（次官）", fac, PersonRole.文民)

@@ -31,6 +31,7 @@ namespace Ginei
         {
             public bool lowerHouseElection;   // 下院（衆議院相当）の選挙が実施された
             public bool upperHouseElection;   // 上院（参議院相当）の選挙が実施された
+            public int upperClassUp;          // 上院選挙で改選された区分（0/1・上院選挙が無い年は -1）
             public bool dividedCrisis;        // 分断危機の状態
             public bool dividedCrisisOnset;   // この年に分断危機へ突入した（立ち上がり＝通知に使う）
             public float effectiveParties;    // 有効政党数
@@ -52,6 +53,7 @@ namespace Ginei
         public static PoliticsTickResult TickYear(FactionState s, int currentYear, PoliticsParams prm)
         {
             var r = default(PoliticsTickResult);
+            r.upperClassUp = -1;
             if (s == null) return r;
 
             PoliticsState pol = s.politics;
@@ -67,7 +69,9 @@ namespace Ginei
 
             // 選挙日程（衆＝任期4年/解散・参＝6年で半数改選）。
             r.lowerHouseElection = ElectionScheduleRules.TickYear(pol.lowerHouse, currentYear);
+            int classBefore = ElectionScheduleRules.CurrentClassUp(pol.upperHouse); // 日程が進む前の改選区分
             r.upperHouseElection = ElectionScheduleRules.TickYear(pol.upperHouse, currentYear);
+            r.upperClassUp = r.upperHouseElection ? classBefore : -1;
 
             // 分断危機（二大政党で成熟するほど高い）。立ち上がり（false→true）を検出して通知に使う。
             r.dividedCrisis = PartySystemRules.IsDividedCrisis(maturity, r.effectiveParties, prm.crisisThreshold);

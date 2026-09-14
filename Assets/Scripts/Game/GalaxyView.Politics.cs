@@ -122,38 +122,405 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 政党政治の年次 Tick（#159 配線）：民主政治の勢力ごとに、成熟度に応じて政党制を二大政党へ収束させ、
-        /// 衆参の選挙日程を回し、分断危機の立ち上がりを通知する。数値は <see cref="PoliticsTickRules"/>（→PartySystemRules/ElectionScheduleRules）へ委譲。
+        /// 政党政治と選挙の年次 Tick（#159 配線）：民主政治の勢力ごとに、成熟度に応じて政党制を二大政党へ収束させ、
+        /// 衆参の日程どおりに国政選挙を開票して議席を確定し、下院選挙の後に組閣（首相＝宰相職へ就任）し、
+        /// 星系知事選を行って知事職へ就ける。非民主へ移った勢力は選挙を止め、選出された首相/知事の権限を外す（任命制へ戻す）。
+        /// 数値は <see cref="PoliticsTickRules"/>／<see cref="ElectionCycleRules"/>／<see cref="LocalElectionRules"/> へ委譲。
+        /// 年は統一クロックの暦（<see cref="ElectionYear"/>）＝同じ年に二度呼ばれても議席・役職・通知は二重に動かない。
         /// </summary>
         private void RunPoliticsTick()
         {
             var camp = StrategySession.Campaign;
             if (camp == null || camp.states == null) return;
+            int year = ElectionYear();
+            List<Person> roster = ElectionRoster();
 
             for (int i = 0; i < camp.states.Count; i++)
             {
                 FactionState s = camp.states[i];
                 if (s == null) continue;
-                if (!ElectoralSystemRules.IsElectoral(s.governmentForm)) continue; // 民主政治のみ（寡頭/君主/独裁は選挙なし）
+                if (!ElectoralSystemRules.IsElectoral(s.governmentForm))
+                {
+                    SuspendElections(s, year); // 寡頭/君主/独裁は選挙なし（以前に選挙をしていた勢力だけ止める）
+                    continue;
+                }
 
                 if (s.politics == null || s.politics.parties.Count == 0) SeedDemoParties(s);
 
-                var r = PoliticsTickRules.TickYear(s, campaignYear);
+                var r = PoliticsTickRules.TickYear(s, year);
 
-                if (r.lowerHouseElection)
-                {
-                    Party ruling = PartyRules.RulingParty(s.politics.parties);
-                    string rn = ruling != null ? ruling.partyName : "—";
-                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
-                        $"{s.faction} 下院総選挙（衆議院相当・任期4年）＝第一党 {rn}");
-                }
-                if (r.upperHouseElection)
-                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
-                        $"{s.faction} 上院通常選挙（参議院相当・半数改選）");
+                // 国政：開票→確定議席→組閣→宰相職（首相）へ反映
+                NationalYearOutcome national = ElectionCycleRules.RunNationalYear(
+                    s, year, r, ElectorateOf(s.faction), roster, NationalElectionParams);
+                NotifyNational(s, national);
+                ApplyElectedPremier(s);
+
+                // 地方：所有星系と台帳を突き合わせ（占領/編入）→期日の知事選→知事職へ反映
+                List<LocalConstituency> owned = ConstituenciesOf(s.faction);
+                List<LocalElectionEvent> localEvents = LocalElectionRules.Reconcile(s.politics, owned, year, GovernorElectionParams);
+                localEvents.AddRange(LocalElectionRules.RunDue(s.politics, s.faction, year, owned, roster, GovernorElectionParams));
+                ApplyLocalElectionEvents(s, localEvents);
+                SyncElectedGovernors(s);
+
                 if (r.dividedCrisisOnset)
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
                         $"{s.faction} 二大政党化で社会の分断が深刻化（有効政党数 {r.effectiveParties:0.0}）");
             }
+        }
+
+        // ===== 選挙の配線（国政・地方） =====
+
+        private static readonly ElectionCycleParams NationalElectionParams = ElectionCycleParams.Default;
+        private static readonly LocalElectionParams GovernorElectionParams = LocalElectionParams.Default;
+
+        /// <summary>
+        /// 選挙の暦年＝統一クロックの宇宙暦（画面の日付と同じ）。<c>campaignYear</c> はシーンを組み直すと開始年へ戻るため、
+        /// 保存した選挙日程とずれないようクロックから求める。
+        /// </summary>
+        private int ElectionYear()
+        {
+            GameClock clock = StrategySession.Clock;
+            GameDate.DateParams dp = policyCalendar != null ? policyCalendar.Params : GameDate.DateParams.Default;
+            return GameDate.FromSeconds(clock != null ? clock.ElapsedSeconds : 0d, TimeDisplay.StartYear, dp).year;
+        }
+
+        /// <summary>選挙の資格判定に使う全人物（軍人＋文民）。</summary>
+        private List<Person> ElectionRoster()
+        {
+            var list = new List<Person>();
+            if (commanders != null) list.AddRange(commanders);
+            if (civilians != null) list.AddRange(civilians);
+            return list;
+        }
+
+        /// <summary>その勢力が選挙で首相を選んでいるか（民主政で両院が構成済み）＝年次の宰相銓衡を行わない。</summary>
+        private bool UsesElectedPremier(Faction f)
+        {
+            FactionState s = StateOf(f);
+            return s != null && ElectoralSystemRules.IsElectoral(s.governmentForm) && ElectionCycleRules.IsSeated(s.politics);
+        }
+
+        /// <summary>その勢力が選挙で知事を選んでいるか（民主政で知事選の日程を組み済み）＝年次の総督銓衡を行わない。</summary>
+        private bool UsesElectedGovernors(Faction f)
+        {
+            FactionState s = StateOf(f);
+            return s != null && ElectoralSystemRules.IsElectoral(s.governmentForm) && s.politics != null && s.politics.localsSeeded;
+        }
+
+        /// <summary>国政選挙の地域票（所有星系の人口と安定度）。</summary>
+        private List<RegionalElectorate> ElectorateOf(Faction f)
+        {
+            var list = new List<RegionalElectorate>();
+            if (map == null || provinces == null) return list;
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.owner != f || !provinces.TryGetValue(s.id, out Province prov) || prov == null) continue;
+                list.Add(new RegionalElectorate(s.id, prov.population, prov.stability / 100f));
+            }
+            return list;
+        }
+
+        /// <summary>知事選の選挙区＝所有星系（内政データのある星系。人口・安定度・土着思想）。</summary>
+        private List<LocalConstituency> ConstituenciesOf(Faction f)
+        {
+            var list = new List<LocalConstituency>();
+            if (map == null || provinces == null) return list;
+            for (int i = 0; i < map.systems.Count; i++)
+            {
+                StarSystem s = map.systems[i];
+                if (s == null || s.owner != f || !provinces.TryGetValue(s.id, out Province prov) || prov == null) continue;
+                list.Add(new LocalConstituency(s.id, prov.population, prov.stability / 100f, prov.nativeIdeology));
+            }
+            return list;
+        }
+
+        private string ElectionSystemName(int systemId)
+        {
+            StarSystem s = map != null ? map.GetSystem(systemId) : null;
+            return s != null ? s.systemName : "星系#" + systemId;
+        }
+
+        private string ElectionPersonName(int personId)
+        {
+            Person p = FindPersonById(personId);
+            return p != null ? p.name : "人物#" + personId;
+        }
+
+        private static string ElectionPartyName(PoliticsState pol, int partyId)
+        {
+            Party p = pol != null ? ElectionCycleRules.FindParty(pol.parties, partyId) : null;
+            return p != null ? p.partyName : "無所属";
+        }
+
+        /// <summary>国政選挙と組閣の通知（開票・組閣があった年だけ＝同年の再処理では出ない）。</summary>
+        private void NotifyNational(FactionState s, NationalYearOutcome o)
+        {
+            PoliticsState pol = s.politics;
+            if (pol == null) return;
+            if (o.lowerRecord != null)
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                    $"{s.faction} {(o.inaugural ? "初の下院選挙" : "下院総選挙")}（SE{o.lowerRecord.year}・{o.lowerRecord.seatsUp}議席）＝{TopPartyText(o.lowerRecord)}");
+            if (o.upperRecord != null)
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                    $"{s.faction} {(o.inaugural ? "初の上院選挙（全議席）" : "上院通常選挙（半数改選）")}（SE{o.upperRecord.year}・{o.upperRecord.seatsUp}議席）＝{TopPartyText(o.upperRecord)}");
+
+            GovernmentFormation g = pol.government;
+            if (g == null || !(o.governmentFormed || o.governmentChanged)) return;
+            if (g.premierPersonId >= 0)
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                    $"{s.faction} 首相に {ElectionPersonName(g.premierPersonId)}（{ElectionPartyName(pol, g.partyId)} {g.partySeats}/{g.totalSeats}議席・{g.status}）");
+            else
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                    $"{s.faction} 組閣未成立：{g.reason}");
+        }
+
+        private static string TopPartyText(NationalElectionRecord rec)
+        {
+            PartyVoteResult top = null;
+            for (int i = 0; i < rec.results.Count; i++)
+            {
+                PartyVoteResult r = rec.results[i];
+                if (r == null) continue;
+                if (top == null || r.seatsAfter > top.seatsAfter || (r.seatsAfter == top.seatsAfter && r.partyId < top.partyId)) top = r;
+            }
+            return top == null ? "議席配分なし"
+                : $"第一党 {top.partyName} {top.seatsAfter}/{rec.totalSeats}議席（今回 {top.seatsWon}・得票 {top.voteShare * 100f:0}%）";
+        }
+
+        /// <summary>
+        /// 選出された首相を宰相職（<see cref="GovernmentRegistry"/> の既存の文官要職）へ反映する。首相が空席なら職も空ける。
+        /// 政治任用なので官位（位階）のゲートは課さない。軍団・艦隊の指揮権は与えない（内政所掌の役職のみ）。
+        /// </summary>
+        private void ApplyElectedPremier(FactionState s)
+        {
+            if (s == null || !ElectionCycleRules.IsSeated(s.politics)) return;
+            Office office = PremierOfficeOf(s.faction);
+            if (office == null) return;
+            GovernmentFormation g = s.politics.government;
+            Person premier = g != null && g.premierPersonId >= 0 ? FindPersonById(g.premierPersonId) : null;
+
+            ICharacter holder = GovernmentRegistry.GetHolder(office);
+            if (holder != null && (premier == null || holder.Id != premier.id))
+                GovernmentRegistry.Dismiss(office, holder); // 任命の宰相・前首相を外す
+            if (premier != null && GovernmentRegistry.GetHolder(office) == null
+                && !GovernmentRegistry.TryAppoint(s.faction, office, premier))
+            {
+                g.reason = $"首相 {premier.name} を{office.officeName}に就けられなかった（役職の資格を満たさない）";
+                g.premierPersonId = -1;
+                g.status = CabinetStatus.組閣未成立;
+            }
+        }
+
+        /// <summary>知事選の出来事を知事職へ反映して通知する（失職は権限を外す。不成立は勢力ごとに1通へまとめる）。</summary>
+        private void ApplyLocalElectionEvents(FactionState s, List<LocalElectionEvent> events)
+        {
+            if (s == null || events == null || events.Count == 0) return;
+            Office office = GovernorOfficeOf(s.faction);
+            int failed = 0, retryYear = 0;
+            string failReason = "";
+            for (int i = 0; i < events.Count; i++)
+            {
+                LocalElectionEvent e = events[i];
+                string sys = ElectionSystemName(e.systemId);
+                switch (e.kind)
+                {
+                    case LocalElectionEventKind.失職:
+                        DismissHolderById(office, e.systemId, e.previousPersonId);
+                        NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                            $"{s.faction} {sys}知事 {ElectionPersonName(e.previousPersonId)} 失職（{e.reason}）");
+                        break;
+                    case LocalElectionEventKind.当選:
+                    case LocalElectionEventKind.再選:
+                        NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                            $"{s.faction} {sys}知事選：{ElectionPersonName(e.personId)}（{ElectionPartyName(s.politics, e.partyId)}）が{e.kind}（任期〜SE{e.nextElectionYear}）");
+                        break;
+                    case LocalElectionEventKind.不成立:
+                        failed++;
+                        retryYear = e.nextElectionYear;
+                        if (failReason.Length == 0) failReason = e.reason;
+                        break;
+                }
+            }
+            if (failed > 0)
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"{s.faction} 知事選 不成立 {failed}星系（{failReason}）→ 再実施 SE{retryYear}");
+        }
+
+        /// <summary>知事選の台帳どおりに知事職（星系スコープ）の在任者を合わせる（当選者を就け、それ以外の在任者を外す）。</summary>
+        private void SyncElectedGovernors(FactionState s)
+        {
+            if (s == null || s.politics == null || s.politics.locals == null) return;
+            Office office = GovernorOfficeOf(s.faction);
+            if (office == null) return;
+            int premierId = s.politics.government != null ? s.politics.government.premierPersonId : -1;
+            for (int i = 0; i < s.politics.locals.Count; i++)
+            {
+                LocalElectionState rec = s.politics.locals[i];
+                if (rec == null) continue;
+                // 兼任の拒否（首相と知事・複数星系の知事）：保存データの食い違いや選挙の無い年の再組閣で生じても就けない。
+                string conflict = GovernorConflictReason(s.politics, rec, premierId);
+                if (conflict != null)
+                {
+                    int previous = rec.governorPersonId;
+                    VacateGovernorRecord(rec, conflict);
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                        $"{s.faction} {ElectionSystemName(rec.systemId)}知事 {ElectionPersonName(previous)} 失職（{conflict}）");
+                }
+                Person gov = rec.governorPersonId >= 0 ? FindPersonById(rec.governorPersonId) : null;
+                ICharacter holder = GovernmentRegistry.GetHolder(office, rec.systemId);
+                if (holder != null && (gov == null || holder.Id != gov.id))
+                    GovernmentRegistry.Dismiss(office, holder, rec.systemId); // 任命の総督・前知事を外す
+                if (gov != null && GovernmentRegistry.GetHolder(office, rec.systemId) == null
+                    && !GovernmentRegistry.TryAppoint(s.faction, office, gov, rec.systemId))
+                {
+                    rec.reason = $"当選者 {gov.name} を知事職に就けられなかった（役職の資格を満たさない）";
+                    rec.governorPersonId = -1;
+                    rec.governorPartyId = -1;
+                    rec.status = LocalElectionStatus.失職;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 非民主へ移った勢力の選挙を止める：政府を対象外にして選出首相を宰相職から外し、選出知事を失職させる
+        /// （以後は既存の任命/銓衡の経路が埋める）。一度も選挙をしていない勢力では何もしない。
+        /// </summary>
+        private void SuspendElections(FactionState s, int year)
+        {
+            if (s == null || s.politics == null) return;
+            string reason = $"政体が{s.governmentForm}へ移行＝選挙なし（首相・知事は任命制）";
+            if (ElectionCycleRules.SuspendNational(s.politics, year, reason, out int previousPremier))
+            {
+                DismissHolderById(PremierOfficeOf(s.faction), 0, previousPremier);
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告, $"{s.faction} 国政選挙を停止：{reason}");
+            }
+            ApplyLocalElectionEvents(s, LocalElectionRules.Suspend(s.politics, reason));
+        }
+
+        /// <summary>
+        /// 読込・シーン再構築の直後に、保存された選挙結果（首相・知事）を政府役職へ戻す（選挙はしない）。
+        /// 人物が名簿に居ない・死亡・拘束・離反なら空席にして理由を残す（次の年次で再組閣／補欠選挙）。
+        /// </summary>
+        private void RestoreElectedOffices()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+            int year = ElectionYear();
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null || s.politics == null || !ElectoralSystemRules.IsElectoral(s.governmentForm)) continue;
+                PoliticsState pol = s.politics;
+
+                GovernmentFormation g = pol.government;
+                if (g != null && g.premierPersonId >= 0
+                    && !ElectionCycleRules.IsEligiblePolitician(FindPersonById(g.premierPersonId), s.faction))
+                {
+                    g.reason = $"首相（人物#{g.premierPersonId}）が不在・死亡などで職務を続けられないため空席（次の年次で再組閣）";
+                    g.premierPersonId = -1;
+                    g.status = CabinetStatus.組閣未成立;
+                }
+                ApplyElectedPremier(s);
+
+                VacateUnavailableGovernors(s, year); // 読込時は通知しない（空席と理由は台帳に残る）
+                SyncElectedGovernors(s);
+            }
+        }
+
+        /// <summary>
+        /// 死亡・拘束・離反・不在の知事を空席にして理由と補欠選挙の年を残す（選挙はしない）。空席にした星系ぶんの失職の出来事を返す。
+        /// </summary>
+        private List<LocalElectionEvent> VacateUnavailableGovernors(FactionState s, int year)
+        {
+            var events = new List<LocalElectionEvent>();
+            if (s == null || s.politics == null || s.politics.locals == null) return events;
+            for (int k = 0; k < s.politics.locals.Count; k++)
+            {
+                LocalElectionState rec = s.politics.locals[k];
+                if (rec == null || rec.governorPersonId < 0) continue;
+                if (ElectionCycleRules.IsEligiblePolitician(FindPersonById(rec.governorPersonId), s.faction)) continue;
+                int previous = rec.governorPersonId;
+                int by = year + GovernorElectionParams.retryYears;
+                string reason = $"知事（人物#{previous}）が不在・死亡などのため空席（補欠選挙 SE{by}）";
+                VacateGovernorRecord(rec, reason);
+                events.Add(new LocalElectionEvent
+                {
+                    systemId = rec.systemId, kind = LocalElectionEventKind.失職,
+                    personId = -1, previousPersonId = previous, partyId = -1,
+                    nextElectionYear = rec.nextElectionYear, reason = reason,
+                });
+            }
+            return events;
+        }
+
+        /// <summary>知事選の台帳の知事を空席にする（失職・理由・補欠選挙の年＝次の知事選より遅らせない）。</summary>
+        private void VacateGovernorRecord(LocalElectionState rec, string reason)
+        {
+            if (rec == null) return;
+            int by = ElectionYear() + GovernorElectionParams.retryYears;
+            rec.reason = reason ?? "";
+            rec.governorPersonId = -1;
+            rec.governorPartyId = -1;
+            rec.termEndYear = 0;
+            rec.status = LocalElectionStatus.失職;
+            rec.nextElectionYear = rec.nextElectionYear > 0 ? Mathf.Min(rec.nextElectionYear, by) : by;
+        }
+
+        /// <summary>
+        /// 知事が兼任になっていれば理由を返す（兼任でなければ null）：首相本人／より小さい星系IDの知事を既に務めている。
+        /// 同じ人物が複数星系に載っていれば星系ID最小の1つだけを残す（決定論）。
+        /// </summary>
+        private string GovernorConflictReason(PoliticsState pol, LocalElectionState rec, int premierId)
+        {
+            if (pol == null || rec == null || rec.governorPersonId < 0) return null;
+            int by = ElectionYear() + GovernorElectionParams.retryYears;
+            if (rec.governorPersonId == premierId)
+                return $"知事（人物#{rec.governorPersonId}）は首相と兼任できないため空席（補欠選挙 SE{by}）";
+            int other = LocalElectionRules.GovernedSystemOf(pol, rec.governorPersonId, rec.systemId);
+            if (other >= 0 && other < rec.systemId)
+                return $"知事（人物#{rec.governorPersonId}）は{ElectionSystemName(other)}の知事と兼任できないため空席（補欠選挙 SE{by}）";
+            return null;
+        }
+
+        /// <summary>
+        /// 年次の総督銓衡の時点で、選挙で選んだ知事の在任を現況へ合わせる（選挙はしない）：手放した星系の知事を失職させ、
+        /// 死亡・拘束・離反した知事を空席にし、兼任を外して知事職を台帳どおりにする。
+        /// 政治 Tick の後に起きた文民の老衰・離反・占領・再組閣で、権限が次の年まで残らないようにする。
+        /// </summary>
+        private void RefreshElectedGovernors(Faction f)
+        {
+            FactionState s = StateOf(f);
+            if (s == null || s.politics == null || !UsesElectedGovernors(f)) return;
+            int year = ElectionYear();
+            ApplyLocalElectionEvents(s, LocalElectionRules.Reconcile(s.politics, ConstituenciesOf(f), year, GovernorElectionParams));
+            ApplyLocalElectionEvents(s, VacateUnavailableGovernors(s, year));
+            SyncElectedGovernors(s);
+        }
+
+        /// <summary>選挙の無い年に首相が欠けたら現議席で組み直して宰相職へ反映する（年次の文官銓衡から呼ぶ）。</summary>
+        private void MaintainElectedPremier(Faction f)
+        {
+            FactionState s = StateOf(f);
+            if (s == null || s.politics == null) return;
+            if (ElectionCycleRules.MaintainGovernment(s.politics, f, ElectionYear(), ElectionRoster(), out _))
+            {
+                GovernmentFormation g = s.politics.government;
+                if (g != null && g.premierPersonId >= 0)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                        $"{f} 首相交代：{ElectionPersonName(g.premierPersonId)}（{ElectionPartyName(s.politics, g.partyId)}・{g.status}）");
+                else if (g != null)
+                    NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告, $"{f} 首相空席：{g.reason}");
+            }
+            ApplyElectedPremier(s);
+        }
+
+        /// <summary>役職の在任者がその人物なら外す（別人なら触らない）。</summary>
+        private static void DismissHolderById(Office office, int scopeKey, int personId)
+        {
+            if (office == null || personId < 0) return;
+            ICharacter holder = GovernmentRegistry.GetHolder(office, scopeKey);
+            if (holder != null && holder.Id == personId) GovernmentRegistry.Dismiss(office, holder, scopeKey);
         }
 
         /// <summary>デモ用の政党シード：多党乱立から出発させる（成熟が上がると二大政党へ収束する＝#159）。</summary>

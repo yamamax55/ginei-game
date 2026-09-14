@@ -105,10 +105,15 @@ namespace Ginei
         {
             sb.Append('\n').Append("<color=#e7e0b0>◤ ").Append(s.faction).Append("</color>\n");
 
-            // 首班（与党党首）
-            int premierId = (s.politics != null && s.politics.parties != null)
-                ? PartyRules.Premier(s.politics.parties) : -1;
-            if (premierId >= 0)
+            // 首班：国政選挙で組閣済みならその首相（議席が出所）、未構成なら従来どおり支持率最大の党の党首
+            bool elected = ElectoralSystemRules.IsElectoral(s.governmentForm) && ElectionCycleRules.IsSeated(s.politics);
+            int premierId = elected
+                ? (s.politics.government != null ? s.politics.government.premierPersonId : -1)
+                : (s.politics != null && s.politics.parties != null) ? PartyRules.Premier(s.politics.parties) : -1;
+            if (elected && premierId < 0)
+                sb.Append("  <color=#9fb0c0>首班</color> ＝ <color=#ff7a6a>（空席）</color> ")
+                  .Append(s.politics.government != null ? s.politics.government.reason : "").Append('\n');
+            else if (premierId >= 0)
                 sb.Append("  <color=#9fb0c0>首班</color> ＝ ").Append(FindPersonName(gv, premierId)).Append('\n');
             else
                 sb.Append("  <color=#9fb0c0>首班</color> ＝ <color=#9aa7b2>（未組閣・政党結成待ち）</color>\n");

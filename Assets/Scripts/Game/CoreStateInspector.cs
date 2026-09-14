@@ -119,6 +119,9 @@ namespace Ginei
             { "regime", "王朝" }, { "polity", "統治体" }, { "organization", "組織" }, { "community", "共同体" },
             { "inclusiveness", "統治スタイル 収奪0↔包摂1" }, { "taxRate", "税率" }, { "treasury", "国庫" },
             { "states", "勢力ごとの国家状態" }, { "map", "銀河盤面" },
+            { "lowerSeats", "下院の確定議席" }, { "upperSeats", "上院の確定議席（区分A/B）" },
+            { "government", "国政選挙で決まった政府（首相・与党・理由）" }, { "recentResults", "直近の国政選挙の開票記録" },
+            { "locals", "星系知事選の状態" }, { "governorPersonId", "選出知事の人物ID（-1=空席）" },
             // NationalBudget（国家予算＝歳出の分野配分）
             { "budget", "国家予算（歳出の分野配分）" }, { "military", "軍事費（艦隊維持・即応）" },
             { "shipbuilding", "建艦費（造船供給）" }, { "administration", "内政費（統治・安定）" },

@@ -112,7 +112,9 @@ namespace Ginei
                         budgetWelfare = fs.budget != null ? fs.budget.welfare : 0f,
                         budgetResearch = fs.budget != null ? fs.budget.research : 0f,
                         budgetDiplomacy = fs.budget != null ? fs.budget.diplomacy : 0f,
-                        fiscalDebt = fs.fiscal != null ? fs.fiscal.debt : 0f
+                        fiscalDebt = fs.fiscal != null ? fs.fiscal.debt : 0f,
+                        hasPolitics = fs.politics != null,
+                        politics = fs.politics
                     });
                 }
             }
@@ -207,6 +209,12 @@ namespace Ginei
                     fs.budget.diplomacy = fss.budgetDiplomacy;
                 }
                 if (fs.fiscal != null) fs.fiscal.debt = fss.fiscalDebt;
+                // 政治は旗が立っているときだけ戻す（旧セーブは null＝次の年次で初期化）。読込では選挙をしない。
+                if (fss.hasPolitics && fss.politics != null)
+                {
+                    fs.politics = fss.politics;
+                    ElectionCycleRules.NormalizeLoaded(fs.politics);
+                }
                 state.states.Add(fs);
             }
             return state;

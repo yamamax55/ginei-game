@@ -265,6 +265,11 @@ namespace Ginei
         public float treasury, taxRate;
         public float budgetMilitary, budgetShipbuilding, budgetAdministration, budgetWelfare, budgetResearch, budgetDiplomacy;
         public float fiscalDebt;
+        // 政治（政党・議席・衆参/知事選の日程・直近の開票・選出された首相/知事）。
+        // hasPolitics=false（旧セーブ含む）は politics を読まない＝null のまま復元し、次の年次で初期化する。
+        // JsonUtility は null のクラスを空の既定値で書くので、必ずこの旗で有無を判定する。
+        public bool hasPolitics;
+        public PoliticsState politics;
     }
 
     /// <summary>戦略艦隊（盤面の駒）のセーブ平データ。回廊上の精密位置（私有）は保存せず、停泊星系に再構築（移動中は目的地へ再ワープ）。</summary>

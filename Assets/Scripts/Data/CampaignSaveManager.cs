@@ -72,6 +72,8 @@ namespace Ginei
             // #稟議完成②：進行中の稟議と決裁カードも保存する（適用済みフラグごと＝ロード後に二重執行しない）。
             CampaignSerializer.WritePetitions(save.petitions, StrategySession.Petitions);
             CampaignSerializer.WritePetitions(save.fleetPetitions, StrategySession.FleetPetitions);
+            CampaignSerializer.WritePetitionLedgerMeta(StrategySession.Petitions, out save.petitionsLastIssuedId, out save.petitionsDroppedCount);
+            CampaignSerializer.WritePetitionLedgerMeta(StrategySession.FleetPetitions, out save.fleetPetitionsLastIssuedId, out save.fleetPetitionsDroppedCount);
             CampaignSerializer.WriteDecisions(save, StrategySession.Decisions);
             if (court != null) save.courtAuthority = court.authority; // 朝廷の権威を永続（官僚制基盤）
             if (career != null && career.hasData) save.protagonistCareer = career; // 主人公の立身出世を永続（TKO #2477・P1-c）
@@ -107,6 +109,8 @@ namespace Ginei
             if (StrategySession.FleetPetitions == null) StrategySession.FleetPetitions = new PetitionLedger();
             CampaignSerializer.ReadPetitions(save.petitions, StrategySession.Petitions);
             CampaignSerializer.ReadPetitions(save.fleetPetitions, StrategySession.FleetPetitions);
+            CampaignSerializer.ReadPetitionLedgerMeta(StrategySession.Petitions, save.petitionsLastIssuedId, save.petitionsDroppedCount);
+            CampaignSerializer.ReadPetitionLedgerMeta(StrategySession.FleetPetitions, save.fleetPetitionsLastIssuedId, save.fleetPetitionsDroppedCount);
             StrategySession.Decisions = CampaignSerializer.ReadDecisions(save);
             // カードが指す稟議 id を両台帳の採番へ予約（台帳に無い古いカードと新しい稟議の id 衝突を防ぐ）。
             CampaignSerializer.ReservePetitionIds(StrategySession.Decisions, StrategySession.Petitions);

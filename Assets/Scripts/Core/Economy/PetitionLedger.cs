@@ -8,7 +8,7 @@ namespace Ginei
     /// すでに窓口がそろっているが、<b>生きている陳情を誰も保持していなかった</b>＝消費側（GalaxyView/受信箱UI）が
     /// 都度ハンドワイヤする必要があった。ここはその唯一の store＝勢力/箱ごとの照会と有界化を担う。
     /// <see cref="NotificationCenter"/> の有界リング思想に倣い、容量超過は<b>古い決着済みから</b>落とす
-    /// （活性・決裁待ちは残す）。打ち切りは <see cref="droppedCount"/> で可視化（silent truncation 禁止＝PERF）。
+    /// （活性・決裁待ちは残す。それでも超過なら正しさ未判明の古い黙殺を落とす）。打ち切りは <see cref="droppedCount"/> で可視化（silent truncation 禁止＝PERF）。
     /// 状態遷移ロジックは持たず既存窓口へ委譲する（並行新設しない）。純データ（非 MonoBehaviour・test-first）。
     /// </summary>
     public class PetitionLedger
@@ -19,7 +19,7 @@ namespace Ginei
         /// <summary>活性陳情の目安上限（超過分は古い決着済みから落とす）。</summary>
         public int capacity = 64;
 
-        /// <summary>容量超過で落とした決着済み陳情の累計（観測用＝打ち切りを silent にしない）。</summary>
+        /// <summary>容量超過で落とした陳情（決着済み＋履歴打切りした黙殺）の累計（観測用＝打ち切りを silent にしない）。</summary>
         public int droppedCount;
 
         private int seq;
@@ -142,18 +142,32 @@ namespace Ginei
             return list;
         }
 
+        /// <summary>これまでに採番/予約した最大 id（保存用。次の採番はこの続き）。</summary>
+        public int LastIssuedId => seq;
+
         /// <summary>
-        /// 容量超過分を<b>古い決着済み（執行済/却下）から</b>落とす（活性・決裁待ちは残す）。
-        /// 落とした件数を <see cref="droppedCount"/> に積む（打ち切りの可視化）。
+        /// 容量超過分を落とす（活性・決裁待ちは残す）。①古い決着済み（執行済/却下）から ②それでも超過なら
+        /// 古い黙殺のうち正しさ未判明のもの（<see cref="WorkflowRules.IsPrunableDormant"/>）を履歴打切り。
+        /// 容量内の黙殺は再浮上に備え保持する。保護対象（活性・正しさ判明の黙殺）だけで超過する場合は超過を許す。
+        /// 落とした件数を <see cref="droppedCount"/> に積む（打ち切りの可視化）。状態・採番は変えない。
         /// </summary>
         public void Prune()
         {
             int over = items.Count - capacity;
+            over = PruneWhere(over, false);
+            PruneWhere(over, true);
+        }
+
+        /// <summary>先頭（古い順）から条件に合うものを over 件まで落とし、残りの超過数を返す。</summary>
+        private int PruneWhere(int over, bool dormant)
+        {
             for (int i = 0; i < items.Count && over > 0;)
             {
-                if (WorkflowRules.IsResolved(items[i])) { items.RemoveAt(i); over--; droppedCount++; }
+                bool drop = dormant ? WorkflowRules.IsPrunableDormant(items[i]) : WorkflowRules.IsResolved(items[i]);
+                if (drop) { items.RemoveAt(i); over--; droppedCount++; }
                 else i++;
             }
+            return over;
         }
 
         /// <summary>全消去（戦役リセット用）。採番・打ち切り計も戻す。</summary>

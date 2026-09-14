@@ -65,5 +65,12 @@ namespace Ginei
         /// <summary>決着したか（執行済 or 却下＝終端）。</summary>
         public static bool IsResolved(Petition pet)
             => pet != null && (pet.status == PetitionStatus.執行済 || pet.status == PetitionStatus.却下);
+
+        /// <summary>
+        /// 台帳の容量超過時に履歴打切りしてよい黙殺か（黙殺かつ正しさ未判明）。<see cref="IsResolved"/> の意味は変えない＝黙殺は終端ではない。
+        /// 正しさが判明した黙殺（vindicated）は再浮上候補として保護する。
+        /// </summary>
+        public static bool IsPrunableDormant(Petition pet)
+            => pet != null && pet.status == PetitionStatus.黙殺 && !pet.vindicated;
     }
 }

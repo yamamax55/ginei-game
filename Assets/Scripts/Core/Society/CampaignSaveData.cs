@@ -27,6 +27,11 @@ namespace Ginei
         public List<PetitionSave> petitions = new List<PetitionSave>();
         /// <summary>編制の稟議在庫（<see cref="FleetRingiDirector"/> の台帳）。</summary>
         public List<PetitionSave> fleetPetitions = new List<PetitionSave>();
+        // 稟議台帳の採番済み最大 id と容量打切りの累計（0=旧セーブ＝復元した id と決裁カードから採番を再構成）。
+        public int petitionsLastIssuedId;
+        public int petitionsDroppedCount;
+        public int fleetPetitionsLastIssuedId;
+        public int fleetPetitionsDroppedCount;
         /// <summary>決裁カード（未決も決裁済みの履歴も）。</summary>
         public List<DecisionSave> decisions = new List<DecisionSave>();
         // 統一時間（GameClock）。0=未設定（後方互換＝既定クロック）。

@@ -562,6 +562,27 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 稟議台帳の採番済み最大 id と打切り累計を取り出す（容量で落ちた稟議の id を再利用しない・打切りを silent にしない）。
+        /// 容量は設定値のため保存しない。台帳が null なら 0。
+        /// </summary>
+        public static void WritePetitionLedgerMeta(PetitionLedger ledger, out int lastIssuedId, out int droppedCount)
+        {
+            lastIssuedId = ledger != null ? ledger.LastIssuedId : 0;
+            droppedCount = ledger != null ? ledger.droppedCount : 0;
+        }
+
+        /// <summary>
+        /// <see cref="ReadPetitions"/> の後に呼び、採番を保存時の最大 id まで予約し打切り累計を戻す。
+        /// 読み込み時に容量で落ちた分（容量設定が小さくなった場合）は保存値に加算する。旧セーブ（0）は何も変えない。
+        /// </summary>
+        public static void ReadPetitionLedgerMeta(PetitionLedger ledger, int lastIssuedId, int droppedCount)
+        {
+            if (ledger == null) return;
+            if (lastIssuedId > 0) ledger.ReserveId(lastIssuedId);
+            if (droppedCount > 0) ledger.droppedCount += droppedCount;
+        }
+
+        /// <summary>
         /// 決裁カードが指す稟議 id を台帳の採番へ予約する（ロード後に新しい稟議が古いカードの id を再利用しない）。
         /// 読み込んだ稟議自体の id は <see cref="ReadPetitions"/> の <see cref="PetitionLedger.Add"/> が採番へ反映済み。
         /// </summary>

@@ -99,27 +99,67 @@ namespace Ginei
             d.escalated = false;
             string who = decider != null ? decider.name : d.deciderName;
 
-            NotificationCenter.Push(NotificationCategory.政治,
-                outcome == EscalationOutcome.承認 ? NotificationSeverity.情報 : NotificationSeverity.注意,
-                PetitionEscalationRules.ResultText(outcome, who, d.title));
-
-            if (outcome != EscalationOutcome.承認)
+            if (outcome == EscalationOutcome.承認)
             {
-                // 却下・差し戻し＝確定させて閉じる（効果は出さない）。以後この札は動かない。
-                DecisionResolutionRules.Settle(d, d.defaultChoiceIndex, auto: true, out _);
-                DecisionResolutionRules.ClaimForApply(d);   // 誰も効果を出さないよう権利を消費する
-                DecisionResolutionRules.RecordResult(d, PetitionActionResult.Fail(
-                    PetitionActionOutcome.対象外,
-                    outcome == EscalationOutcome.却下 ? $"{who} が却下しました" : "決裁権者が不在のため差し戻し"));
+                // ★承認でも、確定の直前に実際の決裁者を同じ判定へ通す（審査中の失職・解任・首相交代・委任の撤回/期限切れで古い権限を使わない）。
+                ConcludeApproval(d, who, EvaluateDecider(decider, d.effectKey));
                 return;
             }
 
-            // ★承認＝決裁権者の権限で確定させる。権限判定を一時的に外し、確定と執行を通す
-            //   （プレイヤーの権限では通らないが、決裁権者の権限では通る、を表現する）。
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                PetitionEscalationRules.ResultText(outcome, who, d.title));
+            // 却下・差し戻し＝確定させて閉じる（効果は出さない）。以後この札は動かない。
+            CloseWithoutEffect(d, outcome == EscalationOutcome.却下 ? $"{who} が却下しました" : "決裁権者が不在のため差し戻し");
+        }
+
+        /// <summary>
+        /// 上申の承認を確定する共通の手順。<paramref name="deciderAuth"/>＝決裁の時点で実際の決裁者を
+        /// <see cref="EvaluateFor"/> に通した結果。裁可できなければ効果を出さずに差し戻して閉じる。
+        /// 裁可できれば権限判定を一時的に外し（決裁者の権限で通ったことを表す）、共通入口 <see cref="DecisionDeck.Resolve"/> で確定する＝効果は1回だけ。
+        /// 確定したら true。
+        /// </summary>
+        public static bool ConcludeApproval(PendingDecision d, string deciderName, in DecisionAuthorityResult deciderAuth)
+        {
+            if (d == null || DecisionResolutionRules.IsSettled(d)) return false;
+            d.escalated = false;
+            string who = string.IsNullOrEmpty(deciderName) ? "決裁権者" : deciderName;
+
+            if (!deciderAuth.CanDecide)
+            {
+                d.authorityBasis = deciderAuth.basis;
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"［差し戻し］{d.title}：{who} は決裁の時点で権限がありません（{deciderAuth.basis}）");
+                CloseWithoutEffect(d, $"{who} は決裁の時点で権限がないため差し戻し（{deciderAuth.basis}）");
+                return false;
+            }
+
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                PetitionEscalationRules.ResultText(EscalationOutcome.承認, who, d.title));
+            d.authorityBasis = deciderAuth.basis;
             var saved = DecisionDeck.AuthorityCheck;
             DecisionDeck.AuthorityCheck = null;
-            try { DecisionDeck.Resolve(d.id, 0); }
+            try { return DecisionDeck.Resolve(d.id, 0); }
             finally { DecisionDeck.AuthorityCheck = saved; }
+        }
+
+        /// <summary>効果を出さずに確定して閉じる（誰も効果を出さないよう適用の権利を消費する）。</summary>
+        private static void CloseWithoutEffect(PendingDecision d, string reason)
+        {
+            DecisionResolutionRules.Settle(d, d.defaultChoiceIndex, auto: true, out _);
+            DecisionResolutionRules.ClaimForApply(d);
+            DecisionResolutionRules.RecordResult(d, PetitionActionResult.Fail(PetitionActionOutcome.対象外, reason));
+        }
+
+        /// <summary>上申先の決裁者を、決裁の時点で改めて判定する（不在・他勢力への離反は権限外）。</summary>
+        private static DecisionAuthorityResult EvaluateDecider(Person decider, string effectKey)
+        {
+            if (decider == null || decider.IsDeceased)
+                return new DecisionAuthorityResult(DecisionAuthority.権限外, "決裁権者が不在です（死亡・離脱）");
+            GalaxyView gv = GalaxyView.Active;
+            Person player = gv != null ? gv.PlayerCharacter() : null;
+            if (player != null && decider.faction != player.faction)
+                return new DecisionAuthorityResult(DecisionAuthority.権限外, $"決裁権者が他勢力（{decider.faction}）の人物です");
+            return EvaluateFor(decider, effectKey);
         }
 
         private static PendingDecision FindCard(DecisionQueue q, int id)
@@ -198,15 +238,33 @@ namespace Ginei
                 // 操作者を特定できない＝従来どおり通す（権限で遊べなくしない・後方互換）。
                 return new DecisionAuthorityResult(DecisionAuthority.裁可, "操作者が特定できないため判定を省略");
 
+            return EvaluateFor(actor, effectKey);
+        }
+
+        /// <summary>
+        /// その人物がその効果キーの案件を裁可できるか（裁可時・上申の確定時・見込み表示・稟議の起票で共通の判定）。
+        /// 役職（<see cref="GovernmentRegistry"/>）の判定に、内閣の閣僚職（所管大臣・委任を受けた副大臣）の権限と所管大臣への上申先を足す
+        /// （<see cref="CabinetDecisionAuthorityRules.Evaluate"/>）。内閣は毎回その時点の状態から組み直す。
+        /// </summary>
+        public static DecisionAuthorityResult EvaluateFor(Person actor, string effectKey)
+        {
+            if (actor == null)
+                return new DecisionAuthorityResult(DecisionAuthority.権限外, "決裁する人物がいません");
             if (actor.IsDeceased)
                 return new DecisionAuthorityResult(DecisionAuthority.権限外, "決裁者が不在です（死亡・離脱）");
+
+            GalaxyView gv = GalaxyView.Active;
+            if (gv == null)
+                return new DecisionAuthorityResult(DecisionAuthority.裁可, "盤面がないため判定を省略");
 
             List<Office> offices = GovernmentRegistry.GetOffices(actor);
             CivilianControlType control = gv.CivilianControlOf(actor.faction);
 
-            return DecisionAuthorityRules.Evaluate(
-                actor, effectKey ?? "", OfficeScope.国家, offices, control,
-                domain => gv.FindOfficeHolder(actor.faction, domain, actor));
+            return CabinetDecisionAuthorityRules.Evaluate(
+                actor, effectKey ?? "", offices, control,
+                domain => gv.FindOfficeHolder(actor.faction, domain, actor),
+                gv.CabinetDecisionContextOf(actor.faction),
+                id => gv.FindPersonById(id));
         }
     }
 }

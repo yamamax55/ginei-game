@@ -102,5 +102,18 @@ namespace Ginei
         }
 
         private const int MaxCabinetNamesInNotice = 6;
+
+        /// <summary>
+        /// 閣僚の決裁権限の判定材料（#2768 #67）。決裁・上申の確定・見込み表示のたびに組み直す（読み取りのみ・省庁のシードもしない）。
+        /// 内閣が置かれていなければ null＝従来の役職判定だけになる。
+        /// </summary>
+        public CabinetDecisionContext CabinetDecisionContextOf(Faction f)
+        {
+            FactionState s = StateOf(f);
+            if (s == null || s.politics == null || s.politics.cabinet == null) return null;
+            int idx = FactionIndex(f);
+            List<Ministry> tree = ministries != null && idx >= 0 && idx < ministries.Length ? ministries[idx] : null;
+            return new CabinetDecisionContext(s.politics, f, tree, TopMinistryIdOf(f), ElectionRoster(), ElectionYear());
+        }
     }
 }

@@ -212,15 +212,11 @@ namespace Ginei
             if (actor != null) { pd.proposerId = actor.id; pd.proposerName = actor.name; }
 
             OfficeDomain domain = DecisionAuthorityRules.DomainOf(effectKey);
-            CivilianControlType control = gv.CivilianControlOf(
-                actor != null ? actor.faction
-                              : (GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟));
 
             if (actor != null)
             {
-                DecisionAuthorityResult auth = DecisionAuthorityRules.Evaluate(
-                    actor, effectKey, OfficeScope.国家, GovernmentRegistry.GetOffices(actor), control,
-                    dm => gv.FindOfficeHolder(actor.faction, dm, actor));
+                // 裁可時・見込み表示と同じ判定（役職＋閣僚職・所管大臣への上申先）で決裁権者を載せる。
+                DecisionAuthorityResult auth = DecisionAuthorityDirector.EvaluateFor(actor, effectKey);
                 pd.authorityBasis = auth.basis;
                 if (auth.CanDecide) { pd.deciderId = actor.id; pd.deciderName = actor.name; }
                 else if (auth.addresseeId > 0) { pd.deciderId = auth.addresseeId; pd.deciderName = auth.addresseeName; }

@@ -390,7 +390,8 @@ namespace Ginei
                     strategicResource = (int)p.strategicResource,
                     strategicAbundance = p.strategicAbundance,
                     stability = p.stability,
-                    integration = p.integration
+                    integration = p.integration,
+                    governancePolicy = (int)p.governancePolicy
                 });
             }
         }
@@ -418,7 +419,10 @@ namespace Ginei
                     strategicResource = (StrategicResourceType)d.strategicResource,
                     strategicAbundance = d.strategicAbundance,
                     stability = d.stability,
-                    integration = d.integration
+                    integration = d.integration,
+                    governancePolicy = System.Enum.IsDefined(typeof(GovernancePolicy), d.governancePolicy)
+                        ? (GovernancePolicy)d.governancePolicy
+                        : GovernancePolicy.民生
                 };
                 dict[p.systemId] = p;
             }

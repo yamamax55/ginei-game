@@ -96,6 +96,8 @@ namespace Ginei
                 if (kb.digit3Key.wasPressedThisFrame) { clock.SetSpeed(2f); clock.Resume(); }
             }
             if (kb.iKey.wasPressedThisFrame) OpenSystemInfoAtMouse(); // 星系情報パネル(#759)
+            // 星系別統治政策を稟議上申（#67/#109 P-5）。P＝人物名鑑／Alt+P＝生産観測と重ならないよう GameInput 経由
+            if (GameInput.WasPressed(GameAction.統治政策上申)) CycleGovernancePolicyAtMouse();
             if (kb.fKey.wasPressedThisFrame) ResetView(); // F：既定のズーム/位置へ戻す（#2384）
 
             HandleKeyPan(kb); // ステラリス風：WASD/矢印キーで視点パン（押しっぱで連続）

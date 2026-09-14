@@ -116,6 +116,35 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void GovernancePetition_IsAltT_InStrategyOnly_AndDoesNotShareP()
+        {
+            // 統治政策の上申（#67/#109）は戦略専用の Alt+T。P（人物名鑑）/Alt+P（生産観測）の意味は変えない。
+            Assert.IsTrue(GameInput.TryGetBinding(GameAction.統治政策上申, out InputBinding gov));
+            Assert.AreEqual(Key.T, gov.key);
+            Assert.IsTrue(gov.alt);
+            Assert.IsFalse(gov.ctrl);
+            Assert.AreEqual(InputContext.戦略, gov.context);
+            Assert.AreEqual("Alt+T", GameInput.KeyLabel(GameAction.統治政策上申));
+
+            Assert.IsTrue(GameInput.TryGetBinding(GameAction.人物名鑑切替, out InputBinding person));
+            Assert.AreEqual(Key.P, person.key);
+            Assert.IsFalse(person.alt);
+            Assert.IsTrue(GameInput.TryGetBinding(GameAction.生産観測切替, out InputBinding production));
+            Assert.AreEqual(Key.P, production.key);
+            Assert.IsTrue(production.alt);
+
+            // P を使う割当は人物名鑑と生産観測だけ（上申は P に一切載っていない）
+            foreach (var b in GameInput.Bindings)
+                if (b.key == Key.P)
+                    Assert.IsTrue(b.action == GameAction.人物名鑑切替 || b.action == GameAction.生産観測切替,
+                        "P に想定外の割当: " + b.action);
+
+            Assert.Contains(GameAction.統治政策上申, GameInput.ActionsInContext(InputContext.戦略));
+            Assert.IsFalse(GameInput.ActionsInContext(InputContext.会戦).Contains(GameAction.統治政策上申));
+            Assert.AreEqual(0, GameInput.FindConflicts().Count, "上申の追加で衝突が出ない");
+        }
+
+        [Test]
         public void KeyLabel_CameraUp_PrefersFirstBinding()
         {
             // 複数キーのアクションは最初の割当（W）を表示名に使う。

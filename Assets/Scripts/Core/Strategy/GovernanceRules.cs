@@ -78,6 +78,36 @@ namespace Ginei
         public const float PolicySuppressIntegrationMul = 0.5f; // 弾圧：統合が遅い（恨みが残る）
         public const float PolicyLiberateIntegrationMul = 1.8f; // 解放：統合が速い（民心を得る）
 
+        /// <summary>統治政策の上申（稟議）の効果キー接頭辞。形式＝"governance.policy.{systemId}.{(int)policy}"（#67/#109）。</summary>
+        public const string PolicyPetitionKeyPrefix = "governance.policy.";
+
+        /// <summary>統治政策の上申の効果キーを作る（対象の星系と政策をキーに固定する）。</summary>
+        public static string PolicyPetitionKey(int systemId, GovernancePolicy policy)
+            => PolicyPetitionKeyPrefix + systemId.ToString(System.Globalization.CultureInfo.InvariantCulture)
+               + "." + ((int)policy).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        /// <summary>統治政策の上申の効果キーを読む。形式違い・負の星系id・未定義の政策は false。</summary>
+        public static bool TryParsePolicyPetitionKey(string effectKey, out int systemId, out GovernancePolicy policy)
+        {
+            systemId = -1;
+            policy = GovernancePolicy.民生;
+            if (string.IsNullOrEmpty(effectKey) ||
+                !effectKey.StartsWith(PolicyPetitionKeyPrefix, System.StringComparison.Ordinal)) return false;
+
+            string rest = effectKey.Substring(PolicyPetitionKeyPrefix.Length);
+            int dot = rest.IndexOf('.');
+            if (dot <= 0 || dot >= rest.Length - 1) return false;
+
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            if (!int.TryParse(rest.Substring(0, dot), System.Globalization.NumberStyles.None, inv, out int id)) return false;
+            if (!int.TryParse(rest.Substring(dot + 1), System.Globalization.NumberStyles.None, inv, out int p)) return false;
+            if (!System.Enum.IsDefined(typeof(GovernancePolicy), p)) return false;
+
+            systemId = id;
+            policy = (GovernancePolicy)p;
+            return true;
+        }
+
         /// <summary>
         /// 安定度の目標値（収束先）を算出する純関数。プリミティブのみ＝テスト容易。
         /// </summary>

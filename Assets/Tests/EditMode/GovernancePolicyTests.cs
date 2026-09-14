@@ -58,5 +58,40 @@ namespace Ginei.Tests
             Assert.AreEqual(pCivil.integration, pLegacy.integration, 1e-4f);
             Assert.AreEqual(pCivil.stability, pLegacy.stability, 1e-4f);
         }
+
+        // ===== 統治政策の上申キー（稟議の効果キー・#67/#109） =====
+
+        [Test]
+        public void PolicyPetitionKey_RoundTrips()
+        {
+            string key = GovernanceRules.PolicyPetitionKey(12, GovernancePolicy.解放);
+            Assert.AreEqual("governance.policy.12.3", key);
+            Assert.IsTrue(GovernanceRules.TryParsePolicyPetitionKey(key, out int id, out GovernancePolicy p));
+            Assert.AreEqual(12, id);
+            Assert.AreEqual(GovernancePolicy.解放, p);
+        }
+
+        [Test]
+        public void PolicyPetitionKey_RejectsMalformed()
+        {
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey(null, out _, out _));
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("", out _, out _));
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("governance.policy.", out _, out _));
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("governance.policy.5", out _, out _));
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("governance.policy.5.", out _, out _));
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("governance.policy.-1.0", out _, out _));
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("governance.policy.5.9", out _, out _), "未定義の政策");
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("governance.policy.a.1", out _, out _));
+            Assert.IsFalse(GovernanceRules.TryParsePolicyPetitionKey("tax.cut", out _, out _));
+        }
+
+        [Test]
+        public void PolicyPetitionKey_IsImplementedEffect()
+        {
+            // 決裁デスクの「未実装の効果は実行不可」ゲートで統治政策の上申が弾かれないこと
+            Assert.IsTrue(DecisionEffectRegistryRules.IsImplemented(
+                GovernanceRules.PolicyPetitionKey(4, GovernancePolicy.弾圧)));
+            Assert.IsFalse(DecisionEffectRegistryRules.IsImplemented("governance.policy.4.99"));
+        }
     }
 }

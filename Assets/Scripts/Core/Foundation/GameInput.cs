@@ -59,6 +59,8 @@ namespace Ginei
         グループ選択1,
         グループ選択2,
         グループ選択3,
+        // 戦略：マウス直下の自領星系の統治政策を稟議へ上申（#67/#109）。既存値を動かさないよう末尾に追加
+        統治政策上申,
     }
 
     /// <summary>1アクションのキー割当（修飾キー・有効コンテキスト付き）。直列化/表示しやすい平データ。</summary>
@@ -137,6 +139,8 @@ namespace Ginei
             // 援軍（#38 C-5）＝選択中の自艦隊を、カーソル下の交戦中の回廊へ送る（到着まで銀河時間がかかる）。
             // 戦略でしか意味がないので 戦略コンテキストに限定。Alt+A は他と衝突しない。
             new InputBinding(GameAction.援軍派遣,         Key.A,         InputContext.戦略, alt: true),
+            // 統治政策の上申（#67/#109）＝戦略専用。P（人物名鑑）/Alt+P（生産観測）と重ならない Alt+T。
+            new InputBinding(GameAction.統治政策上申,     Key.T,         InputContext.戦略, alt: true),
             new InputBinding(GameAction.財産観測切替,     Key.W,         InputContext.共通, alt: true),
             new InputBinding(GameAction.軍動態観測切替,   Key.V,         InputContext.共通, alt: true),
             new InputBinding(GameAction.稟議観測切替,     Key.I,         InputContext.共通, alt: true),
@@ -327,6 +331,7 @@ namespace Ginei
             { GameAction.グループ選択1,  "グループ 1 に割り当て / 呼び出し" },
             { GameAction.グループ選択2,  "グループ 2 に割り当て / 呼び出し" },
             { GameAction.グループ選択3,  "グループ 3 に割り当て / 呼び出し" },
+            { GameAction.統治政策上申,   "マウス直下の自領星系の統治政策を次の政策へ変える上申（決裁デスクへ）" },
         };
 
         /// <summary>アクションの日本語説明（HelpOverlay 自動生成用）。未登録なら enum 名にフォールバック。</summary>

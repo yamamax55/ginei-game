@@ -239,6 +239,104 @@ namespace Ginei
             }
         }
 
+        // ----- 星系別統治政策の上申（#67/#109/#141）-----
+
+        /// <summary>
+        /// 星系別統治政策の変更を地方箱へ上申する（#67/#109/#141）。直接変更せず、
+        /// 官僚機構の伝播→決裁デスク→執行を通過した場合だけ対象 Province の政策を更新する。
+        /// ★対象（星系・政策）は効果キーに固定し、稟議との対応・摩擦はカード自身に持たせる
+        /// ＝シーン往復で Director が作り直されても裁可が黙って無視されない。
+        /// </summary>
+        public int SubmitGovernancePolicy(int systemId, string systemName, Faction faction, GovernancePolicy targetPolicy)
+        {
+            FactionState fs = PlayerState();
+            if (fs == null || fs.faction != faction || ActivePendingCount() >= maxConcurrent) return -1;
+            if (HasPendingGovernanceFor(systemId)) return -1; // 同じ星系への重複上申を積まない
+
+            string regionKey = systemId.ToString();
+            string title = $"{systemName} 統治政策「{targetPolicy}」への変更";
+            string effectKey = GovernanceRules.PolicyPetitionKey(systemId, targetPolicy);
+            var pet = new Petition(0, title, faction, BoxKind.地方, PetitionOrigin.建白, effectKey, regionKey);
+            if (!RingiPipeline.Submit(Ledger, pet)) return -1;
+
+            float heed = CredibilityRules.Heed(fs.credibility, BoxKind.地方, regionKey);
+            float friction = MinistryFriction(faction, OfficeDomain.内政);
+            float legitimacy = FactionLoyaltyRules.BaselineLoyalty(fs);
+            PetitionStep step = RingiPipeline.Propagate(pet, heed, friction, legitimacy, Random.value);
+            if (step != PetitionStep.通過)
+            {
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
+                    $"［{(step == PetitionStep.握り潰し ? "握り潰し" : "黙殺")}］{title}（地方官僚機構で止まった）");
+                return -1;
+            }
+
+            RingiPipeline.SendToDecision(pet);
+            var decision = new PendingDecision(DecisionDeck.NextDecisionId(DecisionIdBand), $"{title}（地方箱）", DecisionSeverity.通常,
+                DecisionSource.建白結果, effectKey, defaultChoiceIndex: 1,
+                body: $"{systemName} の統治政策を「{targetPolicy}」へ改める上申。安定・統合・産出・反乱圧に波及する。所管官僚の抵抗により執行が遅れる場合がある。");
+            decision.choices.Add("裁可する");
+            decision.choices.Add("見送る（現状維持）");
+            decision.petitionId = pet.id;
+            decision.friction = friction;
+
+            // ★提案者・決裁権者・権限の根拠をカードへ載せる（#67・実在の人物だけ）。
+            StampAttribution(decision, effectKey);
+
+            DecisionDeck.Enqueue(decision);
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                $"［上申］{title} が決裁待ち（右下の決裁デスクへ）");
+            return decision.id;
+        }
+
+        /// <summary>その星系への統治政策の上申が未解決で残っているか（決裁デスクのカードから判定＝シーン往復でも失わない）。</summary>
+        private static bool HasPendingGovernanceFor(int systemId)
+        {
+            DecisionQueue q = DecisionDeck.Queue;
+            if (q == null) return false;
+            for (int i = 0; i < q.items.Count; i++)
+            {
+                PendingDecision d = q.items[i];
+                if (d == null || DecisionResolutionRules.IsSettled(d)) continue;
+                if (GovernanceRules.TryParsePolicyPetitionKey(d.effectKey, out int id, out _) && id == systemId)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 承認済みの統治政策の上申を執行する。政策はカテゴリ値なので、執行が成立したときに切り替える
+        /// （実効率は「命令が現地へどこまで届いたか」として通知し、数値効果は既存 GovernanceRules が時間で反映する）。
+        /// ★提案時の星系にだけ効かせる。所有が変わった・星系が無いなら<b>失敗として記録</b>し振り替えない。
+        /// </summary>
+        private static PetitionActionResult ExecuteGovernancePolicy(Petition pet, float friction, int systemId,
+                                                                    GovernancePolicy policy, out float applied)
+        {
+            applied = 0f;
+            Province province = null;
+            if (StrategySession.Provinces == null ||
+                !StrategySession.Provinces.TryGetValue(systemId, out province) || province == null)
+            {
+                WorkflowRules.Execute(pet, 0f); // 稟議は閉じる（在庫を占有させない）
+                return PetitionActionResult.Fail(PetitionActionOutcome.対象なし, "対象の星系が見つかりません");
+            }
+
+            PetitionActionContext ctx = BriefingContext();
+            StarSystem system = ctx != null && ctx.map != null ? ctx.map.GetSystem(systemId) : null;
+            if (system != null && system.owner != pet.faction)
+            {
+                WorkflowRules.Execute(pet, 0f);
+                return PetitionActionResult.Fail(PetitionActionOutcome.対象なし,
+                    $"{system.systemName} はすでに管轄外のため統治政策を変更できません");
+            }
+
+            applied = WorkflowRules.Execute(pet, PetitionFlowRules.ExecutionFidelity(friction));
+            if (applied <= 0f)
+                return PetitionActionResult.Fail(PetitionActionOutcome.対象外, "執行されませんでした");
+
+            province.governancePolicy = policy;
+            return new PetitionActionResult(PetitionActionOutcome.実行, $"統治政策を「{policy}」へ変更", applied);
+        }
+
         // ----- 建白の起案＋官僚機構の伝播 -----
 
         /// <summary>サンプル建白を1件起こす。forced=true は同時上限を無視。決裁待ちへ載った決裁id（&lt;0=不発/死亡）を返す。</summary>
@@ -317,12 +415,22 @@ namespace Ginei
                 return;
             }
 
-            // 執行：官僚の執行忠実度（friction）で骨抜き＝通っても満額は効かない
-            float applied = RingiPipeline.ExecuteAndApply(pet, StrategySession.Campaign, d.friction);
+            float applied;
+            PetitionActionResult action;
+            if (GovernanceRules.TryParsePolicyPetitionKey(pet.effectKey, out int policySystemId, out GovernancePolicy policy))
+            {
+                // 統治政策の上申：対象はキーに固定済み（提案時の星系にだけ効かせる）
+                action = ExecuteGovernancePolicy(pet, d.friction, policySystemId, policy, out applied);
+            }
+            else
+            {
+                // 執行：官僚の執行忠実度（friction）で骨抜き＝通っても満額は効かない
+                applied = RingiPipeline.ExecuteAndApply(pet, StrategySession.Campaign, d.friction);
 
-            // ★盤面まで届く効果（動員・攻勢・防衛・講和）は、ここで実際にゲームを動かす。
-            // 国庫と民心だけ動かして終わり、にしない（作業票③）。
-            PetitionActionResult action = ExecuteBoardAction(pet.effectKey, applied, d.Target);
+                // ★盤面まで届く効果（動員・攻勢・防衛・講和）は、ここで実際にゲームを動かす。
+                // 国庫と民心だけ動かして終わり、にしない（作業票③）。
+                action = ExecuteBoardAction(pet.effectKey, applied, d.Target);
+            }
             DecisionResolutionRules.RecordResult(d, action);
 
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,

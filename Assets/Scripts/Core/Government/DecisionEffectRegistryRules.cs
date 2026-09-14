@@ -25,6 +25,8 @@ namespace Ginei
             if (effectKey.StartsWith(FleetEstablishmentRules.EffectEstablish, System.StringComparison.Ordinal)
                 || effectKey.StartsWith(FleetEstablishmentRules.EffectDisband, System.StringComparison.Ordinal))
                 return true;
+            // 星系別統治政策の上申（"governance.policy.{systemId}.{policy}"）＝RingiDirector が Province へ執行する。
+            if (GovernanceRules.TryParsePolicyPetitionKey(effectKey, out _, out _)) return true;
             return false;
         }
 

@@ -317,10 +317,13 @@ namespace Ginei
             for (int i = 0; i < c.states.Count; i++)
                 if (c.states[i] != null && c.states[i].faction == pf) { fs = c.states[i]; break; }
             if (fs == null || fs.politics == null || fs.politics.parties == null || fs.politics.parties.Count == 0) return false;
-            Party party = PartyRules.RulingParty(fs.politics.parties) ?? fs.politics.parties[0];
+            // 既に所属していれば動かさない（一人一党・読込で移籍させない）。
+            if (PartyMembershipRules.PartyOf(fs.politics, Protagonist.id) != null) return true;
+            // 与党は組閣から（未組閣なら従来どおり支持率最大の党へ）。
+            Party party = ElectionCycleRules.FindParty(fs.politics.parties, PartyMembershipRules.GovernmentPartyId(fs.politics))
+                          ?? PartyRules.RulingParty(fs.politics.parties) ?? fs.politics.parties[0];
             if (party == null) return false;
-            if (!party.memberIds.Contains(Protagonist.id)) party.memberIds.Add(Protagonist.id);
-            return true;
+            return PartyOrganizationRules.Join(party, Protagonist.id);
         }
 
         // 主人公の実行時武名を会戦の鼓舞（ShipCombat）へ反映＝AdmiralData の InstanceID キーで FameRegistry へ。

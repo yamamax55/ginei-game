@@ -165,53 +165,28 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 政党の党員と党首を整える（既存の <see cref="PartyOrganizationRules"/> を使う）：
-        /// ①資格を失った党員を離党させ、②無所属の政治家を党員が最も少ない党へ入党させ（同数は党ID小）、
+        /// 政党の党員と党首を整える（所属は <see cref="PartyMembershipRules"/>、個々の党は <see cref="PartyOrganizationRules"/> を使う）：
+        /// ①資格を失った党員の離党・重複IDと重複所属の整理・役職と派閥の整合（<see cref="PartyMembershipRules.Normalize"/>）、
+        /// ②無所属の政治家だけを理由つきで入党（<see cref="PartyMembershipRules.AssignUnaffiliated"/>＝既に所属する人は移籍させない）、
         /// ③党首が就けない党は党員から党首選（<see cref="LeadershipElectionRules"/>）で選ぶ。人物の職種・官位は変えない。
-        /// 返り値は変更件数。
+        /// 返り値は変更件数。重複所属の整理で議席の党を優先したいときは <see cref="PoliticsState"/> 版を使う。
         /// </summary>
         public static int OrganizeParties(IList<Party> parties, IList<Person> roster, Faction f)
+            => OrganizeParties(parties, null, roster, f);
+
+        /// <summary>勢力の政治状態の政党を整える（重複所属は議席の帰属する党を残す）。</summary>
+        public static int OrganizeParties(PoliticsState pol, IList<Person> roster, Faction f)
+            => pol != null ? OrganizeParties(pol.parties, pol, roster, f) : 0;
+
+        private static int OrganizeParties(IList<Party> parties, PoliticsState pol, IList<Person> roster, Faction f)
         {
             if (parties == null || parties.Count == 0) return 0;
-            int changes = 0;
 
-            // ① 資格を失った党員の離党
-            for (int i = 0; i < parties.Count; i++)
-            {
-                Party p = parties[i];
-                if (p == null) continue;
-                if (p.memberIds == null) p.memberIds = new List<int>();
-                for (int m = p.memberIds.Count - 1; m >= 0; m--)
-                {
-                    int id = p.memberIds[m];
-                    if (!IsValidPartyMember(FindPerson(roster, id), f))
-                    {
-                        PartyOrganizationRules.Leave(p, id);
-                        changes++;
-                    }
-                }
-                if (p.leaderId >= 0 && !PartyOrganizationRules.IsMember(p, p.leaderId))
-                {
-                    p.leaderId = -1;
-                    changes++;
-                }
-            }
+            // ① 資格・重複・役職と派閥
+            int changes = PartyMembershipRules.Normalize(parties, pol, f, roster);
 
             // ② 無所属の政治家を入党（ID 昇順）
-            List<Person> unaffiliated = SortedById(roster, x => IsEligiblePolitician(x, f) && PartyOf(parties, x.id) == null);
-            for (int i = 0; i < unaffiliated.Count; i++)
-            {
-                Party target = null;
-                for (int k = 0; k < parties.Count; k++)
-                {
-                    Party p = parties[k];
-                    if (p == null) continue;
-                    if (target == null || p.memberIds.Count < target.memberIds.Count
-                        || (p.memberIds.Count == target.memberIds.Count && p.id < target.id))
-                        target = p;
-                }
-                if (target != null && PartyOrganizationRules.Join(target, unaffiliated[i].id)) changes++;
-            }
+            changes += PartyMembershipRules.AssignUnaffiliated(parties, f, roster, pol).Count;
 
             // ③ 党首の補充（党首選）
             for (int i = 0; i < parties.Count; i++)
@@ -421,7 +396,7 @@ namespace Ginei
             if (old != null && old.premierPersonId >= 0 && IsEligiblePolitician(FindPerson(roster, old.premierPersonId), f))
                 return false;
 
-            OrganizeParties(pol.parties, roster, f);
+            OrganizeParties(pol, roster, f);
             CabinetStatus oldStatus = old != null ? old.status : CabinetStatus.未実施;
             GovernmentFormation g = FormGovernment(pol, f, year, old != null ? old.sourceElectionId : "", roster);
 
@@ -449,7 +424,7 @@ namespace Ginei
             PoliticsState pol = s.politics;
             Faction f = s.faction;
             o.previousPremierId = pol.government != null ? pol.government.premierPersonId : -1;
-            o.partyChanges = OrganizeParties(pol.parties, roster, f);
+            o.partyChanges = OrganizeParties(pol, roster, f);
             EnsureSeats(pol, prm);
 
             if (!IsSeated(pol))
@@ -562,6 +537,7 @@ namespace Ginei
             }
 
             LegislatorRosterRules.NormalizeLoaded(pol); // 議員名簿（旧セーブは空・議席総数を超えない）
+            PartyMembershipRules.NormalizeLoaded(pol);  // 一般党員の集計（旧セーブは不明）・一人一党（入党はさせない）
         }
 
         private static ChamberSeats NormalizeSeats(ChamberSeats cs, LegislativeChamber chamber)

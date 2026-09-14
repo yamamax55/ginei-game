@@ -127,6 +127,10 @@ namespace Ginei
             { "upperWins", "上院の当選回数（ゲーム内）" }, { "consecutiveWins", "連続当選回数" },
             { "recordStartYear", "個人記録の開始年（それ以前は不明）" }, { "priorKnown", "開始前の当選歴がシナリオ明示か" },
             { "seated", "議院は構成済みか／人物は現職議員か" }, { "seatPartyId", "議席の帰属政党" },
+            { "memberIds", "ネームドの所属人物ID（議員数・一般党員数とは別）" },
+            { "nationalMembership", "一般党員の全国集計（人・既定は不明）" }, { "regionalMemberships", "一般党員の星系ごとの集計" },
+            { "known", "集計値があるか（false=不明）" }, { "members", "一般党員の数（人）" },
+            { "source", "数値の出所" }, { "asOfYear", "集計の時点（年）" },
             // NationalBudget（国家予算＝歳出の分野配分）
             { "budget", "国家予算（歳出の分野配分）" }, { "military", "軍事費（艦隊維持・即応）" },
             { "shipbuilding", "建艦費（造船供給）" }, { "administration", "内政費（統治・安定）" },

@@ -223,6 +223,20 @@ namespace Ginei
             return list;
         }
 
+        /// <summary>
+        /// 一人の議員資格を外す（離党・移籍で議席の帰属する党を離れたとき。当選回数は変えず、議席は集計議席へ戻る）。
+        /// 議員でなければ false。<paramref name="onlyIfPartyId"/> が0以上なら、その党の議席のときだけ外す。
+        /// </summary>
+        public static bool VacateSeat(PoliticsState pol, int personId, string reason, int onlyIfPartyId = -1)
+        {
+            LegislatorRecord r = Find(pol, personId);
+            if (r == null || !r.seated) return false;
+            if (onlyIfPartyId >= 0 && r.seatPartyId != onlyIfPartyId) return false;
+            r.consecutiveWins = 0;
+            ClearSeat(r, reason);
+            return true;
+        }
+
         /// <summary>非民主へ移った勢力の議員資格をすべて外す（履歴は残す）。外した人数を返す。</summary>
         public static int SuspendAll(PoliticsState pol, string reason)
         {

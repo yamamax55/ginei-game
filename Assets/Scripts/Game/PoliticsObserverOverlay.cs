@@ -12,7 +12,7 @@ namespace Ginei
     /// 政治オブザーバ（観測層・read-only）。<b>O キー</b>で開閉し、勢力ごとの**配線済みの政治状態**
     /// （<see cref="FactionState.politics"/>＝政党リスト・衆参の選挙日程・分断危機）と、そこから導かれる
     /// 民主主義成熟度（<see cref="PartySystemRules.MaturityFrom"/>）・有効政党数（Laakso–Taagepera）・
-    /// 分極化（<see cref="PartySystemRules.Polarization"/>）・与党（<see cref="PartyRules.RulingParty"/>）を
+    /// 分極化（<see cref="PartySystemRules.Polarization"/>）・与党/野党（<see cref="PartyMembershipRules.RoleOf"/>＝組閣と確定議席から）を
     /// 毎フレームライブダンプする。`GalaxyView.RunPoliticsTick`（年次）が回している分＝盤面で実際に動く政治だけを映す。
     /// 操作はさせない＝**観測専用＝状態は変えない**。`CampaignObserverOverlay`（G）の政治版。
     /// `HelpOverlay`/`TimeDisplay` と同型の自動生成（Strategy/Battle）。
@@ -132,22 +132,62 @@ namespace Ginei
             AppendBar(sb, "  分極化", polar, crisis ? "#ff7a6a" : "#ffd28a");
             if (crisis) sb.Append("    <color=#ff7a6a>⚠ 分断危機（二大政党の対立が深刻）</color>\n");
 
-            // 与党と政党一覧（支持率バー）
-            Party ruling = PartyRules.RulingParty(pol.parties);
+            // 政党一覧：与党/野党は組閣と確定議席から（支持率では決めない）。支持率・議席・ネームド政治家・国政議員・一般党員を分けて出す。
+            if (galaxy == null) galaxy = Object.FindAnyObjectByType<GalaxyView>();
             for (int i = 0; i < pol.parties.Count; i++)
             {
                 Party p = pol.parties[i];
                 if (p == null) continue;
-                bool isRuling = ruling != null && p.id == ruling.id;
+                PartyStatusSummary sum = PartyMembershipRules.Summarize(pol, p);
+                bool isRuling = sum.role == PartyGovernmentRole.与党;
                 sb.Append(isRuling ? "  <color=#ffd700>★</color>" : "   ");
-                sb.Append(' ').Append(p.partyName);
+                sb.Append(' ').Append(p.partyName).Append(' ').Append(RoleTag(sum.role));
+                sb.Append("  <color=#9fb0c0>支持率</color>");
                 AppendBarInline(sb, p.support, isRuling ? "#ffd700" : "#a0e0a0");
                 sb.Append(' ').Append((p.support * 100f).ToString("0")).Append('%');
-                if (!p.HasLeader) sb.Append(" <color=#9aa7b2>(党首空席)</color>");
                 sb.Append('\n');
+                AppendPartyBreakdown(sb, p, sum);
             }
 
             AppendElections(sb, s, electoral);
+        }
+
+        private static string RoleTag(PartyGovernmentRole role)
+        {
+            switch (role)
+            {
+                case PartyGovernmentRole.与党: return "<color=#ffd700>[与党]</color>";
+                case PartyGovernmentRole.野党: return "<color=#a0c8ff>[野党]</color>";
+                case PartyGovernmentRole.議席なし: return "<color=#9aa7b2>[議席なし]</color>";
+                default: return "<color=#9aa7b2>[与野党未確定＝組閣なし]</color>";
+            }
+        }
+
+        /// <summary>政党の数字の内訳（確定議席・ネームド政治家・国政議員・一般党員＝単位と出所つき・不明は不明と書く）。</summary>
+        private void AppendPartyBreakdown(StringBuilder sb, Party p, PartyStatusSummary sum)
+        {
+            sb.Append("      <color=#9fb0c0>確定議席</color> 下院 ").Append(sum.lowerSeats).Append("・上院 ").Append(sum.upperSeats)
+              .Append("　<color=#9fb0c0>党首</color> ")
+              .Append(p.HasLeader ? PersonName(p.leaderId) : "<color=#9aa7b2>空席</color>")
+              .Append("　<color=#9fb0c0>ネームド政治家</color> ").Append(sum.namedPoliticians).Append("名")
+              .Append("　<color=#9fb0c0>国政議員(実在)</color> 下").Append(sum.namedLowerLegislators)
+              .Append("・上").Append(sum.namedUpperLegislators).Append("名\n");
+
+            sb.Append("      <color=#9fb0c0>一般党員(全国)</color> ");
+            PartyMembershipTally n = p.nationalMembership;
+            if (sum.nationalMembershipKnown && n != null)
+            {
+                sb.Append(sum.nationalMembership.ToString("#,0")).Append("人");
+                if (!string.IsNullOrEmpty(n.source)) sb.Append("（出所 ").Append(n.source);
+                else sb.Append("（出所 未記載");
+                if (n.asOfYear > 0) sb.Append("・SE").Append(n.asOfYear);
+                sb.Append('）');
+            }
+            else sb.Append("<color=#9aa7b2>不明（未設定）</color>");
+            sb.Append("　<color=#9fb0c0>地方集計</color> ");
+            if (sum.regionalTalliesKnown > 0) sb.Append(sum.regionalTalliesKnown).Append("星系");
+            else sb.Append("<color=#9aa7b2>不明（未設定）</color>");
+            sb.Append('\n');
         }
 
         // ===== 国政選挙・地方選挙 =====

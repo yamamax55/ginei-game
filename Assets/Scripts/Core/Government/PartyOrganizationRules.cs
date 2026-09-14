@@ -39,15 +39,26 @@ namespace Ginei
             return true;
         }
 
-        /// <summary>離党（党員でなければ false）。党首/各役職に就いていれば自動で解任する。</summary>
+        /// <summary>離党（党員でなければ false）。党首/各役職に就いていれば自動で解任し、派閥の名簿・領袖からも外す。</summary>
         public static bool Leave(Party party, int personId)
         {
-            if (party == null || !party.memberIds.Remove(personId)) return false;
+            if (party == null || party.memberIds == null || !party.memberIds.Contains(personId)) return false;
+            party.memberIds.RemoveAll(x => x == personId); // 重複IDも残さない
             if (party.leaderId == personId) party.leaderId = -1;
             // 就いていた党役職を空席化
-            for (int i = party.posts.Count - 1; i >= 0; i--)
-                if (party.posts[i] != null && party.posts[i].holderId == personId)
-                    party.posts.RemoveAt(i);
+            if (party.posts != null)
+                for (int i = party.posts.Count - 1; i >= 0; i--)
+                    if (party.posts[i] != null && party.posts[i].holderId == personId)
+                        party.posts.RemoveAt(i);
+            // 派閥の名簿と領袖
+            if (party.factions != null)
+                for (int i = 0; i < party.factions.Count; i++)
+                {
+                    PartyFaction pf = party.factions[i];
+                    if (pf == null) continue;
+                    if (pf.memberIds != null) pf.memberIds.RemoveAll(x => x == personId);
+                    if (pf.bossId == personId) pf.bossId = -1;
+                }
             return true;
         }
 

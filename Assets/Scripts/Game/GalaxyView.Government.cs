@@ -106,6 +106,7 @@ namespace Ginei
         /// </summary>
         public Person PlayerCharacter()
         {
+            if (qaPlayerCharacter != null) return qaPlayerCharacter; // 試験入口（BindPlayerCharacterForQa）で固定したときだけ
             var career = FindAnyObjectByType<ProtagonistCareerDirector>();
             return career != null ? career.Protagonist : null;
         }

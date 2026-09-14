@@ -45,5 +45,14 @@ namespace Ginei
 
         /// <summary>試験用：選挙の暦年（統一クロックの宇宙暦）。</summary>
         public int ElectionYearForQa => ElectionYear();
+
+        /// <summary>試験で固定した操作者（null＝本番どおり主人公ディレクタ）。</summary>
+        private Person qaPlayerCharacter;
+
+        /// <summary>
+        /// 試験用：<see cref="PlayerCharacter"/> が返す操作者を実名簿の人物へ固定する（null で解除）。
+        /// 権限の結果は渡さない＝決裁の判定は本番と同じ <see cref="DecisionAuthorityDirector"/> の経路で盤面から組み立てる。非保存。
+        /// </summary>
+        public void BindPlayerCharacterForQa(Person person) => qaPlayerCharacter = person;
     }
 }

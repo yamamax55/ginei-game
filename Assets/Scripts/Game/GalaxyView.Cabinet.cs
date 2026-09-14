@@ -14,7 +14,7 @@ namespace Ginei
 
         /// <summary>
         /// 内閣と党三役を現況へ合わせ（首相交代の総辞職・首相不在の職務執行・死亡/不在/離党の失職・党首交代の改任・委任の失効）、
-        /// <paramref name="autoFill"/> なら首相・党首を任命者として空席を補充する（プレイヤー勢力も同じ入口＝手動任免の操作 UI は未配線）。
+        /// <paramref name="autoFill"/> なら首相・党首を任命者として空席を補充する（空席だけを埋める＝手動で任命した在任者は差し替えない。手動任免は <see cref="CabinetAppointmentPanel"/> から同じ共通入口）。
         /// 同じ状態で繰り返しても履歴・通知は増えない。<paramref name="notify"/> が false なら通知しない（読込時）。
         /// </summary>
         private void RunCabinetAndPartyExecutives(FactionState s, int year, List<Person> roster, bool notify, bool autoFill)
@@ -114,6 +114,141 @@ namespace Ginei
             int idx = FactionIndex(f);
             List<Ministry> tree = ministries != null && idx >= 0 && idx < ministries.Length ? ministries[idx] : null;
             return new CabinetDecisionContext(s.politics, f, tree, TopMinistryIdOf(f), ElectionRoster(), ElectionYear());
+        }
+
+        // ===== 内閣人事メニューの操作入口（#2768 #141） =====
+        // 操作者は PlayerCharacter()（主人公）だけ＝UI から任意の人物を操作者に渡せない。確認（Check*）と実行は同じ
+        // CabinetAppointmentRules の判定経路を通し、実行時にもう一度判定する。在任・委任・履歴は PoliticsState.cabinet だけに書く。
+
+        /// <summary>内閣人事メニューが読む材料（操作者の勢力の政治状態・省庁・名簿・暦年）。組めなければ理由を返す。</summary>
+        public struct CabinetOperation
+        {
+            public Person actor;
+            public Faction faction;
+            public PoliticsState politics;
+            public List<Ministry> tree;
+            public int topId;
+            public List<Person> roster;
+            public int year;
+            /// <summary>組めない理由（組めたら null）。</summary>
+            public string problem;
+        }
+
+        /// <summary>いまの操作者で内閣人事の材料を組む（状態は変えない・省庁のシードもしない）。</summary>
+        public CabinetOperation CabinetOperationForPlayer()
+        {
+            var op = new CabinetOperation { actor = PlayerCharacter(), topId = -1 };
+            if (op.actor == null) { op.problem = "操作する人物（主人公）が特定できない"; return op; }
+            op.faction = op.actor.faction;
+            FactionState s = StateOf(op.faction);
+            if (s == null || s.politics == null) { op.problem = op.faction + " に政治状態がない"; return op; }
+            op.politics = s.politics;
+            int idx = FactionIndex(op.faction);
+            op.tree = ministries != null && idx >= 0 && idx < ministries.Length ? ministries[idx] : null;
+            op.topId = TopMinistryIdOf(op.faction);
+            op.roster = ElectionRoster();
+            op.year = ElectionYear();
+            if (s.politics.cabinet == null || s.politics.cabinet.posts == null || s.politics.cabinet.posts.Count == 0)
+                op.problem = "内閣が置かれていない（選挙で首班を選ぶ政体で組閣後に操作できる）";
+            return op;
+        }
+
+        /// <summary>任免で使う調整値（メニューの候補表示が本番の判定と同じ値を読む）。</summary>
+        public static CabinetParams CabinetParamsInUse => CabinetPrm;
+
+        public AppointmentResult CheckPlayerCabinetAppoint(int ministryId, CabinetPostKind kind, int personId)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            return CabinetAppointmentRules.CheckAppoint(op.politics, op.faction, op.actor.id, op.tree, op.topId, ministryId, kind, personId, op.roster, CabinetPrm);
+        }
+
+        /// <summary>主人公が首相として任命する（実行時に共通入口で再判定）。理由は必須。</summary>
+        public AppointmentResult PlayerCabinetAppoint(int ministryId, CabinetPostKind kind, int personId, string reason)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            if (string.IsNullOrWhiteSpace(reason)) return AppointmentResult.Deny("任命の理由が未入力");
+            AppointmentResult r = CabinetAppointmentRules.TryAppoint(op.politics, op.faction, op.actor.id, op.tree, op.topId,
+                ministryId, kind, personId, op.roster, op.year, "首相の任命（理由：" + reason.Trim() + "）", CabinetPrm);
+            if (r.ok)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{op.faction} {PostTitleOf(op, ministryId, kind)} に {ElectionPersonName(personId)} を任命（首相 {op.actor.name}・理由：{reason.Trim()}）");
+            return r;
+        }
+
+        public AppointmentResult CheckPlayerCabinetDismiss(int ministryId, CabinetPostKind kind)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            return CabinetAppointmentRules.CheckDismiss(op.politics, op.faction, op.actor.id, ministryId, kind, op.roster, CabinetPrm);
+        }
+
+        /// <summary>主人公が首相として解任する（実行時に共通入口で再判定）。理由は必須。</summary>
+        public AppointmentResult PlayerCabinetDismiss(int ministryId, CabinetPostKind kind, string reason)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            if (string.IsNullOrWhiteSpace(reason)) return AppointmentResult.Deny("解任の理由が未入力");
+            CabinetPost post = CabinetAppointmentRules.FindPost(op.politics.cabinet, ministryId, kind);
+            int who = post != null ? post.holderId : -1;
+            AppointmentResult r = CabinetAppointmentRules.Dismiss(op.politics, op.faction, op.actor.id, ministryId, kind, op.roster, op.year,
+                "首相の解任（理由：" + reason.Trim() + "）", CabinetPrm);
+            if (r.ok)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                    $"{op.faction} {PostTitleOf(op, ministryId, kind)} {ElectionPersonName(who)} を解任（首相 {op.actor.name}・理由：{reason.Trim()}）");
+            return r;
+        }
+
+        public AppointmentResult CheckPlayerCabinetDelegate(int ministryId, CabinetDelegation scope, int untilYear)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            return CabinetAppointmentRules.CheckDelegate(op.politics, op.faction, op.actor.id, ministryId, scope, untilYear, op.roster, op.year, CabinetPrm);
+        }
+
+        /// <summary>主人公が大臣として自省の副大臣へ期限つきで委任する（実行時に共通入口で再判定）。</summary>
+        public AppointmentResult PlayerCabinetDelegate(int ministryId, CabinetDelegation scope, int untilYear)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            AppointmentResult r = CabinetAppointmentRules.Delegate(op.politics, op.faction, op.actor.id, ministryId, scope, untilYear, op.roster, op.year, CabinetPrm);
+            if (r.ok)
+            {
+                CabinetPost vice = CabinetAppointmentRules.FindPost(op.politics.cabinet, ministryId, CabinetPostKind.副大臣);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{op.faction} {PostTitleOf(op, ministryId, CabinetPostKind.副大臣)} {ElectionPersonName(vice != null ? vice.holderId : -1)} へ {scope} を SE{untilYear} まで委任（大臣 {op.actor.name}）");
+            }
+            return r;
+        }
+
+        public AppointmentResult CheckPlayerCabinetRevokeDelegation(int ministryId)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            return CabinetAppointmentRules.CheckRevokeDelegation(op.politics, op.faction, op.actor.id, ministryId, CabinetPrm);
+        }
+
+        /// <summary>主人公が大臣として委任を撤回する（実行時に共通入口で再判定）。理由は必須。</summary>
+        public AppointmentResult PlayerCabinetRevokeDelegation(int ministryId, string reason)
+        {
+            CabinetOperation op = CabinetOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            if (string.IsNullOrWhiteSpace(reason)) return AppointmentResult.Deny("委任撤回の理由が未入力");
+            AppointmentResult r = CabinetAppointmentRules.RevokeDelegation(op.politics, op.faction, op.actor.id, ministryId, op.year, reason.Trim(), CabinetPrm);
+            if (r.ok)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{op.faction} {PostTitleOf(op, ministryId, CabinetPostKind.副大臣)} への委任を撤回（大臣 {op.actor.name}・理由：{reason.Trim()}）");
+            return r;
+        }
+
+        /// <summary>人物名（名簿に無ければ 人物#id）。内閣人事メニューの表示用。</summary>
+        public string CabinetPersonName(int personId) => personId < 0 ? "（空席）" : ElectionPersonName(personId);
+
+        private static string PostTitleOf(CabinetOperation op, int ministryId, CabinetPostKind kind)
+        {
+            CabinetPost p = op.politics != null ? CabinetAppointmentRules.FindPost(op.politics.cabinet, ministryId, kind) : null;
+            return p != null ? CabinetAppointmentRules.PostTitle(p) : "省#" + ministryId + " " + kind;
         }
     }
 }

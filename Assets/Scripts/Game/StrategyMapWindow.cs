@@ -874,6 +874,8 @@ namespace Ginei
                 ("政治",   () => UnityEngine.Object.FindAnyObjectByType<PoliticsObserverOverlay>()?.Toggle()),
                 ("外交",   () => UnityEngine.Object.FindAnyObjectByType<DiplomacyObserverOverlay>()?.Toggle()),
                 ("人事",   () => UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>()?.Toggle()),
+                // 内閣人事（#2768）：首相の閣僚任免・大臣の副大臣への委任をクリックで操作する窓
+                ("内閣人事", CabinetAppointmentPanel.Toggle),
             }),
             ("システム", new (string, System.Action)[]
             {

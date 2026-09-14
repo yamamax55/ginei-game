@@ -178,7 +178,7 @@ namespace Ginei
 
         /// <summary>
         /// 内閣（政治任用）：首相・組閣の状態・職務執行、省ごとの大臣/副大臣/政務官（人物・所属党・就任年・任命理由・空席理由・委任範囲）、
-        /// 同じ省の職業官僚（別系統＝政治任用で変わらない）、直近の任免履歴。操作 UI は未配線（表示のみ）。
+        /// 同じ省の職業官僚（別系統＝政治任用で変わらない）、直近の任免履歴。ここは表示のみ（操作は <see cref="CabinetAppointmentPanel"/>）。
         /// </summary>
         private void AppendCabinet(StringBuilder sb, GalaxyView gv, FactionState s)
         {
@@ -339,8 +339,39 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             WindowChrome.AddTitleBarLayout(frameRT, "政府", () => SetVisible(false));
+            BuildCabinetMenuButton(frame.transform);
             BuildScrollBody(frame.transform);
         }
+
+        /// <summary>内閣人事メニュー（#2768）をクリックで開く入口。観測は read-only のまま、操作は専用メニュー側で共通入口を通す。</summary>
+        private void BuildCabinetMenuButton(Transform parent)
+        {
+            GameObject go = new GameObject("CabinetMenuButton", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = cabinetButtonHeight; le.preferredHeight = cabinetButtonHeight; le.flexibleHeight = 0f;
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.20f, 0.18f, 0.10f, 1f);
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(CabinetAppointmentPanel.Show);
+
+            GameObject textGo = new GameObject("Text", typeof(RectTransform));
+            textGo.transform.SetParent(go.transform, false);
+            TextMeshProUGUI t = textGo.AddComponent<TextMeshProUGUI>();
+            t.text = "内閣人事を開く（首相＝閣僚の任免／大臣＝副大臣への委任）";
+            t.fontSize = bodyFontSize;
+            t.color = new Color(1f, 0.92f, 0.62f);
+            t.alignment = TextAlignmentOptions.Center;
+            t.raycastTarget = false;
+            ApplyJapaneseFont(t);
+            RectTransform rt = t.rectTransform;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+        }
+
+        [Tooltip("内閣人事メニューを開くボタンの高さ")]
+        public float cabinetButtonHeight = 36f;
 
         private void BuildScrollBody(Transform parent)
         {

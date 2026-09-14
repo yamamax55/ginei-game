@@ -124,7 +124,7 @@ namespace Ginei
             {
                 sb.Append("  <color=#9aa7b2>（進行中なし）</color>");
                 if (ledger.droppedCount > 0)
-                    sb.Append("　<color=#6f8a9a>（古い決着済 ").Append(ledger.droppedCount).Append(" 件を掃き出し）</color>");
+                    sb.Append("　<color=#6f8a9a>（古い稟議履歴〔決着済・黙殺〕 ").Append(ledger.droppedCount).Append(" 件を容量整理）</color>");
                 sb.Append('\n');
                 return 0;
             }

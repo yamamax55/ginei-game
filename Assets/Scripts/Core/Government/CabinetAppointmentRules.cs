@@ -289,6 +289,18 @@ namespace Ginei
         /// </summary>
         public static AppointmentResult TryAppoint(PoliticsState pol, Faction f, int actorId, IList<Ministry> tree, int topId,
             int ministryId, CabinetPostKind kind, int personId, IList<Person> roster, int year, string reason, CabinetParams prm)
+            => AppointCore(pol, f, actorId, tree, topId, ministryId, kind, personId, roster, year, reason, prm, false);
+
+        /// <summary>
+        /// 任命の確認（状態は変えない）。<see cref="TryAppoint"/> と同じ判定の順序・理由を返す＝確認表示と実行時の再判定が食い違わない。
+        /// 職がまだ用意されていなければ空席として扱う（実行時は同じ入口で用意してから就ける）。
+        /// </summary>
+        public static AppointmentResult CheckAppoint(PoliticsState pol, Faction f, int actorId, IList<Ministry> tree, int topId,
+            int ministryId, CabinetPostKind kind, int personId, IList<Person> roster, CabinetParams prm)
+            => AppointCore(pol, f, actorId, tree, topId, ministryId, kind, personId, roster, 0, "", prm, true);
+
+        private static AppointmentResult AppointCore(PoliticsState pol, Faction f, int actorId, IList<Ministry> tree, int topId,
+            int ministryId, CabinetPostKind kind, int personId, IList<Person> roster, int year, string reason, CabinetParams prm, bool dryRun)
         {
             if (pol == null) return AppointmentResult.Deny("政治状態がない");
             int premier = FormalPremier(pol, f, roster, out string premierProblem);
@@ -301,15 +313,18 @@ namespace Ginei
 
             Ministry ministry = FindCabinetMinistry(tree, topId, ministryId);
             if (ministry == null) return AppointmentResult.Deny("存在しない省（#" + ministryId + "）には任命できない");
-            EnsurePosts(cab, f, tree, topId, year, prm);
+            if (!dryRun) EnsurePosts(cab, f, tree, topId, year, prm);
             CabinetPost post = FindPost(cab, ministryId, kind);
-            if (post == null) return AppointmentResult.Deny("存在しない職");
-            if (post.holderId == personId && personId >= 0) return AppointmentResult.Deny("既に " + PostTitle(post) + " に在任している");
-            if (post.holderId >= 0)
-                return AppointmentResult.Deny(PostTitle(post) + " には在任者（人物#" + post.holderId + "）がいる＝先に解任");
+            if (post == null && !dryRun) return AppointmentResult.Deny("存在しない職");
+            string title = post != null ? PostTitle(post) : PostTitle(ministry.ministryName, kind);
+            int holder = post != null ? post.holderId : -1;
+            if (holder == personId && personId >= 0) return AppointmentResult.Deny("既に " + title + " に在任している");
+            if (holder >= 0)
+                return AppointmentResult.Deny(title + " には在任者（人物#" + holder + "）がいる＝先に解任");
 
             string problem = CandidateProblem(pol, f, cab, personId, premier, roster, prm);
             if (problem != null) return AppointmentResult.Deny(problem);
+            if (dryRun) return AppointmentResult.Allow(title + " に人物#" + personId + " を任命できる（首相の任命）");
 
             Party party = ElectionCycleRules.PartyOf(pol.parties, personId);
             bool continued = post.lastHolderId == personId && post.vacatedYear == year;
@@ -369,6 +384,15 @@ namespace Ginei
         /// <summary>内閣の職を解任する（首相本人のみ）。大臣の解任で副大臣への委任も失効する。</summary>
         public static AppointmentResult Dismiss(PoliticsState pol, Faction f, int actorId, int ministryId, CabinetPostKind kind,
             IList<Person> roster, int year, string reason, CabinetParams prm)
+            => DismissCore(pol, f, actorId, ministryId, kind, roster, year, reason, prm, false);
+
+        /// <summary>解任の確認（状態は変えない）。<see cref="Dismiss"/> と同じ判定。</summary>
+        public static AppointmentResult CheckDismiss(PoliticsState pol, Faction f, int actorId, int ministryId, CabinetPostKind kind,
+            IList<Person> roster, CabinetParams prm)
+            => DismissCore(pol, f, actorId, ministryId, kind, roster, 0, "", prm, true);
+
+        private static AppointmentResult DismissCore(PoliticsState pol, Faction f, int actorId, int ministryId, CabinetPostKind kind,
+            IList<Person> roster, int year, string reason, CabinetParams prm, bool dryRun)
         {
             if (pol == null) return AppointmentResult.Deny("政治状態がない");
             int premier = FormalPremier(pol, f, roster, out string premierProblem);
@@ -379,6 +403,7 @@ namespace Ginei
             CabinetPost post = FindPost(cab, ministryId, kind);
             if (post == null) return AppointmentResult.Deny("存在しない職（省#" + ministryId + " " + kind + "）");
             if (post.holderId < 0) return AppointmentResult.Deny(PostTitle(post) + " は既に空席");
+            if (dryRun) return AppointmentResult.Allow(PostTitle(post) + " の人物#" + post.holderId + " を解任できる");
             int who = post.holderId;
             string why = string.IsNullOrEmpty(reason) ? "首相の解任" : reason;
             Vacate(cab, f, post, year, "解任", why, actorId, prm);
@@ -393,6 +418,15 @@ namespace Ginei
         /// </summary>
         public static AppointmentResult Delegate(PoliticsState pol, Faction f, int actorId, int ministryId, CabinetDelegation scope,
             int untilYear, IList<Person> roster, int year, CabinetParams prm)
+            => DelegateCore(pol, f, actorId, ministryId, scope, untilYear, roster, year, prm, false);
+
+        /// <summary>委任の確認（状態は変えない）。<see cref="Delegate"/> と同じ判定。</summary>
+        public static AppointmentResult CheckDelegate(PoliticsState pol, Faction f, int actorId, int ministryId, CabinetDelegation scope,
+            int untilYear, IList<Person> roster, int year, CabinetParams prm)
+            => DelegateCore(pol, f, actorId, ministryId, scope, untilYear, roster, year, prm, true);
+
+        private static AppointmentResult DelegateCore(PoliticsState pol, Faction f, int actorId, int ministryId, CabinetDelegation scope,
+            int untilYear, IList<Person> roster, int year, CabinetParams prm, bool dryRun)
         {
             CabinetState cab = pol != null ? pol.cabinet : null;
             CabinetPost minister = FindPost(cab, ministryId, CabinetPostKind.大臣);
@@ -413,6 +447,7 @@ namespace Ginei
             if (untilYear < year) return AppointmentResult.Deny("委任の期限が過去（SE" + untilYear + "）");
             if (untilYear > year + prm.maxDelegationYears)
                 return AppointmentResult.Deny("委任の期限が長すぎる（最長 " + prm.maxDelegationYears + " 年＝無期限の代行はしない）");
+            if (dryRun) return AppointmentResult.Allow(PostTitle(vice) + " へ " + scope + " を SE" + untilYear + " まで委任できる");
 
             vice.delegation = scope;
             vice.delegatedById = actorId;
@@ -423,6 +458,13 @@ namespace Ginei
 
         /// <summary>大臣本人が委任を解く。</summary>
         public static AppointmentResult RevokeDelegation(PoliticsState pol, Faction f, int actorId, int ministryId, int year, string reason, CabinetParams prm)
+            => RevokeCore(pol, f, actorId, ministryId, year, reason, prm, false);
+
+        /// <summary>委任解除の確認（状態は変えない）。<see cref="RevokeDelegation"/> と同じ判定。</summary>
+        public static AppointmentResult CheckRevokeDelegation(PoliticsState pol, Faction f, int actorId, int ministryId, CabinetParams prm)
+            => RevokeCore(pol, f, actorId, ministryId, 0, "", prm, true);
+
+        private static AppointmentResult RevokeCore(PoliticsState pol, Faction f, int actorId, int ministryId, int year, string reason, CabinetParams prm, bool dryRun)
         {
             CabinetState cab = pol != null ? pol.cabinet : null;
             CabinetPost minister = FindPost(cab, ministryId, CabinetPostKind.大臣);
@@ -431,6 +473,7 @@ namespace Ginei
             if (actorId != minister.holderId || actorId < 0)
                 return AppointmentResult.Petition("権限外：委任を解けるのは大臣本人", minister.holderId);
             if (vice.delegation == CabinetDelegation.なし) return AppointmentResult.Deny("委任していない");
+            if (dryRun) return AppointmentResult.Allow(PostTitle(vice) + " への委任（" + vice.delegation + "）を解ける");
             AddHistory(cab, f, year, "委任解除", vice, vice.holderId, actorId, string.IsNullOrEmpty(reason) ? "大臣が委任を解いた" : reason, prm);
             ClearDelegation(vice);
             return AppointmentResult.Allow("委任を解いた");

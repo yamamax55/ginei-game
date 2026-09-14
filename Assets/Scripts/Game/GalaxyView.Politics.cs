@@ -149,8 +149,11 @@ namespace Ginei
 
                 var r = PoliticsTickRules.TickYear(s, year);
 
-                // 国政：開票→確定議席→組閣→宰相職（首相）へ反映→党別議席へ実在の議員を充てる（下院→上院）
+                // 党内：所属を整えてから総裁選（任期満了・党首の欠缺）＝党首だけを決める（首相・閣僚・議席・軍の指揮権は別の手続き）
                 List<RegionalElectorate> electorate = ElectorateOf(s.faction);
+                RunPartyLeadership(s, year, roster, electorate);
+
+                // 国政：開票→確定議席→組閣→宰相職（首相）へ反映→党別議席へ実在の議員を充てる（下院→上院）
                 NationalYearOutcome national = ElectionCycleRules.RunNationalYear(
                     s, year, r, electorate, roster, NationalElectionParams);
                 NotifyNational(s, national);
@@ -177,6 +180,42 @@ namespace Ginei
         private static readonly ElectionCycleParams NationalElectionParams = ElectionCycleParams.Default;
         private static readonly LocalElectionParams GovernorElectionParams = LocalElectionParams.Default;
         private static readonly LegislatorRosterParams LegislatorParams = LegislatorRosterParams.Default;
+        private static readonly PartyLeadershipParams LeadershipParams = PartyLeadershipParams.Default;
+
+        /// <summary>
+        /// 党内の総裁選（#165）：党を管理下に置いて所属を整え（旧来の党首の自動補充は止まる）、任期満了・欠缺の党だけ総裁選を行い通知する。
+        /// 地方支部は勢力の星系に限る。同じ年の再処理・読込後の同じ年では何もしない。党首が決まるだけで首相・宰相職は動かさない
+        /// （首相は下院選挙後の組閣、または首相の欠缺時の再組閣でだけ決まる）。
+        /// </summary>
+        private void RunPartyLeadership(FactionState s, int year, List<Person> roster, List<RegionalElectorate> electorate)
+        {
+            if (s == null || s.politics == null) return;
+            PartyLeadershipRules.Adopt(s.politics);
+            ElectionCycleRules.OrganizeParties(s.politics, roster, s.faction);
+            var owned = new HashSet<int>();
+            for (int i = 0; i < electorate.Count; i++) owned.Add(electorate[i].systemId);
+            List<LeadershipElectionRecord> held = PartyLeadershipRules.TickYear(s.politics, s.faction, year, roster, owned, LeadershipParams);
+            for (int i = 0; i < held.Count; i++) NotifyLeadership(s, held[i]);
+        }
+
+        /// <summary>総裁選の結果を1通だけ通知する（選出不能は注意）。</summary>
+        private void NotifyLeadership(FactionState s, LeadershipElectionRecord rec)
+        {
+            if (s == null || rec == null) return;
+            string party = ElectionPartyName(s.politics, rec.partyId);
+            if (rec.winnerId < 0)
+            {
+                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
+                    $"{s.faction} {party} 総裁選：{rec.outcome}＝{rec.reason}");
+                return;
+            }
+            LeadershipCandidateResult w = rec.Candidate(rec.winnerId);
+            string votes = rec.outcome == LeadershipOutcome.決選当選 && w != null ? $"（決選 {w.runoffTotal}/{rec.runoffTotal}票）"
+                         : rec.outcome == LeadershipOutcome.第1回当選 && w != null ? $"（第1回 {w.round1Total}/{rec.round1Total}票）" : "";
+            NotificationCenter.Push(NotificationCategory.政治,
+                rec.outcome == LeadershipOutcome.暫定続投 || rec.outcome == LeadershipOutcome.暫定選出 ? NotificationSeverity.注意 : NotificationSeverity.情報,
+                $"{s.faction} {party} 総裁選（{rec.trigger}）：{ElectionPersonName(rec.winnerId)} が{rec.outcome}{votes}・党首任期〜SE{rec.termEndYear}");
+        }
 
         /// <summary>開票結果を議員名簿へ反映し、実在議員と集計議席の内訳を1通だけ通知する（同じ選挙IDは反映済みなら何もしない）。</summary>
         private void AssignLegislators(FactionState s, NationalElectionRecord rec, List<Person> roster, List<RegionalElectorate> electorate)

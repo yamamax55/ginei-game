@@ -168,7 +168,7 @@ namespace Ginei
         /// 政党の党員と党首を整える（所属は <see cref="PartyMembershipRules"/>、個々の党は <see cref="PartyOrganizationRules"/> を使う）：
         /// ①資格を失った党員の離党・重複IDと重複所属の整理・役職と派閥の整合（<see cref="PartyMembershipRules.Normalize"/>）、
         /// ②無所属の政治家だけを理由つきで入党（<see cref="PartyMembershipRules.AssignUnaffiliated"/>＝既に所属する人は移籍させない）、
-        /// ③党首が就けない党は党員から党首選（<see cref="LeadershipElectionRules"/>）で選ぶ。人物の職種・官位は変えない。
+        /// ③党首が就けない党は党員から党首選（<see cref="LeadershipElectionRules"/>）で選ぶ（総裁選の管理下の党＝<see cref="PartyLeadershipState.managed"/> は除く）。人物の職種・官位は変えない。
         /// 返り値は変更件数。重複所属の整理で議席の党を優先したいときは <see cref="PoliticsState"/> 版を使う。
         /// </summary>
         public static int OrganizeParties(IList<Party> parties, IList<Person> roster, Faction f)
@@ -188,11 +188,12 @@ namespace Ginei
             // ② 無所属の政治家を入党（ID 昇順）
             changes += PartyMembershipRules.AssignUnaffiliated(parties, f, roster, pol).Count;
 
-            // ③ 党首の補充（党首選）
+            // ③ 党首の補充（旧来の簡易党首選）。総裁選の管理下の党（PartyLeadershipRules）は任期・欠缺の総裁選で選ぶため補充しない
             for (int i = 0; i < parties.Count; i++)
             {
                 Party p = parties[i];
                 if (p == null) continue;
+                if (p.leadership != null && p.leadership.managed) continue;
                 if (p.leaderId >= 0 && IsEligiblePolitician(FindPerson(roster, p.leaderId), f)) continue;
 
                 var ids = new List<int>(p.memberIds);
@@ -538,6 +539,7 @@ namespace Ginei
 
             LegislatorRosterRules.NormalizeLoaded(pol); // 議員名簿（旧セーブは空・議席総数を超えない）
             PartyMembershipRules.NormalizeLoaded(pol);  // 一般党員の集計（旧セーブは不明）・一人一党（入党はさせない）
+            PartyLeadershipRules.NormalizeLoaded(pol);  // 総裁選の記録と派閥の整理（旧セーブは未管理のまま・総裁選は起こさない）
         }
 
         private static ChamberSeats NormalizeSeats(ChamberSeats cs, LegislativeChamber chamber)

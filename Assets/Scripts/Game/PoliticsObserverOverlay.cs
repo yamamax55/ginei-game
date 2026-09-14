@@ -147,6 +147,7 @@ namespace Ginei
                 sb.Append(' ').Append((p.support * 100f).ToString("0")).Append('%');
                 sb.Append('\n');
                 AppendPartyBreakdown(sb, p, sum);
+                AppendLeadership(sb, pol, p);
             }
 
             AppendElections(sb, s, electoral);
@@ -188,6 +189,157 @@ namespace Ginei
             if (sum.regionalTalliesKnown > 0) sb.Append(sum.regionalTalliesKnown).Append("星系");
             else sb.Append("<color=#9aa7b2>不明（未設定）</color>");
             sb.Append('\n');
+        }
+
+        // ===== 総裁選・派閥・党内序列（#165） =====
+
+        [Header("総裁選・派閥")]
+        [Tooltip("党内序列に表示する党員の上限（超えた分は件数だけ表示）")]
+        public int maxSeniorityShown = 8;
+        [Tooltip("決選の地方票を星系ごとに表示する上限")]
+        public int maxRegionsShown = 12;
+
+        /// <summary>党首の任期・選出待ち・直近の総裁選（候補・票の内訳・決選・理由・seed）・派閥・党内序列。党首は党内の役職で、首相・閣僚・軍の指揮権は別。</summary>
+        private void AppendLeadership(StringBuilder sb, PoliticsState pol, Party p)
+        {
+            PartyLeadershipState st = p.leadership;
+            sb.Append("      <color=#9fb0c0>党首（総裁）</color> ");
+            if (p.HasLeader)
+            {
+                sb.Append(PersonName(p.leaderId));
+                if (st != null && st.termEndYear > 0)
+                {
+                    sb.Append("　任期 SE").Append(st.termStartYear).Append("〜SE").Append(st.termEndYear);
+                    if (st.consecutiveTerms > 0) sb.Append("（連続").Append(st.consecutiveTerms).Append("期）");
+                }
+            }
+            else sb.Append("<color=#ff7a6a>不在＝選出待ち</color>");
+            if (st != null && st.nextElectionYear > 0) sb.Append("　次回総裁選 SE").Append(st.nextElectionYear);
+            if (st == null || !st.managed) sb.Append("　<color=#6f8a9a>（総裁選の管理前＝次の年次から）</color>");
+            sb.Append('\n');
+            if (st != null && !string.IsNullOrEmpty(st.pendingReason))
+                sb.Append("        <color=#ffb070>").Append(st.pendingReason).Append("</color>\n");
+            if (st != null && !string.IsNullOrEmpty(st.termNote))
+                sb.Append("        <color=#6f8a9a>").Append(st.termNote).Append("</color>\n");
+            sb.Append("        <color=#6f8a9a>※党首は党内の役職（首相は組閣の手続き・閣僚任命・軍の指揮権は付かない）</color>\n");
+
+            LeadershipElectionRecord rec = st != null ? st.Latest : null;
+            if (rec != null) AppendLeadershipRecord(sb, pol, rec);
+            AppendFactions(sb, p);
+            AppendSeniority(sb, pol, p);
+        }
+
+        private void AppendLeadershipRecord(StringBuilder sb, PoliticsState pol, LeadershipElectionRecord rec)
+        {
+            sb.Append("      <color=#9fb0c0>直近の総裁選</color> SE").Append(rec.year).Append(' ').Append(rec.trigger)
+              .Append(" → <color=#ffe08a>").Append(rec.outcome).Append("</color>");
+            if (rec.winnerId >= 0) sb.Append(' ').Append(PersonName(rec.winnerId));
+            sb.Append("　<color=#6f8a9a>選挙ID ").Append(rec.electionId).Append(" / seed ").Append(rec.seed).Append("</color>\n");
+            if (!string.IsNullOrEmpty(rec.reason)) sb.Append("        <color=#9fb0c0>選出理由</color> ").Append(rec.reason).Append('\n');
+            sb.Append("        <color=#9fb0c0>投票者</color> ").Append(rec.voterBasis)
+              .Append("　推薦人 ").Append(rec.requiredEndorsers).Append("人以上");
+            if (rec.round1Total > 0)
+            {
+                sb.Append("　第1回 有効").Append(rec.round1Total).Append("票（過半数 ")
+                  .Append(LeadershipElectionRules.MajorityNeeded(rec.round1Total)).Append("票）");
+                sb.Append("　党員票 ");
+                if (rec.memberVotesKnown)
+                    sb.Append("生票").Append(rec.memberRawTotal.ToString("#,0")).Append("人→算定票").Append(rec.memberAllotment).Append("票");
+                else sb.Append("<color=#9aa7b2>不明</color>");
+            }
+            if (rec.runoffHeld) sb.Append("　決選 有効").Append(rec.runoffTotal).Append("票");
+            sb.Append('\n');
+            if (!string.IsNullOrEmpty(rec.aggregateFormula))
+                sb.Append("        <color=#6f8a9a>集計議席の算式：").Append(rec.aggregateFormula).Append("</color>\n");
+            for (int i = 0; i < rec.restrictions.Count; i++)
+                sb.Append("        <color=#ffb070>制限：").Append(rec.restrictions[i]).Append("</color>\n");
+
+            for (int i = 0; i < rec.candidates.Count; i++)
+            {
+                LeadershipCandidateResult c = rec.candidates[i];
+                if (c == null) continue;
+                sb.Append("        ・").Append(PersonName(c.personId)).Append(" [").Append(c.status).Append("] ")
+                  .Append(c.historyRegistered ? "国政当選" + c.nationalWins + "回" : "<color=#9aa7b2>履歴未登録</color>")
+                  .Append(" 推薦").Append(c.endorserIds != null ? c.endorserIds.Count : 0).Append('人');
+                if (rec.round1Total > 0 && c.status != LeadershipCandidateStatus.推薦人不足で撤回)
+                    sb.Append("　第1回 議員").Append(c.round1Named).Append("+集計").Append(c.round1Aggregate)
+                      .Append("+党員算定").Append(c.round1MemberConverted).Append("（生票").Append(c.round1MemberRaw.ToString("#,0"))
+                      .Append("）=").Append(c.round1Total);
+                if (rec.runoffHeld && (c.status == LeadershipCandidateStatus.当選 || c.status == LeadershipCandidateStatus.決選落選))
+                    sb.Append("　決選 議員").Append(c.runoffNamed).Append("+集計").Append(c.runoffAggregate)
+                      .Append("+地方").Append(c.runoffRegional).Append('=').Append(c.runoffTotal);
+                sb.Append('\n');
+            }
+
+            if (rec.runoffHeld && rec.regions.Count > 0)
+            {
+                sb.Append("        <color=#9fb0c0>地方票</color> ");
+                int shown = Mathf.Min(rec.regions.Count, Mathf.Max(0, maxRegionsShown));
+                for (int i = 0; i < shown; i++)
+                {
+                    LeadershipRegionResult r = rec.regions[i];
+                    if (i > 0) sb.Append(" / ");
+                    sb.Append(SystemName(r.systemId)).Append('→').Append(r.voteFor >= 0 ? PersonName(r.voteFor) : "同数（無効）");
+                }
+                if (rec.regions.Count > shown) sb.Append(" ほか").Append(rec.regions.Count - shown).Append("星系");
+                sb.Append('\n');
+            }
+
+            for (int i = 0; i < rec.factions.Count; i++)
+            {
+                LeadershipFactionStance f = rec.factions[i];
+                if (f == null) continue;
+                sb.Append("        <color=#9fb0c0>派閥の動き</color> ").Append(f.name)
+                  .Append(f.mainstream ? " <color=#ffd700>主流</color>" : " <color=#a0c8ff>反主流</color>")
+                  .Append("　推薦 ").Append(f.endorsedRound1 >= 0 ? PersonName(f.endorsedRound1) : "自主投票");
+                if (rec.runoffHeld) sb.Append("→決選 ").Append(f.endorsedRunoff >= 0 ? PersonName(f.endorsedRunoff) : "自主投票");
+                if (f.membersVoted > 0) sb.Append("　推薦どおり ").Append(f.membersFollowed).Append('/').Append(f.membersVoted).Append("票");
+                if (!string.IsNullOrEmpty(f.reason)) sb.Append("　<color=#6f8a9a>").Append(f.reason).Append("</color>");
+                sb.Append('\n');
+            }
+        }
+
+        private void AppendFactions(StringBuilder sb, Party p)
+        {
+            sb.Append("      <color=#9fb0c0>派閥</color> ");
+            if (p.factions == null || p.factions.Count == 0)
+            {
+                sb.Append("<color=#9aa7b2>なし</color>　無派閥 ").Append(PartyLeadershipRules.UnaffiliatedCount(p)).Append("名\n");
+                return;
+            }
+            sb.Append('\n');
+            for (int i = 0; i < p.factions.Count; i++)
+            {
+                PartyFaction f = p.factions[i];
+                if (f == null) continue;
+                sb.Append("        ").Append(f.name).Append("　領袖 ")
+                  .Append(f.bossId >= 0 ? PersonName(f.bossId) : "<color=#9aa7b2>不在</color>")
+                  .Append("　所属").Append(f.Weight).Append("名　結束").Append(f.cohesion.ToString("0.00"))
+                  .Append("　政策 ").Append(string.IsNullOrEmpty(f.policyStance) ? "—" : f.policyStance)
+                  .Append(f.endorsedCandidateId >= 0 ? (f.mainstream ? "　<color=#ffd700>主流</color>" : "　<color=#a0c8ff>反主流</color>") : "")
+                  .Append('\n');
+            }
+            sb.Append("        無派閥 ").Append(PartyLeadershipRules.UnaffiliatedCount(p)).Append("名\n");
+        }
+
+        private void AppendSeniority(StringBuilder sb, PoliticsState pol, Party p)
+        {
+            System.Collections.Generic.List<SeniorityInfo> rank = PartySeniorityRules.Ranking(pol, p, PartySeniorityParams.Default);
+            sb.Append("      <color=#9fb0c0>党内序列（国政当選回数・年功の目安＝役職や権限は付かない）</color>");
+            if (rank.Count == 0) { sb.Append(" <color=#9aa7b2>党員なし</color>\n"); return; }
+            sb.Append('\n');
+            int shown = Mathf.Min(rank.Count, Mathf.Max(0, maxSeniorityShown));
+            for (int i = 0; i < shown; i++)
+            {
+                SeniorityInfo s = rank[i];
+                sb.Append("        ").Append(i + 1).Append(". ").Append(PersonName(s.personId)).Append(" [").Append(s.tier).Append("] ");
+                if (s.historyRegistered)
+                    sb.Append("国政当選").Append(s.nationalWins).Append("回（下").Append(s.lowerWins).Append("・上").Append(s.upperWins)
+                      .Append("）連続").Append(s.consecutiveWins).Append("回").Append(s.seated ? " 現職" : "");
+                else sb.Append("<color=#9aa7b2>履歴未登録</color>");
+                sb.Append('\n');
+            }
+            if (rank.Count > shown) sb.Append("        <color=#9aa7b2>ほか ").Append(rank.Count - shown).Append("名</color>\n");
         }
 
         // ===== 国政選挙・地方選挙 =====

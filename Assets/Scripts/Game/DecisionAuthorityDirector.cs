@@ -148,6 +148,20 @@ namespace Ginei
             DecisionResolutionRules.Settle(d, d.defaultChoiceIndex, auto: true, out _);
             DecisionResolutionRules.ClaimForApply(d);
             DecisionResolutionRules.RecordResult(d, PetitionActionResult.Fail(PetitionActionOutcome.対象外, reason));
+            ClosePetitionWithoutEffect(d);
+        }
+
+        /// <summary>
+        /// カードに紐づく稟議を却下で締める（効果なしで閉じた札の稟議を「決裁待ち」のまま台帳に残さない）。
+        /// 税と編制は id を別採番するので、効果キーも一致するものだけを扱う。
+        /// </summary>
+        private static void ClosePetitionWithoutEffect(PendingDecision d)
+        {
+            if (d == null || d.petitionId <= 0) return;
+            PetitionLedger ledger = FleetRingiDirector.IsFleetEffectKey(d.effectKey) ? FleetRingiDirector.Ledger : RingiDirector.Ledger;
+            Petition pet = ledger != null ? ledger.Get(d.petitionId) : null;
+            if (pet == null || !FleetRingiDirector.SameEffectKey(pet.effectKey, d.effectKey)) return;
+            RingiPipeline.Decide(pet, approve: false); // 決裁待ちのときだけ却下へ
         }
 
         /// <summary>上申先の決裁者を、決裁の時点で改めて判定する（不在・他勢力への離反は権限外）。</summary>

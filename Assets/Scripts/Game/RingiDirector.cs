@@ -99,11 +99,11 @@ namespace Ginei
         /// 実状態から建白を1件起こす。上げるものが無ければ何もしない。
         /// 重複抑止＝①同じ状況の未解決案件があれば出さない ②クールダウン ③同時件数の上限。
         /// </summary>
-        private void TryRaiseFromSituation()
+        private int TryRaiseFromSituation()
         {
             FactionState fs = PlayerState();
             GalaxyView gv = GalaxyView.Active;
-            if (fs == null || gv == null) return;
+            if (fs == null || gv == null) return -1;
 
             PetitionSituation sit = gv.MeasurePetitionSituation(fs.faction);
             float now = StrategySession.Clock != null ? (float)StrategySession.Clock.ElapsedSeconds : 0f;
@@ -113,9 +113,17 @@ namespace Ginei
                 trigger => HasPendingFor(trigger),
                 trigger => lastRaisedAt.TryGetValue(trigger, out float t) ? now - t : float.MaxValue);
 
-            if (!item.IsValid) return;
-            if (RaiseAgendaItem(fs, item) >= 0) lastRaisedAt[item.trigger] = now;
+            if (!item.IsValid) return -1;
+            int id = RaiseAgendaItem(fs, item);
+            if (id >= 0) lastRaisedAt[item.trigger] = now;
+            return id;
         }
+
+        /// <summary>
+        /// 試験用：生起の間隔を待たずに、本番と同じ状況起案（盤面の計測→重複/クールダウン判定→官僚機構の伝播→起票）を1回だけ行う。
+        /// 権限・カード・結果は渡さない。決裁id（&lt;0＝出すものが無い／官僚機構で止まった）。
+        /// </summary>
+        public int RaiseFromSituationForQa() => TryRaiseFromSituation();
 
         /// <summary>いま決裁待ちで残っている（この Director が出した）案件の数。</summary>
         private int ActivePendingCount()
@@ -537,7 +545,11 @@ namespace Ginei
                 if (!PetitionEffects.Has(effectKey))
                     return PetitionActionResult.Fail(PetitionActionOutcome.対象外,
                         $"この決裁（{effectKey}）に対応する効果がまだ実装されていません");
-                return new PetitionActionResult(PetitionActionOutcome.対象外, "");
+                // ★国家状態へ効く効果（税など）は ExecuteAndApply で適用済み＝実効量があれば「実行」と記録する
+                //   （以前は適用しても 対象外 と記録され、結果行が「執行されませんでした」になっていた）。
+                return magnitude > 0f
+                    ? new PetitionActionResult(PetitionActionOutcome.実行, $"実効 {magnitude * 100f:0}% で執行", magnitude)
+                    : PetitionActionResult.Fail(PetitionActionOutcome.対象外, "官僚機構で執行されませんでした");
             }
 
             GalaxyView gv = GalaxyView.Active;
@@ -563,7 +575,8 @@ namespace Ginei
         private static float MinistryFriction(Faction faction, OfficeDomain domain)
         {
             const float fallback = 0.4f;
-            var gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
+            // 起票の帰属・判断材料と同じ盤面（Active）を優先する。
+            GalaxyView gv = GalaxyView.Active != null ? GalaxyView.Active : UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
             if (gv == null) return fallback;
             var ministries = gv.MinistriesOf(faction);
             if (ministries == null || ministries.Count == 0) return fallback;

@@ -36,6 +36,13 @@ namespace Ginei.Tests
         private List<GovernmentRegistry.Appointment> savedAppointments;
         private GalaxyView savedActive;
 
+        private PetitionLedger savedPetitions;
+        private bool randomSaved;
+        private Random.State savedRandom;
+        private bool playerFactionSaved;
+        private Faction savedPlayerFaction;
+        private GameObject ringiGo;
+
         private readonly Dictionary<PendingDecision, int> applied = new Dictionary<PendingDecision, int>();
 
         // 実世界（BuildLiveWorld で作る）
@@ -59,6 +66,8 @@ namespace Ginei.Tests
             savedCheck = DecisionDeck.AuthorityCheck;
             savedAppointments = new List<GovernmentRegistry.Appointment>(GovernmentRegistry.Appointments);
             StrategySession.Decisions = new DecisionQueue();
+            savedPetitions = StrategySession.Petitions;
+            StrategySession.Petitions = new PetitionLedger(); // 稟議の台帳は試験ごとに新しく（利用者の戦役の台帳を汚さない）
             applied.Clear();
             DecisionDeck.Resolved += OnResolved;
         }
@@ -67,6 +76,12 @@ namespace Ginei.Tests
         public void TearDown()
         {
             DecisionDeck.Resolved -= OnResolved;
+            if (ringiGo != null) Object.DestroyImmediate(ringiGo); // OnDestroy が Resolved の購読を外す
+            ringiGo = null;
+            if (randomSaved) { Random.state = savedRandom; randomSaved = false; }
+            if (playerFactionSaved && GameSettings.Instance != null) GameSettings.Instance.playerFaction = savedPlayerFaction;
+            playerFactionSaved = false;
+            StrategySession.Petitions = savedPetitions;
             if (directorGo != null) Object.DestroyImmediate(directorGo); // OnDestroy が自分のフックだけ外す
             directorGo = null;
             director = null;
@@ -379,6 +394,210 @@ namespace Ginei.Tests
             Assert.IsTrue(DecisionResolutionRules.IsSettled(second));
             Assert.AreEqual(1, applied[second], "大臣の承認で効果は1回");
             Assert.AreEqual(1, applied[first], "前の案件の効果が重なった");
+        }
+
+        // ===== 稟議の起票→上申→実税率（#2768 #141 #67） =====
+
+        private const int RingiSeed = 20260914;
+        private const int MaxRaiseTries = 400;
+
+        private FactionState Alliance => StrategySession.Campaign.states[0];
+
+        /// <summary>
+        /// 本番の RingiDirector を置き、国庫を空（＝財政難の状況）にして政治家箱の信認を最大化する。
+        /// 生起の間隔は無限大にして、起票は QA 入口（本番と同じ状況起案）からだけ行う。操作者＝実在の大蔵政務官。
+        /// </summary>
+        private RingiDirector PrepareRingi(Person actor)
+        {
+            FactionState fs = Alliance;
+            fs.treasury = 0f;
+            fs.credibility.globalDeference = 1f;
+            CredibilityRules.Adjust(fs.credibility, BoxKind.政治家, 1f);
+
+            savedPlayerFaction = GameSettings.Instance.playerFaction;
+            playerFactionSaved = true;
+            GameSettings.Instance.playerFaction = F;
+
+            view.BindPlayerCharacterForQa(actor);
+            ringiGo = new GameObject("RingiDirector(LiveQa)");
+            RingiDirector ringi = ringiGo.AddComponent<RingiDirector>(); // Awake が Resolved を購読
+            ringi.raiseInterval = float.MaxValue;
+
+            // 前提：実盤面の状況から選ばれるのは財政難（増税）
+            PetitionAgendaItem next = PetitionAgendaRules.Next(view.MeasurePetitionSituation(F), ringi.AgendaParams, 0, _ => false, _ => float.MaxValue);
+            Assert.AreEqual(TaxKey, next.effectKey, "前提：状況起案が増税を選ばない");
+            return ringi;
+        }
+
+        /// <summary>官僚機構の伝播（Random.value）を固定シードで回し、浮上したカードを返す。</summary>
+        private PendingDecision RaiseTaxCard(RingiDirector ringi)
+        {
+            savedRandom = Random.state;
+            randomSaved = true;
+            Random.InitState(RingiSeed);
+
+            int id = -1;
+            for (int i = 0; i < MaxRaiseTries && id < 0; i++) id = ringi.RaiseFromSituationForQa();
+            Assert.GreaterOrEqual(id, 0, "固定シードで建白が決裁デスクまで浮上しなかった");
+
+            PendingDecision d = null;
+            foreach (PendingDecision it in DecisionDeck.Queue.items)
+                if (it != null && it.id == id && !DecisionResolutionRules.IsSettled(it)) d = it;
+            Assert.IsNotNull(d, "起票したカードが決裁キューにない");
+            applied[d] = 0;
+            return d;
+        }
+
+        private static int OpenTaxCards()
+        {
+            int n = 0;
+            foreach (PendingDecision it in DecisionDeck.Queue.items)
+                if (it != null && it.effectKey == TaxKey && !DecisionResolutionRules.IsSettled(it)) n++;
+            return n;
+        }
+
+        private static int CountTaxPetitions(PetitionStatus status)
+        {
+            int n = 0;
+            foreach (Petition p in RingiDirector.Ledger.items)
+                if (p != null && p.effectKey == TaxKey && p.status == status) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// 実在の大蔵政務官が操作者のとき、本番 RingiDirector の状況起案が増税を起票し、カードに実在の大蔵大臣の ID/氏名と権限の根拠が載る。
+        /// 裁可は上申になり、本番 DecisionAuthorityDirector の審査→承認直前の再判定→Resolve→RingiDirector.OnResolved で
+        /// 実税率が「実効（1-摩擦）×幅」だけ一度だけ上がり、稟議は執行済・カードは実行として記録される。再解決・追加フレームで重ならない。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator RingiAgenda_SecretaryRaise_EscalatedToRealMinister_AppliesTaxRateExactlyOnce()
+        {
+            BuildLiveWorld();
+            Person secretary = P(Post(okuraId, CabinetPostKind.政務官).holderId);
+            int minister = MinisterId;
+            RingiDirector ringi = PrepareRingi(secretary);
+            FactionState fs = Alliance;
+            float taxBefore = fs.taxRate;
+            float treasuryBefore = fs.treasury;
+
+            PendingDecision d = RaiseTaxCard(ringi);
+
+            // 起票：効果キー・稟議・摩擦（実省庁）・帰属（実在の人物）
+            Assert.AreEqual(TaxKey, d.effectKey);
+            Petition pet = RingiDirector.Ledger.Get(d.petitionId);
+            Assert.IsNotNull(pet, "カードの稟議が台帳にない");
+            Assert.AreEqual(TaxKey, pet.effectKey);
+            Assert.AreEqual(F, pet.faction);
+            Assert.AreEqual(PetitionStatus.決裁待ち, pet.status);
+            Assert.AreEqual(1, CountTaxPetitions(PetitionStatus.決裁待ち), "決裁待ちの増税稟議は1件");
+            float realFriction = MinistryRules.DomainFriction(view.MinistriesOf(F), OfficeDomain.財政);
+            Assert.AreEqual(realFriction > 0f ? realFriction : RingiDirector.PreviewMinistryFriction(F, OfficeDomain.財政), d.friction, 1e-5f,
+                "摩擦が実省庁の省益から引かれていない");
+            Assert.AreEqual(secretary.id, d.proposerId, "起案者が操作者（政務官）でない");
+            Assert.AreEqual(secretary.name, d.proposerName);
+            Assert.AreEqual(minister, d.deciderId, "決裁権者が実在の大蔵大臣でない");
+            Assert.AreEqual(P(minister).name, d.deciderName);
+            DecisionAuthorityResult expected = DecisionAuthorityDirector.EvaluateFor(secretary, TaxKey);
+            Assert.AreEqual(DecisionAuthority.上申, expected.authority);
+            Assert.IsNotEmpty(d.authorityBasis, "権限の根拠が記録されていない");
+            Assert.AreEqual(expected.basis, d.authorityBasis, "起票時の根拠が裁可時の判定と別");
+            Assert.AreEqual(1, OpenTaxCards());
+            Assert.AreEqual(taxBefore, fs.taxRate, 1e-6f, "起票だけで税率が動いた");
+
+            // 裁可→上申
+            Assert.IsFalse(DecisionDeck.Resolve(d.id, 0), "政務官が裁可できた");
+            Assert.IsTrue(d.escalated);
+            Assert.AreEqual(minister, d.deciderId);
+            yield return null;
+            Assert.IsFalse(DecisionResolutionRules.IsSettled(d));
+            Assert.AreEqual(0, applied[d]);
+            Assert.AreEqual(taxBefore, fs.taxRate, 1e-6f, "上申だけで税率が動いた");
+            Assert.AreEqual(PetitionStatus.決裁待ち, pet.status);
+
+            // 大臣の審査→承認→実税率
+            long seq = NotificationCenter.LastSeq;
+            AdvancePastReview();
+            yield return null;
+            Assert.IsTrue(DecisionResolutionRules.IsSettled(d), "本番 Director が審査の結論を出さない");
+            Assert.AreEqual(1, applied[d]);
+            Assert.IsTrue(d.applied);
+            float expectedTax = Mathf.Clamp01(taxBefore + PetitionEffects.TaxStepFull * PetitionFlowRules.ExecutionFidelity(d.friction));
+            Assert.Greater(fs.taxRate, taxBefore, "承認されたのに実税率が上がらない");
+            Assert.AreEqual(expectedTax, fs.taxRate, 1e-5f, "実税率が実効（骨抜き）どおりでない");
+            Assert.AreEqual(treasuryBefore, fs.treasury, 1e-5f, "増税の執行で国庫が直接動いた");
+            Assert.AreEqual(PetitionStatus.執行済, pet.status, "稟議が執行済にならない");
+            Assert.AreEqual(0, CountTaxPetitions(PetitionStatus.決裁待ち));
+            Assert.AreEqual(PetitionActionOutcome.実行, d.outcome, "税の執行が結果に「実行」と記録されない：" + d.resultDetail);
+            StringAssert.StartsWith("執行", DecisionResolutionRules.ResultLine(d));
+            Assert.AreEqual(1, CountMessages(seq, "［上申の裁可］"));
+            Assert.AreEqual(1, CountMessages(seq, "［執行］"));
+            StringAssert.Contains(okuraName, d.authorityBasis);
+
+            // 再解決・追加フレーム・同じ状況の再起案で重ならない
+            float taxAfter = fs.taxRate;
+            int ledgerCount = RingiDirector.Ledger.Count;
+            Assert.IsFalse(DecisionDeck.Resolve(d.id, 0));
+            ringi.RaiseFromSituationForQa(); // クールダウン中＝増税は出さない
+            AdvancePastReview();
+            yield return null;
+            yield return null;
+            Assert.AreEqual(1, applied[d]);
+            Assert.AreEqual(taxAfter, fs.taxRate, 1e-6f, "再解決・追加フレームで税率が重なった");
+            Assert.AreEqual(0, OpenTaxCards(), "同じ状況の増税がクールダウン中に再起票された");
+            Assert.AreEqual(0, CountTaxPetitions(PetitionStatus.決裁待ち));
+            Assert.AreEqual(1, CountTaxPetitions(PetitionStatus.執行済));
+            Assert.GreaterOrEqual(RingiDirector.Ledger.Count, ledgerCount);
+            Assert.AreEqual(1, CountMessages(seq, "［執行］"), "執行が重なった");
+        }
+
+        /// <summary>
+        /// 同じ起票で、審査中に実在の大蔵大臣が首相に解任された：本番 Director は決裁時点の再判定で効果なしの差し戻しにし、
+        /// 実税率・国庫は変わらず、カードは適用権を消費して閉じ、稟議は却下で締まる（決裁待ちで台帳に残らない）。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator RingiAgenda_MinisterDismissedDuringReview_SendsBackWithoutTaxOrTreasuryChange()
+        {
+            BuildLiveWorld();
+            Person secretary = P(Post(okuraId, CabinetPostKind.政務官).holderId);
+            int minister = MinisterId;
+            RingiDirector ringi = PrepareRingi(secretary);
+            FactionState fs = Alliance;
+            float taxBefore = fs.taxRate;
+            float treasuryBefore = fs.treasury;
+
+            PendingDecision d = RaiseTaxCard(ringi);
+            Petition pet = RingiDirector.Ledger.Get(d.petitionId);
+            Assert.IsNotNull(pet);
+            Assert.AreEqual(minister, d.deciderId);
+            Assert.IsFalse(DecisionDeck.Resolve(d.id, 0));
+            Assert.IsTrue(d.escalated);
+            Assert.GreaterOrEqual(DecisionAuthorityDirector.Favor(P(minister)), PetitionEscalationParams.Default.approveThreshold,
+                "前提：審査は承認に届く（却下でなく承認直前の再判定を通す）");
+
+            Assert.IsTrue(CabinetAppointmentRules.Dismiss(pol, F, premierId, okuraId, CabinetPostKind.大臣, civilians, FirstYear, "試験：審査中の解任", Prm).ok);
+
+            long seq = NotificationCenter.LastSeq;
+            AdvancePastReview();
+            yield return null;
+            Assert.IsTrue(DecisionResolutionRules.IsSettled(d), "差し戻しとして閉じない");
+            Assert.AreEqual(0, applied[d], "古い権限で承認した");
+            Assert.IsTrue(d.applied, "適用の権利を消費していない");
+            Assert.AreEqual(PetitionActionOutcome.対象外, d.outcome);
+            StringAssert.Contains("権限", d.resultDetail);
+            Assert.AreEqual(taxBefore, fs.taxRate, 1e-6f, "差し戻しで税率が動いた");
+            Assert.AreEqual(treasuryBefore, fs.treasury, 1e-6f, "差し戻しで国庫が動いた");
+            Assert.AreEqual(PetitionStatus.却下, pet.status, "差し戻した稟議が決裁待ちのまま台帳に残る");
+            Assert.AreEqual(0, CountTaxPetitions(PetitionStatus.決裁待ち));
+            Assert.AreEqual(0, CountTaxPetitions(PetitionStatus.執行済));
+            Assert.AreEqual(1, CountMessages(seq, "［差し戻し］"));
+            Assert.AreEqual(0, CountMessages(seq, "［上申の裁可］"));
+            Assert.AreEqual(0, CountMessages(seq, "［執行］"));
+
+            yield return null;
+            Assert.IsFalse(DecisionDeck.Resolve(d.id, 0));
+            Assert.AreEqual(0, applied[d]);
+            Assert.AreEqual(taxBefore, fs.taxRate, 1e-6f);
+            Assert.AreEqual(PetitionStatus.却下, pet.status);
         }
     }
 }

@@ -53,6 +53,9 @@ namespace Ginei
         /// <summary>自ら離党して無所属を選んだ人物ID（自動補充で再入党させない。入党・移籍の窓口で外れる・<see cref="PartyMembershipRules"/>）。旧セーブは空。</summary>
         public List<int> independentPersonIds = new List<int>();
 
+        /// <summary>内閣の政治任用（大臣・副大臣・政務官の在任・委任・履歴・<see cref="CabinetAppointmentRules"/>）。旧セーブは空＝次の年次で組閣。</summary>
+        public CabinetState cabinet;
+
         public PoliticsState() { }
     }
 }

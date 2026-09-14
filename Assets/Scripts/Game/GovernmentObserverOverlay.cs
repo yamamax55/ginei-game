@@ -118,6 +118,8 @@ namespace Ginei
             else
                 sb.Append("  <color=#9fb0c0>首班</color> ＝ <color=#9aa7b2>（未組閣・政党結成待ち）</color>\n");
 
+            AppendCabinet(sb, gv, s);
+
             // 要職任命
             var apps = GovernmentRegistry.Appointments;
             int shown = 0, matched = 0;
@@ -165,6 +167,102 @@ namespace Ginei
                     }
                 }
             }
+        }
+
+        /// <summary>試験用：いま表示する本文（観測専用＝状態は変えない）。</summary>
+        public string DumpTextForTest => BuildDump();
+
+        [Header("内閣")]
+        [Tooltip("内閣の任免履歴を新しい順に表示する件数")]
+        public int maxCabinetHistoryShown = 6;
+
+        /// <summary>
+        /// 内閣（政治任用）：首相・組閣の状態・職務執行、省ごとの大臣/副大臣/政務官（人物・所属党・就任年・任命理由・空席理由・委任範囲）、
+        /// 同じ省の職業官僚（別系統＝政治任用で変わらない）、直近の任免履歴。操作 UI は未配線（表示のみ）。
+        /// </summary>
+        private void AppendCabinet(StringBuilder sb, GalaxyView gv, FactionState s)
+        {
+            PoliticsState pol = s.politics;
+            CabinetState cab = pol != null ? pol.cabinet : null;
+            sb.Append("  <color=#9fb0c0>内閣（政治任用＝首相が任免）</color>");
+            if (cab == null || cab.posts == null || cab.posts.Count == 0)
+            {
+                sb.Append(" <color=#9aa7b2>未組閣（選挙で首班を選ぶ政体で、組閣後に表示）</color>\n");
+                return;
+            }
+            if (cab.premierPersonId >= 0)
+                sb.Append(" 首相 ").Append(FindPersonName(gv, cab.premierPersonId)).Append("　組閣 SE").Append(cab.formedYear);
+            else sb.Append(" <color=#ff7a6a>首相不在</color>");
+            sb.Append("　大臣").Append(CabinetAppointmentRules.FilledCount(cab, CabinetPostKind.大臣))
+              .Append("・副大臣").Append(CabinetAppointmentRules.FilledCount(cab, CabinetPostKind.副大臣))
+              .Append("・政務官").Append(CabinetAppointmentRules.FilledCount(cab, CabinetPostKind.政務官)).Append("名\n");
+            if (cab.caretaker)
+                sb.Append("    <color=#ffb070>職務執行内閣：").Append(cab.caretakerReason).Append("</color>\n");
+            sb.Append("    <color=#6f8a9a>※大臣＝所管の政策と決裁／副大臣＝明示の委任範囲だけ代行／政務官＝提案・調整。閣僚職は艦隊・軍団の作戦指揮権と国庫の直接支出を含まない。</color>\n");
+
+            IReadOnlyList<Ministry> mins = gv != null ? gv.MinistriesOf(s.faction) : null;
+            for (int i = 0; i < cab.posts.Count; i++)
+            {
+                CabinetPost p = cab.posts[i];
+                if (p == null) continue;
+                if (p.kind == CabinetPostKind.大臣)
+                {
+                    sb.Append("    <color=#e7e0b0>").Append(p.ministryName).Append("</color>（").Append(p.domain).Append('）');
+                    Ministry m = FindMinistry(mins, p.ministryId);
+                    if (m != null)
+                        sb.Append("　<color=#9fb0c0>職業官僚</color> ").Append(m.staffIds != null ? m.staffIds.Count : 0)
+                          .Append('/').Append(m.staffSlots).Append("名（事務方＝政治任用と別系統）");
+                    sb.Append('\n');
+                }
+                sb.Append("      ").Append(CabinetAppointmentRules.PostTitle(p)).Append(' ');
+                if (p.holderId >= 0)
+                {
+                    sb.Append(FindPersonName(gv, p.holderId));
+                    Party party = pol != null ? ElectionCycleRules.FindParty(pol.parties, p.partyId) : null;
+                    sb.Append("（").Append(party != null ? party.partyName : "無所属").Append("・SE").Append(p.appointedYear).Append("就任）");
+                    if (p.kind == CabinetPostKind.副大臣)
+                    {
+                        if (p.delegation != CabinetDelegation.なし)
+                            sb.Append("　<color=#8ce08c>委任 ").Append(p.delegation).Append("（大臣 ").Append(FindPersonName(gv, p.delegatedById))
+                              .Append("・SE").Append(p.delegationEndYear).Append("まで）</color>");
+                        else sb.Append("　<color=#9aa7b2>委任なし＝提案・調整のみ</color>");
+                    }
+                    else sb.Append("　<color=#9aa7b2>").Append(CabinetAppointmentRules.RoleText(p.kind)).Append("</color>");
+                    sb.Append('\n');
+                    if (!string.IsNullOrEmpty(p.appointmentReason))
+                        sb.Append("        <color=#6f8a9a>任命理由：").Append(p.appointmentReason).Append("</color>\n");
+                }
+                else
+                {
+                    sb.Append("<color=#ff7a6a>空席</color>");
+                    if (!string.IsNullOrEmpty(p.vacancyReason)) sb.Append("　<color=#ffb070>").Append(p.vacancyReason).Append("</color>");
+                    sb.Append('\n');
+                }
+            }
+
+            if (cab.history != null && cab.history.Count > 0)
+            {
+                sb.Append("    <color=#9fb0c0>任免履歴（新しい順）</color>");
+                if (cab.historyDropped > 0) sb.Append(" <color=#9aa7b2>（古い").Append(cab.historyDropped).Append("件は上限で省略）</color>");
+                sb.Append('\n');
+                int shown = 0;
+                for (int i = cab.history.Count - 1; i >= 0 && shown < Mathf.Max(0, maxCabinetHistoryShown); i--, shown++)
+                {
+                    AppointmentHistoryEntry e = cab.history[i];
+                    if (e == null) continue;
+                    sb.Append("      SE").Append(e.year).Append(' ').Append(e.action).Append(' ').Append(e.postLabel);
+                    if (e.personId >= 0) sb.Append(' ').Append(FindPersonName(gv, e.personId));
+                    if (!string.IsNullOrEmpty(e.reason)) sb.Append("　<color=#6f8a9a>").Append(e.reason).Append("</color>");
+                    sb.Append('\n');
+                }
+            }
+        }
+
+        private static Ministry FindMinistry(IReadOnlyList<Ministry> mins, int id)
+        {
+            if (mins == null) return null;
+            for (int i = 0; i < mins.Count; i++) if (mins[i] != null && mins[i].id == id) return mins[i];
+            return null;
         }
 
         private static string FindPersonName(GalaxyView gv, int personId)

@@ -222,11 +222,48 @@ namespace Ginei
             if (st != null && !string.IsNullOrEmpty(st.termNote))
                 sb.Append("        <color=#6f8a9a>").Append(st.termNote).Append("</color>\n");
             sb.Append("        <color=#6f8a9a>※党首は党内の役職（首相は組閣の手続き・閣僚任命・軍の指揮権は付かない）</color>\n");
+            AppendPartyExecutives(sb, p);
 
             LeadershipElectionRecord rec = st != null ? st.Latest : null;
             if (rec != null) AppendLeadershipRecord(sb, pol, rec);
             AppendFactions(sb, p);
             AppendSeniority(sb, pol, p);
+        }
+
+        /// <summary>党三役（幹事長・政調会長・総務会長）：在任者・役割・就任年・任命理由・暫定・空席理由・直近の任免。党首が任免し、政府の決裁・国庫・軍の指揮権は付かない。</summary>
+        private void AppendPartyExecutives(StringBuilder sb, Party p)
+        {
+            sb.Append("      <color=#9fb0c0>党三役（党首が任免・党内の役割のみ）</color>\n");
+            for (int k = 0; k < PartyExecutiveRules.ExecutivePosts.Length; k++)
+            {
+                PartyPost post = PartyExecutiveRules.ExecutivePosts[k];
+                PartyAppointment a = PartyExecutiveRules.AppointmentOf(p, post);
+                sb.Append("        ").Append(post).Append(' ');
+                if (a != null)
+                {
+                    sb.Append(PersonName(a.holderId));
+                    if (a.appointedYear > 0) sb.Append("（SE").Append(a.appointedYear).Append("就任）");
+                    if (a.caretakerUntilYear > 0) sb.Append(" <color=#ffb070>党首不在の暫定・SE").Append(a.caretakerUntilYear).Append("まで</color>");
+                    sb.Append("　<color=#9aa7b2>").Append(PartyExecutiveRules.RoleText(post)).Append("</color>\n");
+                    if (!string.IsNullOrEmpty(a.reason)) sb.Append("          <color=#6f8a9a>任命理由：").Append(a.reason).Append("</color>\n");
+                }
+                else
+                {
+                    string why = PartyExecutiveRules.VacancyReason(p, post);
+                    sb.Append("<color=#ff7a6a>空席</color>");
+                    if (!string.IsNullOrEmpty(why)) sb.Append("　<color=#ffb070>").Append(why).Append("</color>");
+                    sb.Append('\n');
+                }
+            }
+            if (p.postHistory != null && p.postHistory.Count > 0)
+            {
+                AppointmentHistoryEntry e = p.postHistory[p.postHistory.Count - 1];
+                if (e != null)
+                    sb.Append("        <color=#6f8a9a>直近の任免 SE").Append(e.year).Append(' ').Append(e.postLabel).Append(' ')
+                      .Append(e.personId >= 0 ? PersonName(e.personId) : "").Append(' ').Append(e.action)
+                      .Append(string.IsNullOrEmpty(e.reason) ? "" : "（" + e.reason + "）").Append("</color>\n");
+            }
+            sb.Append("        <color=#6f8a9a>※党三役では政府の決裁・閣僚任免・国庫・軍の作戦指揮はできない</color>\n");
         }
 
         private void AppendLeadershipRecord(StringBuilder sb, PoliticsState pol, LeadershipElectionRecord rec)

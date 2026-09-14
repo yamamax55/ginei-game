@@ -32,6 +32,17 @@ namespace Ginei
         /// <summary>試験用：年次の総督銓衡（民主政では選出知事の在任整理）。</summary>
         public void RunGovernorAppointmentTickForQa() => RunGovernorAppointmentTick();
 
+        /// <summary>
+        /// 試験用：観測層が読む <see cref="Active"/> を差し替え、直前の値を返す（本番は Start が設定する）。
+        /// Start/OnDestroy を走らせない無効な GameObject では自動で解除されないため、呼び出し側が返り値で必ず戻す。
+        /// </summary>
+        public static GalaxyView SwapActiveForQa(GalaxyView view)
+        {
+            GalaxyView previous = Active;
+            Active = view;
+            return previous;
+        }
+
         /// <summary>試験用：選挙の暦年（統一クロックの宇宙暦）。</summary>
         public int ElectionYearForQa => ElectionYear();
     }

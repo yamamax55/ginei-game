@@ -152,6 +152,17 @@ namespace Ginei
             { "endorsedRound1", "第1回の派閥推薦" }, { "endorsedRunoff", "決選の派閥推薦" },
             { "membersVoted", "投票した派閥所属者" }, { "membersFollowed", "推薦どおりに投じた所属者" },
             { "voteFor", "地方票の行き先（-1=同数で無効）" },
+            // 内閣の政治任用・党三役（#2768 #141）
+            { "cabinet", "内閣（首相が任免する大臣・副大臣・政務官）" }, { "caretaker", "職務執行内閣か（首相不在・期限つき）" },
+            { "caretakerUntilYear", "職務執行・暫定の期限（年）" }, { "caretakerReason", "職務執行の理由と範囲" },
+            { "caretakerOfPremierId", "職務執行を始めた時の首相" }, { "sourceElectionId", "組閣の根拠になった選挙のID" },
+            { "delegation", "副大臣への委任範囲（所管政策/所管決裁）" }, { "delegationEndYear", "委任の期限（年）" },
+            { "delegatedById", "委任した大臣の人物ID" }, { "appointedById", "任命者（首相・党首）の人物ID" },
+            { "appointmentReason", "任命・選定の理由" }, { "vacancyReason", "空席の理由" },
+            { "lastHolderId", "直前の在任者（続投の判定）" }, { "vacatedYear", "直前に空席になった年" },
+            { "postHistory", "党三役の任免履歴" }, { "postVacancyNotes", "党三役の空席の理由" },
+            { "postHistoryDropped", "上限で省いた党三役の履歴件数" }, { "historyDropped", "上限で省いた内閣の履歴件数" },
+            { "postLabel", "職名" }, { "actorId", "任免した人物ID（自動の整理は-1）" },
             // NationalBudget（国家予算＝歳出の分野配分）
             { "budget", "国家予算（歳出の分野配分）" }, { "military", "軍事費（艦隊維持・即応）" },
             { "shipbuilding", "建艦費（造船供給）" }, { "administration", "内政費（統治・安定）" },

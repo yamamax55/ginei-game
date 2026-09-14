@@ -540,6 +540,8 @@ namespace Ginei
             LegislatorRosterRules.NormalizeLoaded(pol); // 議員名簿（旧セーブは空・議席総数を超えない）
             PartyMembershipRules.NormalizeLoaded(pol);  // 一般党員の集計（旧セーブは不明）・一人一党（入党はさせない）
             PartyLeadershipRules.NormalizeLoaded(pol);  // 総裁選の記録と派閥の整理（旧セーブは未管理のまま・総裁選は起こさない）
+            PartyExecutiveRules.NormalizeLoaded(pol);   // 党三役の履歴の穴埋め（読込だけでは任命しない）
+            CabinetAppointmentRules.NormalizeLoaded(pol); // 内閣の職・履歴の穴埋め（旧セーブは空＝次の年次で組閣）
         }
 
         private static ChamberSeats NormalizeSeats(ChamberSeats cs, LegislativeChamber chamber)

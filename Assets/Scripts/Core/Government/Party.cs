@@ -100,6 +100,15 @@ namespace Ginei
         /// <summary>党首の任期と総裁選の記録（#165・<see cref="PartyLeadershipRules"/> が窓口。国政の議席・首相とは別）。</summary>
         public PartyLeadershipState leadership = new PartyLeadershipState();
 
+        /// <summary>党三役の任免の履歴（古い順・上限つき・<see cref="PartyExecutiveRules"/>）。役職の在任そのものは <see cref="posts"/>。</summary>
+        public List<AppointmentHistoryEntry> postHistory = new List<AppointmentHistoryEntry>();
+
+        /// <summary>上限で捨てた党三役の履歴の件数（黙って切り捨てない）。</summary>
+        public int postHistoryDropped;
+
+        /// <summary>党三役の空席の理由（職ごとに最新1件・在任中の職は載せない）。</summary>
+        public List<AppointmentHistoryEntry> postVacancyNotes = new List<AppointmentHistoryEntry>();
+
         public Party() { }
 
         public Party(int id, string partyName, Faction faction)

@@ -169,6 +169,9 @@ namespace Ginei
                 SyncElectedGovernors(s);
                 ReconcileLegislators(s, roster, year, true); // 知事に就いた人・欠缺の議席を集計へ戻す
 
+                // 内閣（首相が大臣・副大臣・政務官を任免）と党三役（党首が任免）：組閣・党首交代・欠缺の整理と空席の補充
+                RunCabinetAndPartyExecutives(s, year, roster, true, true);
+
                 if (r.dividedCrisisOnset)
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
                         $"{s.faction} 二大政党化で社会の分断が深刻化（有効政党数 {r.effectiveParties:0.0}）");
@@ -463,6 +466,8 @@ namespace Ginei
             }
             ApplyLocalElectionEvents(s, LocalElectionRules.Suspend(s.politics, reason));
             LegislatorRosterRules.SuspendAll(s.politics, reason); // 議員資格を外す（当選履歴は残す）
+            if (s.politics.cabinet != null)
+                RunCabinetAndPartyExecutives(s, year, ElectionRoster(), true, false); // 内閣を置かない＝閣僚は退任（補充しない）
         }
 
         /// <summary>
@@ -493,6 +498,7 @@ namespace Ginei
                 VacateUnavailableGovernors(s, year); // 読込時は通知しない（空席と理由は台帳に残る）
                 SyncElectedGovernors(s);
                 ReconcileLegislators(s, ElectionRoster(), year, false); // 議員資格だけ整える（当選回数は数えない）
+                RunCabinetAndPartyExecutives(s, year, ElectionRoster(), false, false); // 保存した内閣・党三役を現況へ合わせるだけ（任命・通知はしない）
             }
         }
 
@@ -582,6 +588,8 @@ namespace Ginei
                     NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告, $"{f} 首相空席：{g.reason}");
             }
             ApplyElectedPremier(s);
+            // 首相の交代・不在を内閣へ（前内閣の総辞職／職務執行）。新しい首相なら同じ入口で組閣する。
+            RunCabinetAndPartyExecutives(s, ElectionYear(), ElectionRoster(), true, true);
         }
 
         /// <summary>役職の在任者がその人物なら外す（別人なら触らない）。</summary>

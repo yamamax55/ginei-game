@@ -21,6 +21,15 @@ namespace Ginei
         /// <summary>就任者（<see cref="Person.id"/>。-1＝空席）。</summary>
         public int holderId = -1;
 
+        /// <summary>就任年（0＝不明＝旧セーブ）。</summary>
+        public int appointedYear;
+        /// <summary>任命した党首（-1＝不明＝旧セーブ。党首が替わると党三役は改めて任命される・<see cref="PartyExecutiveRules"/>）。</summary>
+        public int appointedById = -1;
+        /// <summary>任命・選定の理由。</summary>
+        public string reason = "";
+        /// <summary>党首不在の間の暫定の期限（この年まで・0＝暫定でない）。</summary>
+        public int caretakerUntilYear;
+
         public PartyAppointment() { }
 
         public PartyAppointment(PartyPost post, int holderId = -1)

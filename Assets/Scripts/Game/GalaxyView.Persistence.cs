@@ -171,8 +171,9 @@ namespace Ginei
             PersonDecisionLedger.Clear(); // 人物の決裁履歴も戦役を跨いで持ち越さない（稟議基盤整備）
             // ★稟議・決裁の static は<b>3つまとめて</b>消す（#稟議完成②）。
             // 片方だけ消すと「カードはあるのに稟議が無い」孤児や、前の戦役の編制建議の持ち越しが起きる。
-            RingiDirector.Ledger.Clear();      // 税などの稟議在庫
-            FleetRingiDirector.Ledger.Clear(); // 編制の稟議在庫（従来ここだけ消し忘れていた）
+            // ★ロードした稟議・カードも消えるので、続きからは<b>この後に</b> LoadSession する（<see cref="ContinueCampaignFromSave"/>）。
+            RingiDirector.Ledger.Clear();      // 税などの稟議在庫（＝StrategySession.Petitions）
+            FleetRingiDirector.Ledger.Clear(); // 編制の稟議在庫（＝StrategySession.FleetPetitions）
             DecisionDeck.ClearQueue();         // 決裁カード（未決も決裁済みの履歴も）
             // ネームド財産（金融資産#2070・不動産権利証#2070/惑星の土地#2019）は戦役固有＝持ち越さない（再シードで作り直す）。
             FinancialHoldingRegistry.Clear();
@@ -190,6 +191,18 @@ namespace Ginei
             StrategySession.Clear();
             BattleHandoff.Clear();
             ResetCampaignStatics();
+        }
+
+        /// <summary>
+        /// タイトルの「戦役を再開」の前処理：戦役 static をリセット<b>してから</b>セーブを StrategySession へ復元する。成功で true。
+        /// ★順序が逆（ロード→リセット）だと、復元した稟議・決裁カード（と提督の会戦成長）がリセットで消える。
+        /// 呼び出し側が成功時に Strategy シーンへ遷移する。
+        /// </summary>
+        public static bool ContinueCampaignFromSave()
+        {
+            if (!CampaignSaveManager.HasSave()) return false;
+            ResetCampaignStatics(); // 復元した盤面でも目標提示が出るように（ロードより先に行う）
+            return CampaignSaveManager.LoadSession();
         }
 
         /// <summary>戦役の全状態（銀河/勢力/財政/人物/艦隊/時間/内政）をファイルへ書き出す共通処理。</summary>

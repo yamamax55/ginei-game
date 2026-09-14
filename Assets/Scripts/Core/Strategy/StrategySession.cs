@@ -41,10 +41,10 @@ namespace Ginei
         // インスタンス状態だけが消えて「稟議のないカード」が生まれ、新規戦役では片方だけが消えていた。
         // ここへ集めると、寿命が1か所（Clear）で決まり、保存も Data 層から手が届く。
 
-        /// <summary>税などの稟議在庫（建白→伝播→決裁→執行）。</summary>
+        /// <summary>税などの稟議在庫（建白→伝播→決裁→執行）。<c>RingiDirector.Ledger</c> はこれを直接返す。</summary>
         public static PetitionLedger Petitions = new PetitionLedger();
 
-        /// <summary>編制（艦隊の設立・解散）の稟議在庫。</summary>
+        /// <summary>編制（艦隊の設立・解散）の稟議在庫。<c>FleetRingiDirector.Ledger</c> はこれを直接返す。</summary>
         public static PetitionLedger FleetPetitions = new PetitionLedger();
 
         /// <summary>決裁カード（未決と決裁済みの履歴）。</summary>

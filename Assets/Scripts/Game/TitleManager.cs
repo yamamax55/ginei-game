@@ -751,9 +751,9 @@ namespace Ginei
                 Debug.LogWarning("TitleManager: No campaign save to continue.");
                 return;
             }
-            if (CampaignSaveManager.LoadSession())
+            // リセット→ロードの順（逆だと復元した稟議・決裁カードが消える）。
+            if (GalaxyView.ContinueCampaignFromSave())
             {
-                GalaxyView.ResetCampaignStatics(); // 復元した盤面でも目標提示が出るように
                 DestroySelectionUI();
                 SceneLoader.Instance.LoadScene("Strategy");
             }

@@ -22,8 +22,36 @@ namespace Ginei
         [Tooltip("同時にプレイヤーへ積める編制稟議の上限（積みすぎ防止）")]
         public int maxConcurrent = 2;
 
-        /// <summary>進行中の編制稟議在庫（建白→伝播→決裁→執行）。観測/UI から読めるよう公開。</summary>
-        public static readonly PetitionLedger Ledger = new PetitionLedger();
+        /// <summary>
+        /// 進行中の編制稟議在庫（建白→伝播→決裁→執行）。観測/UI から読めるよう公開。
+        /// ★実体は <see cref="StrategySession.FleetPetitions"/>（保存・ロード・新規戦役のリセットと同じ入れ物）。
+        /// </summary>
+        public static PetitionLedger Ledger
+            => StrategySession.FleetPetitions ?? (StrategySession.FleetPetitions = new PetitionLedger());
+
+        /// <summary>編制（fleet.establish / fleet.disband）の効果キーか。どちらの Director が扱うかの振り分けに使う。</summary>
+        internal static bool IsFleetEffectKey(string effectKey)
+            => !string.IsNullOrEmpty(effectKey)
+               && (effectKey.StartsWith(FleetEstablishmentRules.EffectEstablish, System.StringComparison.Ordinal)
+                   || effectKey.StartsWith(FleetEstablishmentRules.EffectDisband, System.StringComparison.Ordinal));
+
+        /// <summary>効果キーの一致（null と空は同じ扱い＝保存で null が空文字になるため）。</summary>
+        internal static bool SameEffectKey(string a, string b)
+            => string.Equals(a ?? "", b ?? "", System.StringComparison.Ordinal);
+
+        private const string MissingPetitionText = "対応する稟議の記録がありません（古いセーブなど）。実行されませんでした";
+
+        /// <summary>
+        /// 稟議が台帳に無いカードを確定した時の後始末：効果は出さず、失敗として1回だけ記録する
+        /// （以前は黙って return していた＝「裁可したのに何も起きない」が画面から分からなかった）。
+        /// </summary>
+        internal static void RecordMissingPetition(PendingDecision d, NotificationCategory category)
+        {
+            if (!DecisionResolutionRules.ClaimForApply(d)) return;
+            DecisionResolutionRules.RecordResult(d,
+                PetitionActionResult.Fail(PetitionActionOutcome.対象なし, MissingPetitionText));
+            NotificationCenter.Push(category, NotificationSeverity.注意, $"［実行不可］{d.title}：{MissingPetitionText}");
+        }
 
         private struct Pending { public Petition pet; public float friction; }
         private readonly Dictionary<int, Pending> pending = new Dictionary<int, Pending>();
@@ -152,9 +180,14 @@ namespace Ginei
         /// </summary>
         private void OnResolved(PendingDecision d, int choiceIndex)
         {
-            if (d == null || d.petitionId <= 0) return;
+            if (d == null || d.petitionId <= 0 || !IsFleetEffectKey(d.effectKey)) return; // 編制のカードだけ扱う
             Petition pet = Ledger.Get(d.petitionId);
-            if (pet == null) return;
+            // ★id は税の台帳と別採番＝効果キーも一致するものだけを自分の案件とみなす。
+            if (pet == null || !SameEffectKey(pet.effectKey, d.effectKey))
+            {
+                RecordMissingPetition(d, NotificationCategory.人事);
+                return;
+            }
 
             if (!DecisionResolutionRules.ClaimForApply(d)) return; // 二重適用を防ぐ
             pending.Remove(d.id);                                  // 旧経路の在庫も掃除（枠を空ける）

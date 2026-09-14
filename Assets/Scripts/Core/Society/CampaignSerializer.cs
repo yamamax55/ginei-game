@@ -553,6 +553,20 @@ namespace Ginei
             }
         }
 
+        /// <summary>
+        /// 決裁カードが指す稟議 id を台帳の採番へ予約する（ロード後に新しい稟議が古いカードの id を再利用しない）。
+        /// 読み込んだ稟議自体の id は <see cref="ReadPetitions"/> の <see cref="PetitionLedger.Add"/> が採番へ反映済み。
+        /// </summary>
+        public static void ReservePetitionIds(DecisionQueue queue, PetitionLedger ledger)
+        {
+            if (queue == null || queue.items == null || ledger == null) return;
+            for (int i = 0; i < queue.items.Count; i++)
+            {
+                PendingDecision d = queue.items[i];
+                if (d != null && d.petitionId > 0) ledger.ReserveId(d.petitionId);
+            }
+        }
+
         /// <summary>決裁カードを保存データへ（未決も決裁済みの履歴も・適用済みフラグを含む）。</summary>
         public static void WriteDecisions(CampaignSaveData save, DecisionQueue queue)
         {

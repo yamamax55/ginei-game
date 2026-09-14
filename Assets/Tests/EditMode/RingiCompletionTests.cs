@@ -159,6 +159,62 @@ namespace Ginei.Tests
             Assert.AreEqual(0, ledger.Count, "旧セーブの読み込みで前の案件が残ってはいけない");
         }
 
+        /// <summary>
+        /// 稟議台帳を保存していなかった頃のセーブ：カードは稟議 id を持つが台帳は空。
+        /// 予約しないと、ロード後の新しい稟議が古いカードの id を再利用し、古いカードの裁可で新しい案件が執行されうる。
+        /// </summary>
+        [Test]
+        public void LegacySave_CardsWithoutPetitions_ReservedIds_DoNotCollide()
+        {
+            var queue = new DecisionQueue();
+            PendingDecision old = Card("tax.cut", 80003);
+            old.petitionId = 12;
+            queue.Enqueue(old);
+            PendingDecision noLink = Card("tax.cut", 80004); // 稟議に紐づかないカード（0）は予約に影響しない
+            queue.Enqueue(noLink);
+
+            var save = new CampaignSaveData();
+            CampaignSerializer.WriteDecisions(save, queue);   // petitions は書かない＝旧セーブ相当
+
+            var ledger = new PetitionLedger();
+            CampaignSerializer.ReadPetitions(save.petitions, ledger);
+            DecisionQueue restored = CampaignSerializer.ReadDecisions(save);
+            CampaignSerializer.ReservePetitionIds(restored, ledger);
+
+            Assert.AreEqual(0, ledger.Count);
+            var fresh = new Petition(0, "ロード後の建白", Faction.同盟, BoxKind.政治家, PetitionOrigin.建白, "tax.cut");
+            Assert.IsTrue(ledger.Add(fresh));
+            Assert.AreEqual(13, fresh.id, "古いカードの稟議 id(12) を再利用してはいけない");
+        }
+
+        [Test]
+        public void Petitions_RoundTrip_ContinuesIdsAfterHighestRestored()
+        {
+            var ledger = new PetitionLedger();
+            for (int i = 0; i < 3; i++)
+                ledger.Add(new Petition(0, "案", Faction.同盟, BoxKind.政治家, PetitionOrigin.建白, "tax.cut"));
+
+            var save = new CampaignSaveData();
+            CampaignSerializer.WritePetitions(save.petitions, ledger);
+
+            var restored = new PetitionLedger();
+            restored.Add(new Petition(0, "前の戦役の残り", Faction.帝国, BoxKind.国王, PetitionOrigin.建白, "tax.raise"));
+            CampaignSerializer.ReadPetitions(save.petitions, restored);
+            CampaignSerializer.ReservePetitionIds(CampaignSerializer.ReadDecisions(save), restored);
+
+            Assert.AreEqual(3, restored.Count, "読み込みで前の案件は消える");
+            var fresh = new Petition(0, "次", Faction.同盟, BoxKind.政治家, PetitionOrigin.建白, "tax.cut");
+            restored.Add(fresh);
+            Assert.AreEqual(4, fresh.id, "採番は復元した最大 id の続きから");
+        }
+
+        [Test]
+        public void ReservePetitionIds_NullSafe()
+        {
+            Assert.DoesNotThrow(() => CampaignSerializer.ReservePetitionIds(null, new PetitionLedger()));
+            Assert.DoesNotThrow(() => CampaignSerializer.ReservePetitionIds(new DecisionQueue(), null));
+        }
+
         // ===== ③ 実ゲームへの接続 =====
 
         private static PetitionActionContext Board(Faction faction = Faction.同盟, float treasury = 500f)

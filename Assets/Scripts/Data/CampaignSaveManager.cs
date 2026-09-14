@@ -14,6 +14,9 @@ namespace Ginei
     {
         private static string SavePath => Path.Combine(Application.persistentDataPath, "campaign_save.json");
 
+        /// <summary>セーブファイルの場所（テストが実ファイルを退避・復元するために読む。書き込みには使わない）。</summary>
+        public static string SaveFilePath => SavePath;
+
         /// <summary>戦役の世界状態をJSON保存する。</summary>
         public static void Save(CampaignState campaign)
         {
@@ -99,9 +102,15 @@ namespace Ginei
             // #38：援軍台帳を復元（旧セーブは空＝援軍なし）。台帳の現在時刻はクロックへ合わせる。
             StrategySession.Reinforcements = CampaignSerializer.ReadReinforcements(save, StrategySession.Clock);
             // #稟議完成②：稟議と決裁カードを復元（旧セーブは空＝案件なしで読める）。
+            // RingiDirector/FleetRingiDirector の Ledger はこの2つを直接指す（別の入れ物を持たない）。
+            if (StrategySession.Petitions == null) StrategySession.Petitions = new PetitionLedger();
+            if (StrategySession.FleetPetitions == null) StrategySession.FleetPetitions = new PetitionLedger();
             CampaignSerializer.ReadPetitions(save.petitions, StrategySession.Petitions);
             CampaignSerializer.ReadPetitions(save.fleetPetitions, StrategySession.FleetPetitions);
             StrategySession.Decisions = CampaignSerializer.ReadDecisions(save);
+            // カードが指す稟議 id を両台帳の採番へ予約（台帳に無い古いカードと新しい稟議の id 衝突を防ぐ）。
+            CampaignSerializer.ReservePetitionIds(StrategySession.Decisions, StrategySession.Petitions);
+            CampaignSerializer.ReservePetitionIds(StrategySession.Decisions, StrategySession.FleetPetitions);
             StrategySession.Provinces = CampaignSerializer.ReadProvinces(save); // 内政を復元（空=後方互換）
             StrategySession.PendingPeople = CampaignSerializer.ReadPeople(save);
             StrategySession.CourtAuthority = new CourtAuthority(save.courtAuthority); // 朝廷の権威を復元（官僚制基盤）

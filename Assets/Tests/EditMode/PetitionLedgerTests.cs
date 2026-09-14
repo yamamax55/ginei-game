@@ -26,6 +26,36 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void ReserveId_AdvancesSeq_WithoutAddingItems_AndNeverGoesBack()
+        {
+            var led = new PetitionLedger();
+            led.ReserveId(7);
+            Assert.AreEqual(0, led.Count, "予約は在席を増やさない");
+
+            var a = New(0, Faction.同盟, BoxKind.政治家);
+            Assert.IsTrue(led.Add(a));
+            Assert.AreEqual(8, a.id, "予約した id の次から採番する");
+
+            led.ReserveId(3);   // 小さい id では戻らない
+            led.ReserveId(0);
+            led.ReserveId(-5);
+            var b = New(0, Faction.同盟, BoxKind.政治家);
+            Assert.IsTrue(led.Add(b));
+            Assert.AreEqual(9, b.id);
+        }
+
+        [Test]
+        public void Clear_ResetsReservedSeq()
+        {
+            var led = new PetitionLedger();
+            led.ReserveId(20);
+            led.Clear();
+            var a = New(0, Faction.同盟, BoxKind.政治家);
+            led.Add(a);
+            Assert.AreEqual(1, a.id, "新規戦役では予約も持ち越さない");
+        }
+
+        [Test]
         public void Add_RejectsDuplicateId()
         {
             var led = new PetitionLedger();

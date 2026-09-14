@@ -30,6 +30,15 @@ namespace Ginei
         public int NextId() => ++seq;
 
         /// <summary>
+        /// その id までを使用済みとして採番を進める（在席は増やさない）。ロード時に、台帳に残っていない
+        /// 稟議を指す決裁カード（旧セーブ・容量で落ちた分）と、新しい稟議の id が重ならないようにする。
+        /// </summary>
+        public void ReserveId(int id)
+        {
+            if (id > seq) seq = id;
+        }
+
+        /// <summary>
         /// 陳情を投入する（id 未設定なら採番）。投入後に容量超過なら古い決着済みから落とす。
         /// 既に同 id が在席なら二重投入しない（false）。
         /// </summary>

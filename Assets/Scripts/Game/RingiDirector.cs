@@ -22,8 +22,13 @@ namespace Ginei
         [Tooltip("同時に決裁待ちにできる稟議の上限（積みすぎ防止）")]
         public int maxConcurrent = 3;
 
-        /// <summary>進行中の稟議在庫（建白→伝播→決裁→執行）。観測/UI から読めるよう公開。</summary>
-        public static readonly PetitionLedger Ledger = new PetitionLedger();
+        /// <summary>
+        /// 進行中の稟議在庫（建白→伝播→決裁→執行）。観測/UI から読めるよう公開。
+        /// ★実体は <see cref="StrategySession.Petitions"/>（保存・ロード・新規戦役のリセットと同じ入れ物）。
+        /// 以前は別の static を持っていたため、保存される台帳が常に空で、ロード後のカードを裁可しても何も起きなかった。
+        /// </summary>
+        public static PetitionLedger Ledger
+            => StrategySession.Petitions ?? (StrategySession.Petitions = new PetitionLedger());
 
         private struct Pending { public Petition pet; public float friction; }
         private readonly Dictionary<int, Pending> pending = new Dictionary<int, Pending>();
@@ -123,9 +128,20 @@ namespace Ginei
                 PendingDecision d = q.items[i];
                 if (d == null || d.petitionId <= 0) continue;
                 if (DecisionResolutionRules.IsSettled(d)) continue;
-                if (Ledger.Get(d.petitionId) != null) n++;
+                if (OwnPetition(d) != null) n++;
             }
             return n;
+        }
+
+        /// <summary>
+        /// カードに対応する、この Director の稟議（無ければ null）。
+        /// ★税と編制の台帳は id を別々に採番するので、id だけで引くと他方の案件を掴みうる＝効果キーの一致も確かめる。
+        /// </summary>
+        private static Petition OwnPetition(PendingDecision d)
+        {
+            if (d == null || d.petitionId <= 0 || FleetRingiDirector.IsFleetEffectKey(d.effectKey)) return null;
+            Petition pet = Ledger.Get(d.petitionId);
+            return pet != null && FleetRingiDirector.SameEffectKey(pet.effectKey, d.effectKey) ? pet : null;
         }
 
         /// <summary>その状況の建白が未解決で残っているか（同じ対象を二重に出さない）。</summary>
@@ -313,16 +329,18 @@ namespace Ginei
         {
             applied = 0f;
             Province province = null;
-            if (StrategySession.Provinces == null ||
+            // ★所有の確認は盤面（GalaxyView）の有無に依らず、保存・ロードされる StrategySession.Map で行う。
+            //   星系が地図に無い場合も「確認できないので通す」にしない（ロード後の古い所有で執行しない）。
+            GalaxyMap map = StrategySession.Map;
+            StarSystem system = map != null ? map.GetSystem(systemId) : null;
+            if (system == null || StrategySession.Provinces == null ||
                 !StrategySession.Provinces.TryGetValue(systemId, out province) || province == null)
             {
                 WorkflowRules.Execute(pet, 0f); // 稟議は閉じる（在庫を占有させない）
                 return PetitionActionResult.Fail(PetitionActionOutcome.対象なし, "対象の星系が見つかりません");
             }
 
-            PetitionActionContext ctx = BriefingContext();
-            StarSystem system = ctx != null && ctx.map != null ? ctx.map.GetSystem(systemId) : null;
-            if (system != null && system.owner != pet.faction)
+            if (system.owner != pet.faction)
             {
                 WorkflowRules.Execute(pet, 0f);
                 return PetitionActionResult.Fail(PetitionActionOutcome.対象なし,
@@ -397,8 +415,14 @@ namespace Ginei
         private void OnResolved(PendingDecision d, int choiceIndex)
         {
             if (d == null || d.petitionId <= 0) return;      // 稟議に紐づかない決裁は対象外
-            Petition pet = Ledger.Get(d.petitionId);
-            if (pet == null) return;                          // 台帳から消えている＝もう扱わない
+            if (FleetRingiDirector.IsFleetEffectKey(d.effectKey)) return; // 編制は FleetRingiDirector の担当
+            Petition pet = OwnPetition(d);
+            if (pet == null)
+            {
+                // 対応する稟議が台帳に無い（旧セーブ等）＝効果は出さず、黙って終わらせずに失敗として記録する。
+                FleetRingiDirector.RecordMissingPetition(d, NotificationCategory.政治);
+                return;
+            }
 
             if (!DecisionResolutionRules.ClaimForApply(d)) return; // 二重適用を防ぐ（どの経路から来ても1回）
             pending.Remove(d.id);                             // 旧経路の在庫も掃除（枠を空ける）

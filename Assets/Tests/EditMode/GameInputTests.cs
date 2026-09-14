@@ -144,6 +144,103 @@ namespace Ginei.Tests
             Assert.AreEqual(0, GameInput.FindConflicts().Count, "上申の追加で衝突が出ない");
         }
 
+        // ===== 修飾キーの短い和音（#109 実機報告：Alt+T が反応しない）=====
+
+        [Test]
+        public void ModifierSample_ActiveThisFrame_CoversHeldPressedReleased()
+        {
+            Assert.IsFalse(ModifierSample.Up.ActiveThisFrame);
+            Assert.IsTrue(ModifierSample.Held.ActiveThisFrame);
+            Assert.IsTrue(new ModifierSample(false, pressedThisFrame: true).ActiveThisFrame);
+            Assert.IsTrue(new ModifierSample(false, releasedThisFrame: true).ActiveThisFrame);
+        }
+
+        [Test]
+        public void AltT_ShortTap_AltReleasedInSameFrame_StillMatches()
+        {
+            Assert.IsTrue(GameInput.TryGetBinding(GameAction.統治政策上申, out InputBinding gov));
+
+            // Alt↓ T↓ T↑ Alt↑ が1フレームに収まった＝フレーム末の Alt は離れている（held=false）
+            var tapped = new ModifierSample(held: false, pressedThisFrame: true, releasedThisFrame: true);
+            Assert.IsTrue(GameInput.BindingMatches(gov, InputContext.戦略, true, ModifierSample.Up, tapped),
+                "短く叩いた Alt+T を取りこぼさない");
+            // 前フレームから押していた Alt を T と同じフレームに離した
+            var releasedOnly = new ModifierSample(held: false, releasedThisFrame: true);
+            Assert.IsTrue(GameInput.BindingMatches(gov, InputContext.戦略, true, ModifierSample.Up, releasedOnly));
+            // 通常の押しっぱなし
+            Assert.IsTrue(GameInput.BindingMatches(gov, InputContext.戦略, true, ModifierSample.Up, ModifierSample.Held));
+            // T 自体がこのフレームに押されていなければ発火しない
+            Assert.IsFalse(GameInput.BindingMatches(gov, InputContext.戦略, false, ModifierSample.Up, tapped));
+        }
+
+        [Test]
+        public void AltT_WrongModifier_DoesNotMatch()
+        {
+            Assert.IsTrue(GameInput.TryGetBinding(GameAction.統治政策上申, out InputBinding gov));
+            // Alt なしの T
+            Assert.IsFalse(GameInput.BindingMatches(gov, InputContext.戦略, true, ModifierSample.Up, ModifierSample.Up));
+            // Ctrl+Alt+T（AltGr 相当を含む）は Alt+T ではない
+            Assert.IsFalse(GameInput.BindingMatches(gov, InputContext.戦略, true, ModifierSample.Held, ModifierSample.Held));
+            // 短く叩いた Ctrl が混ざっても一致しない
+            var ctrlTapped = new ModifierSample(false, pressedThisFrame: true, releasedThisFrame: true);
+            Assert.IsFalse(GameInput.BindingMatches(gov, InputContext.戦略, true, ctrlTapped, ModifierSample.Held));
+        }
+
+        [Test]
+        public void AltT_WrongContext_DoesNotMatch()
+        {
+            Assert.IsTrue(GameInput.TryGetBinding(GameAction.統治政策上申, out InputBinding gov));
+            Assert.IsFalse(GameInput.BindingMatches(gov, InputContext.会戦, true, ModifierSample.Up, ModifierSample.Held));
+            Assert.IsFalse(GameInput.BindingMatches(gov, InputContext.タイトル, true, ModifierSample.Up, ModifierSample.Held));
+            Assert.IsFalse(GameInput.BindingMatches(gov, InputContext.共通, true, ModifierSample.Up, ModifierSample.Held));
+        }
+
+        [Test]
+        public void KeyT_EachPress_FiresExactlyTheExpectedAction()
+        {
+            var bindings = GameInput.Bindings;
+            var tapped = new ModifierSample(false, pressedThisFrame: true, releasedThisFrame: true);
+
+            CollectionAssert.AreEqual(new[] { GameAction.統治政策上申 },
+                GameInput.ActionsPressed(bindings, InputContext.戦略, Key.T, ModifierSample.Up, ModifierSample.Held));
+            CollectionAssert.AreEqual(new[] { GameAction.統治政策上申 },
+                GameInput.ActionsPressed(bindings, InputContext.戦略, Key.T, ModifierSample.Up, tapped));
+            CollectionAssert.IsEmpty(
+                GameInput.ActionsPressed(bindings, InputContext.戦略, Key.T, ModifierSample.Up, ModifierSample.Up),
+                "戦略で素の T は何もしない");
+            CollectionAssert.AreEqual(new[] { GameAction.攻城戦術切替 },
+                GameInput.ActionsPressed(bindings, InputContext.会戦, Key.T, ModifierSample.Up, ModifierSample.Up));
+            CollectionAssert.IsEmpty(
+                GameInput.ActionsPressed(bindings, InputContext.会戦, Key.T, ModifierSample.Up, ModifierSample.Held),
+                "会戦の Alt+T は上申にも攻城戦術にもならない");
+        }
+
+        [Test]
+        public void KeyP_AndAltP_StayOnPersonAndProduction_OneActionPerPress()
+        {
+            var bindings = GameInput.Bindings;
+            var tapped = new ModifierSample(false, pressedThisFrame: true, releasedThisFrame: true);
+
+            foreach (InputContext ctx in new[] { InputContext.戦略, InputContext.会戦 })
+            {
+                CollectionAssert.AreEqual(new[] { GameAction.人物名鑑切替 },
+                    GameInput.ActionsPressed(bindings, ctx, Key.P, ModifierSample.Up, ModifierSample.Up), ctx + "：P");
+                CollectionAssert.AreEqual(new[] { GameAction.生産観測切替 },
+                    GameInput.ActionsPressed(bindings, ctx, Key.P, ModifierSample.Up, ModifierSample.Held), ctx + "：Alt+P");
+                // 短く叩いた Alt+P も生産観測だけ（人物名鑑が同時に開かない）
+                CollectionAssert.AreEqual(new[] { GameAction.生産観測切替 },
+                    GameInput.ActionsPressed(bindings, ctx, Key.P, ModifierSample.Up, tapped), ctx + "：短い Alt+P");
+                CollectionAssert.IsEmpty(
+                    GameInput.ActionsPressed(bindings, ctx, Key.P, ModifierSample.Held, ModifierSample.Up), ctx + "：Ctrl+P は無割当");
+            }
+        }
+
+        [Test]
+        public void ActionsPressed_NullBindings_ReturnsEmpty()
+        {
+            CollectionAssert.IsEmpty(GameInput.ActionsPressed(null, InputContext.戦略, Key.T, ModifierSample.Up, ModifierSample.Held));
+        }
+
         [Test]
         public void KeyLabel_CameraUp_PrefersFirstBinding()
         {

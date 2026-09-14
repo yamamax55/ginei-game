@@ -304,6 +304,71 @@ namespace Ginei
             return decision.id;
         }
 
+        /// <summary>
+        /// 統治政策の上申の見込み（対象・現在・次の政策・受け付けない理由）。<b>キー（Alt+T）も星系情報パネルのボタンも
+        /// ここを通す</b>＝表示と実行で判定がずれない。星系と所有は執行時と同じ <see cref="StrategySession.Map"/>／
+        /// <see cref="StrategySession.Provinces"/> を見る。政策は変えない（読み取りのみ）。
+        /// </summary>
+        public static GovernanceProposalPreview PreviewGovernanceProposal(int systemId)
+        {
+            GalaxyMap map = StrategySession.Map;
+            StarSystem system = map != null ? map.GetSystem(systemId) : null;
+            Province province = null;
+            bool hasProvince = system != null && StrategySession.Provinces != null
+                               && StrategySession.Provinces.TryGetValue(systemId, out province) && province != null;
+            GovernancePolicy current = hasProvince ? province.governancePolicy : GovernancePolicy.民生;
+            GovernancePolicy next = GovernanceProposalRules.NextPolicy(current);
+
+            RingiDirector director = FindAnyObjectByType<RingiDirector>();
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            FactionState fs = PlayerState();
+
+            GovernanceProposalRejection r = GovernanceProposalRules.Evaluate(
+                systemFound: system != null,
+                owner: system != null ? system.owner : player,
+                player: player,
+                hasProvince: hasProvince,
+                directorAvailable: director != null,
+                hasPlayerState: fs != null && fs.faction == player,
+                pendingCount: director != null ? director.ActivePendingCount() : 0,
+                maxConcurrent: director != null ? director.maxConcurrent : 0,
+                duplicatePending: HasPendingGovernanceFor(systemId));
+            return new GovernanceProposalPreview(systemId, system != null ? system.systemName : "", current, next, r);
+        }
+
+        /// <summary>
+        /// 次の統治政策を上申する<b>唯一の入口</b>（Alt+T・星系情報パネルのボタン共通）。
+        /// <see cref="PreviewGovernanceProposal"/> で受け付けを確かめてから <see cref="SubmitGovernancePolicy"/> へ渡す。
+        /// 受け付けない理由・官僚機構で止まったことは通知に出す（黙って何も起きない、にしない）。
+        /// 戻り値＝決裁id（&lt;0＝上申されなかった）。政策そのものは決裁→執行まで変わらない。
+        /// </summary>
+        public static int ProposeNextGovernancePolicy(int systemId, out GovernanceProposalPreview preview,
+                                                      out string message)
+        {
+            preview = PreviewGovernanceProposal(systemId);
+            if (!preview.CanSubmit)
+            {
+                message = GovernanceProposalRules.RejectionText(preview.rejection, preview.systemName);
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, message);
+                return -1;
+            }
+
+            RingiDirector director = FindAnyObjectByType<RingiDirector>();
+            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
+            int id = director != null
+                ? director.SubmitGovernancePolicy(systemId, preview.systemName, player, preview.next)
+                : -1;
+            // 受付判定は通ったのに -1＝ほぼ官僚機構で止まった場合（SubmitGovernancePolicy が握り潰し/黙殺を通知済み）。
+            if (id >= 0)
+                message = $"{preview.systemName} 統治政策「{preview.current}」→「{preview.next}」を上申しました（右下の決裁デスクへ）";
+            else
+            {
+                message = $"{preview.systemName} の上申は決裁デスクまで届きませんでした（地方官僚機構で止まった等・もう一度上申できます）";
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意, message);
+            }
+            return id;
+        }
+
         /// <summary>その星系への統治政策の上申が未解決で残っているか（決裁デスクのカードから判定＝シーン往復でも失わない）。</summary>
         private static bool HasPendingGovernanceFor(int systemId)
         {
@@ -494,6 +559,9 @@ namespace Ginei
             if (!string.IsNullOrEmpty(effectKey) && effectKey.StartsWith("tax.")) return OfficeDomain.財政;
             return OfficeDomain.内政;
         }
+
+        /// <summary>上申で使う摩擦の読み取り（QA の見込み表示用・<see cref="MinistryFriction"/> と同じ値）。</summary>
+        public static float PreviewMinistryFriction(Faction faction, OfficeDomain domain) => MinistryFriction(faction, domain);
 
         /// <summary>所管省庁の省益から伝播/執行の摩擦を引く（#158 配線）。省庁ツリーが無ければ既定 0.4 へフォールバック。</summary>
         private static float MinistryFriction(Faction faction, OfficeDomain domain)

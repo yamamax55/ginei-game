@@ -83,8 +83,8 @@ namespace Ginei
             if (done != null) for (int i = 0; i < done.Count; i++) escalatedAt.Remove(done[i]);
         }
 
-        /// <summary>決裁権者の賛意（資質＋案件の切迫度）。決定論＝同じ状況なら同じ答え。</summary>
-        private static float Favor(Person decider)
+        /// <summary>決裁権者の賛意（資質＋案件の切迫度）。決定論＝同じ状況なら同じ答え。QA の見込み表示も同じ式を読む。</summary>
+        public static float Favor(Person decider)
         {
             if (decider == null) return 0f;
             return PetitionEscalationRules.Favor(decider.operation, decider.intelligence, 0.5f);
@@ -167,7 +167,27 @@ namespace Ginei
         /// <b>命令発行の時点で毎回引き直す</b>ので、配属変更・指揮移譲・代行終了・死亡で自動的に更新される
         /// （権限を握ったまま持ち歩かない）。
         /// </summary>
-        private DecisionAuthorityResult Evaluate(PendingDecision d)
+        private DecisionAuthorityResult Evaluate(PendingDecision d) => EvaluateEffectKey(d != null ? d.effectKey : "");
+
+        /// <summary>
+        /// その効果キーの案件を、いまの操作者が裁可できるかの<b>見込み</b>（表示用・読み取りのみ）。
+        /// 判定は裁可時と同じ <see cref="EvaluateEffectKey"/>。権限判定が差し込まれていなければ false
+        /// （＝誰でも裁可できる状態）。上申も確定もしない。
+        /// </summary>
+        public static bool TryPreviewAuthority(string effectKey, out DecisionAuthorityResult result)
+        {
+            DecisionAuthorityDirector self = FindAnyObjectByType<DecisionAuthorityDirector>();
+            if (self == null || DecisionDeck.AuthorityCheck == null)
+            {
+                result = new DecisionAuthorityResult(DecisionAuthority.裁可, "権限判定なし（誰でも裁可できます）");
+                return false;
+            }
+            result = EvaluateEffectKey(effectKey);
+            return true;
+        }
+
+        /// <summary>効果キーだけで権限を判定する（裁可時の判定と見込み表示で共通）。</summary>
+        private static DecisionAuthorityResult EvaluateEffectKey(string effectKey)
         {
             GalaxyView gv = GalaxyView.Active;
             if (gv == null)
@@ -185,7 +205,7 @@ namespace Ginei
             CivilianControlType control = gv.CivilianControlOf(actor.faction);
 
             return DecisionAuthorityRules.Evaluate(
-                actor, d != null ? d.effectKey : "", OfficeScope.国家, offices, control,
+                actor, effectKey ?? "", OfficeScope.国家, offices, control,
                 domain => gv.FindOfficeHolder(actor.faction, domain, actor));
         }
     }

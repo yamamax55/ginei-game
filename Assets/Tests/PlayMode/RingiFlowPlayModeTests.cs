@@ -229,6 +229,77 @@ namespace Ginei.Tests
             yield return null;
         }
 
+        /// <summary>
+        /// Alt+T と星系情報パネルのボタンが共有する入口（<see cref="RingiDirector.ProposeNextGovernancePolicy"/>）：
+        /// 受付判定（稟議機構なし／管轄外／地図に無い／重複）で弾いた時はカードを作らず理由を返し、
+        /// 通れば「次の政策」をカードにする。政策は裁可まで変わらず、裁可で1回だけ変わる。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Governance_SharedProposeEntry_ValidatesThenSubmitsNextPolicy()
+        {
+            Province prov = SetupGovernance();
+            yield return null;
+
+            // 稟議機構が居ない（Strategy シーン外の PlayMode テストでは自動生成されない）
+            if (Object.FindAnyObjectByType<RingiDirector>() == null)
+            {
+                int before = DecisionDeck.Queue.items.Count;
+                Assert.Less(RingiDirector.ProposeNextGovernancePolicy(GovSystemId, out GovernanceProposalPreview none, out string noneMsg), 0);
+                Assert.AreEqual(GovernanceProposalRejection.稟議機構なし, none.rejection);
+                Assert.IsNotEmpty(noneMsg);
+                Assert.AreEqual(before, DecisionDeck.Queue.items.Count, "稟議機構が無ければカードを作らない");
+            }
+
+            NewDirector();
+            yield return null;
+
+            GovernanceProposalPreview p = RingiDirector.PreviewGovernanceProposal(GovSystemId);
+            Assert.IsTrue(p.CanSubmit, "上申できるはず: " + p.rejection);
+            Assert.AreEqual("テスト星系", p.systemName);
+            Assert.AreEqual(GovernancePolicy.民生, p.current);
+            Assert.AreEqual(GovernancePolicy.動員, p.next);
+
+            // 管轄外＝カードを作らず、理由を返す
+            int cards = DecisionDeck.Queue.items.Count;
+            StrategySession.Map.GetSystem(GovSystemId).owner = Faction.帝国;
+            Assert.Less(RingiDirector.ProposeNextGovernancePolicy(GovSystemId, out p, out string msg), 0);
+            Assert.AreEqual(GovernanceProposalRejection.管轄外, p.rejection);
+            StringAssert.Contains("管轄外", msg);
+            Assert.AreEqual(cards, DecisionDeck.Queue.items.Count, "管轄外でカードが増えない");
+            StrategySession.Map.GetSystem(GovSystemId).owner = Faction.同盟;
+
+            // 地図に無い星系
+            Assert.Less(RingiDirector.ProposeNextGovernancePolicy(GovSystemId + 1000, out p, out msg), 0);
+            Assert.AreEqual(GovernanceProposalRejection.星系なし, p.rejection);
+            Assert.AreEqual(cards, DecisionDeck.Queue.items.Count);
+
+            // 通る＝次の政策をカードにする（伝播は確率的なので浮上するまで同じ入口で繰り返す）
+            int id = -1;
+            for (int i = 0; i < 400 && id < 0; i++)
+                id = RingiDirector.ProposeNextGovernancePolicy(GovSystemId, out p, out msg);
+            Assert.GreaterOrEqual(id, 0, "共有の入口から上申が浮上しなかった");
+            PendingDecision d = FindDecision(id);
+            Assert.IsNotNull(d);
+            Assert.AreEqual(GovernanceRules.PolicyPetitionKey(GovSystemId, GovernancePolicy.動員), d.effectKey);
+            Assert.AreEqual(GovernancePolicy.民生, prov.governancePolicy, "上申しただけでは変わらない");
+
+            // 未決の間は重複として弾き、カードは増えない
+            int pendingCards = DecisionDeck.Queue.items.Count;
+            Assert.AreEqual(GovernanceProposalRejection.重複上申, RingiDirector.PreviewGovernanceProposal(GovSystemId).rejection);
+            Assert.Less(RingiDirector.ProposeNextGovernancePolicy(GovSystemId, out p, out msg), 0);
+            Assert.AreEqual(GovernanceProposalRejection.重複上申, p.rejection);
+            Assert.AreEqual(pendingCards, DecisionDeck.Queue.items.Count);
+
+            // 裁可で1回だけ変わり、次の見込みは動員→弾圧
+            Assert.IsTrue(DecisionDeck.Resolve(id, 0));
+            Assert.AreEqual(GovernancePolicy.動員, prov.governancePolicy);
+            Assert.IsFalse(DecisionDeck.Resolve(id, 0), "決裁済みは再解決できない");
+            p = RingiDirector.PreviewGovernanceProposal(GovSystemId);
+            Assert.IsTrue(p.CanSubmit, "決着後は再び上申できる: " + p.rejection);
+            Assert.AreEqual(GovernancePolicy.弾圧, p.next);
+            yield return null;
+        }
+
         // ===== 台帳の取り違え・旧セーブのカード =====
 
         private static PendingDecision MakeCard(int id, string effectKey, int petitionId)

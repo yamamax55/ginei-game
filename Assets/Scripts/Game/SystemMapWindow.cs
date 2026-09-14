@@ -80,6 +80,7 @@ namespace Ginei
         private GameObject infoPanel;          // 情報タブのスクロール本体
         private TextMeshProUGUI infoText;
         private const float TabBarHeight = 28f;
+        private int openedSystemId = -1; // 開いている星系（星系情報パネルの入口ボタンが使う）
 
         /// <summary>指定星系の恒星系マップ窓を開く（必要なら生成）。</summary>
         public static void Show(int systemId, string systemName, Faction owner)
@@ -203,6 +204,27 @@ namespace Ginei
 
             tabMapBg = MakeTab(bar.transform, "マップ", () => SetTab(false));
             tabInfoBg = MakeTab(bar.transform, "情報（星系・惑星）", () => SetTab(true));
+            // タブではなく入口ボタン：星系情報パネル（統治政策の上申ボタンを持つ）をマウスだけで開く（#67/#109）。
+            MakeTab(bar.transform, "星系情報・統治政策の上申…", OpenSystemInfoPanel);
+        }
+
+        /// <summary>この星系の星系情報パネル（I キーと同じ窓）を開く。上申はパネル側のボタンで行う。</summary>
+        private void OpenSystemInfoPanel()
+        {
+            // ボタンに選択が残ると Space/Enter で押し直される＝選択を外す。
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+            // 盤面を止めるモーダルの表示中は開かない（I キーと同じ扱い）。
+            if (GalaxyView.IsBoardModalOpen)
+            {
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                    "いまは星系情報パネルを開けません（画面中央の窓を先に閉じてください）");
+                return;
+            }
+            GalaxyView gv = GalaxyView.Active;
+            if (gv == null || openedSystemId < 0 || !gv.OpenSystemInfo(openedSystemId))
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
+                    "星系情報パネルを開けません（戦略マップが無い、または星系が見つかりません）");
         }
 
         private Image MakeTab(Transform parent, string label, UnityEngine.Events.UnityAction onClick)
@@ -282,6 +304,7 @@ namespace Ginei
         private void Open(int systemId, string systemName, Faction owner)
         {
             Cleanup(); // 既存の描画資源を破棄してから作り直す
+            openedSystemId = systemId;
 
             rt = new RenderTexture(rtWidth, rtHeight, 16);
             rt.Create();

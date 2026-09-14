@@ -14,11 +14,43 @@ namespace Ginei
             if (cam == null) return;
             Vector2 w = WorldMouse();
             int sysId = NearestSystemDist(w, out float d);
-            if (sysId < 0 || d > Mathf.Max(1.2f, ClickRadiusFor(sysId))) return;
-            StarSystem s = map.GetSystem(sysId);
-            if (s == null) return;
-            provinces.TryGetValue(sysId, out var prov);
-            SystemDetailPanel.Show(s, prov, map.Neighbors(sysId).Count, FleetSummaryAt(sysId));
+            if (sysId < 0 || !GovernanceProposalRules.AcceptsPointerDistance(d, ClickRadiusFor(sysId))) return;
+            OpenSystemInfo(sysId);
+        }
+
+        /// <summary>
+        /// 盤面の入力・進行を止めるモーダル（イベント提示／艦隊編成／決裁ボードと詳細／終了画面／システムメニュー）が
+        /// 開いているか。<see cref="Update"/> の早期 return と同じ条件＝マウスの入口（星系図のボタン・上申ボタン）も
+        /// ここを見る（判定を二重に書かない）。
+        /// </summary>
+        public static bool IsBoardModalOpen =>
+            StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen
+            || DecisionBoardPanel.DetailOpen || CampaignEndOverlay.IsOpen || StrategySystemMenu.IsOpen;
+
+        /// <summary>指定星系の情報パネルを開く（I キー・星系図の入口ボタン共通）。星系が無い／モーダル表示中は false。</summary>
+        public bool OpenSystemInfo(int sysId)
+        {
+            if (IsBoardModalOpen) return false;
+            if (!TryGetSystemInfo(sysId, out StarSystem s, out Province prov, out int neighborCount, out string fleetSummary))
+                return false;
+            SystemDetailPanel.Show(s, prov, neighborCount, fleetSummary);
+            return true;
+        }
+
+        /// <summary>
+        /// 星系情報パネルに出す最新データを読む（読み取りのみ＝開閉・ポーズなどの副作用なし）。
+        /// <see cref="OpenSystemInfo"/> と、開いたままの <see cref="SystemDetailPanel"/> の定期更新が共用する。
+        /// </summary>
+        public bool TryGetSystemInfo(int sysId, out StarSystem s, out Province prov, out int neighborCount, out string fleetSummary)
+        {
+            s = null; prov = null; neighborCount = 0; fleetSummary = "";
+            if (map == null || reg == null) return false;
+            s = map.GetSystem(sysId);
+            if (s == null) return false;
+            provinces.TryGetValue(sysId, out prov);
+            neighborCount = map.Neighbors(sysId).Count;
+            fleetSummary = FleetSummaryAt(sysId);
+            return true;
         }
 
         /// <summary>
@@ -54,10 +86,7 @@ namespace Ginei
         private void HandleStrategyEscape()
         {
             // 文字入力中は Escape をゲーム操作として解釈しない（入力のキャンセルは各欄に任せる）。
-            var es = EventSystem.current;
-            GameObject sel = es != null ? es.currentSelectedGameObject : null;
-            if (sel != null && (sel.GetComponent<TMPro.TMP_InputField>() != null
-                             || sel.GetComponent<UnityEngine.UI.InputField>() != null)) return;
+            if (IsTextInputFocused()) return;
 
             // 優先順位（1回の Escape で1動作だけ）：
             // ①最前面の艦隊一覧 → ②重ねたウィンドウを1枚 → ③選択の解除 → ④システムメニュー。
@@ -644,6 +673,15 @@ namespace Ginei
         /// <summary>スクリーン座標→ワールド座標（カメラ rect を尊重）。ズーム中心の固定に使う。</summary>
         private Vector3 ScreenToWorldAt(Vector2 screen)
             => cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -cam.transform.position.z));
+
+        /// <summary>入力欄（TMP/uGUI の InputField）にフォーカスがあるか。キー操作を打鍵と取り違えないための判定。</summary>
+        private static bool IsTextInputFocused()
+        {
+            var es = EventSystem.current;
+            GameObject sel = es != null ? es.currentSelectedGameObject : null;
+            return sel != null && (sel.GetComponent<TMPro.TMP_InputField>() != null
+                                || sel.GetComponent<UnityEngine.UI.InputField>() != null);
+        }
 
         private static PointerEventData _uiPointer;
         private static readonly List<RaycastResult> _uiHits = new List<RaycastResult>();

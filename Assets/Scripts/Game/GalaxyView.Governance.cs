@@ -104,34 +104,30 @@ namespace Ginei
         /// </summary>
         private void CycleGovernancePolicyAtMouse()
         {
-            if (cam == null || map == null) return;
+            // 文字入力中はゲーム操作として解釈しない（Alt+T を入力欄の打鍵で誤発火させない）。
+            if (IsTextInputFocused()) return;
+            if (cam == null || map == null || Mouse.current == null) return;
+
+            // 窓（観測層・星系情報パネル等）の上では、その下の星系へ上申しない＝見えていない星を対象にしない。
+            if (PointerOverUI())
+            {
+                NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.情報,
+                    $"統治政策の上申（{GameInput.KeyLabel(GameAction.統治政策上申)}）：カーソルが窓の上にあります。星系に合わせるか、星系情報パネルのボタンを使ってください");
+                return;
+            }
+
+            // 拾う範囲は星系情報（I キー）と同じ＝当たり判定（要塞は大きい）と最小半径の大きいほう。
             Vector2 w = WorldMouse();
             int systemId = NearestSystemDist(w, out float distance);
-            if (systemId < 0 || distance > 1.2f) return;
-
-            StarSystem system = map.GetSystem(systemId);
-            if (system == null || !provinces.TryGetValue(systemId, out Province province) || province == null) return;
-
-            Faction player = GameSettings.Instance != null ? GameSettings.Instance.playerFaction : Faction.同盟;
-            if (system.owner != player)
+            if (systemId < 0 || !GovernanceProposalRules.AcceptsPointerDistance(distance, ClickRadiusFor(systemId)))
             {
                 NotificationCenter.Push(NotificationCategory.内政, NotificationSeverity.注意,
-                    $"{system.systemName} は管轄外のため統治政策を直接変更できない");
+                    GovernanceProposalRules.RejectionText(GovernanceProposalRejection.星系なし, ""));
                 return;
             }
 
-            int count = System.Enum.GetValues(typeof(GovernancePolicy)).Length;
-            GovernancePolicy target = (GovernancePolicy)(((int)province.governancePolicy + 1) % count);
-            RingiDirector director = Object.FindAnyObjectByType<RingiDirector>();
-            if (director == null)
-            {
-                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
-                    "稟議機構が利用できないため統治政策を上申できない");
-                return;
-            }
-            if (director.SubmitGovernancePolicy(system.id, system.systemName, player, target) < 0)
-                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
-                    $"{system.systemName} の上申は受理されなかった（決裁待ち上限・重複・官僚機構を確認）");
+            // 受付判定・上申・結果の通知はボタンと同じ入口（RingiDirector.ProposeNextGovernancePolicy）。
+            RingiDirector.ProposeNextGovernancePolicy(systemId, out _, out _);
         }
 
         /// <summary>所有勢力の在任宰相による安定度寄与（名実の乖離＝朝廷の権威で減衰・<see cref="AdministrationRules"/>）。空席/非デモ勢力は0。</summary>

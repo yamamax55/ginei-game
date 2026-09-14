@@ -21,6 +21,11 @@ namespace Ginei
         /// <summary>パネルが開いているか（GalaxyView 等が入力を譲るために参照）。</summary>
         public static bool IsOpen => instance != null && instance.isOpen;
 
+        /// <summary>
+        /// 描画順（Esc の閉じる順も同じ値）。星系図 <see cref="SystemMapWindow"/>（950）より手前・観測窓（1090）より後ろ。
+        /// </summary>
+        public const int SortingOrder = 960;
+
         private bool isOpen;
         private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
         private GameObject root;
@@ -28,6 +33,32 @@ namespace Ginei
         private TextMeshProUGUI bodyText;
         private TextMeshProUGUI stabilityLabel;
         private RectTransform stabilityFill;
+
+        private const float PanelWidth = 560f;
+        private const float PanelHeight = 700f;
+        private const int ContentPaddingX = 26;
+
+        // 開いたまま本文・安定度を最新化するための表示中データ（GalaxyView が無い時は最後に受け取った参照を読み直す）。
+        private StarSystem shownSystem;
+        private Province shownProvince;
+        private int shownNeighborCount;
+        private string shownFleetSummary;
+
+        // 統治政策の上申（#67/#109）：Alt+T と同じ入口（RingiDirector.ProposeNextGovernancePolicy）をマウスから押す。
+        [Header("統治政策の上申")]
+        [Tooltip("表示中の上申見込み（所有・決裁待ち・権限）を読み直す間隔（実時間秒）")]
+        public float governanceRefreshInterval = 0.5f;
+        private const float MinGovernanceRefreshInterval = 0.05f; // 0 以下を入れても毎フレーム全再計算しない
+        private int shownSystemId = -1;
+        private float governanceRefreshTimer;
+        private TextMeshProUGUI governanceText;
+        private TextMeshProUGUI governanceResultText;
+        private LayoutElement governanceTextLE;
+        private LayoutElement governanceResultLE;
+        private Button governanceButton;
+        private Image governanceButtonImage;
+        private static readonly Color ButtonEnabledColor = new Color(0.2f, 0.25f, 0.4f, 1f);
+        private static readonly Color ButtonDisabledColor = new Color(0.16f, 0.16f, 0.18f, 1f);
 
         /// <summary>星系の詳細を表示する（必要なら生成）。prov/planet は無くても可（後方互換表示）。</summary>
         public static void Show(StarSystem s, Province prov, int neighborCount, string fleetSummary)
@@ -50,7 +81,8 @@ namespace Ginei
             canvasObj.transform.SetParent(transform, false);
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 950; // 通知/マップより前・観測窓(1090)より後ろの前面ウィンドウ
+            // 星系図（950）の入口ボタンから開くので、星系図より必ず手前に出す（同順位だと背面に隠れた＝実画面の指摘）。
+            canvas.sortingOrder = SortingOrder;
             canvasObj.AddComponent<CanvasScaler>();
             canvasObj.AddComponent<GraphicRaycaster>();
 
@@ -64,7 +96,7 @@ namespace Ginei
             panel.transform.SetParent(root.transform, false);
             RectTransform pRT = panel.GetComponent<RectTransform>();
             pRT.anchorMin = pRT.anchorMax = pRT.pivot = new Vector2(0.5f, 0.5f);
-            pRT.sizeDelta = new Vector2(560f, 600f);
+            pRT.sizeDelta = new Vector2(PanelWidth, PanelHeight);
             pRT.anchoredPosition = Vector2.zero;
             Image pImg = panel.AddComponent<Image>();
             pImg.color = new Color(0.06f, 0.07f, 0.12f, 0.97f);
@@ -86,7 +118,7 @@ namespace Ginei
             LayoutElement contentLE = content.AddComponent<LayoutElement>();
             contentLE.flexibleHeight = 1f;
             VerticalLayoutGroup vlg = content.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(26, 26, 16, 18);
+            vlg.padding = new RectOffset(ContentPaddingX, ContentPaddingX, 16, 18);
             vlg.spacing = 10f;
             vlg.childAlignment = TextAnchor.UpperLeft;
             vlg.childControlWidth = true; vlg.childForceExpandWidth = true;
@@ -97,14 +129,23 @@ namespace Ginei
             // 安定度バー（ラベル＋色付きフィル）
             BuildStabilityBar(content.transform);
 
+            BuildGovernanceBlock(content.transform);
+
             bodyText = CreateText(content.transform, "", 21f, FontStyles.Normal, TextAlignmentOptions.TopLeft);
+            // 上申欄を足したぶん本文が枠からはみ出さないよう、入りきらなければ文字を縮める。
+            bodyText.enableAutoSizing = true;
+            bodyText.fontSizeMin = 12f;
+            bodyText.fontSizeMax = 21f;
             LayoutElement bodyLE = bodyText.gameObject.AddComponent<LayoutElement>();
             bodyLE.flexibleHeight = 1f;
+            // 本文は「残りの高さ」だけを使う（長い本文の必要高さで上申欄が押し潰され、見込みの最終行がボタンに重なった）。
+            bodyLE.minHeight = 0f;
+            bodyLE.preferredHeight = 0f;
 
             root.SetActive(false);
 
             // ESC は UIWindowStack 経由で「手前から閉じる」（#ウィンドウESC）。
-            escWindowToken = UIWindowStack.Register(() => isOpen, Close, 950, "星系情報");
+            escWindowToken = UIWindowStack.Register(() => isOpen, Close, SortingOrder, "星系情報");
         }
 
         /// <summary>タイトルバー（Windows 風・つかんでドラッグ移動＋×で閉じる）。観測窓と同型。</summary>
@@ -163,8 +204,154 @@ namespace Ginei
             fillImg.raycastTarget = false;
         }
 
+        /// <summary>統治政策の上申欄（現在→次の政策・上申できない理由・決裁の見込み＋上申ボタン＋結果）。</summary>
+        private void BuildGovernanceBlock(Transform parent)
+        {
+            governanceText = CreateText(parent, "", 17f, FontStyles.Normal, TextAlignmentOptions.TopLeft);
+            governanceTextLE = governanceText.gameObject.AddComponent<LayoutElement>();
+            governanceButton = CreateButton(parent, "統治政策の変更を上申", OnGovernanceButton, 38f, 19f);
+            governanceButtonImage = governanceButton != null ? governanceButton.GetComponent<Image>() : null;
+            governanceResultText = CreateText(parent, "", 16f, FontStyles.Italic, TextAlignmentOptions.TopLeft);
+            governanceResultText.color = new Color(1f, 0.84f, 0.36f);
+            governanceResultLE = governanceResultText.gameObject.AddComponent<LayoutElement>();
+        }
+
+        /// <summary>
+        /// 折り返し後の必要高さを最小高さとして確保する（詰まっても次の行＝ボタン/結果に重ならない）。
+        /// 初回レイアウト前は幅が 0 なので、枠幅−内側パディングで見積もる。
+        /// </summary>
+        private static void ReserveTextHeight(TextMeshProUGUI t, LayoutElement le)
+        {
+            if (t == null || le == null) return;
+            float width = t.rectTransform.rect.width;
+            if (width <= 0f) width = PanelWidth - ContentPaddingX * 2;
+            le.minHeight = string.IsNullOrEmpty(t.text) ? 0f : t.GetPreferredValues(t.text, width, 0f).y;
+        }
+
+        /// <summary>上申の結果文を設定し、その高さを確保する。</summary>
+        private void SetGovernanceResult(string message)
+        {
+            if (governanceResultText == null) return;
+            governanceResultText.text = message ?? "";
+            ReserveTextHeight(governanceResultText, governanceResultLE);
+        }
+
+        /// <summary>
+        /// 上申欄を読み直す。判定は Alt+T と同じ <see cref="RingiDirector.PreviewGovernanceProposal"/>、
+        /// 決裁の見込みは裁可時と同じ <see cref="DecisionAuthorityDirector.TryPreviewAuthority"/>（どちらも読み取りのみ）。
+        /// </summary>
+        private void RefreshGovernance()
+        {
+            if (governanceText == null || shownSystemId < 0) return;
+            GovernanceProposalPreview p = RingiDirector.PreviewGovernanceProposal(shownSystemId);
+
+            var sb = new StringBuilder();
+            sb.Append("― 統治政策の上申 ―\n");
+            if (p.rejection == GovernanceProposalRejection.星系なし || p.rejection == GovernanceProposalRejection.内政データなし)
+                sb.Append("対象: ").Append(string.IsNullOrEmpty(p.systemName) ? $"星系 #{shownSystemId}" : p.systemName).Append('\n');
+            else
+                sb.Append("対象: ").Append(p.systemName)
+                  .Append("　現在「").Append(p.current).Append("」→ 次「").Append(p.next).Append("」\n");
+
+            if (p.CanSubmit)
+            {
+                sb.Append("上申: できます（").Append(GameInput.KeyLabel(GameAction.統治政策上申))
+                  .Append(" でも同じ上申になります）\n");
+                string key = GovernanceRules.PolicyPetitionKey(shownSystemId, p.next);
+                bool enforced = DecisionAuthorityDirector.TryPreviewAuthority(key, out DecisionAuthorityResult auth);
+                sb.Append("決裁の見込み: ");
+                if (!enforced) sb.Append(auth.basis);
+                else if (auth.CanDecide) sb.Append("あなたが裁可できます（").Append(auth.basis).Append("）");
+                else if (auth.authority == DecisionAuthority.上申)
+                    sb.Append("裁可すると ").Append(string.IsNullOrEmpty(auth.addresseeName) ? "所管" : auth.addresseeName)
+                      .Append(" へ上申されます（").Append(auth.basis).Append("）");
+                else sb.Append("いまは裁可できません（").Append(auth.basis).Append("）");
+            }
+            else
+            {
+                sb.Append("上申できません: ").Append(GovernanceProposalRules.RejectionText(p.rejection, p.systemName));
+            }
+            governanceText.text = sb.ToString();
+            ReserveTextHeight(governanceText, governanceTextLE);
+
+            if (governanceButton != null) governanceButton.interactable = p.CanSubmit;
+            if (governanceButtonImage != null) governanceButtonImage.color = p.CanSubmit ? ButtonEnabledColor : ButtonDisabledColor;
+        }
+
+        /// <summary>上申ボタン：Alt+T と同じ入口へ渡すだけ（政策を直接変えない）。</summary>
+        private void OnGovernanceButton()
+        {
+            // ボタンに選択が残ると、Space/Enter（UI の決定）で押し直されて意図しない再上申になる＝選択を外す。
+            if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
+            if (shownSystemId < 0) return;
+            // 盤面を止めるモーダル（イベント提示・システムメニュー・終了画面）の表示中は上申しない（Alt+T と同じ扱い）。
+            // 判定は GalaxyView.Update の早期 return と同じ（艦隊編成画面も含む）。
+            if (GalaxyView.IsBoardModalOpen)
+            {
+                SetGovernanceResult("いまは上申できません（画面中央の窓を先に閉じてください）");
+                return;
+            }
+
+            RingiDirector.ProposeNextGovernancePolicy(shownSystemId, out _, out string message);
+            SetGovernanceResult(message);
+            RefreshGovernance();
+        }
+
+        private void Update()
+        {
+            if (!isOpen) return;
+            governanceRefreshTimer -= Time.unscaledDeltaTime; // ポーズ中も所有・決裁待ちの変化を映す
+            if (governanceRefreshTimer > 0f) return;
+            governanceRefreshTimer = Mathf.Max(MinGovernanceRefreshInterval, governanceRefreshInterval);
+            RefreshGovernance();
+            RefreshShownSystem(); // 上段（上申欄）と同じ間隔で本文・安定度も読み直す＝上下で政策が食い違わない
+        }
+
+        /// <summary>
+        /// 表示中星系の最新データを読み直して本文・安定度・見出しへ反映する（開閉・ポーズの副作用なし）。
+        /// 取得経路は <see cref="GalaxyView.OpenSystemInfo"/> と同じ <see cref="GalaxyView.TryGetSystemInfo"/>。
+        /// GalaxyView が無い時は上申欄と同じ <see cref="StrategySession"/> の地図/内政を、それも無ければ最後の参照を読む。
+        /// </summary>
+        private void RefreshShownSystem()
+        {
+            if (shownSystemId < 0) return;
+            GalaxyView gv = GalaxyView.Active;
+            if (gv != null && gv.TryGetSystemInfo(shownSystemId, out StarSystem s, out Province prov, out int n, out string fleets))
+            {
+                shownSystem = s; shownProvince = prov; shownNeighborCount = n; shownFleetSummary = fleets;
+            }
+            else
+            {
+                StarSystem ss = StrategySession.Map != null ? StrategySession.Map.GetSystem(shownSystemId) : null;
+                if (ss != null)
+                {
+                    shownSystem = ss;
+                    if (StrategySession.Provinces != null && StrategySession.Provinces.TryGetValue(shownSystemId, out Province sp))
+                        shownProvince = sp;
+                }
+            }
+            if (shownSystem != null) ApplySystemInfo();
+        }
+
         private void Display(StarSystem s, Province prov, int neighborCount, string fleetSummary)
         {
+            if (shownSystemId != s.id) SetGovernanceResult(""); // 別の星系の結果を残さない
+            shownSystemId = s.id;
+            shownSystem = s; shownProvince = prov; shownNeighborCount = neighborCount; shownFleetSummary = fleetSummary;
+            RefreshGovernance();
+            governanceRefreshTimer = governanceRefreshInterval;
+            ApplySystemInfo();
+
+            isOpen = true; // 非モーダル（ポーズしない）＝開いたままマップ操作・進行が続く
+            if (root != null) root.SetActive(true);
+        }
+
+        /// <summary>表示中データ（shownXxx）を見出し・安定度バー・本文へ書く。</summary>
+        private void ApplySystemInfo()
+        {
+            StarSystem s = shownSystem;
+            Province prov = shownProvince;
+            if (s == null) return;
             if (titleText != null) titleText.text = $"{s.systemName}（星系 #{s.id}）";
 
             // 安定度バー
@@ -188,11 +375,18 @@ namespace Ginei
                     : "安定度 —（未統治）";
             }
 
-            if (bodyText != null) bodyText.text = BuildInfo(s, prov, neighborCount, fleetSummary);
-
-            isOpen = true; // 非モーダル（ポーズしない）＝開いたままマップ操作・進行が続く
-            if (root != null) root.SetActive(true);
+            if (bodyText != null)
+            {
+                string info = BuildInfo(s, prov, shownNeighborCount, shownFleetSummary);
+                if (bodyText.text != info) bodyText.text = info; // 変化が無ければ TMP の再構築を避ける
+            }
         }
+
+        /// <summary>表示中の本文（試験・診断用の読み取り）。</summary>
+        public static string BodyTextForTest => instance != null && instance.bodyText != null ? instance.bodyText.text : null;
+
+        /// <summary>表示中の上申欄の文（試験・診断用の読み取り）。</summary>
+        public static string GovernanceTextForTest => instance != null && instance.governanceText != null ? instance.governanceText.text : null;
 
         /// <summary>ウィンドウを閉じる。</summary>
         public void Close()
@@ -217,7 +411,7 @@ namespace Ginei
             {
                 string ideo = string.IsNullOrEmpty(prov.nativeIdeology) ? "（不明）" : prov.nativeIdeology;
                 sb.AppendLine($"住民の思想: {ideo}　人口: {Mathf.RoundToInt(prov.population)}");
-                sb.AppendLine($"統治政策: {prov.governancePolicy}（自領はマウスを合わせて {GameInput.KeyLabel(GameAction.統治政策上申)} で変更を上申）");
+                sb.AppendLine($"統治政策: {prov.governancePolicy}（変更は上の上申ボタン、または星系にカーソルを合わせて {GameInput.KeyLabel(GameAction.統治政策上申)}）");
                 sb.AppendLine($"統合度: {Mathf.RoundToInt(Mathf.Clamp01(prov.integration) * 100f)}%　産出: ×{GovernanceRules.OutputFactor(prov):0.00}");
 
                 // 経済（#93 を惑星層へ #767）＝SystemView と同じ Core 窓口を読むだけ（数式は二重実装しない）。
@@ -306,19 +500,21 @@ namespace Ginei
             return t;
         }
 
-        private void CreateButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick)
+        private Button CreateButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick,
+                                    float height = 50f, float fontSize = 24f)
         {
             GameObject go = new GameObject("Button_" + label, typeof(RectTransform));
             go.transform.SetParent(parent, false);
             Image img = go.AddComponent<Image>();
-            img.color = new Color(0.2f, 0.25f, 0.4f, 1f);
+            img.color = ButtonEnabledColor;
             Button btn = go.AddComponent<Button>();
             btn.transition = UnityEngine.UI.Selectable.Transition.None;
             btn.onClick.AddListener(onClick);
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 50f;
-            TextMeshProUGUI txt = CreateText(go.transform, label, 24f, FontStyles.Bold, TextAlignmentOptions.Center);
+            le.preferredHeight = height;
+            TextMeshProUGUI txt = CreateText(go.transform, label, fontSize, FontStyles.Bold, TextAlignmentOptions.Center);
             StretchFull(txt.rectTransform);
+            return btn;
         }
 
         private void ApplyJapaneseFont(TextMeshProUGUI tmp)

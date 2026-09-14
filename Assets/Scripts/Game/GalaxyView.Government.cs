@@ -22,6 +22,16 @@ namespace Ginei
         /// <summary>文官要職（観測用・人物名鑑が在任を表示）。</summary>
         public IReadOnlyList<Office> CivilOffices => civilOffices;
 
+        /// <summary>その勢力の宰相職（内政・国家）。未編成/非デモ勢力は null。任命は <see cref="GovernmentRegistry"/> を通す。</summary>
+        public Office PremierOfficeOf(Faction f)
+        {
+            int idx = FactionIndex(f);
+            return (civilOffices != null && idx >= 0 && idx < civilOffices.Length) ? civilOffices[idx] : null;
+        }
+
+        /// <summary>宰相の官位相当（年次の銓衡 <see cref="RunCivilAppointmentTick"/> と同じ要求位階）。</summary>
+        public static CourtRank PremierRank => PremierRequiredRank;
+
         /// <summary>勢力の省庁ツリー（二官八省・GOV-5 #158）。未配線/非デモ勢力は null。観測層（政府オブザーバ）専用＝read-only。</summary>
         public IReadOnlyList<Ministry> MinistriesOf(Faction f)
         {

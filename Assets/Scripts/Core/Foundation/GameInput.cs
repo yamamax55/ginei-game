@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace Ginei
 {
@@ -80,6 +81,36 @@ namespace Ginei
             this.ctrl = ctrl;
             this.alt = alt;
         }
+    }
+
+    /// <summary>
+    /// 1フレーム分の修飾キー（Ctrl/Alt）の観測。押下中に加え、<b>このフレームに押された／離された</b>も持つ。
+    /// 修飾キーを短く叩いた和音（Alt を押す→T を押す→両方離す、が1フレームに収まる）でも、
+    /// フレーム末の isPressed だけだと Alt が既に離れていて和音を取りこぼすため。
+    /// ★この観測は押した順を持たない（Alt を離した後に P を押した、も Alt+P に見える）。
+    /// 実行時は <see cref="KeyChordLog"/>（イベント順の記録）が優先し、これは記録が無いときの代替。
+    /// </summary>
+    public readonly struct ModifierSample
+    {
+        public readonly bool held;
+        public readonly bool pressedThisFrame;
+        public readonly bool releasedThisFrame;
+
+        public ModifierSample(bool held, bool pressedThisFrame = false, bool releasedThisFrame = false)
+        {
+            this.held = held;
+            this.pressedThisFrame = pressedThisFrame;
+            this.releasedThisFrame = releasedThisFrame;
+        }
+
+        /// <summary>このフレームに一度でも押されていたか（押下中・押した・離した のいずれか）。</summary>
+        public bool ActiveThisFrame => held || pressedThisFrame || releasedThisFrame;
+
+        /// <summary>押されていない。</summary>
+        public static ModifierSample Up => new ModifierSample(false);
+
+        /// <summary>押しっぱなし。</summary>
+        public static ModifierSample Held => new ModifierSample(true);
     }
 
     /// <summary>
@@ -185,6 +216,40 @@ namespace Ginei
         /// <summary>その割当が指定コンテキストで有効か（共通は常に有効）。</summary>
         public static bool IsActiveIn(InputContext bindingContext, InputContext current)
             => bindingContext == InputContext.共通 || bindingContext == current;
+
+        /// <summary>
+        /// そのフレームの観測で割当が「押された」と言えるか（キー読み取りを含まない純判定）。
+        /// 修飾は<b>このフレームに押されていたか</b>で厳密一致させる＝短く叩いた Alt+T も拾い、
+        /// Alt を伴った P は人物名鑑（修飾なし P）にならない（1回の押下で1アクションだけ）。
+        /// </summary>
+        public static bool BindingMatches(in InputBinding binding, InputContext current, bool keyPressedThisFrame,
+                                          ModifierSample ctrl, ModifierSample alt)
+        {
+            if (!IsActiveIn(binding.context, current)) return false;
+            if (!keyPressedThisFrame) return false;
+            if (ctrl.ActiveThisFrame != binding.ctrl) return false;
+            if (alt.ActiveThisFrame != binding.alt) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// 1つのキーが押されたフレームで発火するアクション一覧（重複なし・純判定）。
+        /// 同じ押下で複数のアクションが出ないことをテストで確かめるための窓口。
+        /// </summary>
+        public static List<GameAction> ActionsPressed(IReadOnlyList<InputBinding> bindings, InputContext current,
+                                                      Key pressedKey, ModifierSample ctrl, ModifierSample alt)
+        {
+            var list = new List<GameAction>();
+            if (bindings == null) return list;
+            for (int i = 0; i < bindings.Count; i++)
+            {
+                InputBinding b = bindings[i];
+                if (b.key != pressedKey) continue;
+                if (!BindingMatches(b, current, true, ctrl, alt)) continue;
+                if (!list.Contains(b.action)) list.Add(b.action);
+            }
+            return list;
+        }
 
         /// <summary>アクションの割当を取得（無ければ false）。</summary>
         public static bool TryGetBinding(GameAction action, out InputBinding binding)
@@ -344,6 +409,25 @@ namespace Ginei
         // ===== 入力読み取り（Unity 依存・null安全・コンテキストで絞る） =====
 
         /// <summary>
+        /// 入力イベント順の押下記録（Game 層の記録係が差し込む・無ければ null）。
+        /// ある時はそのフレームの押下をこの記録で判定し、フレーム末の状態（<see cref="ModifierSample"/>）より優先する。
+        /// </summary>
+        public static KeyChordLog ChordLog { get; set; }
+
+        /// <summary>
+        /// イベント順の記録で割当が「押された」と言えるか（純判定）。記録にそのキーの押下が無ければ
+        /// <paramref name="hasRecord"/>=false を返し、呼び出し側はフレーム状態の判定へ戻る。
+        /// </summary>
+        public static bool ChordMatches(in InputBinding binding, InputContext current, KeyChordLog log, int frame,
+                                        out bool hasRecord)
+        {
+            hasRecord = log != null && log.HasPress(binding.key, frame);
+            if (!hasRecord) return false;
+            if (!IsActiveIn(binding.context, current)) return false;
+            return log.PressedWith(binding.key, binding.ctrl, binding.alt, frame);
+        }
+
+        /// <summary>
         /// このフレームでアクションが押されたか（現在のコンテキストで有効なときのみ・修飾キー一致）。
         /// 同一アクションに複数キーが割り当たっていれば OR 評価（例：カメラ上＝W／↑）。
         /// </summary>
@@ -351,17 +435,32 @@ namespace Ginei
         {
             Keyboard kb = Keyboard.current;
             if (kb == null) return false;
+            int frame = UnityEngine.Time.frameCount;
+            // 修飾はフレームに1回だけ観測する（左右キーも見る＝合成の altKey/ctrlKey の取りこぼしに備える）。
+            ModifierSample ctrl = SampleModifier(kb.ctrlKey, kb.leftCtrlKey, kb.rightCtrlKey);
+            ModifierSample alt = SampleModifier(kb.altKey, kb.leftAltKey, kb.rightAltKey);
             for (int i = 0; i < table.Length; i++)
             {
                 InputBinding b = table[i];
                 if (b.action != action) continue;
-                if (!IsActiveIn(b.context, Context)) continue;
-                if (!kb[b.key].wasPressedThisFrame) continue;
-                if (kb.ctrlKey.isPressed != b.ctrl) continue; // 修飾は厳密一致
-                if (kb.altKey.isPressed != b.alt) continue;   // Alt＋数字＝グループと素の数字＝倍速を分離（#83）
-                return true;
+                // ①イベント順の記録がそのキーを見ていれば、押した瞬間の修飾で決める
+                //   （Alt を離してから P を押した、が同じフレームでも Alt+P にしない）。
+                if (ChordMatches(b, Context, ChordLog, frame, out bool hasRecord)) return true;
+                if (hasRecord) continue;
+                // ②記録が無い（記録係なし・取りこぼし）ときだけフレーム末の状態で判定する。
+                //   修飾は厳密一致（Alt＋数字＝グループと素の数字＝倍速を分離 #83）。短い和音の扱いは BindingMatches。
+                if (BindingMatches(b, Context, kb[b.key].wasPressedThisFrame, ctrl, alt)) return true;
             }
             return false;
+        }
+
+        /// <summary>合成キーと左右キーをまとめて1フレーム分の修飾観測にする。</summary>
+        private static ModifierSample SampleModifier(ButtonControl any, ButtonControl left, ButtonControl right)
+        {
+            bool held = any.isPressed || left.isPressed || right.isPressed;
+            bool pressed = any.wasPressedThisFrame || left.wasPressedThisFrame || right.wasPressedThisFrame;
+            bool released = any.wasReleasedThisFrame || left.wasReleasedThisFrame || right.wasReleasedThisFrame;
+            return new ModifierSample(held, pressed, released);
         }
 
         /// <summary>

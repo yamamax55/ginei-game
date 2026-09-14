@@ -226,6 +226,7 @@ namespace UnityEngine
         public static float deltaTime = 0.016f;
         public static float unscaledTime = 0f;
         public static float timeScale = 1f;
+        public static int frameCount = 0; // GameInput.WasPressed がイベント順の押下記録と突き合わせる
     }
 }
 
@@ -244,18 +245,29 @@ namespace UnityEngine.InputSystem
         F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
     }
 
-    public class KeyControl
-    {
-        public bool wasPressedThisFrame => false;
-        public bool isPressed => false;
-    }
-
     public class Keyboard
     {
         public static Keyboard current => null; // ヘッドレス＝デバイス無し（GameInput は null ガード済み）
-        public KeyControl this[Key key] => new KeyControl();
-        public KeyControl ctrlKey => new KeyControl();
-        public KeyControl shiftKey => new KeyControl();
-        public KeyControl altKey => new KeyControl();
+        public Controls.KeyControl this[Key key] => new Controls.KeyControl();
+        public Controls.ButtonControl ctrlKey => new Controls.ButtonControl();
+        public Controls.ButtonControl shiftKey => new Controls.ButtonControl();
+        public Controls.ButtonControl altKey => new Controls.ButtonControl();
+        public Controls.KeyControl leftCtrlKey => new Controls.KeyControl();
+        public Controls.KeyControl rightCtrlKey => new Controls.KeyControl();
+        public Controls.KeyControl leftAltKey => new Controls.KeyControl();
+        public Controls.KeyControl rightAltKey => new Controls.KeyControl();
     }
+}
+
+// 実 Input System と同じ名前空間・継承（KeyControl : ButtonControl）に合わせる。
+namespace UnityEngine.InputSystem.Controls
+{
+    public class ButtonControl
+    {
+        public bool wasPressedThisFrame => false;
+        public bool wasReleasedThisFrame => false;
+        public bool isPressed => false;
+    }
+
+    public class KeyControl : ButtonControl { }
 }

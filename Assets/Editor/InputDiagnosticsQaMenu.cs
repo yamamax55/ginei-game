@@ -212,7 +212,7 @@ namespace Ginei
             go.AddComponent<InputTraceRecorder>();
             EditorUtility.DisplayDialog("入力診断",
                 "生入力の記録を開始しました。\n\n" +
-                "毎フレーム（Play のフレーム）マウスの押下／離上を見て、\n" +
+                "毎フレーム（Play のフレーム）マウスの押下／離上とキーの押下（修飾・解決したアクション）を見て、\n" +
                 "そのときの座標・UI 判定・盤面の関門・選択数を記録します。\n\n" +
                 "問題の操作を数回ためしてから\n" +
                 "「QA: 入力診断 生入力の記録を出力」を実行してください。\n\n" +
@@ -271,6 +271,8 @@ namespace Ginei
 
         private void Update()
         {
+            RecordKeyboard(); // キー押下（Alt+T／P 等）が Input System まで届いたか・どのアクションになったか
+
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
 
@@ -319,12 +321,86 @@ namespace Ginei
             if (lines.Count > Capacity) lines.RemoveAt(0);
         }
 
+        /// <summary>
+        /// このフレームに押されたキーと、修飾（Alt/Ctrl の押下中・押した・離した）、入力コンテキスト、
+        /// <see cref="GameInput.ActionsPressed"/> で解決したアクションを記録する（記録のみ・何も発火しない）。
+        /// </summary>
+        private void RecordKeyboard()
+        {
+            RecordChordLog(); // イベント順の記録（短い押下・Alt を離してからの押下もここに出る）
+
+            Keyboard kb = Keyboard.current;
+            if (kb == null || !kb.anyKey.wasPressedThisFrame) return;
+
+            var alt = new ModifierSample(
+                kb.altKey.isPressed || kb.leftAltKey.isPressed || kb.rightAltKey.isPressed,
+                kb.altKey.wasPressedThisFrame || kb.leftAltKey.wasPressedThisFrame || kb.rightAltKey.wasPressedThisFrame,
+                kb.altKey.wasReleasedThisFrame || kb.leftAltKey.wasReleasedThisFrame || kb.rightAltKey.wasReleasedThisFrame);
+            var ctrl = new ModifierSample(
+                kb.ctrlKey.isPressed || kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed,
+                kb.ctrlKey.wasPressedThisFrame || kb.leftCtrlKey.wasPressedThisFrame || kb.rightCtrlKey.wasPressedThisFrame,
+                kb.ctrlKey.wasReleasedThisFrame || kb.leftCtrlKey.wasReleasedThisFrame || kb.rightCtrlKey.wasReleasedThisFrame);
+
+            foreach (UnityEngine.InputSystem.Controls.KeyControl k in kb.allKeys)
+            {
+                if (k == null || !k.wasPressedThisFrame) continue;
+                var fired = GameInput.ActionsPressed(GameInput.Bindings, GameInput.Context, k.keyCode, ctrl, alt);
+                var sb = new System.Text.StringBuilder();
+                sb.Append("F").Append(Time.frameCount)
+                  .Append(" t=").Append(Time.unscaledTime.ToString("0.00"))
+                  .Append(" [キー押下] ").Append(k.keyCode)
+                  .Append(" Alt=").Append(ModText(alt)).Append(" Ctrl=").Append(ModText(ctrl))
+                  .Append(" 文脈=").Append(GameInput.Context)
+                  .Append(" isFocused=").Append(Application.isFocused)
+                  .Append(" → ").Append(fired.Count == 0 ? "割当なし" : string.Join(",", fired));
+                lines.Add(sb.ToString());
+                if (lines.Count > Capacity) lines.RemoveAt(0);
+            }
+        }
+
+        /// <summary>
+        /// <see cref="GameInput.ChordLog"/>（<see cref="KeyChordRecorder"/> が入力イベント順に積む記録）のうち
+        /// このフレームの押下を、押した瞬間の修飾と、それで解決するアクションつきで記録する（記録のみ）。
+        /// <see cref="GameInput.WasPressed"/> は記録があるキーをこちらで判定する。
+        /// </summary>
+        private void RecordChordLog()
+        {
+            KeyChordLog chords = GameInput.ChordLog;
+            if (chords == null) return;
+            int frame = Time.frameCount;
+            for (int i = 0; i < chords.Count; i++)
+            {
+                if (!chords.TryGet(i, out Key key, out bool ctrl, out bool alt, out int f) || f != frame) continue;
+                var fired = GameInput.ActionsPressed(GameInput.Bindings, GameInput.Context, key,
+                    new ModifierSample(ctrl), new ModifierSample(alt));
+                var sb = new System.Text.StringBuilder();
+                sb.Append("F").Append(frame)
+                  .Append(" t=").Append(Time.unscaledTime.ToString("0.00"))
+                  .Append(" [イベント順の押下] ").Append(key)
+                  .Append(" 押した瞬間 Alt=").Append(alt ? "押下" : "－").Append(" Ctrl=").Append(ctrl ? "押下" : "－")
+                  .Append(" 文脈=").Append(GameInput.Context)
+                  .Append(" → ").Append(fired.Count == 0 ? "割当なし" : string.Join(",", fired));
+                lines.Add(sb.ToString());
+                if (lines.Count > Capacity) lines.RemoveAt(0);
+            }
+        }
+
+        private static string ModText(ModifierSample m)
+            => (m.held ? "押下中" : "－") + (m.pressedThisFrame ? "/押した" : "") + (m.releasedThisFrame ? "/離した" : "");
+
         /// <summary>記録の全文と、読み取りの手引き。</summary>
         public string Dump()
         {
             var sb = new System.Text.StringBuilder();
             sb.Append("生入力の記録（新しいものが下）。\n");
             sb.Append("読み方：\n");
+            sb.Append("  ・[キー押下] が1件も無い → キーは Play のフレームで観測されなかった（ゲームビューのフォーカス・自動入力の届き方を疑う）。\n");
+            sb.Append("    [キー押下] T Alt=… → 統治政策上申 と出ていれば、キーは届き GameInput は上申と解決している（以降は GalaxyView 側）。\n");
+            sb.Append("    盤面を止める窓（決裁ボード・イベント・システムメニュー等）が開いていると、解決しても GalaxyView は処理しない。\n");
+            sb.Append("  ・[イベント順の押下] は Input System が受け取ったイベントを押した順に見た記録（記録係=")
+              .Append(KeyChordRecorder.IsInstalled ? "有効" : "★無効").Append("）。\n");
+            sb.Append("    ゲームの判定（GameInput.WasPressed）は、これがあるキーをこちらで決める＝[キー押下] の Alt 表示と食い違うときはこちらが正。\n");
+            sb.Append("    これも Input System に届いた入力だけが写る（OS から届いていない入力・ゲームビュー外の入力は写らない）。\n");
             sb.Append("  ・[左押下]/[左離上] が1件も無い → この記録では観測できなかった、という意味。\n");
             sb.Append("    ★OSから届いていない証明ではありません。本記録は Update（Play のフレーム）で\n");
             sb.Append("      見ているため、フレーム間で完結した入力や、記録開始前／停止後の入力は写りません。\n");
@@ -335,7 +411,7 @@ namespace Ginei
             sb.Append("  ・押下と離上で座標が10px以上動く → ドラッグ扱いになりうる（pixelDragThreshold）。\n");
             sb.Append("    ★フレーム差が大きいだけではドラッグとは限りません（長押しでも座標が動かなければ\n");
             sb.Append("      クリックとして扱われます）。判断は座標の移動量で行ってください。\n\n");
-            if (lines.Count == 0) sb.Append("（記録なし＝押下も離上も選択変化も一度も観測していません）\n");
+            if (lines.Count == 0) sb.Append("（記録なし＝キー押下もマウスの押下・離上も選択変化も一度も観測していません）\n");
             for (int i = 0; i < lines.Count; i++) sb.Append(lines[i]).Append('\n');
             return sb.ToString();
         }

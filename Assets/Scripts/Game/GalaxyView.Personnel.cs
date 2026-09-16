@@ -906,8 +906,9 @@ namespace Ginei
             // 総督（地方官）の銓衡配属（官僚制基盤）：所有星系ごとに官位相当の文官を配属＝受領/国司。
             RunGovernorAppointmentTick();
 
-            // 省庁の配属（官僚制基盤・二官八省）：文民を省庁へ配属し、その行政が内政（中央監督）に効く。
-            RunMinistryStaffingTick();
+            // 官僚の年次人事（#141 配線）：省内職位の失職整理→昇任→入省を内閣人事局の承認つきで1年ぶん回し、結果を人事通知へ。
+            // 旧 RunMinistryStaffingTick（承認を通さず全空席を埋める）は開幕/読込のシード専用＝年次からは呼ばない。
+            RunCivilServiceAnnualTick();
         }
 
         /// <summary>P2：保有金融持分を実際の市場へ時価評価（market drift）＝人物財産が #185 株式市場/国債価格に連動する（暴落で毀損・好況で増）。</summary>

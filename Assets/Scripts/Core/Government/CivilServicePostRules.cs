@@ -58,7 +58,8 @@ namespace Ginei
     /// 昇任・降任は同じ省の中なので既存の配属を動かさない。
     /// <b>省を移すのは台帳上の在任者に対する <see cref="CivilServiceAction.異動"/> だけ</b>＝
     /// <see cref="CivilServiceAction.配属"/> は、台帳に無くても既に別の省の <see cref="Ministry.staffIds"/> にいる人物を拒否する
-    /// （同じ省の <see cref="Ministry.staffIds"/> にいる人物は移動ではない＝その省の台帳へ初めて載せるために通す）。</para>
+    /// （同じ省の <see cref="Ministry.staffIds"/> にいる人物は移動ではない＝その省の台帳へ初めて載せるために通す）。
+    /// 台帳を持たなかった頃の配属をまとめて取り込むには、承認を要さない移行専用の <see cref="MigrateExistingStaff"/> を使う。</para>
     /// <para>確認（<see cref="Check"/>）と実行（<see cref="Execute"/>）は同じ判定を同じ順序で通る＝表示と実行が食い違わない。
     /// 確認と拒否される実行は台帳を一切書き換えない（<see cref="CivilServiceState.records"/> などが欠けていても作らない）。
     /// 自動昇任は本段階では行わない（AI・UI は後段）。決定論・test-first・状態は台帳と <see cref="Ministry.staffIds"/> のみ更新。</para>
@@ -450,6 +451,52 @@ namespace Ginei
             End(st, current, year, CivilServiceStatus.退職, string.IsNullOrEmpty(reason) ? pp : reason + "：" + pp, prm);
             MinistryRules.RemoveOfficial(tree, current.ministryId, personId);
             problem = pp;
+            return true;
+        }
+
+        /// <summary>
+        /// 既存の配属の<b>台帳への移行専用</b>の入口（#141 の台帳を持たなかった頃の <see cref="Ministry.staffIds"/> を取り込む）。
+        /// <para><b>できるのは「いまその省に配属されている人物を、その省の一般官僚として台帳へ写す」ことだけ</b>＝新規採用・異動・昇任は
+        /// できない（段は <see cref="BureaucratGrade.一般官僚"/> に固定・他省へは移さない・<see cref="Ministry.staffIds"/> には一切書かない）。
+        /// 誰も新しく任用していない（現況の書き写し）ため承認を要さないが、その代わりに現況に無いことは何もできない
+        /// ＝人事の承認（<see cref="ApprovalAuthority"/>）を迂回する抜け道にならない。</para>
+        /// <para>冪等：既に在任記録がある人物は何もせず false を返す（同じ省なら <paramref name="problem"/> は null＝異常ではない）。
+        /// 就けない人物（死亡・拘束・他勢力・在野・軍人・政治家・名簿消失）は登録せず理由を返す＝<see cref="Ministry.staffIds"/> 側は
+        /// 触らないので、呼出側が理由を集めて通知できる。写した記録には移行の理由と就任年（<paramref name="year"/>）が残る
+        /// （任命権者は -1＝自動整理）。定員は問わない（本人が既にその枠を使っているため <see cref="OccupiedStaffCount"/> は増えない）。</para>
+        /// </summary>
+        /// <param name="problem">写せなかった理由（写したとき・既に台帳にある同じ省の在任者は null）。</param>
+        /// <returns>台帳へ新しく写したら true。</returns>
+        public static bool MigrateExistingStaff(List<Ministry> tree, Faction f, int ministryId, int personId,
+            IList<Person> roster, int year, string reason, CivilServiceState st, out string problem)
+        {
+            problem = null;
+            if (st == null) { problem = "人事台帳がない＝移行できない"; return false; }
+            Ministry m = MinistryRules.Get(tree, ministryId);
+            if (m == null) { problem = "存在しない省（#" + ministryId + "）＝移行できない"; return false; }
+            if (m.staffIds == null || !m.staffIds.Contains(personId))
+            {
+                problem = (m.ministryName ?? "") + " に配属されていない人物#" + personId + "＝移行できない（移行は現況の書き写し）";
+                return false;
+            }
+
+            CivilServiceRecord current = FindServing(st, personId);
+            if (current != null)
+            {
+                // 既に台帳にある＝二重に載せない（冪等）。別の省で在任していれば取り違え＝理由は返すが省は移さない。
+                if (current.ministryId != ministryId)
+                    problem = "台帳では " + GradeTitle(current.ministryName, current.grade) + " に在任＝移行では省を移さない";
+                return false;
+            }
+
+            Person p = ElectionCycleRules.FindPerson(roster, personId);
+            string pp = PersonProblem(p, f);
+            if (pp != null) { problem = "台帳へ移行できない：" + pp; return false; }
+
+            if (st.records == null) st.records = new List<CivilServiceRecord>();
+            if (st.history == null) st.history = new List<CivilServiceRecord>();
+            Begin(st, m, personId, BureaucratGrade.一般官僚, year, -1,
+                string.IsNullOrEmpty(reason) ? "既存の配属を台帳へ移行" : reason);
             return true;
         }
 

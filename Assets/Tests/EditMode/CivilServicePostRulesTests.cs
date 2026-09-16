@@ -12,7 +12,8 @@ namespace Ginei.Tests
     /// 省内職位が軍指揮権・政府決裁権を生まないこと、確認が状態を変えず実行と同じ判定であること、保存往復と旧セーブ、履歴上限と打切り件数、
     /// 台帳の配列が欠けていても確認・拒否は何も作らず（成功したときだけ実行直前に用意する）こと、
     /// 既存の配属（Ministry.staffIds）との整合（重複なしの枠で定員を数える・配属を書き込めないなら台帳も確定しない・昇任/降任は配属を動かさない・
-    /// 台帳へ未移行の既存配属者は配属で別の省へ移せず異動だけが省を移す／同じ省なら台帳へ初回登録できる）。
+    /// 台帳へ未移行の既存配属者は配属で別の省へ移せず異動だけが省を移す／同じ省なら台帳へ初回登録できる）、
+    /// 既存の配属の移行専用入口（承認を要さず現況を写すだけ・冪等・新規採用/異動/昇任はできない・就けない人物は配属を壊さず理由を返す）。
     /// </summary>
     public class CivilServicePostRulesTests
     {
@@ -838,6 +839,111 @@ namespace Ginei.Tests
             Assert.AreEqual(Year + 1, w.civil.history[0].vacatedYear);
             Assert.AreEqual(0, w.civil.historyDropped);
             Assert.IsFalse(w.M(Hyobu).staffIds.Contains(Bur20));
+        }
+
+        // ===== 9. 既存の配属の台帳への移行（承認を要さない現況の書き写し・#141 の年次配線が使う） =====
+
+        /// <summary>台帳を持たなかった頃の配属（staffIds だけにいる状態）を作る＝人事の入口を通さずに書き込む。</summary>
+        static void PreexistingStaff(World w, int ministryId, int personId) => w.M(ministryId).staffIds.Add(personId);
+
+        static bool Migrate(World w, int ministryId, int personId, out string problem, int year = Year)
+            => CivilServicePostRules.MigrateExistingStaff(w.tree, F, ministryId, personId, w.roster, year, "移行", w.civil, out problem);
+
+        [Test]
+        public void Migrate_WritesLedgerForExistingStaff_WithoutApproval_AndIsIdempotent()
+        {
+            World w = NewWorld();
+            PreexistingStaff(w, Hyobu, Bur20);
+
+            Assert.IsTrue(Migrate(w, Hyobu, Bur20, out string problem), problem);
+            Assert.IsNull(problem);
+            Assert.AreEqual(1, w.civil.records.Count);
+            CivilServiceRecord rec = w.civil.records[0];
+            Assert.AreEqual(Hyobu, rec.ministryId);
+            Assert.AreEqual("兵部省", rec.ministryName);
+            Assert.AreEqual(Bur20, rec.personId);
+            Assert.AreEqual(BureaucratGrade.一般官僚, rec.grade, "移行は段を上げない");
+            Assert.AreEqual(Year, rec.appointedYear);
+            Assert.AreEqual(-1, rec.appointedById, "誰も任用していない＝任命権者なし");
+            Assert.AreEqual("移行", rec.reason, "理由が残る");
+            Assert.AreEqual(CivilServiceStatus.在任, rec.status);
+            CollectionAssert.AreEqual(new[] { Bur20 }, w.M(Hyobu).staffIds, "移行は配属を書き換えない");
+            Assert.AreEqual(0, w.civil.history.Count);
+
+            // 2回目は何もしない（理由もない＝異常ではない）
+            Assert.IsFalse(Migrate(w, Hyobu, Bur20, out string again));
+            Assert.IsNull(again);
+            Assert.AreEqual(1, w.civil.records.Count, "同じ人物を二重に載せない");
+
+            // 写した記録は通常の人事の土台になる（承認つきの昇任が在職年から通る）
+            Assert.IsTrue(Ex(w, Minister, Hyobu, CivilServiceAction.昇任, Bur20, BureaucratGrade.課長級, Year + 3).ok);
+            Assert.AreEqual(BureaucratGrade.課長級, Serving(w, Bur20).grade);
+        }
+
+        [Test]
+        public void Migrate_CannotHire_OrMovePersonBetweenMinistries()
+        {
+            World w = NewWorld();
+            // 配属されていない人物は移行できない（＝移行は新規採用の抜け道にならない）
+            Assert.IsFalse(Migrate(w, Hyobu, Bur20, out string notStaffed));
+            StringAssert.Contains("配属されていない", notStaffed);
+            Assert.AreEqual(0, w.civil.records.Count);
+
+            // 台帳では式部省に在任・配属だけ兵部省にもある不整合＝移行は省を移さない
+            Assert.IsTrue(Ex(w, ShikibuMinister, Shikibu, CivilServiceAction.配属, Bur20).ok);
+            PreexistingStaff(w, Hyobu, Bur20);
+            Assert.IsFalse(Migrate(w, Hyobu, Bur20, out string moved));
+            StringAssert.Contains("移行では省を移さない", moved);
+            Assert.AreEqual(1, w.civil.records.Count);
+            Assert.AreEqual(Shikibu, Serving(w, Bur20).ministryId, "在任している省は動かない");
+
+            // 存在しない省・台帳なしは理由を返して何も作らない
+            Assert.IsFalse(Migrate(w, 7777, Bur21, out string noMinistry));
+            StringAssert.Contains("存在しない省", noMinistry);
+            Assert.IsFalse(CivilServicePostRules.MigrateExistingStaff(w.tree, F, Hyobu, Bur21, w.roster, Year, "移行", null, out string noLedger));
+            StringAssert.Contains("人事台帳がない", noLedger);
+        }
+
+        [Test]
+        public void Migrate_RejectsIneligiblePeople_WithReasons_AndKeepsStaffing()
+        {
+            World w = NewWorld();
+            var cases = new[]
+            {
+                new object[] { Dead, "死亡" },
+                new object[] { Foreign, "他勢力" },
+                new object[] { Soldier, "軍人" },
+                new object[] { Politician, "政治家" },
+                new object[] { 9999, "名簿に存在しない人物" },
+            };
+            foreach (object[] c in cases)
+            {
+                int id = (int)c[0];
+                PreexistingStaff(w, Hyobu, id);
+                Assert.IsFalse(Migrate(w, Hyobu, id, out string problem), "人物#" + id + " を台帳へ載せた");
+                StringAssert.Contains((string)c[1], problem);
+                Assert.IsTrue(w.M(Hyobu).staffIds.Contains(id), "登録できない人物の配属まで壊さない");
+            }
+            Assert.AreEqual(0, w.civil.records.Count, "台帳は空のまま");
+            Assert.AreEqual(0, w.civil.history.Count);
+        }
+
+        [Test]
+        public void Migrate_WithMissingLedgerLists_InitializesOnlyWhenItSucceeds()
+        {
+            World w = NewWorld();
+            w.civil.records = null;
+            w.civil.history = null;
+
+            Assert.IsFalse(Migrate(w, Hyobu, Bur20, out string _), "配属が無いので何もしない");
+            Assert.IsNull(w.civil.records, "拒否は欠けた配列すら作らない");
+            Assert.IsNull(w.civil.history);
+
+            PreexistingStaff(w, Hyobu, Bur20);
+            Assert.IsTrue(Migrate(w, Hyobu, Bur20, out string _));
+            Assert.AreEqual(1, w.civil.records.Count);
+            Assert.IsNotNull(w.civil.history);
+            Assert.AreEqual(0, w.civil.history.Count);
         }
     }
 }

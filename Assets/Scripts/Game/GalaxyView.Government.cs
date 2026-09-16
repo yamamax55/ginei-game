@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -18,6 +19,12 @@ namespace Ginei
         private const float CentralOversightShare = 0.3f; // 中央（宰相）が地方へ及ぼす監督の効き（薄く全土へ）
         private List<Ministry>[] ministries;          // 勢力ごとの省庁ツリー（二官八省・DemoFactions と並行）
         private int[] ministryTopId;                  // 勢力ごとの太政官（最上位省）id
+
+        // --- 官僚の年次人事（#141 配線）：省庁ツリーは一時データ・人事台帳は FactionState.civilService（保存）が単一の出所 ---
+        private static readonly CivilServicePostParams CivilServicePrm = CivilServicePostParams.Default;
+        private static readonly CivilServiceAnnualParams CivilServiceAnnualPrm = CivilServiceAnnualParams.Default;
+        private const int MaxCivilServiceChangeNotices = 5; // 通知に載せる変更明細の上限（残りは件数に丸める）
+        private const int MaxCivilServiceSkipNotices = 3;   // 通知に載せる見送り理由の上限（同じ理由はまとめる）
 
         /// <summary>文官要職（観測用・人物名鑑が在任を表示）。</summary>
         public IReadOnlyList<Office> CivilOffices => civilOffices;
@@ -177,9 +184,35 @@ namespace Ginei
         /// 追って埋まる。いずれも冪等（年次ティックと二重編成しない・通知を撒かない静かなシード）。</summary>
         private void SeedGovernment()
         {
-            SeedCommandOffices();      // 要職＝司令長官を最先任へ任命（GovernmentRegistry を初期化して任命・静か）
-            RunMinistryStaffingTick(); // 二官八省を編成し文民を能力順で配属（位階ゲートなし・静か）
-            RestoreElectedOffices();   // 保存/在席の選挙結果（首相・知事）を役職へ戻す（選挙はしない・人物不在なら空席＋理由）
+            SeedCommandOffices();          // 要職＝司令長官を最先任へ任命（GovernmentRegistry を初期化して任命・静か）
+            SeedMinistries();              // 二官八省の編成だけは常に冪等シード（省庁ツリーは保存されない一時データ）
+            RestoreCivilServiceStaffing(); // 人事台帳（保存）があれば在任者を配属へ写す＝台帳が正（#141）
+            RunMinistryStaffingTick();     // 台帳の無い勢力だけ従来のシード配属（文民を能力順・位階ゲートなし・静か）
+            RestoreElectedOffices();       // 保存/在席の選挙結果（首相・知事）を役職へ戻す（選挙はしない・人物不在なら空席＋理由）
+        }
+
+        /// <summary>
+        /// 読込/開幕時に人事台帳（<see cref="FactionState.civilService"/>＝保存データ）の在任者を省庁の配属へ写す（#141）。
+        /// 省庁ツリーは保存されない一時データなので、台帳を正として <see cref="Ministry.staffIds"/> を復元する
+        /// ＝在任・段・就任年・履歴を失わず、次の年次人事が同じ人物を重ねて配属しない。台帳に無い配属は外さない。
+        /// </summary>
+        private void RestoreCivilServiceStaffing()
+        {
+            if (ministries == null) return;
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                CivilServiceState st = CivilServiceOf(DemoFactions[f]);
+                if (st == null || ministries[f] == null) continue;
+                CivilServicePostRules.NormalizeLoaded(st); // 旧セーブ/壊れた記録の穴埋め（冪等・任命も解任もしない）
+                CivilServicePostRules.SyncStaffing(ministries[f], st);
+            }
+        }
+
+        /// <summary>勢力の人事台帳（未初期化＝null。初期化は年次人事 <see cref="RunCivilServiceAnnualTick"/> が1回だけ行う）。</summary>
+        private static CivilServiceState CivilServiceOf(Faction f)
+        {
+            FactionState s = StateOf(f);
+            return s != null ? s.civilService : null;
         }
 
         /// <summary>要職をシード（冪等）：勢力ごとに「宇宙艦隊司令長官」を1つ作り、最先任の現役へ任命。</summary>
@@ -388,8 +421,10 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 省庁の配属（年次・官僚制基盤）：死亡/捕虜の官僚を外し、空き定員を勢力の文民で埋める（有能な順・一人一省＝兼任しない）。
+        /// 省庁の配属の<b>開幕/読込シード</b>（官僚制基盤）：死亡/捕虜の官僚を外し、空き定員を勢力の文民で埋める（有能な順・一人一省＝兼任しない）。
         /// 数値ロジックは <see cref="MinistryRules"/>/<see cref="MinistryAdminRules"/> へ委譲。
+        /// <para><b>年次からは呼ばない（#141）</b>＝これは内閣人事局の承認を通さず空席を埋めるため、年次の人事は
+        /// <see cref="RunCivilServiceAnnualTick"/>（承認つき）が担う。人事台帳を持つ勢力はこのシードの対象外＝台帳の配属を上書きしない。</para>
         /// </summary>
         private void RunMinistryStaffingTick()
         {
@@ -400,18 +435,10 @@ namespace Ginei
                 List<Ministry> tree = ministries[f];
                 if (tree == null) continue;
                 Faction fac = DemoFactions[f];
+                if (CivilServiceOf(fac) != null) continue; // 台帳のある勢力は年次人事の領分＝旧自動配属で上書きしない
 
                 // 死亡/捕虜の官僚を一掃
-                for (int m = 0; m < tree.Count; m++)
-                {
-                    var mn = tree[m];
-                    if (mn == null) continue;
-                    for (int i = mn.staffIds.Count - 1; i >= 0; i--)
-                    {
-                        Person held = FindCivilian(mn.staffIds[i]);
-                        if (held == null || !held.IsAvailable) mn.staffIds.RemoveAt(i);
-                    }
-                }
+                PurgeUnavailableStaff(tree, null);
 
                 // 既配属を除いた候補（有能順）
                 var staffed = new HashSet<int>(MinistryRules.AllOfficialsUnder(tree, ministryTopId[f]));
@@ -433,6 +460,171 @@ namespace Ginei
                 }
             }
         }
+
+        /// <summary>
+        /// 死亡/捕虜/名簿から消えた官僚を省庁の配属（<see cref="Ministry.staffIds"/>）から外す（裁量の人事ではない＝承認を要さない後始末）。
+        /// <paramref name="st"/> を渡すと台帳の在任者は触らない＝彼らの整理は年次人事の失職整理（<see cref="CivilServicePostRules.RetireIfIneligible"/>）
+        /// が理由と履歴つきで行う＝台帳と配属を食い違わせない。
+        /// </summary>
+        private void PurgeUnavailableStaff(List<Ministry> tree, CivilServiceState st)
+        {
+            if (tree == null || civilians == null) return; // 名簿が未配線のときに配属を消さない
+            for (int m = 0; m < tree.Count; m++)
+            {
+                Ministry mn = tree[m];
+                if (mn == null || mn.staffIds == null) continue;
+                for (int i = mn.staffIds.Count - 1; i >= 0; i--)
+                {
+                    int pid = mn.staffIds[i];
+                    if (st != null && CivilServicePostRules.FindServing(st, pid) != null) continue; // 台帳の在任者は年次整理に任せる
+                    Person held = FindCivilian(pid);
+                    if (held == null || !held.IsAvailable) mn.staffIds.RemoveAt(i);
+                }
+            }
+        }
+
+        // ===== 官僚の年次人事（#141 配線） =====
+
+        /// <summary>
+        /// 省内職位の年次人事を勢力ごとに1回だけ回す（<see cref="CivilServiceAnnualRules.TickYear"/> が唯一の入口・年次の
+        /// <c>RunBureaucracyTick</c>＝官位と考課の更新の後に呼ぶ）。失職整理→昇任→入省を<b>内閣人事局の承認つき</b>で通し、
+        /// 承認権者（事務次官級＝首相／局長級以下＝所管大臣）が不在なら埋めずに見送る＝自動処理が権限を迂回しない。
+        /// <para>台帳（<see cref="FactionState.civilService"/>）が無い新規/旧セーブの勢力は、ここで1回だけ台帳を作り、
+        /// 現在の <see cref="Ministry.staffIds"/> を<b>同じ省の一般官僚として</b>移行する（<see cref="CivilServicePostRules.MigrateExistingStaff"/>
+        /// ＝新規採用・異動・昇任はしない）。台帳がある勢力は台帳を正として配属を同期してから回す＝読込後も重複配属しない。</para>
+        /// <para>年は選挙・委任と同じ暦年（<see cref="ElectionYear"/>）＝シーンを組み直しても在職年がずれない。
+        /// 動くのは人事台帳と <see cref="Ministry.staffIds"/> だけ（内閣・<see cref="GovernmentRegistry"/>・軍・国庫には触れない）。</para>
+        /// </summary>
+        private void RunCivilServiceAnnualTick()
+        {
+            SeedMinistries();
+            if (ministries == null || StrategySession.Campaign == null) return;
+            int year = ElectionYear();
+            List<Person> roster = ElectionRoster();
+
+            for (int f = 0; f < DemoFactions.Length; f++)
+            {
+                Faction fac = DemoFactions[f];
+                List<Ministry> tree = ministries[f];
+                FactionState s = StateOf(fac);
+                if (tree == null || s == null) continue;
+
+                bool created = s.civilService == null;
+                if (created) s.civilService = new CivilServiceState(); // 新規/旧セーブの初期化は1回だけ
+                CivilServiceState st = s.civilService;
+
+                if (!created) CivilServicePostRules.SyncStaffing(tree, st); // 台帳を正として配属を復元（読込後の同期）
+                PurgeUnavailableStaff(tree, st);                            // 台帳に無い配属の死亡/捕虜だけ後始末
+
+                var reasons = new List<string>();
+                var counts = new List<int>();
+                int migrated = created ? MigrateExistingMinistryStaff(fac, tree, st, roster, year, reasons, counts) : 0;
+
+                CivilServiceAnnualReport rep = CivilServiceAnnualRules.TickYear(
+                    s.politics, fac, tree, roster, year, st, CivilServicePrm, CivilServiceAnnualPrm);
+                NotifyCivilServiceAnnual(fac, rep, migrated, reasons, counts);
+            }
+        }
+
+        /// <summary>
+        /// 台帳を持たなかった勢力の既存の配属を、同じ省の一般官僚として台帳へ写す（移行専用の入口へ委譲・1勢力1回）。
+        /// 登録できない人物（死亡・拘束・他勢力・在野・軍人・政治家）は配属を触らずに理由だけ集める＝状態の一部だけを壊さない。
+        /// </summary>
+        /// <returns>写した人数。</returns>
+        private int MigrateExistingMinistryStaff(Faction fac, List<Ministry> tree, CivilServiceState st,
+            List<Person> roster, int year, List<string> reasons, List<int> counts)
+        {
+            int migrated = 0;
+            for (int m = 0; m < tree.Count; m++)
+            {
+                Ministry mn = tree[m];
+                if (mn == null || mn.staffIds == null) continue;
+                for (int i = 0; i < mn.staffIds.Count; i++) // 移行は staffIds を変えない＝そのまま前から走査してよい
+                {
+                    if (CivilServicePostRules.MigrateExistingStaff(tree, fac, mn.id, mn.staffIds[i], roster, year,
+                            "既存の配属を人事台帳へ移行", st, out string problem))
+                        migrated++;
+                    else if (problem != null)
+                        BumpReason(reasons, counts, problem);
+                }
+            }
+            return migrated;
+        }
+
+        /// <summary>同じ理由はまとめて数える（通知を理由の羅列で氾濫させない）。</summary>
+        private static void BumpReason(List<string> reasons, List<int> counts, string reason)
+        {
+            if (string.IsNullOrEmpty(reason)) return;
+            for (int i = 0; i < reasons.Count; i++)
+                if (reasons[i] == reason) { counts[i]++; return; }
+            reasons.Add(reason);
+            counts.Add(1);
+        }
+
+        /// <summary>
+        /// 年次人事の結果を人事通知へ1件だけ流す（勢力ごと）。要約（退職/昇任/配属/見送りの件数）＋変更明細（人物名・省名・職位を
+        /// <see cref="MaxCivilServiceChangeNotices"/> 件まで）＋見送りの理由（同じ理由はまとめ <see cref="MaxCivilServiceSkipNotices"/> 種まで）。
+        /// 載せなかったぶんは件数に丸める（黙って捨てない）。変化も見送りも無ければ通知しない。
+        /// </summary>
+        private void NotifyCivilServiceAnnual(Faction fac, CivilServiceAnnualReport rep, int migrated,
+            List<string> reasons, List<int> counts)
+        {
+            if (rep == null) return;
+            int migrationSkips = 0;
+            for (int i = 0; i < counts.Count; i++) migrationSkips += counts[i];
+            if (rep.TotalChanges == 0 && rep.skippedCount == 0 && migrated == 0 && migrationSkips == 0) return;
+
+            var sb = new StringBuilder();
+            sb.Append(fac).Append(" 官僚の年次人事：退職").Append(rep.retiredCount)
+              .Append("・昇任").Append(rep.promotedCount)
+              .Append("・配属").Append(rep.assignedCount)
+              .Append("・見送り").Append(rep.skippedCount + migrationSkips);
+            if (migrated > 0) sb.Append("（既存の配属を台帳へ移行 ").Append(migrated).Append("名）");
+
+            // 変更明細（退職・昇任・配属）
+            var detail = new StringBuilder();
+            int shown = 0, changes = 0;
+            for (int i = 0; i < rep.entries.Count; i++)
+            {
+                CivilServiceAnnualEntry e = rep.entries[i];
+                if (e == null) continue;
+                if (e.kind == CivilServiceAnnualKind.見送り) { BumpReason(reasons, counts, e.reason); continue; }
+                changes++;
+                if (shown >= MaxCivilServiceChangeNotices) continue;
+                if (shown > 0) detail.Append('・');
+                detail.Append(ElectionPersonName(e.personId)).Append('（').Append(e.ministryName).Append(' ')
+                      .Append(e.grade).Append('）').Append(e.kind);
+                shown++;
+            }
+            if (shown > 0)
+            {
+                sb.Append('／').Append(detail);
+                if (changes > shown) sb.Append(" ほか").Append(changes - shown).Append('件');
+            }
+
+            // 見送りの理由（対応が要るもの＝承認権者の空席・候補なし・資格不足）
+            if (reasons.Count > 0)
+            {
+                sb.Append("／見送り：");
+                int listed = 0, covered = 0;
+                for (int i = 0; i < reasons.Count && listed < MaxCivilServiceSkipNotices; i++)
+                {
+                    if (listed > 0) sb.Append('・');
+                    sb.Append(reasons[i]);
+                    if (counts[i] > 1) sb.Append('×').Append(counts[i]);
+                    covered += counts[i];
+                    listed++;
+                }
+                int omitted = rep.skippedCount + migrationSkips - covered; // 明細に載らなかった見送り（打切りぶんを含む）
+                if (omitted > 0) sb.Append(" ほか").Append(omitted).Append('件');
+            }
+
+            NotificationCenter.Push(NotificationCategory.人事,
+                rep.retiredCount > 0 ? NotificationSeverity.注意 : NotificationSeverity.情報, sb.ToString());
+        }
+
+        /// <summary>試験用：年次の官僚人事（台帳の初期化・移行・同期を含む本番と同じ経路）。</summary>
+        public void RunCivilServiceAnnualTickForQa() => RunCivilServiceAnnualTick();
 
         /// <summary>勢力の省庁（太政官ツリー）の内政寄与＝名実の乖離で朝廷の権威ぶん減衰（<see cref="MinistryAdminRules"/>）。</summary>
         private float MinistryCentralBonus(Faction owner)

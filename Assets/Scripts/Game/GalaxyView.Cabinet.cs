@@ -319,6 +319,254 @@ namespace Ginei
             return r;
         }
 
+        // ===== 省内職位の人事メニューの操作入口（#141：直接実行 or 稟議への上申） =====
+        // 操作者は PlayerCharacter()（主人公）だけ＝UI から任意の人物を操作者に渡せない。
+        // 可否・資格・空席・在職年・承認権限は CivilServicePostRules.Check/Execute だけが判定する（ここでは判定しない）。
+        // 権限があれば即時に台帳へ反映し、権限外なら既存の稟議（Petition）＋決裁カード（PendingDecision）へ載せて裁可を仰ぐ。
+        // 裁可後の実行も同じ CivilServicePostRules.Execute を1回だけ通る（RingiDirector.OnResolved → ExecuteApprovedCivilServicePost）。
+
+        /// <summary>人事の稟議で使う決裁id の番号帯（税 80000／編制 85000 と衝突させない）。</summary>
+        public const int CivilServiceDecisionIdBand = 87000;
+
+        /// <summary>人事メニューが読む材料（操作者の勢力の政治状態・省庁・名簿・暦年・人事台帳）。組めなければ理由を返す。</summary>
+        public struct CivilServiceOperation
+        {
+            public Person actor;
+            public Faction faction;
+            public PoliticsState politics;
+            public List<Ministry> tree;
+            public List<Person> roster;
+            public int year;
+            /// <summary>人事台帳（<see cref="FactionState.civilService"/>＝単一の出所）。</summary>
+            public CivilServiceState ledger;
+            /// <summary>組めない理由（組めたら null）。</summary>
+            public string problem;
+        }
+
+        /// <summary>いまの操作者（主人公）で人事の材料を組む（状態は変えない・省庁のシードもしない）。</summary>
+        public CivilServiceOperation CivilServiceOperationForPlayer() => CivilServiceOperationFor(PlayerCharacter());
+
+        /// <summary>指定の人物を操作者として人事の材料を組む（裁可の時点で決裁権者を通すためにも使う・状態は変えない）。</summary>
+        private CivilServiceOperation CivilServiceOperationFor(Person actor)
+        {
+            var op = new CivilServiceOperation { actor = actor };
+            if (actor == null) { op.problem = "操作する人物（主人公）が特定できない"; return op; }
+            op.faction = actor.faction;
+            FactionState s = StateOf(op.faction);
+            if (s == null || s.politics == null) { op.problem = op.faction + " に政治状態がない"; return op; }
+            op.politics = s.politics;
+            int idx = FactionIndex(op.faction);
+            op.tree = ministries != null && idx >= 0 && idx < ministries.Length ? ministries[idx] : null;
+            if (op.tree == null) { op.problem = op.faction + " の省庁が編成されていない"; return op; }
+            op.roster = ElectionRoster();
+            op.year = ElectionYear();
+            op.ledger = s.civilService;
+            // 台帳の初期化と既存配属の移行は年次人事（RunCivilServiceAnnualTick）の領分＝ここでは作らない（移行を飛ばさない）。
+            if (op.ledger == null) op.problem = "人事台帳がまだ作られていない（年次の官僚人事で初期化される）";
+            return op;
+        }
+
+        /// <summary>
+        /// 主人公が行う人事の<b>見込み</b>（状態は変えない）。<see cref="CivilServicePostRules.Check"/> そのもの＝
+        /// ok なら直接実行できる、<see cref="AppointmentResult.canPetition"/> なら上申になる、それ以外は理由つきで受け付けない。
+        /// </summary>
+        public AppointmentResult PreviewPlayerCivilServicePost(int ministryId, CivilServiceAction action, int personId,
+            BureaucratGrade targetGrade)
+        {
+            CivilServiceOperation op = CivilServiceOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            return CivilServicePostRules.Check(op.politics, op.faction, op.actor.id, op.tree, ministryId, action, personId,
+                targetGrade, op.roster, op.year, op.ledger, CivilServicePrm);
+        }
+
+        /// <summary>
+        /// 主人公が人事を申し出る<b>唯一の入口</b>（操作画面はここを呼ぶ）。権限があれば即時に実行し、
+        /// 権限外なら決裁デスクへ上申する（同じ未解決の人事は二重に起票しない）。理由は空なら既定文を使う。
+        /// 台帳が動くのは「直接実行」か「裁可の執行」のどちらか一度だけ。
+        /// </summary>
+        public CivilServiceRequestResult SubmitPlayerCivilServicePost(int ministryId, CivilServiceAction action,
+            int personId, BureaucratGrade targetGrade, string reason)
+        {
+            CivilServiceOperation op = CivilServiceOperationForPlayer();
+            if (op.problem != null) return CivilServiceRequestResult.Rejected(op.problem);
+
+            string why = CivilServiceRingiRules.SafeReason(action, reason);
+            AppointmentResult check = CivilServicePostRules.Check(op.politics, op.faction, op.actor.id, op.tree, ministryId,
+                action, personId, targetGrade, op.roster, op.year, op.ledger, CivilServicePrm);
+
+            if (check.ok)
+            {
+                AppointmentResult done = CivilServicePostRules.Execute(op.politics, op.faction, op.actor.id, op.tree,
+                    ministryId, action, personId, targetGrade, op.roster, op.year, why, op.ledger, CivilServicePrm);
+                if (!done.ok) return CivilServiceRequestResult.Rejected(done.reason);
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{op.faction} {done.reason}（決裁 {op.actor.name}・理由：{why}）");
+                return CivilServiceRequestResult.Executed(done.reason);
+            }
+
+            if (!check.canPetition || check.petitionToId < 0)
+                return CivilServiceRequestResult.Rejected(check.reason);
+            return RaiseCivilServicePetition(op, ministryId, action, personId, targetGrade, why, check);
+        }
+
+        /// <summary>
+        /// 権限外の人事を決裁デスクへ上申する（既存の稟議台帳＋決裁カードの経路をそのまま使う）。
+        /// ★人事は官僚機構の生存ロール（<see cref="PetitionFlowRules"/>）で握り潰さない＝権限外の操作を正規の上申先へ必ず届ける。
+        /// ★省益（<see cref="MinistryRules.DomainFriction"/>）で人事の内容を値切らない＝摩擦は 0（人事は規模を持たない二値の決定）。
+        /// </summary>
+        private CivilServiceRequestResult RaiseCivilServicePetition(in CivilServiceOperation op, int ministryId,
+            CivilServiceAction action, int personId, BureaucratGrade targetGrade, string why, in AppointmentResult auth)
+        {
+            BureaucratGrade grade = CivilServiceRingiRules.ResolveApprovalGrade(op.ledger, action, personId, targetGrade);
+            var req = new CivilServicePostRequest(action, ministryId, personId, grade);
+            string effectKey = CivilServiceRingiRules.Encode(req);
+            if (HasPendingCivilServiceDecision(effectKey))
+                return CivilServiceRequestResult.Rejected("同じ人事がすでに決裁待ちです（二重に起票しない）");
+
+            Ministry ministry = MinistryRules.Get(op.tree, ministryId);
+            string ministryName = ministry != null ? (ministry.ministryName ?? "") : "省#" + ministryId;
+            string personLabel = CabinetPersonName(personId);
+            string title = CivilServiceRingiRules.Describe(req, ministryName, personLabel, grade);
+
+            var pet = new Petition(0, title, op.faction, BoxKind.政治家, PetitionOrigin.建白, effectKey)
+            {
+                drafterId = op.actor.id,
+                carrierId = op.actor.id,
+                addresseeId = auth.petitionToId,
+            };
+            if (!RingiPipeline.Submit(RingiDirector.Ledger, pet))
+                return CivilServiceRequestResult.Rejected("稟議を起票できませんでした");
+            RingiPipeline.SendToDecision(pet); // 伝播の生存ロールを挟まず決裁待ちへ（握り潰さない）
+
+            Person addressee = FindPersonById(auth.petitionToId);
+            string addresseeLabel = addressee != null ? addressee.name : CabinetPersonName(auth.petitionToId);
+            string body = CivilServiceRingiRules.ComposeBody(title,
+                ministryName + " ／ " + personLabel + "（" + grade + "）", op.actor.name, addresseeLabel, auth.reason, why);
+
+            var pd = new PendingDecision(DecisionDeck.NextDecisionId(CivilServiceDecisionIdBand), title,
+                DecisionSeverity.通常, DecisionSource.建白結果, effectKey, defaultChoiceIndex: 1, body: body);
+            pd.choices.Add("裁可する");
+            pd.choices.Add("見送る（現状維持）");
+            pd.petitionId = pet.id;   // 稟議との対応はカード自身が持つ（シーン往復・保存で失わない）
+            pd.friction = 0f;         // 人事は省益で骨抜きにしない
+            pd.proposerId = op.actor.id;
+            pd.proposerName = op.actor.name;
+            pd.deciderId = auth.petitionToId;
+            pd.deciderName = addresseeLabel;
+            pd.authorityBasis = auth.reason;
+            DecisionDeck.Enqueue(pd);
+
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                $"［人事上申］{title} が決裁待ち（決裁 {addresseeLabel}・右下の決裁デスクへ）");
+            return CivilServiceRequestResult.Petitioned(pd.id, auth.petitionToId, effectKey, auth.reason);
+        }
+
+        /// <summary>同じ人事（同じ効果キー）の決裁が未解決で残っているか（シーン往復・保存でも失わないカードから判定）。</summary>
+        private static bool HasPendingCivilServiceDecision(string effectKey)
+        {
+            DecisionQueue q = DecisionDeck.Queue;
+            if (q == null || string.IsNullOrEmpty(effectKey)) return false;
+            for (int i = 0; i < q.items.Count; i++)
+            {
+                PendingDecision d = q.items[i];
+                if (d == null || DecisionResolutionRules.IsSettled(d)) continue;
+                if (string.Equals(d.effectKey, effectKey, System.StringComparison.Ordinal)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// その人物がその人事を承認できるか（決裁・上申・見込み表示で共通）。
+        /// ★一般の効果キーの分野推定（<see cref="DecisionAuthorityRules.DomainOf"/>→内政）で代用せず、
+        /// 復号した省・段・人物を <see cref="CivilServicePostRules.ApprovalAuthority"/> へ渡す＝内閣人事局の承認権限そのもので判定する。
+        /// 毎回その時点の内閣・委任・名簿から組み直す（大臣交代・委任の期限切れ・首相交代を古い権限で通さない）。
+        /// </summary>
+        public DecisionAuthorityResult EvaluateCivilServiceAuthority(Person actor, string effectKey)
+        {
+            if (!CivilServiceRingiRules.TryDecode(effectKey, out CivilServicePostRequest req))
+                return new DecisionAuthorityResult(DecisionAuthority.権限外, "人事の内容を復元できません（効果キーが不正）");
+            if (actor == null)
+                return new DecisionAuthorityResult(DecisionAuthority.権限外, "決裁する人物がいません");
+
+            CivilServiceOperation op = CivilServiceOperationFor(actor);
+            if (op.problem != null) return new DecisionAuthorityResult(DecisionAuthority.権限外, op.problem);
+            if (actor.id == req.personId)
+                return new DecisionAuthorityResult(DecisionAuthority.権限外, "官僚本人が自分の人事を承認することはできない");
+
+            BureaucratGrade grade = CivilServiceRingiRules.ResolveApprovalGrade(op.ledger, req.action, req.personId, req.targetGrade);
+            AppointmentResult a = CivilServicePostRules.ApprovalAuthority(op.politics, op.faction, actor.id, req.ministryId,
+                grade, op.roster, op.year);
+            if (a.ok) return new DecisionAuthorityResult(DecisionAuthority.裁可, a.reason);
+            if (a.canPetition && a.petitionToId >= 0 && a.petitionToId != actor.id)
+            {
+                Person to = FindPersonById(a.petitionToId);
+                return new DecisionAuthorityResult(DecisionAuthority.上申, a.reason, a.petitionToId,
+                    to != null ? to.name : "");
+            }
+            return new DecisionAuthorityResult(DecisionAuthority.権限外, a.reason);
+        }
+
+        /// <summary>
+        /// 裁可された人事を執行する（<see cref="RingiDirector"/> の決裁確定から1回だけ呼ばれる）。
+        /// <b>決裁の時点の状態でやり直す</b>＝承認権限を改めて引き、<see cref="CivilServicePostRules.Execute"/> が
+        /// 資格・空席・在職年をもう一度通す。空席が消えた・資格を失った・すでに異動した等なら台帳を変えず理由を返す
+        /// （承認できたことと、実際に効いたことを区別する）。
+        /// </summary>
+        public PetitionActionResult ExecuteApprovedCivilServicePost(Faction faction, int deciderId, string effectKey,
+            string reason)
+        {
+            if (!CivilServiceRingiRules.TryDecode(effectKey, out CivilServicePostRequest req))
+                return PetitionActionResult.Fail(PetitionActionOutcome.対象なし, "人事の内容を復元できませんでした（効果キーが不正）");
+
+            Person approver = ResolveCivilServiceApprover(faction, deciderId, effectKey, out string problem);
+            if (approver == null) return PetitionActionResult.Fail(PetitionActionOutcome.対象外, problem);
+
+            CivilServiceOperation op = CivilServiceOperationFor(approver);
+            if (op.problem != null) return PetitionActionResult.Fail(PetitionActionOutcome.対象外, op.problem);
+
+            string why = string.IsNullOrEmpty(reason)
+                ? CivilServiceRingiRules.DefaultReason(req.action)
+                : reason;
+            AppointmentResult r = CivilServicePostRules.Execute(op.politics, op.faction, approver.id, op.tree,
+                req.ministryId, req.action, req.personId, req.targetGrade, op.roster, op.year,
+                "稟議の裁可（理由：" + why + "）", op.ledger, CivilServicePrm);
+            if (!r.ok) return PetitionActionResult.Fail(PetitionActionOutcome.対象外, r.reason);
+
+            NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                $"{op.faction} {r.reason}（裁可 {approver.name}・理由：{why}）");
+            return new PetitionActionResult(PetitionActionOutcome.実行, r.reason, 1f);
+        }
+
+        /// <summary>
+        /// 執行の時点で実際に承認できる決裁権者を選ぶ：カードに記録された決裁権者を優先し、
+        /// その人が承認できなくなっていれば現在の操作者（自分の権限で裁可した場合）を見る。どちらも承認できなければ null＋理由。
+        /// ＝起票時の権限で通さない（大臣交代・委任の期限切れ・首相交代・失職を執行の直前に弾く）。
+        /// </summary>
+        private Person ResolveCivilServiceApprover(Faction faction, int deciderId, string effectKey, out string problem)
+        {
+            problem = null;
+            string first = null;
+
+            Person recorded = FindPersonById(deciderId);
+            if (recorded != null && recorded.faction == faction)
+            {
+                DecisionAuthorityResult a = EvaluateCivilServiceAuthority(recorded, effectKey);
+                if (a.CanDecide) return recorded;
+                first = recorded.name + " は決裁の時点で承認できません（" + a.basis + "）";
+            }
+
+            Person actor = PlayerCharacter();
+            if (actor != null && actor.faction == faction && actor.id != deciderId)
+            {
+                DecisionAuthorityResult a = EvaluateCivilServiceAuthority(actor, effectKey);
+                if (a.CanDecide) return actor;
+                if (first == null) first = actor.name + " は決裁の時点で承認できません（" + a.basis + "）";
+            }
+
+            problem = first ?? "承認できる決裁権者がいません";
+            return null;
+        }
+
         /// <summary>人物名（名簿に無ければ 人物#id）。内閣人事メニューの表示用。</summary>
         public string CabinetPersonName(int personId) => personId < 0 ? "（空席）" : ElectionPersonName(personId);
 

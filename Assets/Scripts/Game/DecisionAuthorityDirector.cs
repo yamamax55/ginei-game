@@ -271,6 +271,13 @@ namespace Ginei
             if (gv == null)
                 return new DecisionAuthorityResult(DecisionAuthority.裁可, "盤面がないため判定を省略");
 
+            // ★省内職位の人事（#141）は<b>一般の効果キーの分野推定（DomainOf→内政）で代用しない</b>。
+            // 効果キーから省・段・人物を復号し、内閣人事局の承認権限（CivilServicePostRules.ApprovalAuthority）へ直接渡す
+            // ＝事務次官級＝首相／局長級以下＝所管大臣（有効な委任を受けた副大臣を含む）という同じ1つの判定を、
+            // 裁可・上申の確定・見込み表示・起票のすべてで通す。
+            if (CivilServiceRingiRules.IsCivilServiceKey(effectKey))
+                return gv.EvaluateCivilServiceAuthority(actor, effectKey);
+
             List<Office> offices = GovernmentRegistry.GetOffices(actor);
             CivilianControlType control = gv.CivilianControlOf(actor.faction);
 

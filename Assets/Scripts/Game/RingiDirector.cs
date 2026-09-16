@@ -508,6 +508,19 @@ namespace Ginei
                 return;
             }
 
+            // ★省内職位の人事（#141）は国家値・盤面の効果ではない＝通常の効果レジストリ（PetitionEffects/PetitionActionRules）へ
+            // 流さず専用の執行へ分ける。官僚の省益で人事の内容を値切らない（friction を実効量に使わない）。
+            // 一度きりの適用（ClaimForApply）・稟議の決裁（RingiPipeline.Decide）・結果の記録は上の共通経路のまま。
+            if (CivilServiceRingiRules.IsCivilServiceKey(pet.effectKey))
+            {
+                PetitionActionResult personnel = ExecuteCivilServicePersonnel(pet, d);
+                DecisionResolutionRules.RecordResult(d, personnel);
+                NotificationCenter.Push(NotificationCategory.人事,
+                    personnel.ok ? NotificationSeverity.情報 : NotificationSeverity.注意,
+                    $"［{(personnel.ok ? "執行" : "実行不可")}］{pet.title}：{personnel.detail}");
+                return;
+            }
+
             float applied;
             PetitionActionResult action;
             if (GovernanceRules.TryParsePolicyPetitionKey(pet.effectKey, out int policySystemId, out GovernancePolicy policy))
@@ -529,6 +542,28 @@ namespace Ginei
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
                 $"［執行］{pet.title}：実効 {applied * 100f:0}%（官僚に骨抜きされた）" +
                 (string.IsNullOrEmpty(action.detail) ? "" : $" ／ {action.detail}"));
+        }
+
+        /// <summary>
+        /// 承認された人事（省内職位・#141）の執行。判定と台帳の更新は <see cref="CivilServicePostRules.Execute"/> が
+        /// 唯一の窓口（<see cref="GalaxyView.ExecuteApprovedCivilServicePost"/> が決裁の時点の状態で通す）。
+        /// 理由はカード本文の最終行から取り出して人事履歴へ残す。執行できたら稟議を執行済みへ（実効は骨抜きにせず1.0）、
+        /// 執行できなければ実効0で閉じる＝「承認」のまま台帳に残さない。
+        /// </summary>
+        private static PetitionActionResult ExecuteCivilServicePersonnel(Petition pet, PendingDecision d)
+        {
+            GalaxyView gv = GalaxyView.Active;
+            if (gv == null)
+            {
+                WorkflowRules.Execute(pet, 0f); // 稟議は閉じる（在庫を占有させない）
+                return PetitionActionResult.Fail(PetitionActionOutcome.対象外, "盤面がありません");
+            }
+
+            string reason = CivilServiceRingiRules.ExtractReason(d != null ? d.body : "");
+            PetitionActionResult r = gv.ExecuteApprovedCivilServicePost(pet.faction,
+                d != null ? d.deciderId : -1, pet.effectKey, reason);
+            WorkflowRules.Execute(pet, r.ok ? 1f : 0f);
+            return r;
         }
 
         /// <summary>

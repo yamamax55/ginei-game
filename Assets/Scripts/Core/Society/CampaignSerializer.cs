@@ -114,7 +114,9 @@ namespace Ginei
                         budgetDiplomacy = fs.budget != null ? fs.budget.diplomacy : 0f,
                         fiscalDebt = fs.fiscal != null ? fs.fiscal.debt : 0f,
                         hasPolitics = fs.politics != null,
-                        politics = fs.politics
+                        politics = fs.politics,
+                        hasCivilService = fs.civilService != null,
+                        civilService = fs.civilService
                     });
                 }
             }
@@ -214,6 +216,12 @@ namespace Ginei
                 {
                     fs.politics = fss.politics;
                     ElectionCycleRules.NormalizeLoaded(fs.politics);
+                }
+                // 省内職位の人事台帳も旗が立っているときだけ戻す（旧セーブは null＝空の台帳）。読込では任命も解任もしない。
+                if (fss.hasCivilService && fss.civilService != null)
+                {
+                    fs.civilService = fss.civilService;
+                    CivilServicePostRules.NormalizeLoaded(fs.civilService);
                 }
                 state.states.Add(fs);
             }

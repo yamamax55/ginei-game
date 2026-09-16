@@ -44,6 +44,11 @@ namespace Ginei
         /// （二大政党への収束・選挙・分断危機）。budget/fiscal と同じく在席のセッション状態（セーブ非対象・null=未設定）。</summary>
         public PoliticsState politics;
 
+        /// <summary>省内職位の人事台帳＝職業官僚がどの省のどの段に就いているか（#141・<see cref="CivilServicePostRules"/>）。
+        /// 内閣の政治任用（<see cref="PoliticsState.cabinet"/>）とは別系統で、官位・考課・省庁の配属を再利用するだけ。
+        /// politics と同じく戦役セーブに乗る（旧セーブは null＝空の台帳として扱う）。</summary>
+        public CivilServiceState civilService;
+
         /// <summary>通貨状態＝固有名＋為替/物価/通貨供給（#通貨）。<see cref="CurrencyRules"/> が年次で回す
         /// （赤字の貨幣化→インフレ／財政健全度→為替）。budget/fiscal/politics と同じく在席のセッション状態
         /// （セーブ非対象・null=未設定＝復元時は名前を決定論で再割当）。</summary>

@@ -275,6 +275,10 @@ namespace Ginei
         // JsonUtility は null のクラスを空の既定値で書くので、必ずこの旗で有無を判定する。
         public bool hasPolitics;
         public PoliticsState politics;
+        // 省内職位の人事台帳（#141・在任の記録と退任済みの履歴）。politics と同じく旗で有無を判定する
+        // ＝hasCivilService=false（旧セーブ含む）は civilService を読まない＝null のまま復元する。
+        public bool hasCivilService;
+        public CivilServiceState civilService;
     }
 
     /// <summary>戦略艦隊（盤面の駒）のセーブ平データ。回廊上の精密位置（私有）は保存せず、停泊星系に再構築（移動中は目的地へ再ワープ）。</summary>

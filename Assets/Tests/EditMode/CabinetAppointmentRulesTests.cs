@@ -526,6 +526,43 @@ namespace Ginei.Tests
             Assert.IsFalse(Auth(w, 2, Hyobu, CabinetAction.閣僚任免).ok);
         }
 
+        /// <summary>党人事メニューの確認（Check*）は状態を変えず、実行（TryAppoint/Dismiss）と同じ可否・拒否理由を返す。</summary>
+        [Test]
+        public void PartyExecutives_CheckMatchesExecution_AndDoesNotMutate()
+        {
+            World w = NewWorld();
+            Party p = w.ruling;
+
+            // 権限外（党首でない）：確認も実行も同じ上申扱い・台帳は不変
+            AppointmentResult c1 = PartyExecutiveRules.CheckAppoint(w.pol, F, p, 2, PartyPost.幹事長, 3, w.roster, Prm);
+            Assert.AreEqual(0, p.postHistory.Count);
+            AppointmentResult r1 = PartyExecutiveRules.TryAppoint(w.pol, F, p, 2, PartyPost.幹事長, 3, w.roster, Year, "試験", Prm);
+            Assert.IsFalse(c1.ok);
+            Assert.AreEqual(r1.reason, c1.reason);
+            Assert.AreEqual(r1.petitionToId, c1.petitionToId);
+            Assert.AreEqual(-1, PartyOrganizationRules.HolderOf(p, PartyPost.幹事長));
+
+            // 不適格：同じ理由
+            Assert.AreEqual(PartyExecutiveRules.TryAppoint(w.pol, F, p, 1, PartyPost.幹事長, 8, w.roster, Year, "", Prm).reason,
+                            PartyExecutiveRules.CheckAppoint(w.pol, F, p, 1, PartyPost.幹事長, 8, w.roster, Prm).reason);
+
+            // 党首本人・適格：確認は可だが就任も履歴も起きない
+            AppointmentResult c2 = PartyExecutiveRules.CheckAppoint(w.pol, F, p, 1, PartyPost.幹事長, 2, w.roster, Prm);
+            Assert.IsTrue(c2.ok, c2.reason);
+            Assert.AreEqual(-1, PartyOrganizationRules.HolderOf(p, PartyPost.幹事長), "確認で就任した");
+            Assert.AreEqual(0, p.postHistory.Count, "確認で履歴が増えた");
+            Assert.IsTrue(PartyExecutiveRules.TryAppoint(w.pol, F, p, 1, PartyPost.幹事長, 2, w.roster, Year, "試験", Prm).ok);
+
+            // 解任の確認：権限外は同じ理由、党首本人は可だが在任は変わらない
+            Assert.AreEqual(PartyExecutiveRules.Dismiss(p, F, 3, PartyPost.幹事長, w.roster, Year, "権限外", Prm).reason,
+                            PartyExecutiveRules.CheckDismiss(p, F, 3, PartyPost.幹事長, w.roster, Prm).reason);
+            int historyBefore = p.postHistory.Count;
+            Assert.IsTrue(PartyExecutiveRules.CheckDismiss(p, F, 1, PartyPost.幹事長, w.roster, Prm).ok);
+            Assert.AreEqual(2, PartyOrganizationRules.HolderOf(p, PartyPost.幹事長), "解任の確認で失職した");
+            Assert.AreEqual(historyBefore, p.postHistory.Count);
+            StringAssert.Contains("既に空席", PartyExecutiveRules.CheckDismiss(p, F, 1, PartyPost.政調会長, w.roster, Prm).reason);
+        }
+
         [Test]
         public void PartyExecutives_DepartureLeaderChangeAndAbsence_ClearOldAuthority()
         {

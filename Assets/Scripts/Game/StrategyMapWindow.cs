@@ -876,6 +876,8 @@ namespace Ginei
                 ("人事",   () => UnityEngine.Object.FindAnyObjectByType<PersonObserverOverlay>()?.Toggle()),
                 // 内閣人事（#2768）：首相の閣僚任免・大臣の副大臣への委任をクリックで操作する窓
                 ("内閣人事", CabinetAppointmentPanel.Toggle),
+                // 党人事（#2768 #159）：党首が党三役（幹事長・政調会長・総務会長）を任免する窓
+                ("党人事",   PartyExecutivePanel.Toggle),
             }),
             ("システム", new (string, System.Action)[]
             {

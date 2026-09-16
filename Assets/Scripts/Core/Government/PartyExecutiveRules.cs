@@ -69,6 +69,17 @@ namespace Ginei
         /// </summary>
         public static AppointmentResult TryAppoint(PoliticsState pol, Faction f, Party party, int actorId, PartyPost post, int personId,
             IList<Person> roster, int year, string reason, CabinetParams prm)
+            => AppointCore(pol, f, party, actorId, post, personId, roster, year, reason, prm, false);
+
+        /// <summary>
+        /// 任命の確認（状態は変えない）。<see cref="TryAppoint"/> と同じ判定の順序・理由を返す＝党人事メニューの確認表示と実行時の再判定が食い違わない。
+        /// </summary>
+        public static AppointmentResult CheckAppoint(PoliticsState pol, Faction f, Party party, int actorId, PartyPost post, int personId,
+            IList<Person> roster, CabinetParams prm)
+            => AppointCore(pol, f, party, actorId, post, personId, roster, 0, "", prm, true);
+
+        private static AppointmentResult AppointCore(PoliticsState pol, Faction f, Party party, int actorId, PartyPost post, int personId,
+            IList<Person> roster, int year, string reason, CabinetParams prm, bool dryRun)
         {
             if (party == null) return AppointmentResult.Deny("党がない");
             if (post == PartyPost.党首) return AppointmentResult.Deny("党首は総裁選で選ぶ（任命しない）");
@@ -83,6 +94,7 @@ namespace Ginei
                                                                           : post + " には在任者（人物#" + current.holderId + "）がいる＝先に解任");
             string problem = CandidateProblem(pol, f, party, personId, roster, prm);
             if (problem != null) return AppointmentResult.Deny(problem);
+            if (dryRun) return AppointmentResult.Allow(party.partyName + " " + post + " に人物#" + personId + " を任命できる（党首の任命）");
 
             bool continued = WasJustVacatedBy(party, post, personId, year);
             if (!PartyOrganizationRules.AppointPost(party, post, personId)) return AppointmentResult.Deny("党籍がない");
@@ -120,6 +132,14 @@ namespace Ginei
         /// <summary>党三役を解任する（党首本人のみ）。</summary>
         public static AppointmentResult Dismiss(Party party, Faction f, int actorId, PartyPost post, IList<Person> roster, int year,
             string reason, CabinetParams prm)
+            => DismissCore(party, f, actorId, post, roster, year, reason, prm, false);
+
+        /// <summary>解任の確認（状態は変えない）。<see cref="Dismiss"/> と同じ判定。</summary>
+        public static AppointmentResult CheckDismiss(Party party, Faction f, int actorId, PartyPost post, IList<Person> roster, CabinetParams prm)
+            => DismissCore(party, f, actorId, post, roster, 0, "", prm, true);
+
+        private static AppointmentResult DismissCore(Party party, Faction f, int actorId, PartyPost post, IList<Person> roster, int year,
+            string reason, CabinetParams prm, bool dryRun)
         {
             if (party == null) return AppointmentResult.Deny("党がない");
             if (!PartyOrganizationRules.IsThreeLeadership(post)) return AppointmentResult.Deny(post + " は今回の任免の対象外");
@@ -129,6 +149,7 @@ namespace Ginei
                 return AppointmentResult.Petition("権限外：党三役の任免権者は党首（人物#" + leader + "）＝提案として扱う", leader);
             PartyAppointment a = AppointmentOf(party, post);
             if (a == null) return AppointmentResult.Deny(post + " は既に空席");
+            if (dryRun) return AppointmentResult.Allow(party.partyName + " " + post + " の人物#" + a.holderId + " を解任できる");
             int who = a.holderId;
             Vacate(party, f, post, who, year, "解任", string.IsNullOrEmpty(reason) ? "党首による解任" : reason, actorId, prm);
             return AppointmentResult.Allow(party.partyName + " " + post + " の人物#" + who + " を解任");

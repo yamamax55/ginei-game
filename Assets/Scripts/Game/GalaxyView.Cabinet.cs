@@ -14,7 +14,7 @@ namespace Ginei
 
         /// <summary>
         /// 内閣と党三役を現況へ合わせ（首相交代の総辞職・首相不在の職務執行・死亡/不在/離党の失職・党首交代の改任・委任の失効）、
-        /// <paramref name="autoFill"/> なら首相・党首を任命者として空席を補充する（空席だけを埋める＝手動で任命した在任者は差し替えない。手動任免は <see cref="CabinetAppointmentPanel"/> から同じ共通入口）。
+        /// <paramref name="autoFill"/> なら首相・党首を任命者として空席を補充する（空席だけを埋める＝手動で任命した在任者は差し替えない。手動任免は <see cref="CabinetAppointmentPanel"/>／党三役は <see cref="PartyExecutivePanel"/> から同じ共通入口）。
         /// 同じ状態で繰り返しても履歴・通知は増えない。<paramref name="notify"/> が false なら通知しない（読込時）。
         /// </summary>
         private void RunCabinetAndPartyExecutives(FactionState s, int year, List<Person> roster, bool notify, bool autoFill)
@@ -239,6 +239,83 @@ namespace Ginei
             if (r.ok)
                 NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                     $"{op.faction} {PostTitleOf(op, ministryId, CabinetPostKind.副大臣)} への委任を撤回（大臣 {op.actor.name}・理由：{reason.Trim()}）");
+            return r;
+        }
+
+        // ===== 党人事メニューの操作入口（#2768 #159 #165：党三役＝幹事長・政調会長・総務会長） =====
+        // 操作者は PlayerCharacter()（主人公）だけ。任免権者は PartyExecutiveRules が判定する「その党の正当な党首」本人のみ
+        // （他党の人物・党三役・党首でない首相は権限外）。党首は総裁選で選ぶため任命の入口を作らない。
+        // 確認（Check*）と実行は同じ PartyExecutiveRules の判定経路、在任・履歴は Party.posts / postHistory だけに書く。
+        // 党三役は政府の決裁・国庫・軍の指揮権を持たない（Core の PartyExecutiveRules.Authority のまま＝ここでは何も付与しない）。
+
+        /// <summary>党人事メニューが読む材料（操作者の勢力の政治状態・名簿・暦年）。組めなければ理由を返す。</summary>
+        public CabinetOperation PartyOperationForPlayer()
+        {
+            var op = new CabinetOperation { actor = PlayerCharacter(), topId = -1 };
+            if (op.actor == null) { op.problem = "操作する人物（主人公）が特定できない"; return op; }
+            op.faction = op.actor.faction;
+            FactionState s = StateOf(op.faction);
+            if (s == null || s.politics == null) { op.problem = op.faction + " に政治状態がない"; return op; }
+            op.politics = s.politics;
+            op.roster = ElectionRoster();
+            op.year = ElectionYear();
+            if (s.politics.parties == null || s.politics.parties.Count == 0)
+                op.problem = "政党がない（選挙政治の政体で政党が置かれてから操作できる）";
+            return op;
+        }
+
+        /// <summary>操作者の勢力の党（無ければ null）。</summary>
+        private static Party OperationPartyOf(CabinetOperation op, int partyId)
+            => op.politics != null ? ElectionCycleRules.FindParty(op.politics.parties, partyId) : null;
+
+        public AppointmentResult CheckPlayerPartyAppoint(int partyId, PartyPost post, int personId)
+        {
+            CabinetOperation op = PartyOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            Party party = OperationPartyOf(op, partyId);
+            if (party == null) return AppointmentResult.Deny(op.faction + " に党#" + partyId + " がない");
+            return PartyExecutiveRules.CheckAppoint(op.politics, op.faction, party, op.actor.id, post, personId, op.roster, CabinetPrm);
+        }
+
+        /// <summary>主人公が党首として党三役を任命する（実行時に共通入口で再判定）。理由は必須。</summary>
+        public AppointmentResult PlayerPartyAppoint(int partyId, PartyPost post, int personId, string reason)
+        {
+            CabinetOperation op = PartyOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            Party party = OperationPartyOf(op, partyId);
+            if (party == null) return AppointmentResult.Deny(op.faction + " に党#" + partyId + " がない");
+            if (string.IsNullOrWhiteSpace(reason)) return AppointmentResult.Deny("任命の理由が未入力");
+            AppointmentResult r = PartyExecutiveRules.TryAppoint(op.politics, op.faction, party, op.actor.id, post, personId, op.roster, op.year,
+                "党首の任命（理由：" + reason.Trim() + "）", CabinetPrm);
+            if (r.ok)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                    $"{op.faction} {party.partyName} {post} に {ElectionPersonName(personId)} を任命（党首 {op.actor.name}・理由：{reason.Trim()}）");
+            return r;
+        }
+
+        public AppointmentResult CheckPlayerPartyDismiss(int partyId, PartyPost post)
+        {
+            CabinetOperation op = PartyOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            Party party = OperationPartyOf(op, partyId);
+            if (party == null) return AppointmentResult.Deny(op.faction + " に党#" + partyId + " がない");
+            return PartyExecutiveRules.CheckDismiss(party, op.faction, op.actor.id, post, op.roster, CabinetPrm);
+        }
+
+        /// <summary>主人公が党首として党三役を解任する（実行時に共通入口で再判定）。理由は必須。</summary>
+        public AppointmentResult PlayerPartyDismiss(int partyId, PartyPost post, string reason)
+        {
+            CabinetOperation op = PartyOperationForPlayer();
+            if (op.problem != null) return AppointmentResult.Deny(op.problem);
+            Party party = OperationPartyOf(op, partyId);
+            if (party == null) return AppointmentResult.Deny(op.faction + " に党#" + partyId + " がない");
+            if (string.IsNullOrWhiteSpace(reason)) return AppointmentResult.Deny("解任の理由が未入力");
+            int who = PartyOrganizationRules.HolderOf(party, post);
+            AppointmentResult r = PartyExecutiveRules.Dismiss(party, op.faction, op.actor.id, post, op.roster, op.year,
+                "党首の解任（理由：" + reason.Trim() + "）", CabinetPrm);
+            if (r.ok)
+                NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.注意,
+                    $"{op.faction} {party.partyName} {post} {ElectionPersonName(who)} を解任（党首 {op.actor.name}・理由：{reason.Trim()}）");
             return r;
         }
 

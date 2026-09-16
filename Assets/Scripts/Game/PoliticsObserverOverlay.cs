@@ -656,7 +656,38 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             WindowChrome.AddTitleBarLayout(frameRT, "政治", () => SetVisible(false));
+            BuildPartyMenuButton(frame.transform);
             BuildScrollBody(frame.transform);
+        }
+
+        [Tooltip("党人事メニューを開くボタンの高さ")]
+        public float partyMenuButtonHeight = 36f;
+
+        /// <summary>党人事メニュー（#2768 #159）をクリックで開く入口。観測は read-only のまま、操作は専用メニュー側で共通入口を通す。</summary>
+        private void BuildPartyMenuButton(Transform parent)
+        {
+            GameObject go = new GameObject("PartyMenuButton", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = partyMenuButtonHeight; le.preferredHeight = partyMenuButtonHeight; le.flexibleHeight = 0f;
+            Image img = go.AddComponent<Image>();
+            img.color = new Color(0.20f, 0.18f, 0.10f, 1f);
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(PartyExecutivePanel.Show);
+
+            GameObject textGo = new GameObject("Text", typeof(RectTransform));
+            textGo.transform.SetParent(go.transform, false);
+            TextMeshProUGUI t = textGo.AddComponent<TextMeshProUGUI>();
+            t.text = "党人事を開く（党首＝幹事長・政調会長・総務会長の任免）";
+            t.fontSize = bodyFontSize;
+            t.color = new Color(1f, 0.92f, 0.62f);
+            t.alignment = TextAlignmentOptions.Center;
+            t.raycastTarget = false;
+            ApplyJapaneseFont(t);
+            RectTransform rt = t.rectTransform;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         }
 
         private void BuildScrollBody(Transform parent)

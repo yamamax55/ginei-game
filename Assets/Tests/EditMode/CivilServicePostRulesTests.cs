@@ -10,7 +10,9 @@ namespace Ginei.Tests
     /// 官位／考課／最低在職年の不足、当該省に在籍しない・他勢力・死亡の拒否、1省1職位の重複と飛び級の拒否、空席定員、
     /// 内閣人事局の承認（事務次官級＝首相／局長級以下＝所管大臣・委任を受けた副大臣だけ・期限切れ／政務官・党三役・本人は不可）、
     /// 省内職位が軍指揮権・政府決裁権を生まないこと、確認が状態を変えず実行と同じ判定であること、保存往復と旧セーブ、履歴上限と打切り件数、
-    /// 台帳の配列が欠けていても確認・拒否は何も作らず（成功したときだけ実行直前に用意する）こと。
+    /// 台帳の配列が欠けていても確認・拒否は何も作らず（成功したときだけ実行直前に用意する）こと、
+    /// 既存の配属（Ministry.staffIds）との整合（重複なしの枠で定員を数える・配属を書き込めないなら台帳も確定しない・昇任/降任は配属を動かさない・
+    /// 台帳へ未移行の既存配属者は配属で別の省へ移せず異動だけが省を移す／同じ省なら台帳へ初回登録できる）。
     /// </summary>
     public class CivilServicePostRulesTests
     {
@@ -362,6 +364,182 @@ namespace Ginei.Tests
                 CivilServiceAction.配属, Bur21, BureaucratGrade.一般官僚, w2.roster, Year, "", w2.civil, Prm);
             Assert.IsFalse(over.ok);
             StringAssert.Contains("配属定員がいっぱい", over.reason);
+        }
+
+        // ===== 4b. 既存の配属（Ministry.staffIds）との整合 =====
+
+        [Test]
+        public void MinistryCapacity_CountsExistingStaffingAndLedgerWithoutDoubleCounting()
+        {
+            // ① 台帳へ移していない既存の配属だけで満員＝台帳が空でも定員を超えさせない
+            World w = NewWorld();
+            w.M(Hyobu).staffSlots = 1;
+            MinistryRules.AssignOfficial(w.tree, Hyobu, Bur21);
+            Assert.AreEqual(1, CivilServicePostRules.OccupiedStaffCount(w.M(Hyobu), w.civil));
+            AppointmentResult full = Ex(w, Minister, Hyobu, CivilServiceAction.配属, Bur20);
+            Assert.IsFalse(full.ok);
+            StringAssert.Contains("配属定員がいっぱい", full.reason);
+            Assert.AreEqual(0, w.civil.records.Count, "拒否では台帳が動かない");
+            Assert.IsFalse(w.M(Hyobu).staffIds.Contains(Bur20));
+            Assert.IsFalse(Ck(w, Minister, Hyobu, CivilServiceAction.配属, Bur20).ok, "確認も同じ結論");
+
+            // ② 台帳にしかいない在任者（読込直後で staffIds へ未反映）だけで満員
+            World w2 = NewWorld();
+            w2.M(Hyobu).staffSlots = 1;
+            w2.civil.records.Add(new CivilServiceRecord
+            {
+                ministryId = Hyobu, ministryName = "兵部省", personId = Bur21,
+                grade = BureaucratGrade.一般官僚, appointedYear = Year, status = CivilServiceStatus.在任
+            });
+            Assert.AreEqual(0, w2.M(Hyobu).staffIds.Count, "配属へはまだ写していない");
+            Assert.AreEqual(1, CivilServicePostRules.OccupiedStaffCount(w2.M(Hyobu), w2.civil));
+            AppointmentResult full2 = Ex(w2, Minister, Hyobu, CivilServiceAction.配属, Bur20);
+            Assert.IsFalse(full2.ok);
+            StringAssert.Contains("配属定員がいっぱい", full2.reason);
+            Assert.AreEqual(1, w2.civil.records.Count);
+
+            // ③ 両方に同じ人物がいても二重に数えない＝残りの空きは使える
+            World w3 = NewWorld();
+            w3.M(Hyobu).staffSlots = 2;
+            Assert.IsTrue(Ex(w3, Minister, Hyobu, CivilServiceAction.配属, Bur21).ok);
+            Assert.AreEqual(1, CivilServicePostRules.OccupiedStaffCount(w3.M(Hyobu), w3.civil), "staffIds と台帳の同じ人物で1枠");
+            Assert.AreEqual(0, CivilServicePostRules.OccupiedStaffCount(w3.M(Hyobu), w3.civil, Bur21), "本人ぶんは数えない");
+            Assert.IsTrue(Ex(w3, Minister, Hyobu, CivilServiceAction.配属, Bur20).ok, "残り1枠へは入れる");
+            Assert.AreEqual(0, CivilServicePostRules.OccupiedStaffCount(null, w3.civil), "null 安全");
+            Assert.AreEqual(0, CivilServicePostRules.OccupiedStaffCount(w3.M(Top), null));
+        }
+
+        [Test]
+        public void Transfer_RejectedWhenTargetIsFullWithExistingStaffingOnly()
+        {
+            World w = NewWorld();
+            w.M(Shikibu).staffSlots = 1;
+            MinistryRules.AssignOfficial(w.tree, Shikibu, LowRank); // 台帳に無い既存の配属で満員
+            Assert.IsTrue(Ex(w, Minister, Hyobu, CivilServiceAction.配属, Bur20).ok);
+
+            AppointmentResult r = CivilServicePostRules.Execute(w.pol, F, ShikibuMinister, w.tree, Shikibu,
+                CivilServiceAction.異動, Bur20, BureaucratGrade.一般官僚, w.roster, Year + 1, "式部省へ", w.civil, Prm);
+            Assert.IsFalse(r.ok);
+            StringAssert.Contains("配属定員がいっぱい", r.reason);
+            Assert.AreEqual(Hyobu, Serving(w, Bur20).ministryId, "拒否では台帳も配属も動かない");
+            Assert.AreEqual(1, w.civil.records.Count);
+            Assert.AreEqual(0, w.civil.history.Count);
+            Assert.IsTrue(w.M(Hyobu).staffIds.Contains(Bur20));
+            Assert.IsFalse(w.M(Shikibu).staffIds.Contains(Bur20));
+            Assert.IsTrue(w.M(Shikibu).staffIds.Contains(LowRank), "既存の配属者を押し出さない");
+        }
+
+        [Test]
+        public void Assign_IsAtomic_WhenMinistryStaffingCannotAcceptThePerson()
+        {
+            World w = NewWorld();
+            w.civil.records = null;
+            w.civil.history = null;
+            Ministry m = w.M(Hyobu);
+            m.staffSlots = 2;
+            m.staffIds.Add(LowRank);
+            m.staffIds.Add(LowRank); // 壊れた配属（重複）＝重複なしの枠は1つだが staffIds は書き込めない
+            Assert.AreEqual(1, CivilServicePostRules.OccupiedStaffCount(m, w.civil), "重複は1枠として数える");
+
+            AppointmentResult r = Ex(w, Minister, Hyobu, CivilServiceAction.配属, Bur20);
+            Assert.IsFalse(r.ok, "配属を書き込めないなら台帳も確定しない");
+            StringAssert.Contains("空きがない", r.reason);
+            Assert.IsNull(w.civil.records, "台帳と配属のどちらも動かない");
+            Assert.IsNull(w.civil.history);
+            Assert.AreEqual(2, m.staffIds.Count);
+            Assert.IsFalse(m.staffIds.Contains(Bur20));
+            Assert.IsFalse(Ck(w, Minister, Hyobu, CivilServiceAction.配属, Bur20).ok, "確認も同じ結論");
+        }
+
+        [Test]
+        public void Assign_RejectedWhenPersonIsAlreadyStaffedInAnotherMinistry()
+        {
+            // 台帳へ移していない既存の配属者を「配属」で別の省へ攫わない（省を移すのは台帳上の在任者の異動だけ）
+            World w = NewWorld();
+            w.civil.records = null;
+            w.civil.history = null;
+            MinistryRules.AssignOfficial(w.tree, Shikibu, Bur20);
+            Assert.AreEqual(Shikibu, CivilServicePostRules.FindStaffedMinistryId(w.tree, Bur20));
+
+            AppointmentResult r = Ex(w, Minister, Hyobu, CivilServiceAction.配属, Bur20);
+            Assert.IsFalse(r.ok, "配属では省を移せない");
+            StringAssert.Contains("式部省", r.reason);
+            StringAssert.Contains("異動", r.reason);
+            Assert.IsNull(w.civil.records, "拒否では台帳に触れない（欠けた配列も作らない）");
+            Assert.IsNull(w.civil.history);
+            Assert.IsTrue(w.M(Shikibu).staffIds.Contains(Bur20), "既存の配属は動かない");
+            Assert.IsFalse(w.M(Hyobu).staffIds.Contains(Bur20), "配属先へも入れない");
+            Assert.IsFalse(Ck(w, Minister, Hyobu, CivilServiceAction.配属, Bur20).ok, "確認も同じ結論");
+        }
+
+        [Test]
+        public void Assign_AllowedWhenPersonIsAlreadyStaffedInTheSameMinistry()
+        {
+            // 同じ省の既存配属者は移動ではない＝その省の台帳へ初めて載せられる
+            World w = NewWorld();
+            MinistryRules.AssignOfficial(w.tree, Hyobu, Bur20);
+            Assert.IsNull(Serving(w, Bur20), "台帳にはまだ載っていない");
+
+            AppointmentResult r = Ex(w, Minister, Hyobu, CivilServiceAction.配属, Bur20);
+            Assert.IsTrue(r.ok, r.reason);
+            CivilServiceRecord rec = Serving(w, Bur20);
+            Assert.AreEqual(Hyobu, rec.ministryId);
+            Assert.AreEqual(BureaucratGrade.一般官僚, rec.grade);
+            Assert.AreEqual(Year, rec.appointedYear);
+            Assert.AreEqual(1, w.M(Hyobu).staffIds.Count, "既存の配属を重複させない");
+            Assert.IsTrue(w.M(Hyobu).staffIds.Contains(Bur20));
+
+            // 台帳へ載せた後は、省を移すのは異動＝そちらは従来どおり通る
+            AppointmentResult t = CivilServicePostRules.Execute(w.pol, F, ShikibuMinister, w.tree, Shikibu,
+                CivilServiceAction.異動, Bur20, BureaucratGrade.一般官僚, w.roster, Year + 1, "式部省へ", w.civil, Prm);
+            Assert.IsTrue(t.ok, t.reason);
+            Assert.AreEqual(Shikibu, Serving(w, Bur20).ministryId);
+            Assert.IsFalse(w.M(Hyobu).staffIds.Contains(Bur20));
+            Assert.IsTrue(w.M(Shikibu).staffIds.Contains(Bur20));
+        }
+
+        [Test]
+        public void PromotionAndDemotion_DoNotMoveExistingStaffing()
+        {
+            World w = NewWorld();
+            Ministry m = w.M(Hyobu);
+            m.staffSlots = 1;
+            m.staffIds.Add(LowRank); // 台帳に無い既存の配属で満員
+            w.civil.records.Add(new CivilServiceRecord
+            {
+                ministryId = Hyobu, ministryName = "兵部省", personId = Bur20,
+                grade = BureaucratGrade.一般官僚, appointedYear = Year, status = CivilServiceStatus.在任
+            });
+
+            AppointmentResult up = Ex(w, Minister, Hyobu, CivilServiceAction.昇任, Bur20, BureaucratGrade.課長級, Year + 3);
+            Assert.IsTrue(up.ok, up.reason);
+            Assert.AreEqual(BureaucratGrade.課長級, Serving(w, Bur20).grade);
+            Assert.AreEqual(1, m.staffIds.Count, "同じ省の中＝既存の配属は動かさない");
+            Assert.IsTrue(m.staffIds.Contains(LowRank), "他人を押し出さない");
+            Assert.IsFalse(m.staffIds.Contains(Bur20), "欠けた配属の復元は SyncStaffing の責務");
+
+            AppointmentResult down = Ex(w, Minister, Hyobu, CivilServiceAction.降任, Bur20, BureaucratGrade.一般官僚, Year + 4);
+            Assert.IsTrue(down.ok, down.reason);
+            Assert.AreEqual(1, m.staffIds.Count, "降任でも配属は動かない");
+
+            CivilServicePostRules.SyncStaffing(w.tree, w.civil);
+            Assert.IsFalse(m.staffIds.Contains(Bur20), "空きが無ければ写らない（定員は守る）");
+            m.staffSlots = 2;
+            CivilServicePostRules.SyncStaffing(w.tree, w.civil);
+            Assert.IsTrue(m.staffIds.Contains(Bur20), "空きができれば読込後の復元で揃う");
+        }
+
+        [Test]
+        public void FindStaffedMinistryId_ReportsExistingStaffing()
+        {
+            World w = NewWorld();
+            Assert.AreEqual(-1, CivilServicePostRules.FindStaffedMinistryId(w.tree, Bur20));
+            Assert.IsTrue(Ex(w, Minister, Hyobu, CivilServiceAction.配属, Bur20).ok);
+            Assert.AreEqual(Hyobu, CivilServicePostRules.FindStaffedMinistryId(w.tree, Bur20));
+            MinistryRules.AssignOfficial(w.tree, Shikibu, LowRank); // 台帳に無い配属も見える
+            Assert.AreEqual(Shikibu, CivilServicePostRules.FindStaffedMinistryId(w.tree, LowRank));
+            Assert.AreEqual(-1, CivilServicePostRules.FindStaffedMinistryId(null, Bur20), "null 安全");
+            Assert.AreEqual(-1, CivilServicePostRules.FindStaffedMinistryId(w.tree, -1));
         }
 
         // ===== 5. 内閣人事局の承認 =====

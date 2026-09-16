@@ -52,6 +52,13 @@ namespace Ginei
     /// <para><b>内閣人事局の承認</b>：事務次官級は首相、局長級以下は所管大臣が承認する。副大臣は大臣から所管決裁の委任を
     /// 受けている間だけ承認できる（判定は <see cref="CabinetAppointmentRules.Authority"/> に委ね、期限・委任者の在任もそこで見る）。
     /// 政務官・党三役・官僚本人は承認できない。承認しても艦隊の作戦指揮権・政府の決裁権は生じない（<see cref="GradeAuthority"/>）。</para>
+    /// <para><b>既存の配属との整合</b>：省全体の配属枠は <see cref="Ministry.staffIds"/> と台帳の在任者の<b>重複なし集合</b>
+    /// （<see cref="OccupiedStaffCount"/>）で数える＝台帳へ移していない既存の配属だけで満員でも定員を超えない。配属・異動は
+    /// <see cref="MinistryRules.AssignOfficial"/> が成功できることを確かめてから台帳を確定する（片方だけ動かさない）。
+    /// 昇任・降任は同じ省の中なので既存の配属を動かさない。
+    /// <b>省を移すのは台帳上の在任者に対する <see cref="CivilServiceAction.異動"/> だけ</b>＝
+    /// <see cref="CivilServiceAction.配属"/> は、台帳に無くても既に別の省の <see cref="Ministry.staffIds"/> にいる人物を拒否する
+    /// （同じ省の <see cref="Ministry.staffIds"/> にいる人物は移動ではない＝その省の台帳へ初めて載せるために通す）。</para>
     /// <para>確認（<see cref="Check"/>）と実行（<see cref="Execute"/>）は同じ判定を同じ順序で通る＝表示と実行が食い違わない。
     /// 確認と拒否される実行は台帳を一切書き換えない（<see cref="CivilServiceState.records"/> などが欠けていても作らない）。
     /// 自動昇任は本段階では行わない（AI・UI は後段）。決定論・test-first・状態は台帳と <see cref="Ministry.staffIds"/> のみ更新。</para>
@@ -146,6 +153,52 @@ namespace Ginei
                 if (r != null && r.IsServing && r.ministryId == ministryId) n++;
             }
             return n;
+        }
+
+        /// <summary>
+        /// その省が実際に使っている配属枠の数（<see cref="Ministry.staffIds"/> と台帳の在任者の<b>重複なし集合</b>）。
+        /// 台帳へ移していない既存の配属だけで満員でも、台帳にしかいない在任者だけで満員でも、どちらも定員を超えさせない。
+        /// <paramref name="excludePersonId"/> はその人物ぶんを数えない（本人が既に枠を使っているときに二重に数えないため）。
+        /// </summary>
+        public static int OccupiedStaffCount(Ministry m, CivilServiceState st, int excludePersonId = -1)
+        {
+            if (m == null) return 0;
+            var seen = new HashSet<int>();
+            if (m.staffIds != null)
+            {
+                for (int i = 0; i < m.staffIds.Count; i++)
+                    if (m.staffIds[i] != excludePersonId) seen.Add(m.staffIds[i]);
+            }
+            if (st != null && st.records != null)
+            {
+                for (int i = 0; i < st.records.Count; i++)
+                {
+                    CivilServiceRecord r = st.records[i];
+                    if (r == null || !r.IsServing || r.ministryId != m.id || r.personId == excludePersonId) continue;
+                    seen.Add(r.personId);
+                }
+            }
+            return seen.Count;
+        }
+
+        /// <summary>その人物が既に配属されている省（<see cref="Ministry.staffIds"/>）の ID。どこにもいなければ -1。</summary>
+        public static int FindStaffedMinistryId(List<Ministry> tree, int personId)
+        {
+            if (tree == null || personId < 0) return -1;
+            for (int i = 0; i < tree.Count; i++)
+            {
+                Ministry m = tree[i];
+                if (m != null && m.staffIds != null && m.staffIds.Contains(personId)) return m.id;
+            }
+            return -1;
+        }
+
+        /// <summary>その省へ <see cref="MinistryRules.AssignOfficial"/> で配属を書き込めるか（既にその省にいるなら動かす必要がない＝true）。</summary>
+        private static bool CanAssignStaff(Ministry m, int personId)
+        {
+            if (m == null) return false;
+            if (m.staffIds != null && m.staffIds.Contains(personId)) return true; // 既に居る＝何も動かさない
+            return m.staffIds != null && m.staffIds.Count < m.staffSlots;         // MinistryRules.AssignOfficial と同じ空席判定
         }
 
         /// <summary>
@@ -257,6 +310,16 @@ namespace Ginei
                                                       + " に在任（人物は同時に1省1職位）＝異動で移す");
                     if (targetGrade != BureaucratGrade.一般官僚)
                         return AppointmentResult.Deny("配属は一般官僚から（" + targetGrade + " への飛び級の入省は認めない）");
+                    // 台帳へ移していない既存の配属（staffIds だけにいる人物）を配属で別の省へ移さない
+                    // ＝省を移すのは台帳上の在任者に対する異動だけ。同じ省なら移動ではない＝台帳への初回登録として通す。
+                    int staffedAt = FindStaffedMinistryId(tree, personId);
+                    if (staffedAt >= 0 && staffedAt != ministryId)
+                    {
+                        Ministry already = MinistryRules.Get(tree, staffedAt);
+                        string an = already != null ? (already.ministryName ?? "") : "省#" + staffedAt;
+                        return AppointmentResult.Deny("既に " + an + " に配属されている（台帳に無い既存の配属）＝配属では別の省へ移せない"
+                                                      + "（当該省の台帳へ登録してから異動）");
+                    }
                     grade = BureaucratGrade.一般官僚;
                     break;
 
@@ -317,6 +380,7 @@ namespace Ginei
             }
 
             // ④ 空席・定員（一般官僚の枠は省の配属定員そのもの＝職位別の空席と二重に問わない）
+            bool joining = action == CivilServiceAction.配属 || action == CivilServiceAction.異動;
             if (action != CivilServiceAction.解任)
             {
                 if (grade != BureaucratGrade.一般官僚)
@@ -325,9 +389,16 @@ namespace Ginei
                     if (ServingCount(st, ministryId, grade) >= slots)
                         return AppointmentResult.Deny(GradeTitle(ministry.ministryName, grade) + " に空席がない（定員 " + slots + "名）");
                 }
-                bool joining = action == CivilServiceAction.配属 || action == CivilServiceAction.異動;
-                if (joining && ServingCount(st, ministryId) >= Mathf.Max(0, ministry.staffSlots))
-                    return AppointmentResult.Deny((ministry.ministryName ?? "") + " の配属定員がいっぱい（" + ministry.staffSlots + "名）");
+                if (joining)
+                {
+                    // 省全体の枠は既存の配属（staffIds）と台帳の在任者を重ねずに数える＝どちら側だけで満員でも超えない
+                    if (OccupiedStaffCount(ministry, st, personId) >= Mathf.Max(0, ministry.staffSlots))
+                        return AppointmentResult.Deny((ministry.ministryName ?? "") + " の配属定員がいっぱい（" + ministry.staffSlots + "名）");
+                    // 台帳を書く前に配属を書き込めることを確かめる＝台帳と staffIds を食い違わせない
+                    if (!CanAssignStaff(ministry, personId))
+                        return AppointmentResult.Deny((ministry.ministryName ?? "") + " の配属（既存の staffIds）に空きがない＝"
+                                                      + action + "できない");
+                }
             }
 
             string title = GradeTitle(ministry.ministryName, grade);
@@ -344,13 +415,42 @@ namespace Ginei
             if (action != CivilServiceAction.解任)
             {
                 Begin(st, ministry, personId, grade, year, actorId, why);
-                MinistryRules.AssignOfficial(tree, ministryId, personId); // 単一所属（他省からは外れる）
+                // 配属・異動だけが所属を動かす（④で成功できることを確認済み）。昇任・降任は同じ省の中＝既存の配属に触れない
+                // （台帳にあって staffIds に無い欠落の復元は読込後の SyncStaffing の責務）。
+                if (joining) MinistryRules.AssignOfficial(tree, ministryId, personId); // 単一所属（他省からは外れる）
             }
             else
             {
                 MinistryRules.RemoveOfficial(tree, ministryId, personId);
             }
             return AppointmentResult.Allow(action + "：人物#" + personId + " を " + title + "（" + auth.reason + "）");
+        }
+
+        /// <summary>
+        /// 失職の整理（<b>退職専用</b>・<see cref="CivilServiceAnnualRules"/> の年次処理が使う）。死亡・拘束/不在・他勢力化・在野化・
+        /// 軍人化・政治家化・名簿消失で職に就き続けられなくなった在任者だけを退職させ、<see cref="Ministry.staffIds"/> から外す。
+        /// <para>裁量の人事ではない（誰かが免じたのではなく就く資格を失った）ため承認を要さないが、その代わりに<b>正常な在任者は
+        /// 退職させられない</b>＝<see cref="PersonProblem"/> が null の人物には何もせず false を返す（解任は <see cref="Execute"/> の
+        /// <see cref="CivilServiceAction.解任"/> を承認つきで通す）。何も起きないときは台帳に触れない。</para>
+        /// </summary>
+        /// <param name="problem">退職させた事由（退職させなかったときは null）。</param>
+        /// <returns>退職させたら true。</returns>
+        public static bool RetireIfIneligible(List<Ministry> tree, Faction f, int personId, IList<Person> roster, int year,
+            string reason, CivilServiceState st, CivilServicePostParams prm, out string problem)
+        {
+            problem = null;
+            if (st == null || st.records == null || personId < 0) return false;
+            CivilServiceRecord current = FindServing(st, personId);
+            if (current == null) return false; // どこにも就いていない＝整理するものがない
+
+            Person p = ElectionCycleRules.FindPerson(roster, personId);
+            string pp = PersonProblem(p, f);
+            if (pp == null) return false; // 正常な在任者は退職させない（この入口では免じられない）
+
+            End(st, current, year, CivilServiceStatus.退職, string.IsNullOrEmpty(reason) ? pp : reason + "：" + pp, prm);
+            MinistryRules.RemoveOfficial(tree, current.ministryId, personId);
+            problem = pp;
+            return true;
         }
 
         private static CivilServiceStatus EndStatusOf(CivilServiceAction action)

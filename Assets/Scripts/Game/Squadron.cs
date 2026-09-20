@@ -232,6 +232,12 @@ namespace Ginei
         private Vector2 lastFlagshipPos;
         private float flagshipSpeed;
 
+        // 配下艦はライフサイクル管理のため旗艦の子に置くが、旗艦Transformの瞬間移動・回転を
+        // そのまま継承させない。前フレームの親行列へ戻してからワールド空間で追従を解決する。
+        private Matrix4x4 previousFlagshipMatrix;
+        private Quaternion previousFlagshipRotation;
+        private bool flagshipPoseCaptured;
+
         // 分離（EMOV-5）：SeparationResolveRules のグリッド用バッファ（使い回し）。
         private readonly List<Vector2> sepPositions = new List<Vector2>();
         private readonly List<int> sepMap = new List<int>();
@@ -274,6 +280,7 @@ namespace Ginei
             // 包囲リングの位相を部隊ごとにばらして重なりを散らす＋走査初回位相も分散
             encirclePhase = Random.value * Mathf.PI * 2f;
             nextEncircleScan = Time.time + Random.value * Mathf.Max(0f, encircleUpdateInterval);
+            CaptureFlagshipPose();
         }
 
         /// <summary>
@@ -574,6 +581,11 @@ namespace Ginei
             RegenSkillPoints(Time.deltaTime); // 指揮スキルポイントの回復（フレームレート非依存・timeScale 追従＝ポーズで0）
             MaintainFormationHold();          // 陣形の保持（所属変更で解除・ずれたら無料で復帰・確定仕様1）
             UpdateEncircleTarget();
+        }
+
+        private void LateUpdate()
+        {
+            // 旗艦の移動・回頭を含む全Updateの後で配下艦の最終ワールド位置を決める。
             UpdateShipPositions();
         }
 
@@ -829,8 +841,14 @@ namespace Ginei
         /// </summary>
         private void UpdateShipPositions()
         {
+            CompensateInheritedFlagshipMotion();
+
             // 捨てがまり中は配下艦は殿（しんがり）としてその場に踏みとどまる＝旗艦を追って退却しない。
-            if (SutegamariActive) return;
+            if (SutegamariActive)
+            {
+                CaptureFlagshipPose();
+                return;
+            }
 
             EnsureSlots();
 
@@ -936,6 +954,28 @@ namespace Ginei
 
             // 同一部隊内のすり抜け・重なりを押し離しで解消（間引き＋位相分散で軽量に）。
             ApplySeparation();
+            CaptureFlagshipPose();
+        }
+
+        private void CompensateInheritedFlagshipMotion()
+        {
+            if (!flagshipPoseCaptured) return;
+            for (int i = 0; i < memberShips.Count; i++)
+            {
+                Transform member = memberShips[i];
+                if (member == null || member.parent != transform) continue;
+                Vector3 localPosition = member.localPosition;
+                Quaternion localRotation = member.localRotation;
+                member.position = previousFlagshipMatrix.MultiplyPoint3x4(localPosition);
+                member.rotation = previousFlagshipRotation * localRotation;
+            }
+        }
+
+        private void CaptureFlagshipPose()
+        {
+            previousFlagshipMatrix = transform.localToWorldMatrix;
+            previousFlagshipRotation = transform.rotation;
+            flagshipPoseCaptured = true;
         }
 
         /// <summary>

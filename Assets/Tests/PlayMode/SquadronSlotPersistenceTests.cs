@@ -81,6 +81,67 @@ namespace Ginei.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator FlagshipTranslation_IsFollowedThroughSpeedLimitedWorldMovement()
+        {
+            var root = new GameObject("squadron-parent-motion-test");
+            var member = new GameObject("member");
+            try
+            {
+                var squadron = root.AddComponent<Squadron>();
+                squadron.escortCount = 0;
+                squadron.catchUpRatio = 1f;
+                squadron.enableAccelRamp = false;
+                member.transform.SetParent(root.transform, true);
+                member.transform.position = Vector3.zero;
+                squadron.memberShips.Add(member.transform);
+
+                yield return null;
+                Vector2 before = member.transform.position;
+                root.transform.position = new Vector3(20f, 0f, 0f);
+                yield return null;
+
+                float moved = ((Vector2)member.transform.position - before).magnitude;
+                Assert.Less(moved, 1f, "旗艦の20unit移動を子Transformとして瞬間継承しない");
+                Assert.Greater(moved, 0f, "旗艦の新しい陣形位置へ速度制限付きで追従する");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                if (member != null) Object.DestroyImmediate(member);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FlagshipTurn_DoesNotSwingOuterEscortInstantly()
+        {
+            var root = new GameObject("squadron-parent-turn-test");
+            var member = new GameObject("member");
+            try
+            {
+                var squadron = root.AddComponent<Squadron>();
+                squadron.escortCount = 0;
+                squadron.catchUpRatio = 1f;
+                squadron.enableAccelRamp = false;
+                member.transform.SetParent(root.transform, true);
+                member.transform.position = new Vector3(5f, 0f, 0f);
+                squadron.memberShips.Add(member.transform);
+
+                yield return null;
+                Vector2 before = member.transform.position;
+                root.transform.rotation = Quaternion.Euler(0f, 0f, 180f);
+                yield return null;
+
+                float moved = ((Vector2)member.transform.position - before).magnitude;
+                Assert.Less(moved, 1f, "旗艦の180度回頭で外周艦を反対側へ瞬間移動させない");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                if (member != null) Object.DestroyImmediate(member);
+            }
+        }
+
         private static void InvokeEnsureSlots(Squadron squadron)
         {
             typeof(Squadron).GetMethod("EnsureSlots", BindingFlags.Instance | BindingFlags.NonPublic)

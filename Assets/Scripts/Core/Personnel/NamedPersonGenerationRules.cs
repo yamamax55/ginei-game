@@ -47,6 +47,19 @@ namespace Ginei
             return false;
         }
 
+        /// <summary>名簿上限を二勢力へ分け、死亡者を除いた現在人数から追加可能数を返す。</summary>
+        public static int RemainingFactionSlots(IEnumerable<Person> people, Faction faction, int totalCapacity)
+        {
+            int capacity = faction == Faction.帝国
+                ? System.Math.Max(0, totalCapacity) / 2
+                : System.Math.Max(0, totalCapacity) - System.Math.Max(0, totalCapacity) / 2;
+            int active = 0;
+            if (people != null)
+                foreach (Person person in people)
+                    if (person != null && person.faction == faction && !person.IsDeceased) active++;
+            return System.Math.Max(0, capacity - active);
+        }
+
         public static void Stamp(
             IEnumerable<Person> people, PersonGenerationKind kind, string eventId, int seed)
         {

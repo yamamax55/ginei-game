@@ -952,9 +952,12 @@ namespace Ginei
             RunUtilityInfrastructureTick();
 
             // 士官学校（#155 LIFE-5 細分化）：各校が幼年学校→士官学校→大学校 の多段で篩い、任官者をロスターへ供給。
-            if (academies != null && commanders.Count < OfficerRosterCap)
+            if (academies != null)
                 for (int i = 0; i < academies.Count; i++)
-                    if (academies[i] != null) RunMilitaryAcademy(academies[i]);
+                    if (academies[i] != null
+                        && NamedPersonGenerationRules.RemainingFactionSlots(
+                            commanders, academies[i].faction, OfficerRosterCap) > 0)
+                        RunMilitaryAcademy(academies[i]);
 
             // 退役（#530-536 配線）：階級別の停年に達した現役将校を退役へ（元帥は終身）。退役者は昇進・入校の対象外＝以後は老衰で退場。
             RunRetirementTick();
@@ -1152,7 +1155,8 @@ namespace Ginei
         {
             // 中学校→高校 の教育チェーンが候補の母数（進学率の複利）と素質（質の上乗せ）を左右する。
             ResolveEducation(a.faction, a.quality, out float enroll, out float eq);
-            int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction) * enroll), 0, 20);
+            int vacancies = NamedPersonGenerationRules.RemainingFactionSlots(commanders, a.faction, OfficerRosterCap);
+            int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction) * enroll), 0, Mathf.Min(20, vacancies));
             if (sitters <= 0) return;
             string eventId = NamedPersonGenerationRules.EventId(
                 PersonGenerationKind.士官学校卒業, a.faction, a.schoolId, campaignYear);
@@ -1239,7 +1243,6 @@ namespace Ginei
                     $"{deceased[i].faction} {deceased[i].name} 文官 死去（享年 {LifecycleRules.Age(deceased[i], campaignYear)}）");
 
             // 上級教育の卒業（官吏/工員層が支える・PERF上限で打ち止め）
-            if (civilians.Count >= CivilRosterCap) return;
             if (universities != null)
                 for (int i = 0; i < universities.Count; i++)
                 {
@@ -1340,6 +1343,8 @@ namespace Ginei
         /// <summary>科挙＝多段の選抜（童試→郷試→会試→殿試・#156 細分化）。官吏層から受験し、進士だけを高官として登用する。</summary>
         private void RunImperialExam(University u)
         {
+            int vacancies = NamedPersonGenerationRules.RemainingFactionSlots(civilians, u.faction, CivilRosterCap);
+            if (vacancies <= 0) return;
             ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
             int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction) * enroll), 0, 40);
             if (sitters <= 0) return;
@@ -1367,7 +1372,11 @@ namespace Ginei
                     case ExamDegree.進士:
                         進士++;
                         if (p.examRank == 1) 状元 = p;
-                        civilians.Add(p); // 進士のみ高官として登用（科挙の狭き門）
+                        if (vacancies > 0)
+                        {
+                            civilians.Add(p); // 進士のみ高官として登用（科挙の狭き門）
+                            vacancies--;
+                        }
                         break;
                 }
             }
@@ -1392,7 +1401,9 @@ namespace Ginei
         {
             // 高専は高校を経ない＝中学校のみの教育チェーン（includeHighSchool:false）。
             ResolveEducation(c.faction, c.quality, false, out float enroll, out float eq);
-            int intake = TechnicalCollegeRules.Intake(c, TechnicalCandidatePoolOf(c.faction) * enroll);
+            int vacancies = NamedPersonGenerationRules.RemainingFactionSlots(civilians, c.faction, CivilRosterCap);
+            if (vacancies <= 0) return;
+            int intake = Mathf.Min(vacancies, TechnicalCollegeRules.Intake(c, TechnicalCandidatePoolOf(c.faction) * enroll));
             string eventId = NamedPersonGenerationRules.EventId(
                 PersonGenerationKind.高専卒業, c.faction, c.schoolId, campaignYear);
             if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
@@ -1414,7 +1425,9 @@ namespace Ginei
         private void RunJuniorCollege(JuniorCollege c)
         {
             ResolveEducation(c.faction, c.quality, out float enroll, out float eq); // 高校卒後＝高校チェーン込み
-            int intake = JuniorCollegeRules.Intake(c, CivilCandidatePoolOf(c.faction) * enroll);
+            int vacancies = NamedPersonGenerationRules.RemainingFactionSlots(civilians, c.faction, CivilRosterCap);
+            if (vacancies <= 0) return;
+            int intake = Mathf.Min(vacancies, JuniorCollegeRules.Intake(c, CivilCandidatePoolOf(c.faction) * enroll));
             string eventId = NamedPersonGenerationRules.EventId(
                 PersonGenerationKind.短大卒業, c.faction, c.schoolId, campaignYear);
             if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
@@ -1436,7 +1449,9 @@ namespace Ginei
         private void RunVocationalSchool(VocationalSchool s)
         {
             ResolveEducation(s.faction, s.quality, out float enroll, out float eq);
-            int intake = VocationalSchoolRules.Intake(s, TechnicalCandidatePoolOf(s.faction) * enroll);
+            int vacancies = NamedPersonGenerationRules.RemainingFactionSlots(civilians, s.faction, CivilRosterCap);
+            if (vacancies <= 0) return;
+            int intake = Mathf.Min(vacancies, VocationalSchoolRules.Intake(s, TechnicalCandidatePoolOf(s.faction) * enroll));
             string eventId = NamedPersonGenerationRules.EventId(
                 PersonGenerationKind.専門学校卒業, s.faction, s.schoolId, campaignYear);
             if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
@@ -1458,7 +1473,9 @@ namespace Ginei
         private void RunTechnocratGraduation(University u)
         {
             ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
-            int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll);
+            int vacancies = NamedPersonGenerationRules.RemainingFactionSlots(civilians, u.faction, CivilRosterCap);
+            if (vacancies <= 0) return;
+            int intake = Mathf.Min(vacancies, UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll));
             string eventId = NamedPersonGenerationRules.EventId(
                 PersonGenerationKind.大学卒業, u.faction, u.schoolId, campaignYear);
             if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;

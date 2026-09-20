@@ -183,5 +183,40 @@ namespace Ginei.Tests
             Assert.AreEqual(3, civilians.Count, "同じ卒業イベントから人物が重複生成された");
             yield return null;
         }
+
+        [UnityTest]
+        public IEnumerator UniversityGraduates_RespectFactionVacancies()
+        {
+            var map = new GalaxyMap();
+            map.AddSystem(new StarSystem(1, "定員試験星", Vector2.zero, Faction.同盟));
+            var provinces = new Dictionary<int, Province> { { 1, new Province(1, "", 1000f) } };
+            var campaign = new CampaignState(map);
+            var state = new FactionState(Faction.同盟);
+            state.education.graduateSupply.Add(new EducationGraduateSupply(SchoolType.大学, 3f));
+            campaign.states.Add(state);
+            var civilians = new List<Person>();
+            for (int i = 0; i < 39; i++)
+                civilians.Add(new Person(i + 1, $"同盟文官{i}", Faction.同盟, PersonRole.文民));
+            for (int i = 0; i < 40; i++)
+                civilians.Add(new Person(100 + i, $"帝国文官{i}", Faction.帝国, PersonRole.文民));
+            StrategySession.Campaign = campaign;
+            StrategySession.Map = map;
+            StrategySession.Provinces = provinces;
+
+            viewObject = new GameObject("NamedGraduateCapacityQa");
+            viewObject.SetActive(false);
+            GalaxyView view = viewObject.AddComponent<GalaxyView>();
+            view.BindElectionQaWorld(map, provinces, new List<Person>(), civilians);
+            view.BindEducationInstitutionsForQa(
+                new List<University> { new University(7, Faction.同盟, "工科大学", CareerTrack.テクノクラート, 3) },
+                new List<TechnicalCollege>(), new List<JuniorCollege>(), new List<VocationalSchool>());
+
+            view.RunUniversityTickForQa(804);
+
+            Assert.AreEqual(80, civilians.Count, "同盟側の残り1枠だけを使用する");
+            Assert.AreEqual(2f, EducationAnnualRules.AvailableGraduates(state.education, SchoolType.大学), 1e-5f,
+                "名簿に入らない卒業者は供給プールへ残す");
+            yield return null;
+        }
     }
 }

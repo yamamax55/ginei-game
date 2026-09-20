@@ -189,5 +189,21 @@ namespace Ginei.Tests
                 unknown, PersonGenerationKind.不明, 9);
             Assert.AreEqual(0, unknown.birthYear);
         }
+
+        [Test]
+        public void RemainingFactionSlots_IsIndependentAndReopensAfterDeath()
+        {
+            var people = new List<Person>
+            {
+                new Person(1, "帝国1", Faction.帝国, PersonRole.軍人),
+                new Person(2, "帝国2", Faction.帝国, PersonRole.軍人),
+                new Person(3, "同盟1", Faction.同盟, PersonRole.軍人),
+                new Person(4, "同盟故人", Faction.同盟, PersonRole.軍人) { deathYear = 10 }
+            };
+
+            Assert.AreEqual(0, NamedPersonGenerationRules.RemainingFactionSlots(people, Faction.帝国, 4));
+            Assert.AreEqual(1, NamedPersonGenerationRules.RemainingFactionSlots(people, Faction.同盟, 4));
+            Assert.AreEqual(0, NamedPersonGenerationRules.RemainingFactionSlots(people, Faction.同盟, -1));
+        }
     }
 }

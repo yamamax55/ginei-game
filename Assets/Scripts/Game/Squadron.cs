@@ -149,7 +149,7 @@ namespace Ginei
         public float separationOffscreenMultiplier = 4f;
 
         [Header("スロット割当（#69/#80 EMOV-1/2）")]
-        [Tooltip("艦種でスロット配置を寄せる重み（0で距離のみ＝艦種非依存）。戦艦を前面/外周・駆逐艦を側面へ。陣形変更/初回の配置にのみ効く（戦死再フィットは距離のみ＝安定）")]
+        [Tooltip("艦種でスロット配置を寄せる重み（0で距離のみ＝艦種非依存）。戦艦を前面/外周・駆逐艦を側面へ。スロット集合を再生成する陣形変更・大損害後の圧縮・増援時に効く")]
         public float slotClassBias = 20f;
 
         [Header("配下艦の加減速・バンク（#69 EMOV-3）")]

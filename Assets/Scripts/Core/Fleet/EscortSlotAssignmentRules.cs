@@ -132,14 +132,19 @@ namespace Ginei
             var v = new double[columnCount + 1];
             var matchedRowForColumn = new int[columnCount + 1];
             var previousColumn = new int[columnCount + 1];
+            // 行ごとの作業領域は使い回し、80隻規模の再編で配列を行数分生成しない。
+            var minValue = new double[columnCount + 1];
+            var used = new bool[columnCount + 1];
 
             for (int row = 1; row <= rowCount; row++)
             {
                 matchedRowForColumn[0] = row;
                 int column0 = 0;
-                var minValue = new double[columnCount + 1];
-                var used = new bool[columnCount + 1];
-                for (int j = 1; j <= columnCount; j++) minValue[j] = double.PositiveInfinity;
+                for (int j = 0; j <= columnCount; j++)
+                {
+                    minValue[j] = double.PositiveInfinity;
+                    used[j] = false;
+                }
 
                 do
                 {

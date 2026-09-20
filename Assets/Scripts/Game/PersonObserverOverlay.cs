@@ -262,6 +262,9 @@ namespace Ginei
                 person, gv != null ? new System.Func<int, Person>(gv.FindPersonById) : null);
             if (!string.IsNullOrEmpty(family))
                 sb.Append("  <color=#8aa0b0>家族: ").Append(family).Append("</color>\n");
+            string qualifications = NamedPersonGenerationRules.DescribeQualifications(person);
+            if (!string.IsNullOrEmpty(qualifications))
+                sb.Append("  <color=#8aa0b0>資格: ").Append(qualifications).Append("</color>\n");
         }
 
         /// <summary>その人物が決裁した内容を新しい順に出す（最新 <see cref="PersonDecisionLedger.Capacity"/>=20 件を保持）。

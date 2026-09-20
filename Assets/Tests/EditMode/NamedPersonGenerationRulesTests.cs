@@ -257,5 +257,41 @@ namespace Ginei.Tests
             Assert.AreEqual(string.Empty, NamedPersonGenerationRules.DescribeFamily(
                 new Person(4, "単身", Faction.同盟, PersonRole.文民), null));
         }
+
+        [Test]
+        public void QualificationDescription_UsesEstablishedEducationAndSpecialty()
+        {
+            var officer = new Person(1, "士官", Faction.帝国, PersonRole.軍人)
+            {
+                militaryDegree = MilitaryDegree.大学校卒,
+                hammockNumber = 2,
+                warCollegeRank = 1
+            };
+            string military = NamedPersonGenerationRules.DescribeQualifications(officer);
+            StringAssert.Contains("軍学歴 大学校卒（席次 2）", military);
+            StringAssert.Contains("大学校席次 1", military);
+
+            var official = new Person(2, "文官", Faction.帝国, PersonRole.文民)
+            {
+                examDegree = ExamDegree.進士,
+                examRank = 3,
+                operation = 80,
+                intelligence = 80
+            };
+            StringAssert.Contains("科挙 進士（順位 3）",
+                NamedPersonGenerationRules.DescribeQualifications(official));
+
+            var scientist = new Person(3, "研究者", Faction.同盟, PersonRole.文民)
+            {
+                research = 90,
+                planning = 80,
+                engineering = 40,
+                production = 30
+            };
+            StringAssert.Contains("専門 科学者",
+                NamedPersonGenerationRules.DescribeQualifications(scientist));
+            Assert.AreEqual(string.Empty, NamedPersonGenerationRules.DescribeQualifications(
+                new Person(4, "無資格", Faction.同盟, PersonRole.文民)));
+        }
     }
 }

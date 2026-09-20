@@ -219,6 +219,29 @@ namespace Ginei
             return parts.Count == 0 ? string.Empty : string.Join("／", parts);
         }
 
+        public static string DescribeQualifications(Person person)
+        {
+            if (person == null) return string.Empty;
+            var parts = new List<string>();
+            if (person.militaryDegree != MilitaryDegree.無資格)
+            {
+                string military = "軍学歴 " + person.militaryDegree;
+                if (person.hammockNumber > 0) military += $"（席次 {person.hammockNumber}）";
+                parts.Add(military);
+            }
+            if (person.warCollegeRank > 0)
+                parts.Add($"大学校席次 {person.warCollegeRank}");
+            if (person.examDegree != ExamDegree.無資格)
+            {
+                string exam = "科挙 " + person.examDegree;
+                if (person.examRank > 0) exam += $"（順位 {person.examRank}）";
+                parts.Add(exam);
+            }
+            if (PersonVocationRules.VocationOf(person) == PersonVocation.技術者)
+                parts.Add("専門 " + PersonVocationRules.TechnicalTitle(person));
+            return parts.Count == 0 ? string.Empty : string.Join("／", parts);
+        }
+
         private static void AppendRelative(
             List<string> parts, string relation, int personId, System.Func<int, Person> resolve)
         {

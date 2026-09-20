@@ -31,7 +31,8 @@ namespace Ginei
 
         /// <summary>
         /// 距離のみの安定割当（EMOV-1・配下艦戦死時の再フィット用＝軽量）。
-        /// 各メンバを添字順に「現在位置から最も近い未使用スロット」へ割り当てる（O(n×m)・ソート不要）。
+        /// 全体の移動距離が最小になる組合せへ割り当てる（Hungarian法・O(n^3)）。
+        /// 個別の最近傍を順番に確定して後続艦へ長距離横断を押し付ける問題を避ける。
         /// 返り値 assignment[member]=slotIndex（割当不能＝-1。member数>slot数のとき余りが-1）。
         /// 決定論（同距離は小さいスロット添字を優先）。
         /// </summary>
@@ -42,25 +43,12 @@ namespace Ginei
             var assignment = NewUnassigned(n);
             if (n <= 0 || m <= 0) return assignment;
 
-            var slotUsed = new bool[m];
-            for (int i = 0; i < n; i++)
-            {
-                int best = -1;
-                float bestCost = float.MaxValue;
-                for (int j = 0; j < m; j++)
-                {
-                    if (slotUsed[j]) continue;
-                    float c = (positions[i] - slots[j]).sqrMagnitude;
-                    if (c < bestCost) { bestCost = c; best = j; }
-                }
-                if (best >= 0) { assignment[i] = best; slotUsed[best] = true; }
-            }
-            return assignment;
+            return AssignMinimumCost(n, m, (i, j) => (positions[i] - slots[j]).sqrMagnitude);
         }
 
         /// <summary>
         /// 距離＋艦種重みの割当（EMOV-2・陣形変更/初回の配置用＝品質重視）。
-        /// 全(member,slot)ペアをコスト昇順に見る貪欲割当で、距離に艦種不一致ペナルティ
+        /// 全体の費用を最小化する割当で、距離に艦種不一致ペナルティ
         /// （classBias）を足す＝戦艦を前面/外周・駆逐艦を側面へ寄せる。
         /// classBias≤0 or classes=null のときは距離のみ（<see cref="Assign(IList&lt;Vector2&gt;,IList&lt;Vector2&gt;)"/>）。
         /// </summary>
@@ -76,7 +64,7 @@ namespace Ginei
             var slotPref = new ShipClass[m];
             for (int j = 0; j < m; j++) slotPref[j] = PreferredClassForSlot(slots[j], maxR);
 
-            return AssignGreedy(n, m, (i, j) =>
+            return AssignMinimumCost(n, m, (i, j) =>
             {
                 float c = (positions[i] - slots[j]).sqrMagnitude;
                 if (i < classes.Count && classes[i] != slotPref[j]) c += classBias;
@@ -111,6 +99,99 @@ namespace Ginei
                 assigned++;
             }
             return assignment;
+        }
+
+        /// <summary>
+        /// 最小費用の一対一割当。行数≤列数の Hungarian 法を使い、member数が多い場合は転置して
+        /// 余ったmemberを-1にする。同費用は小さい添字を優先して決定論を保つ。
+        /// </summary>
+        public static int[] AssignMinimumCost(int memberCount, int slotCount, Func<int, int, float> cost)
+        {
+            var assignment = NewUnassigned(memberCount);
+            if (memberCount <= 0 || slotCount <= 0 || cost == null) return assignment;
+
+            if (memberCount <= slotCount)
+            {
+                int[] rowToColumn = Hungarian(memberCount, slotCount, cost);
+                for (int i = 0; i < rowToColumn.Length; i++) assignment[i] = rowToColumn[i];
+                return assignment;
+            }
+
+            int[] slotToMember = Hungarian(slotCount, memberCount, (slot, member) => cost(member, slot));
+            for (int slot = 0; slot < slotToMember.Length; slot++)
+            {
+                int member = slotToMember[slot];
+                if (member >= 0) assignment[member] = slot;
+            }
+            return assignment;
+        }
+
+        private static int[] Hungarian(int rowCount, int columnCount, Func<int, int, float> cost)
+        {
+            var u = new double[rowCount + 1];
+            var v = new double[columnCount + 1];
+            var matchedRowForColumn = new int[columnCount + 1];
+            var previousColumn = new int[columnCount + 1];
+
+            for (int row = 1; row <= rowCount; row++)
+            {
+                matchedRowForColumn[0] = row;
+                int column0 = 0;
+                var minValue = new double[columnCount + 1];
+                var used = new bool[columnCount + 1];
+                for (int j = 1; j <= columnCount; j++) minValue[j] = double.PositiveInfinity;
+
+                do
+                {
+                    used[column0] = true;
+                    int currentRow = matchedRowForColumn[column0];
+                    double delta = double.PositiveInfinity;
+                    int column1 = 0;
+                    for (int column = 1; column <= columnCount; column++)
+                    {
+                        if (used[column]) continue;
+                        double reduced = cost(currentRow - 1, column - 1) - u[currentRow] - v[column];
+                        if (reduced < minValue[column])
+                        {
+                            minValue[column] = reduced;
+                            previousColumn[column] = column0;
+                        }
+                        if (minValue[column] < delta)
+                        {
+                            delta = minValue[column];
+                            column1 = column;
+                        }
+                    }
+
+                    for (int column = 0; column <= columnCount; column++)
+                    {
+                        if (used[column])
+                        {
+                            u[matchedRowForColumn[column]] += delta;
+                            v[column] -= delta;
+                        }
+                        else minValue[column] -= delta;
+                    }
+                    column0 = column1;
+                }
+                while (matchedRowForColumn[column0] != 0);
+
+                do
+                {
+                    int column1 = previousColumn[column0];
+                    matchedRowForColumn[column0] = matchedRowForColumn[column1];
+                    column0 = column1;
+                }
+                while (column0 != 0);
+            }
+
+            var rowToColumn = NewUnassigned(rowCount);
+            for (int column = 1; column <= columnCount; column++)
+            {
+                int row = matchedRowForColumn[column];
+                if (row > 0) rowToColumn[row - 1] = column - 1;
+            }
+            return rowToColumn;
         }
 
         /// <summary>

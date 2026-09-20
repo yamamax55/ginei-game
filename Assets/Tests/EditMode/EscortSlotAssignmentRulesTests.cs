@@ -29,6 +29,17 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void Assign_GreedyWouldCross_ChoosesGlobalMinimumWithoutCrossing()
+        {
+            // member0 は両スロット等距離。添字順の貪欲では右上を先取りし、member1が左上へ横断する。
+            var slots = new List<Vector2> { new Vector2(1, 1), new Vector2(-1, 1) };
+            var pos = new List<Vector2> { new Vector2(0, 0), new Vector2(2, 0) };
+            int[] a = EscortSlotAssignmentRules.Assign(pos, slots);
+            Assert.AreEqual(1, a[0]);
+            Assert.AreEqual(0, a[1]);
+        }
+
+        [Test]
         public void Assign_MoreMembersThanSlots_LeavesUnassigned()
         {
             var slots = new List<Vector2> { new Vector2(0, 0), new Vector2(2, 0) };

@@ -46,6 +46,56 @@ namespace Ginei.Tests
             }
         }
 
+        [Test]
+        public void ConsecutiveCasualties_KeepVacanciesUntilBelowHalfThenCompact()
+        {
+            var root = new GameObject("squadron-consecutive-casualties-test");
+            var members = new List<GameObject>();
+            try
+            {
+                var squadron = root.AddComponent<Squadron>();
+                squadron.spacing = 1f;
+                for (int i = 0; i < 8; i++)
+                {
+                    var member = new GameObject("member-" + i);
+                    member.transform.SetParent(root.transform, true);
+                    member.transform.position = new Vector3(i - 3.5f, 0f, 0f);
+                    members.Add(member);
+                    squadron.memberShips.Add(member.transform);
+                }
+
+                InvokeEnsureSlots(squadron);
+                var initialAssignments = new List<int>(GetPrivate<List<int>>(squadron, "slotForMember"));
+
+                // 8隻から4隻までは生存艦の持ち場を保ち、戦死位置を穴として残す。
+                for (int casualty = 7; casualty >= 4; casualty--)
+                {
+                    squadron.RemoveMember(members[casualty].transform);
+                    InvokeEnsureSlots(squadron);
+                }
+
+                Assert.AreEqual(8, GetPrivate<List<Vector2>>(squadron, "cachedSlots").Count);
+                CollectionAssert.AreEqual(initialAssignments.GetRange(0, 4),
+                    GetPrivate<List<int>>(squadron, "slotForMember"));
+
+                // 50%を下回る3隻目で初めて圧縮再編し、全員を重複なしで再割当する。
+                squadron.RemoveMember(members[3].transform);
+                InvokeEnsureSlots(squadron);
+
+                var compactedSlots = GetPrivate<List<Vector2>>(squadron, "cachedSlots");
+                var compactedAssignments = GetPrivate<List<int>>(squadron, "slotForMember");
+                Assert.AreEqual(3, compactedSlots.Count);
+                Assert.AreEqual(3, compactedAssignments.Count);
+                CollectionAssert.AreEquivalent(new[] { 0, 1, 2 }, compactedAssignments);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                foreach (var member in members)
+                    if (member != null) Object.DestroyImmediate(member);
+            }
+        }
+
         [UnityTest]
         public IEnumerator UpdateShipPositions_AccelerationRampCannotExceedFinalSpeedLimit()
         {

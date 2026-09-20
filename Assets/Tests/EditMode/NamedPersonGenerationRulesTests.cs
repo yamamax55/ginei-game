@@ -141,5 +141,53 @@ namespace Ginei.Tests
             Assert.AreEqual(Hobby.歴史, explicitPerson.hobby);
             Assert.AreEqual(Vice.短気, explicitPerson.vice);
         }
+
+        [TestCase(PersonGenerationKind.士官学校卒業, 21, 24)]
+        [TestCase(PersonGenerationKind.科挙登用, 23, 32)]
+        [TestCase(PersonGenerationKind.大学卒業, 22, 25)]
+        [TestCase(PersonGenerationKind.高専卒業, 20, 20)]
+        [TestCase(PersonGenerationKind.短大卒業, 20, 22)]
+        [TestCase(PersonGenerationKind.専門学校卒業, 20, 22)]
+        public void GeneratedChronology_UsesPlausibleGraduationAge(
+            PersonGenerationKind kind, int minAge, int maxAge)
+        {
+            var person = new Person(1, "卒業者", Faction.同盟, PersonRole.文民)
+            {
+                graduationYear = 42
+            };
+            NamedPersonGenerationRules.ApplyGeneratedChronology(person, kind, 12345);
+            int age = person.graduationYear - person.birthYear;
+
+            Assert.That(age, Is.InRange(minAge, maxAge));
+            StringAssert.Contains($"（{age}歳）", NamedPersonGenerationRules.Describe(new Person(2, "表示", Faction.同盟, PersonRole.文民)
+            {
+                generationKind = kind,
+                generationEventId = "event",
+                generationSeed = 1,
+                graduationYear = person.graduationYear,
+                birthYear = person.birthYear
+            }));
+        }
+
+        [Test]
+        public void GeneratedChronology_PreservesExplicitBirthYearAndIgnoresUnknownHistory()
+        {
+            var explicitPerson = new Person(1, "明示", Faction.帝国, PersonRole.軍人)
+            {
+                birthYear = 5,
+                graduationYear = 30
+            };
+            NamedPersonGenerationRules.ApplyGeneratedChronology(
+                explicitPerson, PersonGenerationKind.士官学校卒業, 9);
+            Assert.AreEqual(5, explicitPerson.birthYear);
+
+            var unknown = new Person(2, "不明", Faction.帝国, PersonRole.軍人)
+            {
+                graduationYear = 30
+            };
+            NamedPersonGenerationRules.ApplyGeneratedChronology(
+                unknown, PersonGenerationKind.不明, 9);
+            Assert.AreEqual(0, unknown.birthYear);
+        }
     }
 }

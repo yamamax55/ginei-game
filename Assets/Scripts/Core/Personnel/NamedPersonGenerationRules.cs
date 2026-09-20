@@ -58,7 +58,27 @@ namespace Ginei
                 person.generationEventId = eventId ?? string.Empty;
                 person.generationSeed = seed;
                 ApplyGeneratedTraits(person, seed);
+                ApplyGeneratedChronology(person, kind, seed);
             }
+        }
+
+        /// <summary>卒業・登用時点から無理のない生年を補い、年齢と経歴の順序を確定する。</summary>
+        public static void ApplyGeneratedChronology(Person person, PersonGenerationKind kind, int seed)
+        {
+            if (person == null || person.birthYear != 0 || person.graduationYear <= 0) return;
+            var random = new System.Random(seed ^ unchecked((int)0x45d9f3b));
+            int age;
+            switch (kind)
+            {
+                case PersonGenerationKind.士官学校卒業: age = 21 + random.Next(4); break; // 21..24
+                case PersonGenerationKind.科挙登用: age = 23 + random.Next(10); break;    // 23..32
+                case PersonGenerationKind.大学卒業: age = 22 + random.Next(4); break;    // 22..25
+                case PersonGenerationKind.高専卒業: age = 20; break;
+                case PersonGenerationKind.短大卒業:
+                case PersonGenerationKind.専門学校卒業: age = 20 + random.Next(3); break; // 20..22
+                default: return;
+            }
+            person.birthYear = person.graduationYear - age;
         }
 
         /// <summary>既存の人物特性フィールドへ、生成seedから一貫した信条・出自・個性を与える。</summary>
@@ -107,6 +127,8 @@ namespace Ginei
 
             string text = person.generationKind.ToString();
             if (person.graduationYear > 0) text += $" SE{person.graduationYear}";
+            if (person.graduationYear > 0 && person.birthYear > 0)
+                text += $"（{person.graduationYear - person.birthYear}歳）";
             if (person.schoolId > 0) text += $" 学校#{person.schoolId}";
             text += $"／証跡 {person.generationEventId}／seed {person.generationSeed}";
             return text;

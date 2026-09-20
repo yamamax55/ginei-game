@@ -37,6 +37,15 @@ namespace Ginei
         public const float DefaultHollowingRate = 0.5f;
         public const float DefaultCadreWeight = 0.5f;
         public const float DefaultReadyThreshold = 0.6f;
+
+        /// <summary>
+        /// 割合としきい値をちょうど境界で比べるときの許容差。
+        /// どちらも10進の値を float で近似するため、<b>ちょうど境界</b>（6/10 と 0.6 など）では
+        /// 実行環境（Mono＝実 Unity / .NET＝TestHarness）で大小が入れ替わる。
+        /// 仕様の「しきい値<b>以上</b>で戦力化」をどちらの環境でも満たすための幅で、
+        /// 割合の刻み（1/統合時間）よりはるかに小さいので判定の意味は変わらない。
+        /// </summary>
+        public const float BoundaryEpsilon = 1e-5f;
     }
 
     /// <summary>
@@ -173,7 +182,16 @@ namespace Ginei
             if (recovery <= 0f) return false;
             // 統合時間0なら即馴染む（補充が無い等）。それ以外は経過/統合時間が th 以上で戦力化。
             if (integ <= 0f) return true;
-            return (time / integ) >= th;
+
+            // ★ちょうど境界のときに実行環境で答えが割れないよう、許容差を入れて比べる。
+            //   しきい値 0.6 は float で正確に表せない（0.60000002384…）。一方 6/10 は 0.6 ちょうど。
+            //   Mono（実 Unity）は除算結果を float へ丸めずに高精度のまま比較するので
+            //   「0.6 >= 0.60000002…」＝<b>false</b>、.NET（TestHarness）は float へ丸めるので <b>true</b> になり、
+            //   同じコードが環境で割れていた（ビット列が同じでもインライン比較だと割れる。
+            //   いったん float 変数へ入れても JIT が高精度のまま保持しうるので、変数化では直らない）。
+            //   仕様は「th 以上で戦力化」なので、その境界を仕様どおり含める。
+            float ratio = time / integ;
+            return ratio >= th - ReplacementFlowParams.BoundaryEpsilon;
         }
     }
 }

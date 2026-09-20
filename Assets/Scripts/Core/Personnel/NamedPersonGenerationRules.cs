@@ -59,5 +59,19 @@ namespace Ginei
                 person.generationSeed = seed;
             }
         }
+
+        /// <summary>人物名鑑向けの短い生成証跡。旧人物には存在しない経歴を補わない。</summary>
+        public static string Describe(Person person)
+        {
+            if (person == null) return "生成経歴なし";
+            if (person.generationKind == PersonGenerationKind.不明 || string.IsNullOrEmpty(person.generationEventId))
+                return "開始前の生成経歴は不明";
+
+            string text = person.generationKind.ToString();
+            if (person.graduationYear > 0) text += $" SE{person.graduationYear}";
+            if (person.schoolId > 0) text += $" 学校#{person.schoolId}";
+            text += $"／証跡 {person.generationEventId}／seed {person.generationSeed}";
+            return text;
+        }
     }
 }

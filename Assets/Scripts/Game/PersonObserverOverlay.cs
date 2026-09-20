@@ -142,6 +142,7 @@ namespace Ginei
             string col = ruler ? "#ffd54a" : "#bfe9c0";
             sb.Append($"\n<color={col}>◆ [{label}] {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
+            AppendGeneration(sb, p);
             AppendDecisions(sb, p.id);
         }
 
@@ -184,6 +185,7 @@ namespace Ginei
             string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
             sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　<color=#8aa0b0>{p.serviceStatus}</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 攻撃 {p.attack} ／ 防御 {p.defense} ／ 機動 {p.mobility} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
+            AppendGeneration(sb, p);
             AppendDecisions(sb, p.id);
         }
 
@@ -245,7 +247,15 @@ namespace Ginei
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}　<color=#9aa7b3>研究 {p.research} ／ 技術 {p.engineering}</color>\n");
             else
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}\n");
+            AppendGeneration(sb, p);
             AppendDecisions(sb, p.id);
+        }
+
+        private static void AppendGeneration(StringBuilder sb, Person person)
+        {
+            sb.Append("  <color=#8aa0b0>生成: ")
+              .Append(NamedPersonGenerationRules.Describe(person))
+              .Append("</color>\n");
         }
 
         /// <summary>その人物が決裁した内容を新しい順に出す（最新 <see cref="PersonDecisionLedger.Capacity"/>=20 件を保持）。

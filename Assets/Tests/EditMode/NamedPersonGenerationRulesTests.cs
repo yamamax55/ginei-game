@@ -55,5 +55,27 @@ namespace Ginei.Tests
             Assert.AreEqual(string.Empty, old.generationEventId);
             Assert.AreEqual(0, old.generationSeed);
         }
+
+        [Test]
+        public void Describe_ShowsKnownEvidenceWithoutInventingOldHistory()
+        {
+            var generated = new Person(5, "技術者", Faction.同盟, PersonRole.文民)
+            {
+                schoolId = 7,
+                graduationYear = 804,
+                generationKind = PersonGenerationKind.大学卒業,
+                generationEventId = "person:4:1:7:804",
+                generationSeed = 123
+            };
+
+            string text = NamedPersonGenerationRules.Describe(generated);
+
+            StringAssert.Contains("大学卒業", text);
+            StringAssert.Contains("SE804", text);
+            StringAssert.Contains("学校#7", text);
+            StringAssert.Contains("seed 123", text);
+            Assert.AreEqual("開始前の生成経歴は不明",
+                NamedPersonGenerationRules.Describe(new Person(6, "旧人物", Faction.帝国, PersonRole.軍人)));
+        }
     }
 }

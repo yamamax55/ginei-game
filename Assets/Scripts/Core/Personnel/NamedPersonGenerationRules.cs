@@ -115,10 +115,25 @@ namespace Ginei
                 person.generationKind = kind;
                 person.generationEventId = eventId ?? string.Empty;
                 person.generationSeed = seed;
-                ApplyGeneratedTraits(person, seed);
-                ApplyGeneratedChronology(person, kind, seed);
+                int individualSeed = IndividualSeed(seed, person.id);
+                ApplyGeneratedTraits(person, individualSeed);
+                ApplyGeneratedChronology(person, kind, individualSeed);
                 if (kind != PersonGenerationKind.初期シナリオ)
                     person.name = GenerateName(person.faction, person.sex, person.id, seed);
+            }
+        }
+
+        /// <summary>生成イベントの再現seedを保ったまま、同じ期の人物ごとに個性を分ける。</summary>
+        private static int IndividualSeed(int eventSeed, int personId)
+        {
+            unchecked
+            {
+                uint value = (uint)eventSeed;
+                value ^= (uint)personId + 0x9e3779b9u + (value << 6) + (value >> 2);
+                value ^= value >> 16;
+                value *= 0x7feb352du;
+                value ^= value >> 15;
+                return (int)(value & 0x7fffffffu);
             }
         }
 

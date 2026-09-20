@@ -36,6 +36,41 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void Stamp_SameCohortIsReproducibleButDoesNotCloneEveryPersonalityAndAge()
+        {
+            var first = new List<Person>();
+            var replay = new List<Person>();
+            for (int id = 10; id < 22; id++)
+            {
+                first.Add(new Person(id, "候補", Faction.同盟, PersonRole.文民)
+                    { graduationYear = 804 });
+                replay.Add(new Person(id, "候補", Faction.同盟, PersonRole.文民)
+                    { graduationYear = 804 });
+            }
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.大学卒業, Faction.同盟, 7, 804);
+            int seed = NamedPersonGenerationRules.StableSeed(eventId);
+
+            NamedPersonGenerationRules.Stamp(first, PersonGenerationKind.大学卒業, eventId, seed);
+            NamedPersonGenerationRules.Stamp(replay, PersonGenerationKind.大学卒業, eventId, seed);
+
+            var personalities = new HashSet<string>();
+            for (int i = 0; i < first.Count; i++)
+            {
+                Assert.AreEqual(first[i].creed, replay[i].creed);
+                Assert.AreEqual(first[i].socialOrigin, replay[i].socialOrigin);
+                Assert.AreEqual(first[i].charisma, replay[i].charisma);
+                Assert.AreEqual(first[i].constitution, replay[i].constitution);
+                Assert.AreEqual(first[i].hobby, replay[i].hobby);
+                Assert.AreEqual(first[i].vice, replay[i].vice);
+                Assert.AreEqual(first[i].birthYear, replay[i].birthYear);
+                personalities.Add(first[i].creed + ":" + first[i].charisma + ":"
+                    + first[i].constitution + ":" + first[i].hobby + ":" + first[i].vice);
+            }
+            Assert.Greater(personalities.Count, 1, "同じ卒業期の人物像が全員同一になっている");
+        }
+
+        [Test]
         public void CampaignPersonSave_PreservesGenerationEvidence_AndOldDataStaysUnknown()
         {
             var person = new Person(5, "技術者", Faction.同盟, PersonRole.文民)

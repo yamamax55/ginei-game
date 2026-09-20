@@ -85,5 +85,61 @@ namespace Ginei.Tests
             Assert.AreEqual("開始前の生成経歴は不明",
                 NamedPersonGenerationRules.Describe(new Person(6, "旧人物", Faction.帝国, PersonRole.軍人)));
         }
+
+        [Test]
+        public void GeneratedTraits_AreStableBoundedAndUseExistingFields()
+        {
+            var first = new Person(1, "一人目", Faction.同盟, PersonRole.文民);
+            var same = new Person(2, "二人目", Faction.同盟, PersonRole.文民);
+
+            NamedPersonGenerationRules.ApplyGeneratedTraits(first, 12345);
+            NamedPersonGenerationRules.ApplyGeneratedTraits(same, 12345);
+
+            Assert.AreEqual(first.creed, same.creed);
+            Assert.AreEqual(first.socialOrigin, same.socialOrigin);
+            Assert.AreEqual(first.charisma, same.charisma);
+            Assert.AreEqual(first.constitution, same.constitution);
+            Assert.AreEqual(first.hobby, same.hobby);
+            Assert.AreEqual(first.vice, same.vice);
+            Assert.That(first.charisma, Is.InRange(35, 80));
+            Assert.That(first.constitution, Is.InRange(35, 85));
+            Assert.AreNotEqual(Hobby.なし, first.hobby);
+            StringAssert.Contains("信条", NamedPersonGenerationRules.DescribeTraits(first));
+        }
+
+        [Test]
+        public void GeneratedTraits_HaveVariationWithoutOverwritingExplicitValues()
+        {
+            var creeds = new HashSet<Creed>();
+            bool hasVice = false, hasNoVice = false;
+            for (int seed = 1; seed <= 100; seed++)
+            {
+                var person = new Person(seed, "候補", Faction.帝国, PersonRole.軍人);
+                NamedPersonGenerationRules.ApplyGeneratedTraits(person, seed);
+                creeds.Add(person.creed);
+                hasVice |= person.vice != Vice.なし;
+                hasNoVice |= person.vice == Vice.なし;
+            }
+            Assert.Greater(creeds.Count, 1);
+            Assert.IsTrue(hasVice);
+            Assert.IsTrue(hasNoVice);
+
+            var explicitPerson = new Person(200, "明示人物", Faction.帝国, PersonRole.軍人)
+            {
+                creed = Creed.共和主義,
+                socialOrigin = SocialOrigin.植民星,
+                charisma = 91,
+                constitution = 92,
+                hobby = Hobby.歴史,
+                vice = Vice.短気
+            };
+            NamedPersonGenerationRules.ApplyGeneratedTraits(explicitPerson, 9);
+            Assert.AreEqual(Creed.共和主義, explicitPerson.creed);
+            Assert.AreEqual(SocialOrigin.植民星, explicitPerson.socialOrigin);
+            Assert.AreEqual(91, explicitPerson.charisma);
+            Assert.AreEqual(92, explicitPerson.constitution);
+            Assert.AreEqual(Hobby.歴史, explicitPerson.hobby);
+            Assert.AreEqual(Vice.短気, explicitPerson.vice);
+        }
     }
 }

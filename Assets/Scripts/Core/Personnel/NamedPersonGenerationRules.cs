@@ -57,7 +57,45 @@ namespace Ginei
                 person.generationKind = kind;
                 person.generationEventId = eventId ?? string.Empty;
                 person.generationSeed = seed;
+                ApplyGeneratedTraits(person, seed);
             }
+        }
+
+        /// <summary>既存の人物特性フィールドへ、生成seedから一貫した信条・出自・個性を与える。</summary>
+        public static void ApplyGeneratedTraits(Person person, int seed)
+        {
+            if (person == null) return;
+            var random = new System.Random(seed ^ unchecked((int)0x6d2b79f5));
+            double creedRoll = random.NextDouble();
+            if (person.creed == Creed.無関心)
+            {
+                if (person.faction == Faction.帝国)
+                    person.creed = creedRoll < 0.35 ? Creed.帝政擁護
+                        : creedRoll < 0.60 ? Creed.門閥主義
+                        : creedRoll < 0.85 ? Creed.能力主義 : Creed.中道;
+                else
+                    person.creed = creedRoll < 0.45 ? Creed.共和主義
+                        : creedRoll < 0.75 ? Creed.能力主義 : Creed.中道;
+            }
+
+            double originRoll = random.NextDouble();
+            if (person.socialOrigin == SocialOrigin.平民)
+            {
+                if (person.faction == Faction.帝国)
+                    person.socialOrigin = originRoll < 0.25 ? SocialOrigin.門閥貴族
+                        : originRoll < 0.45 ? SocialOrigin.下級貴族
+                        : originRoll < 0.70 ? SocialOrigin.軍人家系 : SocialOrigin.平民;
+                else
+                    person.socialOrigin = originRoll < 0.15 ? SocialOrigin.植民星
+                        : originRoll < 0.35 ? SocialOrigin.軍人家系 : SocialOrigin.平民;
+            }
+
+            if (person.charisma == 50) person.charisma = 35 + random.Next(46);       // 35..80
+            if (person.constitution == 50) person.constitution = 35 + random.Next(51); // 35..85
+            if (person.hobby == Hobby.なし)
+                person.hobby = (Hobby)(1 + random.Next(System.Enum.GetValues(typeof(Hobby)).Length - 1));
+            if (person.vice == Vice.なし && random.NextDouble() < 0.30)
+                person.vice = (Vice)(1 + random.Next(System.Enum.GetValues(typeof(Vice)).Length - 1));
         }
 
         /// <summary>人物名鑑向けの短い生成証跡。旧人物には存在しない経歴を補わない。</summary>
@@ -72,6 +110,13 @@ namespace Ginei
             if (person.schoolId > 0) text += $" 学校#{person.schoolId}";
             text += $"／証跡 {person.generationEventId}／seed {person.generationSeed}";
             return text;
+        }
+
+        public static string DescribeTraits(Person person)
+        {
+            if (person == null) return "人物特性なし";
+            return $"信条 {person.creed}／出自 {person.socialOrigin}／人望 {person.charisma}／体質 {person.constitution}"
+                 + $"／趣味 {person.hobby}／悪癖 {person.vice}";
         }
     }
 }

@@ -255,6 +255,8 @@ namespace Ginei
         {
             sb.Append("  <color=#8aa0b0>生成: ")
               .Append(NamedPersonGenerationRules.Describe(person))
+              .Append("</color>\n  <color=#8aa0b0>人となり: ")
+              .Append(NamedPersonGenerationRules.DescribeTraits(person))
               .Append("</color>\n");
         }
 

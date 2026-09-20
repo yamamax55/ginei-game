@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Reflection;
+using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Ginei.Tests
 {
@@ -41,6 +43,41 @@ namespace Ginei.Tests
                 Object.DestroyImmediate(root);
                 foreach (var member in members)
                     if (member != null) Object.DestroyImmediate(member);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator UpdateShipPositions_AccelerationRampCannotExceedFinalSpeedLimit()
+        {
+            var root = new GameObject("squadron-speed-limit-test");
+            var member = new GameObject("member");
+            try
+            {
+                var squadron = root.AddComponent<Squadron>();
+                squadron.escortCount = 0;
+                squadron.enableAccelRamp = true;
+                squadron.escortAcceleration = 0.1f;
+                squadron.catchUpRatio = 1f;
+                member.transform.SetParent(root.transform, true);
+                member.transform.position = new Vector3(100f, 0f, 0f);
+                squadron.memberShips.Add(member.transform);
+
+                yield return null;
+
+                var velocities = GetPrivate<List<Vector2>>(squadron, "velocities");
+                velocities[0] = new Vector2(100f, 0f);
+                Vector2 before = member.transform.position;
+                float dt = Time.deltaTime;
+                typeof(Squadron).GetMethod("UpdateShipPositions", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(squadron, null);
+
+                float distance = ((Vector2)member.transform.position - before).magnitude;
+                Assert.LessOrEqual(distance, 6f * dt + 1e-4f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                if (member != null) Object.DestroyImmediate(member);
             }
         }
 

@@ -909,6 +909,20 @@ namespace Ginei
                     nextPos = currentPos + velocity * dt;
                     delta = nextPos - currentPos;
                 }
+
+                // 加速ランプで位置を再構成した後にも上限を適用する。前フレームの速度が上限を超えていても、
+                // ランプ処理が先のクランプを打ち消して配下艦がワープすることを防ぐ。
+                if (dt > 0f)
+                {
+                    if (velocity.magnitude > maxSpeed) velocity = velocity.normalized * maxSpeed;
+                    delta = nextPos - currentPos;
+                    if (delta.magnitude > maxStep)
+                    {
+                        delta = delta.normalized * maxStep;
+                        nextPos = currentPos + delta;
+                        velocity = delta / dt;
+                    }
+                }
                 velocities[i] = velocity;
 
                 memberShips[i].position = new Vector3(nextPos.x, nextPos.y, targetWorldPos.z);

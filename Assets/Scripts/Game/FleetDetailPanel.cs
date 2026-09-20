@@ -191,6 +191,8 @@ namespace Ginei
             if (sq != null)
             {
                 sb.AppendLine($"現在陣形: {sq.currentFormation}");
+                if (sq.IsReforming)
+                    sb.AppendLine($"形成状況: 再編中 {Mathf.RoundToInt(sq.FormationProgress01 * 100f)}%");
                 if (ad != null && ad.hasPreferredFormation)
                 {
                     bool m = ad.IsPreferredFormation(sq.currentFormation);

@@ -143,6 +143,33 @@ namespace Ginei.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator FormationProgress_ReportsReformingWhileEscortIsFarFromSlot()
+        {
+            var root = new GameObject("squadron-progress-test");
+            var member = new GameObject("member");
+            try
+            {
+                var squadron = root.AddComponent<Squadron>();
+                squadron.escortCount = 0;
+                squadron.formationReadyTolerance = 0.5f;
+                member.transform.SetParent(root.transform, true);
+                member.transform.position = new Vector3(20f, 0f, 0f);
+                squadron.memberShips.Add(member.transform);
+
+                yield return null;
+
+                Assert.IsTrue(squadron.IsReforming);
+                Assert.Less(squadron.FormationProgress01, 1f);
+                Assert.GreaterOrEqual(squadron.FormationProgress01, 0f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                if (member != null) Object.DestroyImmediate(member);
+            }
+        }
+
         private static void InvokeEnsureSlots(Squadron squadron)
         {
             typeof(Squadron).GetMethod("EnsureSlots", BindingFlags.Instance | BindingFlags.NonPublic)

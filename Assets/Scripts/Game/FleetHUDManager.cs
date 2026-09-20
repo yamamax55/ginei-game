@@ -288,17 +288,20 @@ namespace Ginei
                 // 保持状態と指定元（確定仕様1）。保持していなければ「（自律）」と出る。
                 string hold = FleetFormationOrderRules.HoldText(
                     squadron.FormationHold, squadron.currentFormation, squadron.LastFormationSource);
+                string reforming = squadron.IsReforming
+                    ? $"　再編中 {Mathf.RoundToInt(squadron.FormationProgress01 * 100f)}%"
+                    : "";
 
                 if (ad != null && ad.hasPreferredFormation)
                 {
                     bool match = ad.IsPreferredFormation(squadron.currentFormation);
                     string star = match ? " ★" : "";
-                    hudFormation.text = $"現在陣形: {hold}　得意陣形: {ad.preferredFormation}{star}";
+                    hudFormation.text = $"現在陣形: {hold}{reforming}　得意陣形: {ad.preferredFormation}{star}";
                     hudFormation.color = match ? new Color(1f, 0.85f, 0.3f) : Color.white;
                 }
                 else
                 {
-                    hudFormation.text = $"現在陣形: {hold}";
+                    hudFormation.text = $"現在陣形: {hold}{reforming}";
                     hudFormation.color = Color.white;
                 }
                 hudFormation.gameObject.SetActive(true);

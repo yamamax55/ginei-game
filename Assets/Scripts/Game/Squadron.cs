@@ -184,6 +184,9 @@ namespace Ginei
         [Tooltip("航行隊形から停止隊形へ戻る速度閾値（進入閾値に対する比率）")]
         [Range(0f, 1f)] public float cruiseExitSpeedRatio = 0.6f;
 
+        [Tooltip("全配下艦の最大スロットずれがこの距離以内なら陣形形成完了とみなす")]
+        public float formationReadyTolerance = 0.5f;
+
         // SmoothDamp用の速度バッファ（memberShips と添字同期）
         private List<Vector2> velocities = new List<Vector2>();
 
@@ -241,6 +244,9 @@ namespace Ginei
         private Vector2 lastFlagshipPos;
         private float flagshipSpeed;
         private FormationDensityState densityState;
+
+        public float FormationProgress01 { get; private set; } = 1f;
+        public bool IsReforming => encircleTarget == null && FormationProgress01 < 0.999f;
 
         // 配下艦はライフサイクル管理のため旗艦の子に置くが、旗艦Transformの瞬間移動・回転を
         // そのまま継承させない。前フレームの親行列へ戻してからワールド空間で追従を解決する。
@@ -965,7 +971,35 @@ namespace Ginei
 
             // 同一部隊内のすり抜け・重なりを押し離しで解消（間引き＋位相分散で軽量に）。
             ApplySeparation();
+            UpdateFormationProgress(encircling, wheeling);
             CaptureFlagshipPose();
+        }
+
+        private void UpdateFormationProgress(bool encircling, bool wheeling)
+        {
+            if (encircling)
+            {
+                FormationProgress01 = 0f;
+                return;
+            }
+
+            float maxError = 0f;
+            int observed = 0;
+            for (int i = 0; i < memberShips.Count; i++)
+            {
+                Transform member = memberShips[i];
+                int slot = i < slotForMember.Count ? slotForMember[i] : -1;
+                if (member == null || slot < 0 || slot >= cachedSlots.Count) continue;
+                Vector2 localSlot = cachedSlots[slot] * spacingFactor;
+                if (wheeling) localSlot = KurumagakariRules.RotateLocalSlot(localSlot, wheelAngle);
+                Vector2 target = transform.TransformPoint(localSlot);
+                float error = ((Vector2)member.position - target).magnitude;
+                if (error > maxError) maxError = error;
+                observed++;
+            }
+            FormationProgress01 = observed == 0
+                ? 1f
+                : CorpsFormationOrderRules.FormationProgress(maxError, formationReadyTolerance);
         }
 
         private void CompensateInheritedFlagshipMotion()

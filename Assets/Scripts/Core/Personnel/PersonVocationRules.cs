@@ -1,5 +1,8 @@
 namespace Ginei
 {
+    /// <summary>技術系ネームドの専門。既存の研究・計画／技術・生産能力から導出する。</summary>
+    public enum TechnicalSpecialty { 科学者, 技術者, 総合 }
+
     /// <summary>
     /// ネームド人物の職分ロジック（人物の「職業」＝POP 職業#110 とは別系統・純ロジック・唯一の窓口）。
     /// 人物（<see cref="Person"/>）の職分（<see cref="PersonVocation"/>）を役割・フラグから導き、<b>君主など POP 職業分類に載らない地位を別管理</b>する。
@@ -22,6 +25,27 @@ namespace Ginei
             if (p.TechnicalAptitude > 0f && p.TechnicalAptitude >= p.CivilAptitude)
                 return PersonVocation.技術者;
             return PersonVocation.文官;
+        }
+
+        /// <summary>研究・計画寄りを科学者、技術・生産寄りを技術者、差が小さければ総合技術者とする。</summary>
+        public static TechnicalSpecialty TechnicalSpecialtyOf(Person p)
+        {
+            if (p == null) return TechnicalSpecialty.総合;
+            int science = p.research + p.planning;
+            int engineering = p.engineering + p.production;
+            if (science >= engineering + 10) return TechnicalSpecialty.科学者;
+            if (engineering >= science + 10) return TechnicalSpecialty.技術者;
+            return TechnicalSpecialty.総合;
+        }
+
+        public static string TechnicalTitle(Person p)
+        {
+            switch (TechnicalSpecialtyOf(p))
+            {
+                case TechnicalSpecialty.科学者: return "科学者";
+                case TechnicalSpecialty.技術者: return "技術者";
+                default: return "総合技術者";
+            }
         }
 
         /// <summary>君主（王・皇帝・元首）か＝POP 職業分類外の別格。</summary>

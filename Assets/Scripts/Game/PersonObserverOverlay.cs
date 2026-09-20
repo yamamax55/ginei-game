@@ -236,7 +236,7 @@ namespace Ginei
 
         private void AppendCivil(StringBuilder sb, Person p, PersonVocation v, GalaxyView gv)
         {
-            string voc = v == PersonVocation.技術者 ? "技術者" : "文官";
+            string voc = v == PersonVocation.技術者 ? PersonVocationRules.TechnicalTitle(p) : "文官";
             string ikai = JapaneseCourtRankRules.Name(p.courtRank);
             string kou = p.merit != null ? p.merit.lastRating.ToString() : "未評定";
             string noble = JapaneseCourtRankRules.IsNobility(p.courtRank) ? "　<color=#ffd54a>貴族</color>" : "";
@@ -244,7 +244,7 @@ namespace Ginei
             string postPart = string.IsNullOrEmpty(post) ? "" : $"　<color=#ffd54a>在任:{post}</color>";
             sb.Append($"\n<color=#bfe9c0>◆ [{voc}] {ikai} {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　考第:{kou}{noble}{postPart}\n");
             if (v == PersonVocation.技術者)
-                sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}　<color=#9aa7b3>研究 {p.research} ／ 技術 {p.engineering}</color>\n");
+                sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}　<color=#9aa7b3>研究 {p.research} ／ 技術 {p.engineering} ／ 計画 {p.planning} ／ 生産 {p.production}</color>\n");
             else
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}\n");
             AppendGeneration(sb, p);

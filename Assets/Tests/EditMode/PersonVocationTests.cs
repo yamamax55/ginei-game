@@ -86,5 +86,23 @@ namespace Ginei.Tests
             var v2 = PersonVocationRules.PromotionVocation(Occupation.官吏);
             Assert.AreEqual(OccupationClassificationRules.MajorGroupOf(Occupation.官吏), PersonVocationRules.JsocAnalog(v2));
         }
+
+        [Test]
+        public void TechnicalSpecialty_DistinguishesScientistsEngineersAndGeneralists()
+        {
+            var scientist = new Person(1, "研究者", Faction.同盟, PersonRole.文民)
+                { research = 90, planning = 70, engineering = 40, production = 30 };
+            var engineer = new Person(2, "技師", Faction.帝国, PersonRole.文民)
+                { research = 30, planning = 40, engineering = 85, production = 80 };
+            var generalist = new Person(3, "総合", Faction.同盟, PersonRole.文民)
+                { research = 70, planning = 60, engineering = 65, production = 65 };
+
+            Assert.AreEqual(TechnicalSpecialty.科学者, PersonVocationRules.TechnicalSpecialtyOf(scientist));
+            Assert.AreEqual(TechnicalSpecialty.技術者, PersonVocationRules.TechnicalSpecialtyOf(engineer));
+            Assert.AreEqual(TechnicalSpecialty.総合, PersonVocationRules.TechnicalSpecialtyOf(generalist));
+            Assert.AreEqual("科学者", PersonVocationRules.TechnicalTitle(scientist));
+            Assert.AreEqual("技術者", PersonVocationRules.TechnicalTitle(engineer));
+            Assert.AreEqual("総合技術者", PersonVocationRules.TechnicalTitle(generalist));
+        }
     }
 }

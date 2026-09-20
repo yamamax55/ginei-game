@@ -835,6 +835,7 @@ namespace Ginei
             RunRegimeEvolutionTick();
 
             // 政党政治（#159 配線）：民主政治の勢力で政党制が成熟度に応じ二大政党へ収束し、衆参の選挙が回り、分断危機を通知。
+            EnsurePoliticalCandidateSupply();
             RunPoliticsTick();
             RunSuccessionTick(); // P2：継承危機/内乱リスク（正統性×派閥対立）を年次評価して通知
             RunDisclosureTick(); // P3：秘史→真相→エンディングの連鎖開示を年次評価して通知
@@ -1227,6 +1228,31 @@ namespace Ginei
                 if (s != null && s.owner == faction && provinces.TryGetValue(s.id, out var prov) && prov != null)
                     pool += OccupationRules.Workers(prov, Occupation.官吏);
             return pool * NurseryLaborOf(faction); // 保育園＝働く親が増える（労働参加）
+        }
+
+        /// <summary>
+        /// 選挙制勢力の政治家候補を、所有星系数に応じた最低人数まで既存文官から補う。
+        /// 新しい人物は作らず、人物の政界転身だけを行う。
+        /// </summary>
+        private void EnsurePoliticalCandidateSupply()
+        {
+            if (civilians == null) return;
+            for (int fi = 0; fi < DemoFactions.Length; fi++)
+            {
+                Faction faction = DemoFactions[fi];
+                FactionState state = StateOf(faction);
+                if (state == null || !ElectoralSystemRules.IsElectoral(state.governmentForm)) continue;
+                int ownedSystems = 0;
+                if (map != null && map.systems != null)
+                    for (int i = 0; i < map.systems.Count; i++)
+                        if (map.systems[i] != null && map.systems[i].owner == faction) ownedSystems++;
+                int target = Mathf.Clamp(ownedSystems + 2, 4, 12);
+                List<Person> promoted = NamedPersonGenerationRules.PromotePoliticalCandidates(
+                    civilians, faction, target);
+                if (promoted.Count > 0)
+                    NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
+                        $"{faction} 政界転身：{promoted.Count}名（政治家候補 {target}名を確保）");
+            }
         }
 
         /// <summary>

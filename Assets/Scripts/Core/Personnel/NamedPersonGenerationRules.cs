@@ -73,6 +73,38 @@ namespace Ginei
             return System.Math.Max(0, capacity - active);
         }
 
+        /// <summary>選挙に必要な政治家が不足したとき、在職可能な文官から決定論で政界へ転身させる。</summary>
+        public static List<Person> PromotePoliticalCandidates(
+            IEnumerable<Person> people, Faction faction, int targetCount)
+        {
+            var promoted = new List<Person>();
+            if (people == null || targetCount <= 0) return promoted;
+            var candidates = new List<Person>();
+            int current = 0;
+            foreach (Person person in people)
+            {
+                if (person == null || person.faction != faction || !person.IsAvailable) continue;
+                if (person.isPolitician) { current++; continue; }
+                if (person.isSovereign || person.role != PersonRole.文民) continue;
+                if (PersonVocationRules.VocationOf(person) != PersonVocation.文官) continue;
+                candidates.Add(person);
+            }
+            int needed = System.Math.Max(0, targetCount - current);
+            candidates.Sort((a, b) =>
+            {
+                int aScore = a.charisma * 2 + a.operation + a.intelligence;
+                int bScore = b.charisma * 2 + b.operation + b.intelligence;
+                int score = bScore.CompareTo(aScore);
+                return score != 0 ? score : a.id.CompareTo(b.id);
+            });
+            for (int i = 0; i < needed && i < candidates.Count; i++)
+            {
+                candidates[i].isPolitician = true;
+                promoted.Add(candidates[i]);
+            }
+            return promoted;
+        }
+
         public static void Stamp(
             IEnumerable<Person> people, PersonGenerationKind kind, string eventId, int seed)
         {

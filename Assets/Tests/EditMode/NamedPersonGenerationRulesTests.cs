@@ -293,5 +293,37 @@ namespace Ginei.Tests
             Assert.AreEqual(string.Empty, NamedPersonGenerationRules.DescribeQualifications(
                 new Person(4, "無資格", Faction.同盟, PersonRole.文民)));
         }
+
+        [Test]
+        public void PoliticalCandidateSupply_PromotesBestEligibleCivilOfficialsOnly()
+        {
+            var existing = new Person(1, "現職", Faction.同盟, PersonRole.文民) { isPolitician = true };
+            var best = new Person(2, "有望", Faction.同盟, PersonRole.文民)
+                { charisma = 80, operation = 70, intelligence = 70 };
+            var second = new Person(3, "次点", Faction.同盟, PersonRole.文民)
+                { charisma = 60, operation = 60, intelligence = 60 };
+            var engineer = new Person(4, "技術者", Faction.同盟, PersonRole.文民)
+                { charisma = 99, research = 90, engineering = 90, planning = 90, production = 90 };
+            var soldier = new Person(5, "軍人", Faction.同盟, PersonRole.軍人) { charisma = 99 };
+            var foreign = new Person(6, "帝国文官", Faction.帝国, PersonRole.文民) { charisma = 99 };
+            var dead = new Person(7, "故人", Faction.同盟, PersonRole.文民)
+                { charisma = 99, deathYear = 10 };
+            var people = new List<Person> { existing, second, engineer, soldier, foreign, dead, best };
+
+            List<Person> promoted = NamedPersonGenerationRules.PromotePoliticalCandidates(
+                people, Faction.同盟, 3);
+
+            Assert.AreEqual(2, promoted.Count);
+            Assert.AreSame(best, promoted[0]);
+            Assert.AreSame(second, promoted[1]);
+            Assert.IsTrue(best.isPolitician);
+            Assert.IsTrue(second.isPolitician);
+            Assert.IsFalse(engineer.isPolitician);
+            Assert.IsFalse(soldier.isPolitician);
+            Assert.IsFalse(foreign.isPolitician);
+            Assert.IsFalse(dead.isPolitician);
+            Assert.AreEqual(0, NamedPersonGenerationRules.PromotePoliticalCandidates(
+                people, Faction.同盟, 3).Count, "充足後に同じ処理で重複転身している");
+        }
     }
 }

@@ -87,7 +87,7 @@ namespace Ginei
                 if (father == null || !ChildbirthRules.CanConceive(father, mother, currentYear)) continue;
                 if (roll() >= ChildbirthRules.ConceptionChance(mother, currentYear, fertility)) continue; // 今年は授からなかった
 
-                Person child = ChildbirthRules.Conceive(father, mother, nextId(), currentYear, roll(), roll, heredity);
+                Person child = ChildbirthRules.ConceiveFromEvent(father, mother, nextId(), currentYear, heredity);
                 if (child != null) { newborns.Add(child); res.births++; }
             }
             roster.AddRange(newborns);

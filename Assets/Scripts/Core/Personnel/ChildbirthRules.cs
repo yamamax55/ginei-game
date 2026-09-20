@@ -171,6 +171,23 @@ namespace Ginei
         public static Person Conceive(Person father, Person mother, int childId, int birthYear, float sexRoll, Func<float> roll)
             => Conceive(father, mother, childId, birthYear, sexRoll, roll, HeredityRules.HeredityParams.Default);
 
+        /// <summary>年次世代交代向け。人物IDと出生年から固定seedを作り、出生能力を再現可能にして証跡を刻む。</summary>
+        public static Person ConceiveFromEvent(
+            Person father, Person mother, int childId, int birthYear, HeredityRules.HeredityParams prm)
+        {
+            if (!CanConceive(father, mother, birthYear)) return null;
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.出生, father.faction, childId, birthYear);
+            int seed = NamedPersonGenerationRules.StableSeed(eventId);
+            var random = new System.Random(seed);
+            Func<float> roll = () => (float)random.NextDouble();
+            Person child = Conceive(father, mother, childId, birthYear, roll(), roll, prm);
+            if (child != null)
+                NamedPersonGenerationRules.Stamp(
+                    new[] { child }, PersonGenerationKind.出生, eventId, seed);
+            return child;
+        }
+
         /// <summary>
         /// 確率つき出産（年次 Tick 用）＝<see cref="CanConceive"/> かつ <paramref name="conceptionRoll"/> が
         /// <see cref="ConceptionChance"/> を下回れば子を生む、さもなくば null（その年は授からなかった）。出産は毎年保証されない。

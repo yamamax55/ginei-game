@@ -157,6 +157,8 @@ namespace Ginei
                 commanders.Add(new Person(id++, "ビュコック", Faction.同盟, PersonRole.軍人) { birthYear = y - 88, rankTier = 9 });
                 id = SeedFoundingYouth(id, y); // 世代交代ループの種＝結婚適齢の若者（男女）
                 id = SeedDemoCivilService(id, y); // 指導者/政治家/文官/官僚/技術者をシード（人事観測層のテスト）
+                StampScenarioPeople(commanders, y);
+                StampScenarioPeople(civilians, y);
                 nextPersonId = id; // 卒業生はこの続き番号で採番
             }
 
@@ -377,6 +379,21 @@ namespace Ginei
             AppendEducationAnnualState(sb, fac);
 
             AppendEduUpper(sb, fac);
+        }
+
+        private static void StampScenarioPeople(List<Person> people, int year)
+        {
+            if (people == null) return;
+            for (int i = 0; i < people.Count; i++)
+            {
+                Person person = people[i];
+                if (person == null || person.generationKind != PersonGenerationKind.不明) continue;
+                string eventId = NamedPersonGenerationRules.EventId(
+                    PersonGenerationKind.初期シナリオ, person.faction, person.id, year);
+                NamedPersonGenerationRules.Stamp(
+                    new[] { person }, PersonGenerationKind.初期シナリオ, eventId,
+                    NamedPersonGenerationRules.StableSeed(eventId));
+            }
         }
 
         private void AppendEducationAnnualState(System.Text.StringBuilder sb, Faction fac)

@@ -50,6 +50,27 @@ namespace Ginei.Tests
             Assert.AreEqual(1, child.fatherId);
             Assert.AreEqual(2, child.motherId);
             Assert.AreEqual(Faction.同盟, child.faction);
+            Assert.AreEqual(PersonGenerationKind.出生, child.generationKind);
+            Assert.IsFalse(string.IsNullOrEmpty(child.generationEventId));
+            Assert.AreEqual(NamedPersonGenerationRules.StableSeed(child.generationEventId), child.generationSeed);
+        }
+
+        [Test]
+        public void BirthEvent_ProducesSameChildFromSameIdentity()
+        {
+            Person father = Man(1);
+            Person mother = Woman(2);
+
+            Person first = ChildbirthRules.ConceiveFromEvent(
+                father, mother, 100, Year, HeredityRules.HeredityParams.Default);
+            Person second = ChildbirthRules.ConceiveFromEvent(
+                father, mother, 100, Year, HeredityRules.HeredityParams.Default);
+
+            Assert.AreEqual(first.generationEventId, second.generationEventId);
+            Assert.AreEqual(first.generationSeed, second.generationSeed);
+            Assert.AreEqual(first.sex, second.sex);
+            Assert.AreEqual(first.leadership, second.leadership);
+            Assert.AreEqual(first.engineering, second.engineering);
         }
 
         [Test]

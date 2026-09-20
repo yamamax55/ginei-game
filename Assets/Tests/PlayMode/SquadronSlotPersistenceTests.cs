@@ -96,6 +96,61 @@ namespace Ginei.Tests
             }
         }
 
+        [Test]
+        public void FormationChange_Assigns_NonCrossing_StraightPaths_InRealSquadron()
+        {
+            var root = new GameObject("squadron-formation-crossing-test");
+            var members = new List<GameObject>();
+            try
+            {
+                var squadron = root.AddComponent<Squadron>();
+                squadron.escortCount = 0;
+                squadron.spacing = 1.4f;
+                squadron.currentFormation = Formation.横陣;
+                for (int i = 0; i < 10; i++)
+                {
+                    var member = new GameObject("member-" + i);
+                    member.transform.SetParent(root.transform, true);
+                    members.Add(member);
+                    squadron.memberShips.Add(member.transform);
+                }
+
+                InvokeEnsureSlots(squadron);
+                var oldSlots = GetPrivate<List<Vector2>>(squadron, "cachedSlots");
+                var oldAssignments = GetPrivate<List<int>>(squadron, "slotForMember");
+                var starts = new List<Vector2>();
+                for (int i = 0; i < members.Count; i++)
+                {
+                    Vector2 p = root.transform.TransformPoint(oldSlots[oldAssignments[i]]);
+                    members[i].transform.position = p;
+                    starts.Add(p);
+                }
+
+                squadron.currentFormation = Formation.円陣;
+                InvokeEnsureSlots(squadron);
+                var newSlots = GetPrivate<List<Vector2>>(squadron, "cachedSlots");
+                var newAssignments = GetPrivate<List<int>>(squadron, "slotForMember");
+                var ends = new List<Vector2>();
+                for (int i = 0; i < members.Count; i++)
+                    ends.Add(root.transform.TransformPoint(newSlots[newAssignments[i]]));
+
+                int crossings = 0;
+                for (int i = 0; i < starts.Count; i++)
+                    for (int j = i + 1; j < starts.Count; j++)
+                        if (SegmentsProperlyIntersect(starts[i], ends[i], starts[j], ends[j])) crossings++;
+
+                Assert.Zero(crossings, "横陣→円陣の再編経路が交差している");
+                CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, newAssignments,
+                    "全艦が重複なく新しい持ち場へ割り当てられる");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                foreach (var member in members)
+                    if (member != null) Object.DestroyImmediate(member);
+            }
+        }
+
         [UnityTest]
         public IEnumerator UpdateShipPositions_AccelerationRampCannotExceedFinalSpeedLimit()
         {
@@ -231,5 +286,17 @@ namespace Ginei.Tests
             return (T)typeof(Squadron).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(squadron);
         }
+
+        private static bool SegmentsProperlyIntersect(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+        {
+            float abC = Cross(b - a, c - a);
+            float abD = Cross(b - a, d - a);
+            float cdA = Cross(d - c, a - c);
+            float cdB = Cross(d - c, b - c);
+            const float epsilon = 1e-5f;
+            return abC * abD < -epsilon && cdA * cdB < -epsilon;
+        }
+
+        private static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
     }
 }

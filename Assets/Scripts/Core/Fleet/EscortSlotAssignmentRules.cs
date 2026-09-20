@@ -43,7 +43,10 @@ namespace Ginei
             var assignment = NewUnassigned(n);
             if (n <= 0 || m <= 0) return assignment;
 
-            return AssignMinimumCost(n, m, (i, j) => (positions[i] - slots[j]).sqrMagnitude);
+            // 実際の移動距離を費用にする。二乗距離は長距離を強く罰する一方、全体最小でも
+            // 直線経路が交差する割当を選び得る。ユークリッド距離なら交差する2経路は
+            // 端点を入れ替えることで短くできるため、距離最小化がそのまま横断抑制になる。
+            return AssignMinimumCost(n, m, (i, j) => (positions[i] - slots[j]).magnitude);
         }
 
         /// <summary>
@@ -66,7 +69,7 @@ namespace Ginei
 
             return AssignMinimumCost(n, m, (i, j) =>
             {
-                float c = (positions[i] - slots[j]).sqrMagnitude;
+                float c = (positions[i] - slots[j]).magnitude;
                 if (i < classes.Count && classes[i] != slotPref[j]) c += classBias;
                 return c;
             });

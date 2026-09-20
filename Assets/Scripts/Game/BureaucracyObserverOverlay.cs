@@ -23,6 +23,8 @@ namespace Ginei
     /// （<see cref="CivilServicePostRules.SlotsFor"/>）と承認権者（事務次官級＝首相／局長級以下＝所管大臣・委任された副大臣＝
     /// <see cref="CivilServicePostRules.ApprovalAuthority"/>）の在否を示し、勢力ごとに直近の退任履歴を並べる。</para>
     /// 観測専用ゆえ既存フィールドのみ読む＝<b>状態は変えない</b>（台帳・省庁・内閣・人物のいずれも書き換えない）。
+    /// 本文の上には「官僚人事を開く」の小さなボタンを置き、人事の操作は <see cref="CivilServiceAppointmentPanel"/>
+    /// （操作窓）へ委ねる＝このボタンでも人事状態は変えない。
     /// `GovernmentObserverOverlay` と同型の自動生成（Strategy/Battle）。
     /// </summary>
     public class BureaucracyObserverOverlay : MonoBehaviour
@@ -52,6 +54,7 @@ namespace Ginei
         private GameObject overlayRoot;
         private GameObject panel;
         private TextMeshProUGUI bodyLabel;
+        private Button openAppointmentButton;
         private object escWindowToken;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -100,6 +103,9 @@ namespace Ginei
 
         /// <summary>試験用：表示本文をそのまま取り出す（本番と同じ経路・read-only＝状態は変えない）。</summary>
         public string BuildDumpForQa() => BuildDump();
+
+        /// <summary>試験用：「官僚人事を開く」ボタン（本文の上＝タイトルバー直下。押下は <see cref="CivilServiceAppointmentPanel.Show"/>）。</summary>
+        public Button OpenAppointmentButtonForTest => openAppointmentButton;
 
         /// <summary>
         /// 1勢力ぶんの人事の見方（台帳・名簿・暦年）。読むための束＝ここに状態を持たず、Core の窓口へ渡すだけ。
@@ -560,7 +566,40 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             WindowChrome.AddTitleBarLayout(frameRT, "官僚機構", () => SetVisible(false));
+            BuildOpenAppointmentButton(frame.transform);
             BuildScrollBody(frame.transform);
+        }
+
+        /// <summary>「官僚人事を開く」の小さなボタン（本文＝スクロールの上・タイトルバー直下）。観測は read-only の
+        /// ままで、人事そのものは <see cref="CivilServiceAppointmentPanel"/>（操作窓）へ委ねる＝ここで人事状態は変えない。</summary>
+        private void BuildOpenAppointmentButton(Transform parent)
+        {
+            GameObject btnObj = new GameObject("OpenAppointmentButton");
+            btnObj.transform.SetParent(parent, false);
+            LayoutElement le = btnObj.AddComponent<LayoutElement>();
+            le.minHeight = 30f; le.preferredHeight = 30f; le.flexibleHeight = 0f;
+
+            Image img = btnObj.AddComponent<Image>();
+            img.color = new Color(0.16f, 0.20f, 0.30f, 1f);
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.transition = UnityEngine.UI.Selectable.Transition.None;
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(CivilServiceAppointmentPanel.Show);
+            openAppointmentButton = btn;
+
+            GameObject textObj = new GameObject("Label");
+            textObj.transform.SetParent(btnObj.transform, false);
+            TextMeshProUGUI label = textObj.AddComponent<TextMeshProUGUI>();
+            RectTransform labelRT = label.rectTransform;
+            labelRT.anchorMin = Vector2.zero; labelRT.anchorMax = Vector2.one;
+            labelRT.offsetMin = Vector2.zero; labelRT.offsetMax = Vector2.zero;
+            label.text = "官僚人事を開く";
+            label.fontSize = 15f;
+            label.color = new Color(0.94f, 0.96f, 1f);
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+            ApplyJapaneseFont(label);
         }
 
         private void BuildScrollBody(Transform parent)

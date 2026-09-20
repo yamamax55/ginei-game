@@ -487,5 +487,28 @@ namespace Ginei.Tests
             overlay.Toggle();
             Assert.IsFalse(panel.gameObject.activeSelf, "閉じられない");
         }
+
+        // ===== 6. 「官僚人事を開く」ボタン：押すと人事窓（CivilServiceAppointmentPanel）が開く =====
+
+        [UnityTest]
+        public IEnumerator Overlay_OpenAppointmentButton_OpensCivilServiceAppointmentPanel()
+        {
+            var go = new GameObject("BureaucracyObserverOverlay_UI2");
+            spawned.Add(go);
+            BureaucracyObserverOverlay overlay = go.AddComponent<BureaucracyObserverOverlay>();
+            yield return null;
+
+            Button btn = overlay.OpenAppointmentButtonForTest;
+            Assert.IsNotNull(btn, "「官僚人事を開く」ボタンが無い");
+            overlay.SetVisible(true);
+            Assert.IsTrue(btn.gameObject.activeInHierarchy, "ボタンが表示されていない");
+
+            btn.onClick.Invoke();
+            Assert.IsTrue(CivilServiceAppointmentPanel.IsOpen, "ボタン押下で官僚人事窓が開かない");
+
+            // 後始末：他の試験へ開いた窓を残さない（既存のパネル試験と同じく生成した窓ごと破棄する）
+            CivilServiceAppointmentPanel panel = CivilServiceAppointmentPanel.InstanceForTest;
+            if (panel != null) Object.DestroyImmediate(panel.gameObject);
+        }
     }
 }

@@ -20,6 +20,19 @@ namespace Ginei
     /// <summary>生成イベントの識別・再現seed・重複検査を一つに集約する。</summary>
     public static class NamedPersonGenerationRules
     {
+        private static readonly string[] ImperialFamilies =
+            { "アーデル", "ファルク", "クライン", "ヴァイス", "ベルク", "ハルト", "ローゼン", "シュタイン", "ノルト", "ヴォルフ", "リヒター", "ブラウン" };
+        private static readonly string[] ImperialMaleNames =
+            { "エルンスト", "カール", "レオン", "オットー", "ユリウス", "マルク", "フリッツ", "アルノ", "テオ", "ルーカス", "コンラート", "ヴィクトル" };
+        private static readonly string[] ImperialFemaleNames =
+            { "エリーゼ", "クララ", "レナ", "マリア", "ゾフィー", "イリス", "アンナ", "ノラ", "テレーゼ", "ユリア", "フリーダ", "ヴィルマ" };
+        private static readonly string[] AllianceFamilies =
+            { "アレン", "チェン", "ハヤシ", "パーク", "シルバ", "カーン", "モリス", "リー", "サトウ", "ロペス", "クラーク", "キム" };
+        private static readonly string[] AllianceMaleNames =
+            { "アレックス", "ジュン", "ミン", "サミール", "レオ", "ケン", "ダニエル", "リュウ", "ノア", "ハル", "ミゲル", "イアン" };
+        private static readonly string[] AllianceFemaleNames =
+            { "ミラ", "ユナ", "リン", "サラ", "レイ", "マヤ", "エマ", "メイ", "ナオ", "ルナ", "ソフィア", "アイリ" };
+
         public static string EventId(PersonGenerationKind kind, Faction faction, int sourceId, int year)
             => $"person:{(int)kind}:{(int)faction}:{sourceId}:{year}";
 
@@ -72,7 +85,28 @@ namespace Ginei
                 person.generationSeed = seed;
                 ApplyGeneratedTraits(person, seed);
                 ApplyGeneratedChronology(person, kind, seed);
+                if (kind != PersonGenerationKind.初期シナリオ)
+                    person.name = GenerateName(person.faction, person.sex, person.id, seed);
             }
+        }
+
+        /// <summary>勢力・性別・人物ID・固定seedから再現可能な固有名を作る。</summary>
+        public static string GenerateName(Faction faction, Sex sex, int personId, int seed)
+        {
+            string[] families = faction == Faction.帝国 ? ImperialFamilies : AllianceFamilies;
+            string[] given = faction == Faction.帝国
+                ? (sex == Sex.女性 ? ImperialFemaleNames : ImperialMaleNames)
+                : (sex == Sex.女性 ? AllianceFemaleNames : AllianceMaleNames);
+            int stableId = System.Math.Max(0, personId);
+            int familyIndex = PositiveMod(stableId + seed, families.Length);
+            int givenIndex = PositiveMod(stableId / families.Length + seed / families.Length, given.Length);
+            return families[familyIndex] + "・" + given[givenIndex];
+        }
+
+        private static int PositiveMod(int value, int modulo)
+        {
+            int result = value % modulo;
+            return result < 0 ? result + modulo : result;
         }
 
         /// <summary>卒業・登用時点から無理のない生年を補い、年齢と経歴の順序を確定する。</summary>

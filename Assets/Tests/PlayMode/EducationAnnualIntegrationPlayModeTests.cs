@@ -176,7 +176,10 @@ namespace Ginei.Tests
             {
                 Assert.AreEqual(eventId, civilians[i].generationEventId);
                 Assert.AreEqual(NamedPersonGenerationRules.StableSeed(eventId), civilians[i].generationSeed);
+                StringAssert.Contains("・", civilians[i].name, "学校名と番号の仮名が固有名へ置換されていない");
             }
+            Assert.AreEqual(civilians.Count, new HashSet<string>(civilians.ConvertAll(p => p.name)).Count,
+                "同じ卒業イベント内で氏名が重複している");
             Assert.AreEqual(0f, EducationAnnualRules.AvailableGraduates(state.education, SchoolType.大学), 1e-5f);
 
             view.RunUniversityTickForQa(804);

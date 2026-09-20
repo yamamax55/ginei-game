@@ -1166,8 +1166,8 @@ namespace Ginei
             var results = MilitaryAcademyRules.RunMilitarySession(
                 eff, campaignYear, sitters, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += results.Count;
-            NamedPersonGenerationRules.Stamp(results, PersonGenerationKind.士官学校卒業, eventId, generationSeed);
             AssignSexes(results, a.faction);
+            NamedPersonGenerationRules.Stamp(results, PersonGenerationKind.士官学校卒業, eventId, generationSeed);
 
             int 退校 = 0, 幼 = 0, 士 = 0, 参 = 0;
             Person 首席 = null;
@@ -1356,8 +1356,8 @@ namespace Ginei
             var results = ImperialExamRules.RunExamSession(
                 eff, campaignYear, sitters, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += results.Count;
-            NamedPersonGenerationRules.Stamp(results, PersonGenerationKind.科挙登用, eventId, generationSeed);
             AssignSexes(results, u.faction);
+            NamedPersonGenerationRules.Stamp(results, PersonGenerationKind.科挙登用, eventId, generationSeed);
 
             int 生員 = 0, 挙人 = 0, 貢士 = 0, 進士 = 0;
             Person 状元 = null;
@@ -1414,8 +1414,8 @@ namespace Ginei
             var grads = TechnicalCollegeRules.GraduateCohort(
                 eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
-            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.高専卒業, eventId, generationSeed);
             AssignSexes(grads, c.faction);
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.高専卒業, eventId, generationSeed);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{c.faction} {c.name} {grads.Count}名 卒業（技術者）");
@@ -1438,8 +1438,8 @@ namespace Ginei
             var grads = JuniorCollegeRules.GraduateCohort(
                 eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
-            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.短大卒業, eventId, generationSeed);
             AssignSexes(grads, c.faction);
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.短大卒業, eventId, generationSeed);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{c.faction} {c.name} {grads.Count}名 卒業（行政中堅）");
@@ -1462,8 +1462,8 @@ namespace Ginei
             var grads = VocationalSchoolRules.GraduateCohort(
                 eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
-            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.専門学校卒業, eventId, generationSeed);
             AssignSexes(grads, s.faction);
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.専門学校卒業, eventId, generationSeed);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{s.faction} {s.name} {grads.Count}名 卒業（実務）");
@@ -1486,8 +1486,8 @@ namespace Ginei
             var grads = UniversityRules.GraduateCohort(
                 eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
-            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.大学卒業, eventId, generationSeed);
             AssignSexes(grads, u.faction);
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.大学卒業, eventId, generationSeed);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
                 $"{u.faction} {u.name} {grads.Count}名 卒業（{u.track}）");

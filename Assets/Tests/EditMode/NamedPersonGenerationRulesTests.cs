@@ -205,5 +205,24 @@ namespace Ginei.Tests
             Assert.AreEqual(1, NamedPersonGenerationRules.RemainingFactionSlots(people, Faction.同盟, 4));
             Assert.AreEqual(0, NamedPersonGenerationRules.RemainingFactionSlots(people, Faction.同盟, -1));
         }
+
+        [Test]
+        public void GeneratedNames_AreStableFactionSpecificAndPreserveScenarioNames()
+        {
+            string empire = NamedPersonGenerationRules.GenerateName(Faction.帝国, Sex.男性, 42, 123);
+            string same = NamedPersonGenerationRules.GenerateName(Faction.帝国, Sex.男性, 42, 123);
+            string alliance = NamedPersonGenerationRules.GenerateName(Faction.同盟, Sex.女性, 42, 123);
+            Assert.AreEqual(empire, same);
+            Assert.AreNotEqual(empire, alliance);
+            StringAssert.Contains("・", empire);
+
+            var generated = new Person(42, "大学804期1", Faction.同盟, PersonRole.文民) { sex = Sex.女性 };
+            NamedPersonGenerationRules.Stamp(new[] { generated }, PersonGenerationKind.大学卒業, "event", 123);
+            Assert.AreEqual(alliance, generated.name);
+
+            var scenario = new Person(7, "既存名", Faction.帝国, PersonRole.軍人);
+            NamedPersonGenerationRules.Stamp(new[] { scenario }, PersonGenerationKind.初期シナリオ, "scenario", 55);
+            Assert.AreEqual("既存名", scenario.name);
+        }
     }
 }

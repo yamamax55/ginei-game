@@ -74,6 +74,9 @@ namespace Ginei
         public int graduationYear; // 卒業年/合格年（学閥=同期の判定）
         public int schoolId;       // 卒業/合格制度のID（学閥=同窓の判定）
         public int examRank;       // 登用試験の合格順位（文官版ハンモック。LIFE-6）
+        public PersonGenerationKind generationKind = PersonGenerationKind.不明; // 自動生成の正規経路（旧人物は不明）
+        public string generationEventId = ""; // 同じ卒業・登用イベントの重複防止と証跡
+        public int generationSeed; // 生成イベントを再現する固定seed（0=旧人物/不明）
         public int schoolPostingUntilYear; // 在学（学校配属）の終了年。0=非在学。>currentYear の間は艦隊配属不可（#SCHOOL-AGE）
         public int warCollegeRank; // 陸軍大学校内の卒業席次（1=首席。0=なし）。上位 SwordQuota が恩賜の軍刀組（MilitarySwordHonorRules）
         public ServiceStatus serviceStatus = ServiceStatus.現役; // 在役状態（現役→予備役→退役。RetirementRules・#530-536）

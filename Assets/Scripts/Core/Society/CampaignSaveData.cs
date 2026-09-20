@@ -334,6 +334,9 @@ namespace Ginei
         public int heldBy;           // (int)Faction
         // 経歴・学歴・在役（#155/#156/#530/#SCHOOL-AGE）
         public int hammockNumber, graduationYear, schoolId, examRank;
+        public int generationKind; // (int)PersonGenerationKind（0=不明＝旧セーブ互換）
+        public string generationEventId;
+        public int generationSeed;
         public int militaryDegree;   // (int)MilitaryDegree
         public int examDegree;       // (int)ExamDegree
         public int schoolPostingUntilYear, warCollegeRank;

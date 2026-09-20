@@ -142,5 +142,46 @@ namespace Ginei.Tests
             StringAssert.Contains("大学 2", dump);
             yield return null;
         }
+
+        [UnityTest]
+        public IEnumerator UniversityGraduates_AreGeneratedOnceWithStableEvidence()
+        {
+            var map = new GalaxyMap();
+            map.AddSystem(new StarSystem(1, "人材試験星", Vector2.zero, Faction.同盟));
+            var province = new Province(1, "", 1000f);
+            var provinces = new Dictionary<int, Province> { { 1, province } };
+            var campaign = new CampaignState(map);
+            var state = new FactionState(Faction.同盟);
+            state.education.graduateSupply.Add(new EducationGraduateSupply(SchoolType.大学, 3f));
+            campaign.states.Add(state);
+            var civilians = new List<Person>();
+            StrategySession.Campaign = campaign;
+            StrategySession.Map = map;
+            StrategySession.Provinces = provinces;
+
+            viewObject = new GameObject("NamedGraduateQa");
+            viewObject.SetActive(false);
+            GalaxyView view = viewObject.AddComponent<GalaxyView>();
+            view.BindElectionQaWorld(map, provinces, new List<Person>(), civilians);
+            view.BindEducationInstitutionsForQa(
+                new List<University> { new University(7, Faction.同盟, "工科大学", CareerTrack.テクノクラート, 3) },
+                new List<TechnicalCollege>(), new List<JuniorCollege>(), new List<VocationalSchool>());
+
+            view.RunUniversityTickForQa(804);
+
+            Assert.AreEqual(3, civilians.Count);
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.大学卒業, Faction.同盟, 7, 804);
+            for (int i = 0; i < civilians.Count; i++)
+            {
+                Assert.AreEqual(eventId, civilians[i].generationEventId);
+                Assert.AreEqual(NamedPersonGenerationRules.StableSeed(eventId), civilians[i].generationSeed);
+            }
+            Assert.AreEqual(0f, EducationAnnualRules.AvailableGraduates(state.education, SchoolType.大学), 1e-5f);
+
+            view.RunUniversityTickForQa(804);
+            Assert.AreEqual(3, civilians.Count, "同じ卒業イベントから人物が重複生成された");
+            yield return null;
+        }
     }
 }

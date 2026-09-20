@@ -1,0 +1,59 @@
+using System.Collections.Generic;
+using NUnit.Framework;
+using Ginei;
+
+namespace Ginei.Tests
+{
+    public class NamedPersonGenerationRulesTests
+    {
+        [Test]
+        public void EventIdAndSeed_AreStableAndSeparateEvents()
+        {
+            string first = NamedPersonGenerationRules.EventId(PersonGenerationKind.大学卒業, Faction.同盟, 7, 804);
+            string same = NamedPersonGenerationRules.EventId(PersonGenerationKind.大学卒業, Faction.同盟, 7, 804);
+            string other = NamedPersonGenerationRules.EventId(PersonGenerationKind.大学卒業, Faction.同盟, 7, 805);
+
+            Assert.AreEqual(first, same);
+            Assert.AreEqual(NamedPersonGenerationRules.StableSeed(first), NamedPersonGenerationRules.StableSeed(same));
+            Assert.AreNotEqual(first, other);
+            Assert.AreNotEqual(NamedPersonGenerationRules.StableSeed(first), NamedPersonGenerationRules.StableSeed(other));
+        }
+
+        [Test]
+        public void Stamp_RecordsProvenanceAndDetectsDuplicateEvent()
+        {
+            var people = new List<Person> { new Person(1, "卒業生", Faction.同盟, PersonRole.文民) };
+            string eventId = NamedPersonGenerationRules.EventId(PersonGenerationKind.高専卒業, Faction.同盟, 3, 804);
+            int seed = NamedPersonGenerationRules.StableSeed(eventId);
+
+            NamedPersonGenerationRules.Stamp(people, PersonGenerationKind.高専卒業, eventId, seed);
+
+            Assert.AreEqual(PersonGenerationKind.高専卒業, people[0].generationKind);
+            Assert.AreEqual(eventId, people[0].generationEventId);
+            Assert.AreEqual(seed, people[0].generationSeed);
+            Assert.IsTrue(NamedPersonGenerationRules.ContainsEvent(people, eventId));
+            Assert.IsFalse(NamedPersonGenerationRules.ContainsEvent(people, eventId + ":別"));
+        }
+
+        [Test]
+        public void CampaignPersonSave_PreservesGenerationEvidence_AndOldDataStaysUnknown()
+        {
+            var person = new Person(5, "技術者", Faction.同盟, PersonRole.文民)
+            {
+                generationKind = PersonGenerationKind.専門学校卒業,
+                generationEventId = "person:7:1:9:804",
+                generationSeed = 12345
+            };
+
+            Person restored = CampaignSerializer.PersonFromSave(CampaignSerializer.PersonToSave(person));
+            Person old = CampaignSerializer.PersonFromSave(new PersonSave { id = 6, name = "旧人物" });
+
+            Assert.AreEqual(person.generationKind, restored.generationKind);
+            Assert.AreEqual(person.generationEventId, restored.generationEventId);
+            Assert.AreEqual(person.generationSeed, restored.generationSeed);
+            Assert.AreEqual(PersonGenerationKind.不明, old.generationKind);
+            Assert.AreEqual(string.Empty, old.generationEventId);
+            Assert.AreEqual(0, old.generationSeed);
+        }
+    }
+}

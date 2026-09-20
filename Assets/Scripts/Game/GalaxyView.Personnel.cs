@@ -1124,6 +1124,12 @@ namespace Ginei
                     people[i].sex = DetRoll(campaignYear, people[i].id) < fshare ? Sex.女性 : Sex.男性;
         }
 
+        private static System.Func<int, float> GenerationRoll(int seed)
+        {
+            var random = new System.Random(seed);
+            return _ => (float)random.NextDouble();
+        }
+
         /// <summary>軍学校＝多段の選抜（幼年学校→士官学校→大学校・#155 細分化）。軍属層から入校し、任官者だけを士官名簿へ。</summary>
         private void RunMilitaryAcademy(Academy a)
         {
@@ -1131,9 +1137,15 @@ namespace Ginei
             ResolveEducation(a.faction, a.quality, out float enroll, out float eq);
             int sitters = Mathf.Clamp(Mathf.FloorToInt(RecruitablePoolOf(a.faction) * enroll), 0, 20);
             if (sitters <= 0) return;
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.士官学校卒業, a.faction, a.schoolId, campaignYear);
+            if (NamedPersonGenerationRules.ContainsEvent(commanders, eventId)) return;
+            int generationSeed = NamedPersonGenerationRules.StableSeed(eventId);
             var eff = new Academy(a.schoolId, a.faction, a.name, a.capacity, eq);
-            var results = MilitaryAcademyRules.RunMilitarySession(eff, campaignYear, sitters, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
+            var results = MilitaryAcademyRules.RunMilitarySession(
+                eff, campaignYear, sitters, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += results.Count;
+            NamedPersonGenerationRules.Stamp(results, PersonGenerationKind.士官学校卒業, eventId, generationSeed);
             AssignSexes(results, a.faction);
 
             int 退校 = 0, 幼 = 0, 士 = 0, 参 = 0;
@@ -1232,6 +1244,14 @@ namespace Ginei
                     if (vocationalSchools[i] != null) RunVocationalSchool(vocationalSchools[i]);
         }
 
+        public void RunUniversityTickForQa(int year)
+        {
+            int previous = campaignYear;
+            campaignYear = year;
+            RunUniversityTick();
+            campaignYear = previous;
+        }
+
         /// <summary>
         /// 文官の官歴を1年ぶん回す（官僚制基盤＝<see cref="BureaucracyCareerRules"/> へ委譲）。文民ネームドに位階を叙し、
         /// 考課（能×徳×績）で叙位／貶位する。<b>五位の壁</b>は朝廷の権威が高いとき（律令が機能）だけ越えられる
@@ -1306,9 +1326,15 @@ namespace Ginei
             ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
             int sitters = Mathf.Clamp(Mathf.FloorToInt(CivilCandidatePoolOf(u.faction) * enroll), 0, 40);
             if (sitters <= 0) return;
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.科挙登用, u.faction, u.schoolId, campaignYear);
+            if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
+            int generationSeed = NamedPersonGenerationRules.StableSeed(eventId);
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
-            var results = ImperialExamRules.RunExamSession(eff, campaignYear, sitters, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
+            var results = ImperialExamRules.RunExamSession(
+                eff, campaignYear, sitters, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += results.Count;
+            NamedPersonGenerationRules.Stamp(results, PersonGenerationKind.科挙登用, eventId, generationSeed);
             AssignSexes(results, u.faction);
 
             int 生員 = 0, 挙人 = 0, 貢士 = 0, 進士 = 0;
@@ -1350,11 +1376,17 @@ namespace Ginei
             // 高専は高校を経ない＝中学校のみの教育チェーン（includeHighSchool:false）。
             ResolveEducation(c.faction, c.quality, false, out float enroll, out float eq);
             int intake = TechnicalCollegeRules.Intake(c, TechnicalCandidatePoolOf(c.faction) * enroll);
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.高専卒業, c.faction, c.schoolId, campaignYear);
+            if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
             intake = TakeEducationGraduates(c.faction, SchoolType.高専, intake);
             if (intake <= 0) return;
+            int generationSeed = NamedPersonGenerationRules.StableSeed(eventId);
             var eff = new TechnicalCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
-            var grads = TechnicalCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
+            var grads = TechnicalCollegeRules.GraduateCohort(
+                eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.高専卒業, eventId, generationSeed);
             AssignSexes(grads, c.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
@@ -1366,11 +1398,17 @@ namespace Ginei
         {
             ResolveEducation(c.faction, c.quality, out float enroll, out float eq); // 高校卒後＝高校チェーン込み
             int intake = JuniorCollegeRules.Intake(c, CivilCandidatePoolOf(c.faction) * enroll);
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.短大卒業, c.faction, c.schoolId, campaignYear);
+            if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
             intake = TakeEducationGraduates(c.faction, SchoolType.短大, intake);
             if (intake <= 0) return;
+            int generationSeed = NamedPersonGenerationRules.StableSeed(eventId);
             var eff = new JuniorCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
-            var grads = JuniorCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
+            var grads = JuniorCollegeRules.GraduateCohort(
+                eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.短大卒業, eventId, generationSeed);
             AssignSexes(grads, c.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
@@ -1382,11 +1420,17 @@ namespace Ginei
         {
             ResolveEducation(s.faction, s.quality, out float enroll, out float eq);
             int intake = VocationalSchoolRules.Intake(s, TechnicalCandidatePoolOf(s.faction) * enroll);
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.専門学校卒業, s.faction, s.schoolId, campaignYear);
+            if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
             intake = TakeEducationGraduates(s.faction, SchoolType.専門学校, intake);
             if (intake <= 0) return;
+            int generationSeed = NamedPersonGenerationRules.StableSeed(eventId);
             var eff = new VocationalSchool(s.schoolId, s.faction, s.name, s.capacity, eq);
-            var grads = VocationalSchoolRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
+            var grads = VocationalSchoolRules.GraduateCohort(
+                eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.専門学校卒業, eventId, generationSeed);
             AssignSexes(grads, s.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,
@@ -1398,11 +1442,17 @@ namespace Ginei
         {
             ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
             int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll);
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.大学卒業, u.faction, u.schoolId, campaignYear);
+            if (NamedPersonGenerationRules.ContainsEvent(civilians, eventId)) return;
             intake = TakeEducationGraduates(u.faction, SchoolType.大学, intake);
             if (intake <= 0) return;
+            int generationSeed = NamedPersonGenerationRules.StableSeed(eventId);
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
-            var grads = UniversityRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
+            var grads = UniversityRules.GraduateCohort(
+                eff, campaignYear, intake, nextPersonId, GenerationRoll(generationSeed));
             nextPersonId += grads.Count;
+            NamedPersonGenerationRules.Stamp(grads, PersonGenerationKind.大学卒業, eventId, generationSeed);
             AssignSexes(grads, u.faction);
             civilians.AddRange(grads);
             NotificationCenter.Push(NotificationCategory.人事, NotificationSeverity.情報,

@@ -255,6 +255,10 @@ namespace Ginei
         public int faction;
         public float inclusiveness;
         public int governmentForm; // (int)GovernmentForm（政体形態 #117・既定0=首長制＝旧セーブ前方互換）
+        // ALM-5 #1059：旧セーブのint既定0を「保守」と誤読しないよう有無フラグを持つ。
+        public bool hasForeignDoctrine;
+        public int foreignDoctrine;
+        public float daoValue;
         // Regime
         public float regimeLegitimacy, regimeCorruption, regimeVirtue;
         // Polity

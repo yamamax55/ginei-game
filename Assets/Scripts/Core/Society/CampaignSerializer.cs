@@ -89,6 +89,9 @@ namespace Ginei
                         faction = (int)fs.faction,
                         inclusiveness = fs.inclusiveness,
                         governmentForm = (int)fs.governmentForm,
+                        hasForeignDoctrine = true,
+                        foreignDoctrine = (int)fs.foreignDoctrine,
+                        daoValue = Mathf.Clamp(fs.daoValue, -1f, 1f),
                         regimeLegitimacy = fs.regime.legitimacy,
                         regimeCorruption = fs.regime.corruption,
                         regimeVirtue = fs.regime.virtue,
@@ -189,6 +192,11 @@ namespace Ginei
                 if (fss == null) continue;
                 var fs = new FactionState((Faction)fss.faction, fss.inclusiveness);
                 fs.governmentForm = (GovernmentForm)fss.governmentForm;
+                // 旧セーブは主義情報を持たない＝中立・王道覇道0から開始し、既定enum 0の保守と誤認しない。
+                fs.foreignDoctrine = fss.hasForeignDoctrine
+                    ? (ForeignDoctrine)fss.foreignDoctrine
+                    : ForeignDoctrine.中立;
+                fs.daoValue = fss.hasForeignDoctrine ? Mathf.Clamp(fss.daoValue, -1f, 1f) : 0f;
                 fs.regime.legitimacy = fss.regimeLegitimacy;
                 fs.regime.corruption = fss.regimeCorruption;
                 fs.regime.virtue = fss.regimeVirtue;

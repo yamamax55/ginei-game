@@ -57,5 +57,21 @@ namespace Ginei.Tests
 
             Assert.Less(DiplomacyRules.TargetOpinion(factors, DiplomacyRules.DiplomacyParams.Default), 0f);
         }
+
+        [Test]
+        public void ConservativeAndReform_DriftLiveOpinionApartWithoutAiDecision()
+        {
+            var state = new DiplomacyState();
+            state.GetEntry("帝国", "同盟", create: true).opinion = 0f;
+            float affinity = ForeignDoctrineRules.BlendWithIdeology(
+                0f, ForeignDoctrine.保守, ForeignDoctrine.改革, 1f);
+            var factors = new DiplomacyRules.OpinionFactors(affinity, 0f, false, 0f, false);
+
+            float opinion = DiplomacyTickRules.DriftPair(
+                state, "帝国", "同盟", factors, 1f, DiplomacyRules.DiplomacyParams.Default);
+
+            Assert.Less(opinion, 0f);
+            Assert.AreEqual(state.Opinion("帝国", "同盟"), opinion);
+        }
     }
 }

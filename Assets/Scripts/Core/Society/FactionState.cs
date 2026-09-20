@@ -23,6 +23,12 @@ namespace Ginei
         /// <summary>政体形態（#117）。首長制スタート→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ進化。解決は <see cref="GovernmentFormRules"/>。在席状態（セーブ非対象）。</summary>
         public GovernmentForm governmentForm = GovernmentForm.首長制;
 
+        /// <summary>王道(+1)〜覇道(-1)の国際的な統治評判（ALM-5 #1059）。</summary>
+        public float daoValue = 0f;
+
+        /// <summary>外交関係が自然に寄る対外主義（ALM-5 #1059）。政体・人物信条とは別。</summary>
+        public ForeignDoctrine foreignDoctrine = ForeignDoctrine.中立;
+
         /// <summary>税率レバー 0..1（S5・縦スライス）。高いほど税収↑だが民心(<see cref="community"/>.hope)を蝕む。既定0.3。</summary>
         public float taxRate = 0.3f;
 
@@ -75,6 +81,7 @@ namespace Ginei
         {
             this.faction = faction;
             this.inclusiveness = Mathf.Clamp01(inclusiveness);
+            foreignDoctrine = faction == Faction.帝国 ? ForeignDoctrine.保守 : ForeignDoctrine.改革;
             regime = new Regime(0, faction);
             polity = new Polity(0, faction, population: 1000000, rulerForce: 10000);
             organization = new Organization(0, faction);

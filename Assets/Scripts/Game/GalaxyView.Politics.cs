@@ -663,7 +663,7 @@ namespace Ginei
                 for (int j = i + 1; j < DemoFactions.Length; j++)
                 {
                     Faction fa = DemoFactions[i], fb = DemoFactions[j];
-                    if (fa == player || fb == player) continue; // プレイヤー絡みのペアはAI判断しない
+                    bool playerPair = fa == player || fb == player; // プレイヤー絡みは判断だけ止め、関係の自然変化は続ける
                     string a = fa.ToString(), b = fb.ToString();
                     // 国力＝所有惑星の人口合計、思想親和＝デモは異勢力で険悪、国境接触ありとみなす。
                     float strA = FactionPopulation(fa), strB = FactionPopulation(fb);
@@ -675,7 +675,20 @@ namespace Ginei
                     // 内政⇄外交の配線：交戦中なら双方の「銃後の厭戦」（民心低下＋長期化＋損害＝WarWearinessModifiersRules）を測り、
                     // 厭戦が高いほど関係値の親和へ正の補正を足す＝民が疲れた国ほど講和へ傾く（既存の戦費/賠償とは別系統の追加効果）。
                     float weariness = Mathf.Max(HomefrontWeariness(fa, preWar), HomefrontWeariness(fb, preWar));
-                    var factors = new DiplomacyRules.OpinionFactors(-0.5f - warBias * 0.3f + weariness * WarWearinessPeaceWeight, 0.2f, true, 0f, false);
+                    FactionState stateA = StateOf(fa), stateB = StateOf(fb);
+                    ForeignDoctrine doctrineA = stateA != null ? stateA.foreignDoctrine : ForeignDoctrine.中立;
+                    ForeignDoctrine doctrineB = stateB != null ? stateB.foreignDoctrine : ForeignDoctrine.中立;
+                    float ideologyAffinity = ForeignDoctrineRules.BlendWithIdeology(
+                        -0.5f - warBias * 0.3f + weariness * WarWearinessPeaceWeight,
+                        doctrineA, doctrineB);
+                    var factors = new DiplomacyRules.OpinionFactors(ideologyAffinity, 0.2f, true, 0f, false);
+
+                    // プレイヤーの外交判断は奪わないが、主義・交易・国境などによる関係値の自然増減は止めない。
+                    if (playerPair)
+                    {
+                        DiplomacyTickRules.DriftPair(state, a, b, factors, 1f, dp);
+                        continue;
+                    }
                     var ev = DiplomacyTickRules.TickPair(state, a, b, factors, strA, strB, campaignYear, dp, ai, wp);
 
                     // 外交アクションAI（P1 配線）：険悪×国力優位なら制裁＝相手の国庫を bounded に削る（効果額は DiplomaticEffectRules 委譲）。

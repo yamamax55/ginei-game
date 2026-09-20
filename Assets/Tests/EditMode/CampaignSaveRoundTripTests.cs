@@ -21,6 +21,8 @@ namespace Ginei.Tests
 
             var fs = new FactionState(Faction.帝国, 0.7f);
             fs.governmentForm = GovernmentForm.共産主義;   // 政体が進化/政変で変わった状態
+            fs.foreignDoctrine = ForeignDoctrine.孤立;
+            fs.daoValue = -0.45f;
             fs.regime.legitimacy = 0.42f;
             fs.regime.corruption = 0.6f;
             fs.polity.cooperation = 0.55f;
@@ -62,6 +64,14 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void RoundTrip_PreservesForeignDoctrineAndDaoValue()
+        {
+            CampaignState round = CampaignSerializer.FromSaveData(CampaignSerializer.ToSaveData(BuildSample()));
+            Assert.AreEqual(ForeignDoctrine.孤立, round.states[0].foreignDoctrine);
+            Assert.AreEqual(-0.45f, round.states[0].daoValue, 1e-3f);
+        }
+
+        [Test]
         public void RoundTrip_ThroughJson_PreservesGovernmentForm()
         {
             var src = BuildSample();
@@ -69,6 +79,15 @@ namespace Ginei.Tests
             CampaignState round = CampaignSerializer.FromJson(json);
             Assert.AreEqual(GovernmentForm.共産主義, round.states[0].governmentForm);
             Assert.AreEqual(0.42f, round.states[0].regime.legitimacy, 1e-3f);
+        }
+
+        [Test]
+        public void OldJson_WithoutForeignDoctrine_LoadsNeutral()
+        {
+            string oldJson = "{\"schemaVersion\":1,\"systems\":[],\"corridors\":[],\"states\":[{\"faction\":0,\"inclusiveness\":0.5}]}";
+            CampaignState round = CampaignSerializer.FromJson(oldJson);
+            Assert.AreEqual(ForeignDoctrine.中立, round.states[0].foreignDoctrine);
+            Assert.AreEqual(0f, round.states[0].daoValue, 1e-4f);
         }
 
         [Test]

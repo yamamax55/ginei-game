@@ -10,6 +10,19 @@ namespace Ginei
     public static class DiplomacyTickRules
     {
         /// <summary>
+        /// 判断を伴わず、関係値の自然増減だけを1回進める。プレイヤー絡みのペアもAIに操作させず
+        /// 主義・交易・国境などの関係変化を続けるための共通入口。
+        /// </summary>
+        public static float DriftPair(DiplomacyState state, string a, string b,
+            DiplomacyRules.OpinionFactors factors, float dt, DiplomacyRules.DiplomacyParams dp)
+        {
+            if (state == null) return 0f;
+            float target = DiplomacyRules.TargetOpinion(factors, dp);
+            DiplomacyRules.DriftOpinion(state, a, b, target, dt, dp);
+            return state.Opinion(a, b);
+        }
+
+        /// <summary>
         /// ①目標関係へドリフト→②交戦中は戦争tickし講和受諾なら講和→③非交戦は低関係×国力優位なら宣戦／高関係なら同盟。
         /// 発生イベントを返す（通知用）。同盟/属国とは開戦しない。
         /// </summary>
@@ -20,8 +33,7 @@ namespace Ginei
             if (state == null) return DiplomacyEvent.なし;
 
             // ① 関係を目標へドリフト
-            float target = DiplomacyRules.TargetOpinion(factors, dp);
-            DiplomacyRules.DriftOpinion(state, a, b, target, 1f, dp);
+            DriftPair(state, a, b, factors, 1f, dp);
 
             var status = state.Status(a, b);
             float opinion = state.Opinion(a, b);

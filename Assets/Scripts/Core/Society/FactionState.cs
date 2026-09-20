@@ -49,6 +49,10 @@ namespace Ginei
         /// politics と同じく戦役セーブに乗る（旧セーブは null＝空の台帳として扱う）。</summary>
         public CivilServiceState civilService;
 
+        /// <summary>教育の在学コホート・質・卒業累計（#998）。年次処理は <see cref="EducationAnnualRules"/>。
+        /// 新規戦役は基準値から開始し、旧セーブは復元時に同じ基準状態を補う。</summary>
+        public EducationState education = new EducationState();
+
         /// <summary>通貨状態＝固有名＋為替/物価/通貨供給（#通貨）。<see cref="CurrencyRules"/> が年次で回す
         /// （赤字の貨幣化→インフレ／財政健全度→為替）。budget/fiscal/politics と同じく在席のセッション状態
         /// （セーブ非対象・null=未設定＝復元時は名前を決定論で再割当）。</summary>

@@ -92,5 +92,45 @@ namespace Ginei.Tests
             Assert.AreEqual(0f, result.admitted, 1e-5f);
             Assert.AreEqual(0, state.activeCohorts.Count);
         }
+
+        [Test]
+        public void CampaignSave_RoundTripPreservesCohortsAndPreventsDuplicateGraduation()
+        {
+            var campaign = new CampaignState(new GalaxyMap());
+            var faction = new FactionState(Faction.同盟);
+            faction.education.schoolQuality = 0.7f;
+            faction.education.talentQuality = 0.4f;
+            faction.education.lastProcessedYear = 805;
+            faction.education.nextCohortId = 9;
+            faction.education.totalGraduates = 12f;
+            faction.education.activeCohorts.Add(new EducationCohort(8, SchoolType.小学校, 800, 30f));
+            campaign.states.Add(faction);
+
+            CampaignState loaded = CampaignSerializer.FromJson(CampaignSerializer.ToJson(campaign));
+            EducationState restored = loaded.states[0].education;
+
+            Assert.IsNotNull(restored);
+            Assert.AreEqual(0.7f, restored.schoolQuality, 1e-5f);
+            Assert.AreEqual(1, restored.activeCohorts.Count);
+            Assert.AreEqual(9, restored.nextCohortId);
+            EducationAnnualResult result = EducationAnnualRules.TickYear(restored, 806, 0f, 100f, null);
+            Assert.AreEqual(30f, result.graduated, 1e-5f);
+            Assert.AreEqual(42f, restored.totalGraduates, 1e-5f);
+            Assert.IsFalse(EducationAnnualRules.TickYear(restored, 806, 0f, 100f, null).processed);
+            Assert.AreEqual(42f, restored.totalGraduates, 1e-5f);
+        }
+
+        [Test]
+        public void OldSaveWithoutEducationGetsBaselineState()
+        {
+            var raw = CampaignSerializer.ToSaveData(new CampaignState(new GalaxyMap()));
+            raw.states.Add(new FactionStateSave { faction = (int)Faction.帝国, hasEducation = false, education = null });
+
+            EducationState restored = CampaignSerializer.FromSaveData(raw).states[0].education;
+
+            Assert.IsNotNull(restored);
+            Assert.AreEqual(0.5f, restored.schoolQuality, 1e-5f);
+            Assert.AreEqual(0, restored.activeCohorts.Count);
+        }
     }
 }

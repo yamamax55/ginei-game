@@ -116,7 +116,9 @@ namespace Ginei
                         hasPolitics = fs.politics != null,
                         politics = fs.politics,
                         hasCivilService = fs.civilService != null,
-                        civilService = fs.civilService
+                        civilService = fs.civilService,
+                        hasEducation = fs.education != null,
+                        education = fs.education
                     });
                 }
             }
@@ -222,6 +224,12 @@ namespace Ginei
                 {
                     fs.civilService = fss.civilService;
                     CivilServicePostRules.NormalizeLoaded(fs.civilService);
+                }
+                // 教育は新規戦役にも必ずある。旧セーブ（旗なし）は FactionState の基準状態を維持する。
+                if (fss.hasEducation && fss.education != null)
+                {
+                    fs.education = fss.education;
+                    EducationAnnualRules.NormalizeLoaded(fs.education);
                 }
                 state.states.Add(fs);
             }

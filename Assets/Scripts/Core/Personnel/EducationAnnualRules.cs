@@ -84,6 +84,13 @@ namespace Ginei
     /// </summary>
     public static class EducationAnnualRules
     {
+        /// <summary>旧セーブや欠落フィールドを、年次処理を進めず安全な状態へ正規化する。</summary>
+        public static void NormalizeLoaded(EducationState state)
+        {
+            if (state == null) return;
+            EnsureInitialized(state);
+        }
+
         public static float FundingFactor(float funding, float need)
         {
             float required = Mathf.Max(0f, need);

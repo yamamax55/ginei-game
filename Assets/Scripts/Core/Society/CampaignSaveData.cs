@@ -279,6 +279,9 @@ namespace Ginei
         // ＝hasCivilService=false（旧セーブ含む）は civilService を読まない＝null のまま復元する。
         public bool hasCivilService;
         public CivilServiceState civilService;
+        // 教育の在学コホート・質・卒業累計（#998）。false=旧セーブ＝基準状態から開始。
+        public bool hasEducation;
+        public EducationState education;
     }
 
     /// <summary>戦略艦隊（盤面の駒）のセーブ平データ。回廊上の精密位置（私有）は保存せず、停泊星系に再構築（移動中は目的地へ再ワープ）。</summary>

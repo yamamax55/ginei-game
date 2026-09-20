@@ -58,6 +58,7 @@ namespace Ginei.Tests
                 squadron.enableAccelRamp = true;
                 squadron.escortAcceleration = 0.1f;
                 squadron.catchUpRatio = 1f;
+                squadron.minimumCatchUpRatio = 1f;
                 member.transform.SetParent(root.transform, true);
                 member.transform.position = new Vector3(100f, 0f, 0f);
                 squadron.memberShips.Add(member.transform);

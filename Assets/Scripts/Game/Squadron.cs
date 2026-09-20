@@ -122,6 +122,9 @@ namespace Ginei
         [Tooltip("配下艦が進行方向へ回頭する速度（度/秒）。移動中はこの速さで進行方向へ向き直る")]
         public float escortRotationSpeed = 180f;
 
+        [Tooltip("最も遅い艦種にも保証する旗艦比の再集合速度。1超で航行中も遅れを徐々に回復する")]
+        public float minimumCatchUpRatio = EscortFollowRules.DefaultMinimumCatchUpRatio;
+
         [Tooltip("この速さ(units/秒)以上で移動中は進行方向を向く。未満（定位置付近）では旗艦の向きへ戻す")]
         public float headingMoveThreshold = 0.5f;
 
@@ -871,9 +874,9 @@ namespace Ginei
             if (wheeling)
                 wheelAngle = KurumagakariRules.AdvanceAngle(wheelAngle, kurumagakariRotationSpeed, dt);
 
-            // 速度上限の基準＝旗艦の最高速 × catchUpRatio（遅れは取り戻せるがワープしない）。
-            float baseMaxSpeed = (flagshipMovement != null ? flagshipMovement.maxSpeed : flagshipMaxSpeed)
-                                 * Mathf.Max(0.1f, catchUpRatio);
+            // 速度上限の基準＝旗艦の最高速。艦種差は維持しつつ、最も遅い戦艦にも
+            // 旗艦よりわずかに速い再集合速度を保証して航行中の永久脱落を防ぐ。
+            float flagshipBaseSpeed = flagshipMovement != null ? flagshipMovement.maxSpeed : flagshipMaxSpeed;
 
             for (int i = 0; i < memberShips.Count; i++)
             {
@@ -882,7 +885,8 @@ namespace Ginei
                 // #80 艦種の速度倍率を上限に乗算（戦艦は遅く・駆逐艦は速く＝速い遊撃）。FleetMovement は不変。
                 float speedMul = (i < memberEscorts.Count && memberEscorts[i] != null)
                                  ? memberEscorts[i].SpeedMultiplier : 1f;
-                float maxSpeed = baseMaxSpeed * Mathf.Max(0.1f, speedMul);
+                float maxSpeed = flagshipBaseSpeed * EscortFollowRules.EffectiveCatchUpMultiplier(
+                    catchUpRatio, speedMul, minimumCatchUpRatio);
                 float maxStep = maxSpeed * dt;
 
                 Vector3 targetWorldPos;
@@ -1124,7 +1128,8 @@ namespace Ginei
 
             // 陣形変更/初回は艦種重み込みで配置（戦艦=前面/外周・駆逐艦=側面）、
             // 戦死による隻数変化は距離のみの軽量再フィット（席を動かさない）。
-            ReassignSlots(formationChanged || !slotsAssigned);
+            // スロット集合を作り直す場面（陣形変更・大損害後の圧縮・増援）は、艦種の役割配置も再評価する。
+            ReassignSlots(formationChanged || countChanged || !slotsAssigned);
             slotsAssigned = true;
         }
 

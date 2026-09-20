@@ -160,6 +160,8 @@ namespace Ginei
                     sb.Append(v).Append(' ').Append(n).Append("　");
             }
             sb.Append('\n');
+            sb.Append("  <color=#9fb0c0>供給</color>　")
+              .Append(NamedPersonGenerationRules.DescribeSupply(all, faction)).Append('\n');
         }
 
         private void AppendBar(StringBuilder sb, string label, float v01, string colorHex)

@@ -274,6 +274,38 @@ namespace Ginei
             return parts.Count == 0 ? string.Empty : string.Join("／", parts);
         }
 
+        /// <summary>人物動態画面向けに、存命人物の生成経路と技術系専門の内訳を集計する。</summary>
+        public static string DescribeSupply(IEnumerable<Person> people, Faction faction)
+        {
+            var kinds = new Dictionary<PersonGenerationKind, int>();
+            var specialties = new Dictionary<TechnicalSpecialty, int>();
+            if (people != null)
+                foreach (Person person in people)
+                {
+                    if (person == null || person.faction != faction || person.IsDeceased) continue;
+                    kinds.TryGetValue(person.generationKind, out int count);
+                    kinds[person.generationKind] = count + 1;
+                    if (PersonVocationRules.VocationOf(person) == PersonVocation.技術者)
+                    {
+                        TechnicalSpecialty specialty = PersonVocationRules.TechnicalSpecialtyOf(person);
+                        specialties.TryGetValue(specialty, out int technicalCount);
+                        specialties[specialty] = technicalCount + 1;
+                    }
+                }
+
+            var parts = new List<string>();
+            foreach (PersonGenerationKind kind in System.Enum.GetValues(typeof(PersonGenerationKind)))
+                if (kinds.TryGetValue(kind, out int count) && count > 0)
+                    parts.Add(kind + " " + count);
+            string text = parts.Count == 0 ? "生成経路なし" : string.Join("　", parts);
+            parts.Clear();
+            foreach (TechnicalSpecialty specialty in System.Enum.GetValues(typeof(TechnicalSpecialty)))
+                if (specialties.TryGetValue(specialty, out int count) && count > 0)
+                    parts.Add(specialty + " " + count);
+            if (parts.Count > 0) text += "／技術系 " + string.Join("・", parts);
+            return text;
+        }
+
         private static void AppendRelative(
             List<string> parts, string relation, int personId, System.Func<int, Person> resolve)
         {

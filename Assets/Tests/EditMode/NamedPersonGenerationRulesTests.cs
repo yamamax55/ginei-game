@@ -325,5 +325,36 @@ namespace Ginei.Tests
             Assert.AreEqual(0, NamedPersonGenerationRules.PromotePoliticalCandidates(
                 people, Faction.同盟, 3).Count, "充足後に同じ処理で重複転身している");
         }
+
+        [Test]
+        public void SupplyDescription_CountsLivingGenerationPathsAndTechnicalSpecialties()
+        {
+            var people = new List<Person>
+            {
+                new Person(1, "初期", Faction.同盟, PersonRole.軍人)
+                    { generationKind = PersonGenerationKind.初期シナリオ },
+                new Person(2, "研究", Faction.同盟, PersonRole.文民)
+                {
+                    generationKind = PersonGenerationKind.大学卒業,
+                    research = 90, planning = 80, engineering = 40, production = 30
+                },
+                new Person(3, "技術", Faction.同盟, PersonRole.文民)
+                {
+                    generationKind = PersonGenerationKind.高専卒業,
+                    research = 40, planning = 30, engineering = 90, production = 80
+                },
+                new Person(4, "故人", Faction.同盟, PersonRole.文民)
+                    { generationKind = PersonGenerationKind.大学卒業, deathYear = 10 },
+                new Person(5, "帝国", Faction.帝国, PersonRole.軍人)
+                    { generationKind = PersonGenerationKind.初期シナリオ }
+            };
+
+            string text = NamedPersonGenerationRules.DescribeSupply(people, Faction.同盟);
+            StringAssert.Contains("初期シナリオ 1", text);
+            StringAssert.Contains("大学卒業 1", text);
+            StringAssert.Contains("高専卒業 1", text);
+            StringAssert.Contains("科学者 1", text);
+            StringAssert.Contains("技術者 1", text);
+        }
     }
 }

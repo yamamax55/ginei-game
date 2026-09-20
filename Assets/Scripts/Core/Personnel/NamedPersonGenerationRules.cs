@@ -208,5 +208,24 @@ namespace Ginei
             return $"信条 {person.creed}／出自 {person.socialOrigin}／人望 {person.charisma}／体質 {person.constitution}"
                  + $"／趣味 {person.hobby}／悪癖 {person.vice}";
         }
+
+        public static string DescribeFamily(Person person, System.Func<int, Person> resolve)
+        {
+            if (person == null) return string.Empty;
+            var parts = new List<string>();
+            AppendRelative(parts, "父", person.fatherId, resolve);
+            AppendRelative(parts, "母", person.motherId, resolve);
+            AppendRelative(parts, "配偶者", person.spouseId, resolve);
+            return parts.Count == 0 ? string.Empty : string.Join("／", parts);
+        }
+
+        private static void AppendRelative(
+            List<string> parts, string relation, int personId, System.Func<int, Person> resolve)
+        {
+            if (personId < 0) return;
+            Person relative = resolve != null ? resolve(personId) : null;
+            parts.Add(relation + " " + (relative != null && !string.IsNullOrWhiteSpace(relative.name)
+                ? relative.name : $"人物#{personId}"));
+        }
     }
 }

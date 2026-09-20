@@ -129,20 +129,20 @@ namespace Ginei
                 var v = PersonVocationRules.VocationOf(p);
                 if (v != PersonVocation.君主 && v != PersonVocation.政治家) continue;
                 total++;
-                if (shown < maxPersons) { AppendLeader(sb, p, v); shown++; }
+                if (shown < maxPersons) { AppendLeader(sb, p, v, gv); shown++; }
             }
             if (total == 0) sb.Append("\n<color=#ffcc66>指導者（君主/元首・政治家）が居ません。</color>");
             else { if (total > shown) sb.Append($"\n<color=#8aa0b0>…他 {total - shown} 名</color>"); sb.Append($"\n\n<color=#8aa0b0>指導者 計 {total} 名</color>"); }
         }
 
-        private void AppendLeader(StringBuilder sb, Person p, PersonVocation v)
+        private void AppendLeader(StringBuilder sb, Person p, PersonVocation v, GalaxyView gv)
         {
             bool ruler = v == PersonVocation.君主;
             string label = ruler ? "君主/元首" : "政治家";
             string col = ruler ? "#ffd54a" : "#bfe9c0";
             sb.Append($"\n<color={col}>◆ [{label}] {p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
-            AppendGeneration(sb, p);
+            AppendGeneration(sb, p, gv);
             AppendDecisions(sb, p.id);
         }
 
@@ -161,7 +161,7 @@ namespace Ginei
                 {
                     Person p = gv.CommanderRoster[i];
                     if (p == null) continue;
-                    AppendMilitaryPerson(sb, p); shown++; any = true;
+                    AppendMilitaryPerson(sb, p, gv); shown++; any = true;
                 }
                 if (gv.CommanderRoster.Count > shown) sb.Append($"\n<color=#8aa0b0>…他 {gv.CommanderRoster.Count - shown} 名</color>\n");
             }
@@ -179,13 +179,13 @@ namespace Ginei
             if (!any) sb.Append("\n<color=#ffcc66>軍人データがありません。</color>");
         }
 
-        private void AppendMilitaryPerson(StringBuilder sb, Person p)
+        private void AppendMilitaryPerson(StringBuilder sb, Person p, GalaxyView gv)
         {
             string rank = RankSystem.ResolveRankNameOrDefault(null, p.rankTier);
             string rankPart = string.IsNullOrEmpty(rank) ? "" : rank + " ";
             sb.Append($"\n<color=#bfe9c0>◆ {rankPart}{p.name}</color>　<color=#9fb0c0>[{p.faction}]</color>　<color=#8aa0b0>{p.serviceStatus}</color>\n");
             sb.Append($"  統率 {p.leadership} ／ 攻撃 {p.attack} ／ 防御 {p.defense} ／ 機動 {p.mobility} ／ 運営 {p.operation} ／ 情報 {p.intelligence}\n");
-            AppendGeneration(sb, p);
+            AppendGeneration(sb, p, gv);
             AppendDecisions(sb, p.id);
         }
 
@@ -247,17 +247,21 @@ namespace Ginei
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}　<color=#9aa7b3>研究 {p.research} ／ 技術 {p.engineering} ／ 計画 {p.planning} ／ 生産 {p.production}</color>\n");
             else
                 sb.Append($"  運営 {p.operation} ／ 情報 {p.intelligence}\n");
-            AppendGeneration(sb, p);
+            AppendGeneration(sb, p, gv);
             AppendDecisions(sb, p.id);
         }
 
-        private static void AppendGeneration(StringBuilder sb, Person person)
+        private static void AppendGeneration(StringBuilder sb, Person person, GalaxyView gv)
         {
             sb.Append("  <color=#8aa0b0>生成: ")
               .Append(NamedPersonGenerationRules.Describe(person))
               .Append("</color>\n  <color=#8aa0b0>人となり: ")
               .Append(NamedPersonGenerationRules.DescribeTraits(person))
               .Append("</color>\n");
+            string family = NamedPersonGenerationRules.DescribeFamily(
+                person, gv != null ? new System.Func<int, Person>(gv.FindPersonById) : null);
+            if (!string.IsNullOrEmpty(family))
+                sb.Append("  <color=#8aa0b0>家族: ").Append(family).Append("</color>\n");
         }
 
         /// <summary>その人物が決裁した内容を新しい順に出す（最新 <see cref="PersonDecisionLedger.Capacity"/>=20 件を保持）。

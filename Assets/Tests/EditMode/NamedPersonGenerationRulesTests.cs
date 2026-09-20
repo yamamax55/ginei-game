@@ -235,5 +235,27 @@ namespace Ginei.Tests
             Assert.AreEqual("アーデル", NamedPersonGenerationRules.FamilyNameOf(parent.name));
             Assert.AreEqual("ミッターマイアー", NamedPersonGenerationRules.FamilyNameOf("ミッターマイアー"));
         }
+
+        [Test]
+        public void FamilyDescription_ResolvesKnownPeopleAndKeepsMissingIdsVisible()
+        {
+            var father = new Person(1, "父名", Faction.同盟, PersonRole.軍人);
+            var mother = new Person(2, "母名", Faction.同盟, PersonRole.軍人);
+            var child = new Person(3, "子名", Faction.同盟, PersonRole.軍人)
+            {
+                fatherId = 1,
+                motherId = 2,
+                spouseId = 9
+            };
+            var people = new Dictionary<int, Person> { { 1, father }, { 2, mother } };
+            string text = NamedPersonGenerationRules.DescribeFamily(
+                child, id => people.TryGetValue(id, out Person found) ? found : null);
+
+            StringAssert.Contains("父 父名", text);
+            StringAssert.Contains("母 母名", text);
+            StringAssert.Contains("配偶者 人物#9", text);
+            Assert.AreEqual(string.Empty, NamedPersonGenerationRules.DescribeFamily(
+                new Person(4, "単身", Faction.同盟, PersonRole.文民), null));
+        }
     }
 }

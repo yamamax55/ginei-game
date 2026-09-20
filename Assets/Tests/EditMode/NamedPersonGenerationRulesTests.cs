@@ -362,6 +362,39 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void GeneratedCreedAndOrigin_FeedExistingPartySelectionWithoutCopiedState()
+        {
+            var person = new Person(50, "候補", Faction.同盟, PersonRole.文民)
+            {
+                isPolitician = true,
+                graduationYear = 804
+            };
+            string eventId = NamedPersonGenerationRules.EventId(
+                PersonGenerationKind.大学卒業, Faction.同盟, 7, 804);
+            NamedPersonGenerationRules.Stamp(new[] { person }, PersonGenerationKind.大学卒業,
+                eventId, NamedPersonGenerationRules.StableSeed(eventId));
+
+            var matching = new Party(1, "信条一致党", Faction.同盟)
+            {
+                platform = person.creed.ToString(),
+                classBase = person.socialOrigin.ToString()
+            };
+            var fallback = new Party(2, "無色党", Faction.同盟);
+            var politics = new PoliticsState();
+            politics.parties.Add(matching);
+            politics.parties.Add(fallback);
+
+            List<PartyMembershipChange> changes = PartyMembershipRules.AssignUnaffiliated(
+                politics.parties, Faction.同盟, new[] { person }, politics);
+
+            Assert.AreEqual(1, changes.Count);
+            Assert.AreEqual(matching.id, changes[0].toPartyId);
+            Assert.IsTrue(matching.memberIds.Contains(person.id));
+            StringAssert.Contains("信条", changes[0].reason);
+            StringAssert.Contains("出自", changes[0].reason);
+        }
+
+        [Test]
         public void SupplyDescription_CountsLivingGenerationPathsAndTechnicalSpecialties()
         {
             var people = new List<Person>

@@ -88,16 +88,25 @@ namespace Ginei.Tests
             {
                 rankTier = 8, sex = Sex.女性,
                 isPolitician = false, isSovereign = false,
+                isRoyal = true, isSpecialForces = true, isFreeAgent = true,
                 financialTrait = FinancialTrait.浪費, wealth = 1234f,
                 birthYear = 767, deathYear = 0,
                 captiveStatus = CaptiveStatus.捕虜, heldBy = Faction.帝国,
+                spouseId = 12, motherId = 13, fatherId = 14, recessiveTalent = 88,
                 hammockNumber = 1, graduationYear = 789, schoolId = 3, examRank = 0,
                 militaryDegree = MilitaryDegree.大学校卒, examDegree = ExamDegree.無資格,
                 schoolPostingUntilYear = 810, warCollegeRank = 1,
                 serviceStatus = ServiceStatus.退役,
                 leadership = 95, attack = 70, defense = 99, mobility = 80,
                 operation = 60, intelligence = 90,
-                research = 10, engineering = 20, planning = 30, production = 40
+                research = 10, engineering = 20, planning = 30, production = 40,
+                creed = Creed.共和主義, socialOrigin = SocialOrigin.植民星, birthSystemId = 99,
+                charisma = 77, constitution = 66, hobby = Hobby.歴史, vice = Vice.短気,
+                grievance = 31, loyaltyTargetId = 42, popularRenown = 55, infamy = 7,
+                hiddenTraits = new System.Collections.Generic.List<HiddenTrait>
+                {
+                    new HiddenTrait("持病", 75)
+                }
             };
         }
 
@@ -113,6 +122,9 @@ namespace Ginei.Tests
             Assert.AreEqual(Sex.女性, r.sex);
             Assert.AreEqual(FinancialTrait.浪費, r.financialTrait);
             Assert.AreEqual(1234f, r.wealth, 1e-3f);
+            Assert.IsTrue(r.isRoyal);
+            Assert.IsTrue(r.isSpecialForces);
+            Assert.IsTrue(r.isFreeAgent);
             Assert.AreEqual(767, r.birthYear);
             Assert.AreEqual(CaptiveStatus.捕虜, r.captiveStatus);
             Assert.AreEqual(Faction.帝国, r.heldBy);
@@ -123,6 +135,24 @@ namespace Ginei.Tests
             Assert.AreEqual(95, r.leadership);
             Assert.AreEqual(90, r.intelligence);
             Assert.AreEqual(40, r.production);
+            Assert.AreEqual(12, r.spouseId);
+            Assert.AreEqual(13, r.motherId);
+            Assert.AreEqual(14, r.fatherId);
+            Assert.AreEqual(88, r.recessiveTalent);
+            Assert.AreEqual(Creed.共和主義, r.creed);
+            Assert.AreEqual(SocialOrigin.植民星, r.socialOrigin);
+            Assert.AreEqual(99, r.birthSystemId);
+            Assert.AreEqual(77, r.charisma);
+            Assert.AreEqual(66, r.constitution);
+            Assert.AreEqual(Hobby.歴史, r.hobby);
+            Assert.AreEqual(Vice.短気, r.vice);
+            Assert.AreEqual(31, r.grievance);
+            Assert.AreEqual(42, r.loyaltyTargetId);
+            Assert.AreEqual(55, r.popularRenown);
+            Assert.AreEqual(7, r.infamy);
+            Assert.AreEqual(1, r.hiddenTraits.Count);
+            Assert.AreEqual("持病", r.hiddenTraits[0].label);
+            Assert.AreEqual(75, r.hiddenTraits[0].concealment);
         }
 
         [Test]
@@ -142,6 +172,9 @@ namespace Ginei.Tests
             Assert.AreEqual("ヤン", r[0].name);
             Assert.AreEqual(ServiceStatus.退役, r[0].serviceStatus);   // 在役状態が往復
             Assert.AreEqual(MilitaryDegree.大学校卒, r[0].militaryDegree); // 学歴が往復
+            Assert.AreEqual(Creed.共和主義, r[0].creed);
+            Assert.AreEqual(1, r[0].hiddenTraits.Count);
+            Assert.AreEqual("持病", r[0].hiddenTraits[0].label);
             Assert.IsTrue(r[1].isSovereign);                          // 君主フラグが往復
             Assert.AreEqual(10, r[1].rankTier);
         }

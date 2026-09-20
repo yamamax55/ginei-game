@@ -54,6 +54,14 @@ namespace Ginei.Tests
             Assert.AreEqual(PersonGenerationKind.不明, old.generationKind);
             Assert.AreEqual(string.Empty, old.generationEventId);
             Assert.AreEqual(0, old.generationSeed);
+            Assert.AreEqual(-1, old.spouseId);
+            Assert.AreEqual(-1, old.motherId);
+            Assert.AreEqual(-1, old.fatherId);
+            Assert.AreEqual(-1, old.birthSystemId);
+            Assert.AreEqual(-1, old.loyaltyTargetId);
+            Assert.AreEqual(50, old.charisma);
+            Assert.AreEqual(50, old.constitution);
+            Assert.IsNotNull(old.hiddenTraits);
         }
 
         [Test]

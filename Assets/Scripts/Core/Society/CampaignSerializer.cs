@@ -249,9 +249,12 @@ namespace Ginei
                 id = p.id, name = p.name, faction = (int)p.faction, role = (int)p.role,
                 rankTier = p.rankTier, sex = (int)p.sex,
                 isPolitician = p.isPolitician, isSovereign = p.isSovereign,
+                isRoyal = p.isRoyal, isSpecialForces = p.isSpecialForces, isFreeAgent = p.isFreeAgent,
                 financialTrait = (int)p.financialTrait, wealth = p.wealth,
                 birthYear = p.birthYear, deathYear = p.deathYear,
                 captiveStatus = (int)p.captiveStatus, heldBy = (int)p.heldBy,
+                spouseId = p.spouseId, motherId = p.motherId, fatherId = p.fatherId,
+                recessiveTalent = p.recessiveTalent,
                 hammockNumber = p.hammockNumber, graduationYear = p.graduationYear,
                 schoolId = p.schoolId, examRank = p.examRank,
                 generationKind = (int)p.generationKind, generationEventId = p.generationEventId,
@@ -262,6 +265,11 @@ namespace Ginei
                 leadership = p.leadership, attack = p.attack, defense = p.defense, mobility = p.mobility,
                 operation = p.operation, intelligence = p.intelligence,
                 research = p.research, engineering = p.engineering, planning = p.planning, production = p.production,
+                creed = (int)p.creed, socialOrigin = (int)p.socialOrigin, birthSystemId = p.birthSystemId,
+                charisma = p.charisma, constitution = p.constitution,
+                hobby = (int)p.hobby, vice = (int)p.vice,
+                grievance = p.grievance, loyaltyTargetId = p.loyaltyTargetId,
+                popularRenown = p.popularRenown, infamy = p.infamy,
                 // 官僚制（位階・考課）
                 courtRank = (int)p.courtRank,
                 hasMerit = p.merit != null,
@@ -270,7 +278,8 @@ namespace Ginei
                 meritConsecutiveTop = p.merit != null ? p.merit.consecutiveTop : 0,
                 meritConsecutivePoor = p.merit != null ? p.merit.consecutivePoor : 0,
                 meritIntegrity = p.merit != null ? p.merit.integrity : 0.7f,
-                meritLastRating = p.merit != null ? (int)p.merit.lastRating : (int)MeritRating.中中
+                meritLastRating = p.merit != null ? (int)p.merit.lastRating : (int)MeritRating.中中,
+                hiddenTraits = SaveHiddenTraits(p.hiddenTraits)
             };
         }
 
@@ -282,9 +291,12 @@ namespace Ginei
             {
                 rankTier = d.rankTier, sex = (Sex)d.sex,
                 isPolitician = d.isPolitician, isSovereign = d.isSovereign,
+                isRoyal = d.isRoyal, isSpecialForces = d.isSpecialForces, isFreeAgent = d.isFreeAgent,
                 financialTrait = (FinancialTrait)d.financialTrait, wealth = d.wealth,
                 birthYear = d.birthYear, deathYear = d.deathYear,
                 captiveStatus = (CaptiveStatus)d.captiveStatus, heldBy = (Faction)d.heldBy,
+                spouseId = d.spouseId, motherId = d.motherId, fatherId = d.fatherId,
+                recessiveTalent = d.recessiveTalent,
                 hammockNumber = d.hammockNumber, graduationYear = d.graduationYear,
                 schoolId = d.schoolId, examRank = d.examRank,
                 generationKind = (PersonGenerationKind)d.generationKind,
@@ -295,6 +307,12 @@ namespace Ginei
                 leadership = d.leadership, attack = d.attack, defense = d.defense, mobility = d.mobility,
                 operation = d.operation, intelligence = d.intelligence,
                 research = d.research, engineering = d.engineering, planning = d.planning, production = d.production,
+                creed = (Creed)d.creed, socialOrigin = (SocialOrigin)d.socialOrigin,
+                birthSystemId = d.birthSystemId, charisma = d.charisma, constitution = d.constitution,
+                hobby = (Hobby)d.hobby, vice = (Vice)d.vice,
+                grievance = d.grievance, loyaltyTargetId = d.loyaltyTargetId,
+                popularRenown = d.popularRenown, infamy = d.infamy,
+                hiddenTraits = LoadHiddenTraits(d.hiddenTraits),
                 courtRank = (CourtRank)d.courtRank
             };
             // 考課記録（OfficialMerit）は hasMerit のときのみ復元（未評定は null＝後方互換）。
@@ -308,6 +326,26 @@ namespace Ginei
                     lastRating = (MeritRating)d.meritLastRating
                 };
             return p;
+        }
+
+        private static System.Collections.Generic.List<HiddenTraitSave> SaveHiddenTraits(
+            System.Collections.Generic.IEnumerable<HiddenTrait> traits)
+        {
+            var saved = new System.Collections.Generic.List<HiddenTraitSave>();
+            if (traits == null) return saved;
+            foreach (HiddenTrait trait in traits)
+                saved.Add(new HiddenTraitSave { label = trait.label, concealment = trait.concealment });
+            return saved;
+        }
+
+        private static System.Collections.Generic.List<HiddenTrait> LoadHiddenTraits(
+            System.Collections.Generic.IEnumerable<HiddenTraitSave> traits)
+        {
+            var loaded = new System.Collections.Generic.List<HiddenTrait>();
+            if (traits == null) return loaded;
+            foreach (HiddenTraitSave trait in traits)
+                if (trait != null) loaded.Add(new HiddenTrait(trait.label, trait.concealment));
+            return loaded;
         }
 
         /// <summary>人物ロスターを保存データへ書き込む（既存 people をクリアして詰め直す）。null は無視。</summary>

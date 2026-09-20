@@ -327,11 +327,16 @@ namespace Ginei
         public int sex;              // (int)Sex
         public bool isPolitician;
         public bool isSovereign;
+        public bool isRoyal;
+        public bool isSpecialForces;
+        public bool isFreeAgent;
         public int financialTrait;   // (int)FinancialTrait
         public float wealth;
         public int birthYear, deathYear;
         public int captiveStatus;    // (int)CaptiveStatus
         public int heldBy;           // (int)Faction
+        public int spouseId = -1, motherId = -1, fatherId = -1;
+        public int recessiveTalent;
         // 経歴・学歴・在役（#155/#156/#530/#SCHOOL-AGE）
         public int hammockNumber, graduationYear, schoolId, examRank;
         public int generationKind; // (int)PersonGenerationKind（0=不明＝旧セーブ互換）
@@ -344,6 +349,17 @@ namespace Ginei
         // 能力（軍才/文才/技術才）
         public int leadership, attack, defense, mobility, operation, intelligence;
         public int research, engineering, planning, production;
+        // 人となり・出自・評判（欠落時は Person の後方互換既定へ合わせる）
+        public int creed;            // (int)Creed
+        public int socialOrigin;     // (int)SocialOrigin
+        public int birthSystemId = -1;
+        public int charisma = 50, constitution = 50;
+        public int hobby;            // (int)Hobby
+        public int vice;             // (int)Vice
+        public int grievance;
+        public int loyaltyTargetId = -1;
+        public int popularRenown, infamy;
+        public List<HiddenTraitSave> hiddenTraits = new List<HiddenTraitSave>();
         // 官僚制（位階・考課・官僚制基盤）。既定は無位/未評定＝旧セーブ後方互換（欠落フィールドは初期化値を保持）。
         public int courtRank = (int)CourtRank.無位;  // (int)CourtRank（既定=無位＝0=正一位の誤復元を防ぐ）
         public bool hasMerit;                         // 考課記録の有無（false=未評定＝merit は null 復元）
@@ -352,5 +368,12 @@ namespace Ginei
         public int meritConsecutiveTop, meritConsecutivePoor;
         public float meritIntegrity = 0.7f;
         public int meritLastRating = (int)MeritRating.中中; // (int)MeritRating（hasMerit のときのみ有効）
+    }
+
+    [System.Serializable]
+    public class HiddenTraitSave
+    {
+        public string label;
+        public int concealment;
     }
 }

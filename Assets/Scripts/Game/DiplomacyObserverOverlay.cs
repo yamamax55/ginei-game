@@ -123,6 +123,8 @@ namespace Ginei
                 sb.Append(' ').Append(e.opinion.ToString("+0;-0;0")).Append('\n');
             }
 
+            sb.Append(BuildReputationSection(StrategySession.Campaign != null ? StrategySession.Campaign.states : null));
+
             // --- 進行中の戦争 ---
             sb.Append("\n<color=#e7e0b0>◤ 進行中の戦争</color>\n");
             var wars = WarLedger.All;
@@ -167,6 +169,44 @@ namespace Ginei
             }
 
             sb.Append("\n<color=#6f8a9a>※ opinion と外交状態が FactionRelations.IsHostile を駆動する＝戦前の関係が会戦の敵味方を決める。</color>");
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 外交関係が動く理由のうち、国家の対外主義と王道/覇道評判を表示する。
+        /// 四半期外交と同じルールを呼び、画面側で係数を再計算しない。
+        /// </summary>
+        public static string BuildReputationSection(System.Collections.Generic.IList<FactionState> states)
+        {
+            var sb = new StringBuilder(512);
+            sb.Append("\n<color=#e7e0b0>◤ 外交姿勢・統治評判</color>\n");
+            if (states == null || states.Count == 0)
+            {
+                sb.Append("  <color=#9aa7b2>（国家状態なし）</color>\n");
+                return sb.ToString();
+            }
+
+            for (int i = 0; i < states.Count; i++)
+            {
+                FactionState s = states[i];
+                if (s == null) continue;
+                string daoName = s.daoValue > 0.05f ? "王道" : (s.daoValue < -0.05f ? "覇道" : "中立");
+                sb.Append("  ").Append(s.faction).Append("　主義=").Append(s.foreignDoctrine)
+                  .Append(" ／ ").Append(daoName).Append(' ').Append(s.daoValue.ToString("+0.00;-0.00;0.00")).Append('\n');
+            }
+
+            sb.Append("  <color=#9fb0c0>関係値への評判要因（主義／王道・覇道）</color>\n");
+            for (int i = 0; i < states.Count; i++)
+                for (int j = i + 1; j < states.Count; j++)
+                {
+                    FactionState a = states[i], b = states[j];
+                    if (a == null || b == null) continue;
+                    float doctrine = ForeignDoctrineRules.Affinity(a.foreignDoctrine, b.foreignDoctrine);
+                    float dao = WangDaoRules.MutualDiplomaticAffinity(a.daoValue, b.daoValue);
+                    sb.Append("    ").Append(a.faction).Append(" ⇔ ").Append(b.faction)
+                      .Append("　主義 ").Append(doctrine.ToString("+0.00;-0.00;0.00"))
+                      .Append(" ／ 評判 ").Append(dao.ToString("+0.00;-0.00;0.00")).Append('\n');
+                }
             return sb.ToString();
         }
 

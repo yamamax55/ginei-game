@@ -103,6 +103,27 @@ namespace Ginei
             return families[familyIndex] + "・" + given[givenIndex];
         }
 
+        /// <summary>親の姓を受け継ぎ、固定seedから名を付ける。姓が取れない場合は通常の勢力名簿へ戻す。</summary>
+        public static string GenerateFamilyName(Person parent, Faction faction, Sex sex, int personId, int seed)
+        {
+            string family = FamilyNameOf(parent != null ? parent.name : null);
+            if (string.IsNullOrEmpty(family)) return GenerateName(faction, sex, personId, seed);
+            string[] given = faction == Faction.帝国
+                ? (sex == Sex.女性 ? ImperialFemaleNames : ImperialMaleNames)
+                : (sex == Sex.女性 ? AllianceFemaleNames : AllianceMaleNames);
+            int index = PositiveMod(personId / ImperialFamilies.Length + seed / ImperialFamilies.Length, given.Length);
+            return family + "・" + given[index];
+        }
+
+        public static string FamilyNameOf(string fullName)
+        {
+            if (string.IsNullOrWhiteSpace(fullName)) return string.Empty;
+            string value = fullName.Trim();
+            int separator = value.IndexOf('・');
+            if (separator < 0) separator = value.IndexOf(' ');
+            return separator > 0 ? value.Substring(0, separator) : value;
+        }
+
         private static int PositiveMod(int value, int modulo)
         {
             int result = value % modulo;

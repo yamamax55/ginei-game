@@ -224,5 +224,16 @@ namespace Ginei.Tests
             NamedPersonGenerationRules.Stamp(new[] { scenario }, PersonGenerationKind.初期シナリオ, "scenario", 55);
             Assert.AreEqual("既存名", scenario.name);
         }
+
+        [Test]
+        public void FamilyNames_AreInheritedWithoutDuplicatingGivenName()
+        {
+            var parent = new Person(1, "アーデル・カール", Faction.帝国, PersonRole.軍人);
+            string child = NamedPersonGenerationRules.GenerateFamilyName(
+                parent, Faction.帝国, Sex.女性, 10, 99);
+            StringAssert.StartsWith("アーデル・", child);
+            Assert.AreEqual("アーデル", NamedPersonGenerationRules.FamilyNameOf(parent.name));
+            Assert.AreEqual("ミッターマイアー", NamedPersonGenerationRules.FamilyNameOf("ミッターマイアー"));
+        }
     }
 }

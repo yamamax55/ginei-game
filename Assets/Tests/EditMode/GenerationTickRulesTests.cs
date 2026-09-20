@@ -53,6 +53,7 @@ namespace Ginei.Tests
             Assert.AreEqual(PersonGenerationKind.出生, child.generationKind);
             Assert.IsFalse(string.IsNullOrEmpty(child.generationEventId));
             Assert.AreEqual(NamedPersonGenerationRules.StableSeed(child.generationEventId), child.generationSeed);
+            StringAssert.StartsWith("男1・", child.name, "出生人物が父系の姓を継いでいない");
         }
 
         [Test]
@@ -71,6 +72,7 @@ namespace Ginei.Tests
             Assert.AreEqual(first.sex, second.sex);
             Assert.AreEqual(first.leadership, second.leadership);
             Assert.AreEqual(first.engineering, second.engineering);
+            Assert.AreEqual(first.name, second.name);
         }
 
         [Test]

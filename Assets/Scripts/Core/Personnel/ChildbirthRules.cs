@@ -183,8 +183,12 @@ namespace Ginei
             Func<float> roll = () => (float)random.NextDouble();
             Person child = Conceive(father, mother, childId, birthYear, roll(), roll, prm);
             if (child != null)
+            {
                 NamedPersonGenerationRules.Stamp(
                     new[] { child }, PersonGenerationKind.出生, eventId, seed);
+                child.name = NamedPersonGenerationRules.GenerateFamilyName(
+                    father, child.faction, child.sex, child.id, seed);
+            }
             return child;
         }
 

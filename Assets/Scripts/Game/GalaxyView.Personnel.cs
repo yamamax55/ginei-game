@@ -131,15 +131,13 @@ namespace Ginei
             {
                 // ロード復元：保存済みロスターを採用（軍人=提督名簿／文民=文官名簿に振り分け）。
                 var loaded = StrategySession.PendingPeople;
-                int maxId = 0;
                 for (int i = 0; i < loaded.Count; i++)
                 {
                     Person p = loaded[i];
                     if (p == null) continue;
                     if (p.role == PersonRole.軍人) commanders.Add(p); else civilians.Add(p);
-                    if (p.id > maxId) maxId = p.id;
                 }
-                nextPersonId = maxId + 1;
+                nextPersonId = NamedPersonGenerationRules.NextAvailablePersonId(loaded);
                 StrategySession.PendingPeople = null; // 消費（再構築は一度きり）
 
                 // 旧セーブ互換：階級が入っていない武官に最初の段（少尉）を補う。

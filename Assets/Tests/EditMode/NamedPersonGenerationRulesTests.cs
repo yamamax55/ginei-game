@@ -398,5 +398,26 @@ namespace Ginei.Tests
             Assert.AreEqual("整合 OK", NamedPersonGenerationRules.DescribeIntegrity(null));
             Assert.AreEqual("整合 OK", NamedPersonGenerationRules.DescribeIntegrity(new[] { people[0] }));
         }
+
+        [Test]
+        public void NextAvailablePersonId_SurvivesLargeSaveRoundTrip_AndHandlesMaximumId()
+        {
+            var people = new List<Person>();
+            for (int id = 1; id <= 10000; id++)
+                people.Add(new Person(id, "人物" + id, Faction.同盟, PersonRole.文民));
+
+            var save = new CampaignSaveData();
+            CampaignSerializer.WritePeople(save, people);
+            List<Person> restored = CampaignSerializer.ReadPeople(save);
+
+            Assert.AreEqual(10001, NamedPersonGenerationRules.NextAvailablePersonId(restored));
+            Assert.AreEqual(1, NamedPersonGenerationRules.NextAvailablePersonId(null));
+            Assert.AreEqual(3, NamedPersonGenerationRules.NextAvailablePersonId(new[]
+            {
+                new Person(int.MaxValue, "上限", Faction.帝国, PersonRole.軍人),
+                new Person(1, "一", Faction.帝国, PersonRole.軍人),
+                new Person(2, "二", Faction.帝国, PersonRole.軍人)
+            }));
+        }
     }
 }

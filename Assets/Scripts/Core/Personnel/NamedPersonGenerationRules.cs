@@ -344,6 +344,27 @@ namespace Ginei
             return string.Join("／", parts);
         }
 
+        /// <summary>保存復元後も既存人物と衝突しない、次の正の人物IDを返す。</summary>
+        public static int NextAvailablePersonId(IEnumerable<Person> people)
+        {
+            var used = new HashSet<int>();
+            int max = 0;
+            if (people != null)
+                foreach (Person person in people)
+                {
+                    if (person == null || person.id <= 0) continue;
+                    used.Add(person.id);
+                    if (person.id > max) max = person.id;
+                }
+
+            if (max < int.MaxValue) return max + 1;
+
+            // int 上限を含む壊れた旧セーブでも加算オーバーフローせず、空いている正のIDを探す。
+            for (int candidate = 1; candidate < int.MaxValue; candidate++)
+                if (!used.Contains(candidate)) return candidate;
+            return -1;
+        }
+
         private static void AppendRelative(
             List<string> parts, string relation, int personId, System.Func<int, Person> resolve)
         {

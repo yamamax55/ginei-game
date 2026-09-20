@@ -315,6 +315,7 @@ namespace Ginei
             int invalidIds = 0;
             int duplicateEvents = 0;
             int reversedChronology = 0;
+            int mismatchedSeeds = 0;
 
             if (people != null)
                 foreach (Person person in people)
@@ -324,16 +325,19 @@ namespace Ginei
                     else if (!ids.Add(person.id)) duplicateIds++;
 
                     // 経歴不明の旧人物は空文字のまま許容し、重複イベントに数えない。
-                    if (!string.IsNullOrEmpty(person.generationEventId)
-                        && !eventIds.Add(person.generationEventId))
-                        duplicateEvents++;
+                    if (!string.IsNullOrEmpty(person.generationEventId))
+                    {
+                        if (!eventIds.Add(person.generationEventId)) duplicateEvents++;
+                        if (person.generationSeed != StableSeed(person.generationEventId)) mismatchedSeeds++;
+                    }
 
                     if (person.birthYear > 0 && person.graduationYear > 0
                         && person.graduationYear < person.birthYear)
                         reversedChronology++;
                 }
 
-            if (duplicateIds == 0 && invalidIds == 0 && duplicateEvents == 0 && reversedChronology == 0)
+            if (duplicateIds == 0 && invalidIds == 0 && duplicateEvents == 0
+                && reversedChronology == 0 && mismatchedSeeds == 0)
                 return "整合 OK";
 
             var parts = new List<string>();
@@ -341,6 +345,7 @@ namespace Ginei
             if (invalidIds > 0) parts.Add("不正ID " + invalidIds);
             if (duplicateEvents > 0) parts.Add("生成イベント重複 " + duplicateEvents);
             if (reversedChronology > 0) parts.Add("年代逆転 " + reversedChronology);
+            if (mismatchedSeeds > 0) parts.Add("seed不整合 " + mismatchedSeeds);
             return string.Join("／", parts);
         }
 

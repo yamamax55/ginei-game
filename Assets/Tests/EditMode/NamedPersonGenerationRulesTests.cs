@@ -386,6 +386,8 @@ namespace Ginei.Tests
                 new Person(7, "旧人物B", Faction.同盟, PersonRole.文民),
                 null
             };
+            people[0].generationSeed = NamedPersonGenerationRules.StableSeed(people[0].generationEventId);
+            people[1].generationSeed = NamedPersonGenerationRules.StableSeed(people[1].generationEventId);
 
             string text = NamedPersonGenerationRules.DescribeIntegrity(people);
 
@@ -393,6 +395,7 @@ namespace Ginei.Tests
             StringAssert.Contains("不正ID 1", text);
             StringAssert.Contains("生成イベント重複 1", text);
             StringAssert.Contains("年代逆転 1", text);
+            StringAssert.Contains("seed不整合 1", text);
             StringAssert.DoesNotContain("生成イベント重複 3", text,
                 "経歴不明の空イベントIDを重複として数えている");
             Assert.AreEqual("整合 OK", NamedPersonGenerationRules.DescribeIntegrity(null));

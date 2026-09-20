@@ -111,5 +111,36 @@ namespace Ginei.Tests
             Assert.AreEqual(0, view.ConsumeEducationGraduatesForQa(Faction.同盟, SchoolType.大学, 3));
             yield return null;
         }
+
+        [UnityTest]
+        public IEnumerator EducationDump_ShowsEnrollmentNextGraduationAndGraduateSupply()
+        {
+            var map = new GalaxyMap();
+            var campaign = new CampaignState(map);
+            var state = new FactionState(Faction.同盟);
+            state.education.schoolQuality = 0.7f;
+            state.education.talentQuality = 0.6f;
+            state.education.totalGraduates = 12f;
+            state.education.activeCohorts.Add(new EducationCohort(1, SchoolType.大学, 800, 4f));
+            state.education.graduateSupply.Add(new EducationGraduateSupply(SchoolType.大学, 2f));
+            campaign.states.Add(state);
+            StrategySession.Campaign = campaign;
+            StrategySession.Map = map;
+            StrategySession.Provinces = new Dictionary<int, Province>();
+
+            viewObject = new GameObject("EducationObserverQa");
+            viewObject.SetActive(false);
+            GalaxyView view = viewObject.AddComponent<GalaxyView>();
+            view.BindElectionQaWorld(map, StrategySession.Provinces, new List<Person>(), new List<Person>());
+
+            string dump = view.BuildEducationDump();
+
+            StringAssert.Contains("在学 4人/1組", dump);
+            StringAssert.Contains("累計卒業 12人", dump);
+            StringAssert.Contains("次回卒業 804年", dump);
+            StringAssert.Contains("未登用卒業者:", dump);
+            StringAssert.Contains("大学 2", dump);
+            yield return null;
+        }
     }
 }

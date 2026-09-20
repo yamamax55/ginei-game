@@ -374,7 +374,61 @@ namespace Ginei
               .Append("　<color=#9fb0c0>実効素質(0.5→)</color> <color=#a0e0a0>")
               .Append(eq.ToString("0.00")).Append("</color>\n");
 
+            AppendEducationAnnualState(sb, fac);
+
             AppendEduUpper(sb, fac);
+        }
+
+        private void AppendEducationAnnualState(System.Text.StringBuilder sb, Faction fac)
+        {
+            FactionState factionState = StateOf(fac);
+            EducationState education = factionState != null ? factionState.education : null;
+            if (education == null)
+            {
+                sb.Append("    <color=#6f8a9a>年次教育: 未開始</color>\n");
+                return;
+            }
+
+            float enrolled = 0f;
+            int cohortCount = 0;
+            int nextGraduation = int.MaxValue;
+            if (education.activeCohorts != null)
+                for (int i = 0; i < education.activeCohorts.Count; i++)
+                {
+                    EducationCohort cohort = education.activeCohorts[i];
+                    if (cohort == null || cohort.students <= 0f) continue;
+                    enrolled += cohort.students;
+                    cohortCount++;
+                    nextGraduation = Mathf.Min(nextGraduation, cohort.graduationYear);
+                }
+
+            sb.Append("    <color=#9fb0c0>年次教育:</color> 在学 ")
+              .Append(enrolled.ToString("0.#")).Append("人/").Append(cohortCount).Append("組")
+              .Append("　累計卒業 ").Append(Mathf.Max(0f, education.totalGraduates).ToString("0.#")).Append("人")
+              .Append("　学校質 ").Append(Mathf.Clamp01(education.schoolQuality).ToString("0.00"))
+              .Append("　人材質 ").Append(Mathf.Clamp01(education.talentQuality).ToString("0.00"));
+            if (nextGraduation != int.MaxValue) sb.Append("　次回卒業 ").Append(nextGraduation).Append("年");
+            sb.Append('\n');
+
+            sb.Append("    <color=#9fb0c0>未登用卒業者:</color>");
+            AppendGraduateSupply(sb, education, SchoolType.大学, "大学");
+            AppendGraduateSupply(sb, education, SchoolType.高専, "高専");
+            AppendGraduateSupply(sb, education, SchoolType.短大, "短大");
+            AppendGraduateSupply(sb, education, SchoolType.専門学校, "専門");
+            sb.Append('\n');
+        }
+
+        private static void AppendGraduateSupply(
+            System.Text.StringBuilder sb, EducationState education, SchoolType type, string label)
+        {
+            float available = 0f;
+            if (education.graduateSupply != null)
+                for (int i = 0; i < education.graduateSupply.Count; i++)
+                {
+                    EducationGraduateSupply supply = education.graduateSupply[i];
+                    if (supply != null && supply.schoolType == type) available += Mathf.Max(0f, supply.available);
+                }
+            sb.Append(' ').Append(label).Append(' ').Append(available.ToString("0.#"));
         }
 
         /// <summary>基礎教育1段（就学率・質の小バー）。学校が無ければ「なし」。</summary>

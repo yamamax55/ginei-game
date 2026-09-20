@@ -91,5 +91,20 @@ namespace Ginei.Tests
             int[] a = EscortSlotAssignmentRules.AssignWithClass(pos, slots, classes, 0f);
             CollectionAssert.AreEquivalent(new[] { 0, 1, 2 }, a); // 全スロットが1回ずつ使われる
         }
+
+        [Test]
+        public void ShouldPreserveVacancies_AfterCasualty_KeepsExistingSlots()
+        {
+            Assert.IsTrue(EscortSlotAssignmentRules.ShouldPreserveVacancies(80, 79, false, true));
+            Assert.IsTrue(EscortSlotAssignmentRules.ShouldPreserveVacancies(80, 40, false, true));
+        }
+
+        [Test]
+        public void ShouldPreserveVacancies_ReformsBelowHalfOrOnFormationChange()
+        {
+            Assert.IsFalse(EscortSlotAssignmentRules.ShouldPreserveVacancies(80, 39, false, true));
+            Assert.IsFalse(EscortSlotAssignmentRules.ShouldPreserveVacancies(80, 79, true, true));
+            Assert.IsFalse(EscortSlotAssignmentRules.ShouldPreserveVacancies(80, 79, false, false));
+        }
     }
 }

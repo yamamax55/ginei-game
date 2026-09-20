@@ -13,6 +13,22 @@ namespace Ginei
     /// </summary>
     public static class EscortSlotAssignmentRules
     {
+        public const float DefaultMinimumOccupancyForVacancies = 0.5f;
+
+        /// <summary>
+        /// 戦死で配下艦が減ったとき、既存スロットと生存艦の持ち場を維持して欠員の穴を残すか判定する。
+        /// 陣形変更・割当破損・占有率50%未満では再編し、長期に疎な陣形が残ることを防ぐ。
+        /// </summary>
+        public static bool ShouldPreserveVacancies(int slotCount, int memberCount,
+                                                   bool formationChanged, bool assignmentsValid,
+                                                   float minimumOccupancy = DefaultMinimumOccupancyForVacancies)
+        {
+            if (formationChanged || !assignmentsValid || slotCount <= 0) return false;
+            if (memberCount < 0 || memberCount >= slotCount) return false;
+            float threshold = Mathf.Clamp01(minimumOccupancy);
+            return memberCount >= Mathf.CeilToInt(slotCount * threshold);
+        }
+
         /// <summary>
         /// 距離のみの安定割当（EMOV-1・配下艦戦死時の再フィット用＝軽量）。
         /// 各メンバを添字順に「現在位置から最も近い未使用スロット」へ割り当てる（O(n×m)・ソート不要）。

@@ -1053,6 +1053,17 @@ namespace Ginei
             bool countChanged = n != cachedCount;
             if (!formationChanged && !countChanged && slotsAssigned) return;
 
+            // 戦死時は生存艦の持ち場IDをそのまま維持し、欠員位置を穴として残す。
+            // 初回スロット数の半数未満まで減った場合だけ再編し、過度に疎な隊形を解消する。
+            // 陣形変更はプレイヤーの明示的な再編なので常に新しいスロットへ割り当て直す。
+            if (countChanged && n < cachedCount &&
+                EscortSlotAssignmentRules.ShouldPreserveVacancies(
+                    cachedSlots.Count, n, formationChanged, AreSlotAssignmentsValid(n, cachedSlots.Count)))
+            {
+                cachedCount = n;
+                return;
+            }
+
             cachedSlots = ComputeSlots(currentFormation, n);
             cachedCount = n;
             cachedFormation = currentFormation;
@@ -1061,6 +1072,18 @@ namespace Ginei
             // 戦死による隻数変化は距離のみの軽量再フィット（席を動かさない）。
             ReassignSlots(formationChanged || !slotsAssigned);
             slotsAssigned = true;
+        }
+
+        private bool AreSlotAssignmentsValid(int memberCount, int slotCount)
+        {
+            if (!slotsAssigned || slotForMember.Count != memberCount || slotCount <= 0) return false;
+            var used = new HashSet<int>();
+            for (int i = 0; i < memberCount; i++)
+            {
+                int slot = slotForMember[i];
+                if (slot < 0 || slot >= slotCount || !used.Add(slot)) return false;
+            }
+            return true;
         }
 
         /// <summary>

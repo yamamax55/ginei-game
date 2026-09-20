@@ -83,6 +83,36 @@ namespace Ginei
         /// sampleIndex&lt;0 はランダム、0以上は <see cref="RingiSampleData"/> の指定サンプル。</summary>
         public int ForceRaise(int sampleIndex = -1) => TryRaisePetition(forced: true, sampleIndex: sampleIndex);
 
+        /// <summary>
+        /// 最高権力者が決めきれない重大案件を目安箱へ諮問する（MEYASU-4 #1300）。
+        /// 建白の逆向きなので官僚伝播を通さず、同じ台帳と決裁デスクへ直接積む。
+        /// </summary>
+        public int SubmitConsultation(string title, string body, string effectKey, float cabinetAgreement,
+            BoxKind box = BoxKind.政治家, string regionKey = "")
+        {
+            FactionState fs = PlayerState();
+            if (fs == null || ActivePendingCount() >= maxConcurrent) return -1;
+            var pet = new Petition(0, title, fs.faction, box, PetitionOrigin.諮問, effectKey, regionKey)
+            {
+                severity = DecisionSeverity.重大,
+                status = PetitionStatus.起案,
+            };
+            if (!WorkflowRules.ShouldDeferToBox(pet, fs, cabinetAgreement)) return -1;
+
+            pet.status = PetitionStatus.決裁待ち;
+            if (!Ledger.Add(pet)) return -1;
+            var decision = new PendingDecision(DecisionDeck.NextDecisionId(DecisionIdBand), title,
+                DecisionSeverity.重大, DecisionSource.諮問, effectKey, defaultChoiceIndex: 0, body: body);
+            decision.choices.Add("裁可する");
+            decision.choices.Add("却下する");
+            decision.petitionId = pet.id;
+            decision.friction = MinistryFriction(fs.faction, DomainOf(effectKey));
+            DecisionDeck.Enqueue(decision);
+            NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.警告,
+                $"［諮問］{title}（重大案件・裁可が必要）");
+            return decision.id;
+        }
+
         // ----- 状況起案（作業票④）-----
 
         /// <summary>その状況で最後に建白した game-秒（クールダウンの判定に使う）。</summary>
@@ -496,15 +526,31 @@ namespace Ginei
             if (!DecisionResolutionRules.ClaimForApply(d)) return; // 二重適用を防ぐ（どの経路から来ても1回）
             pending.Remove(d.id);                             // 旧経路の在庫も掃除（枠を空ける）
 
-            bool approve = choiceIndex == 0; // 0=裁可する / 1=見送る
-            RingiPipeline.Decide(pet, approve);
+            bool approve = choiceIndex == 0; // 0=裁可する / 1=見送る・却下
+            RatificationResult ratification = default;
+            if (pet.origin == PetitionOrigin.諮問)
+            {
+                ratification = WorkflowRules.ApplyRatification(pet, approve, PlayerState());
+                if (!ratification.applied)
+                {
+                    DecisionResolutionRules.RecordResult(d,
+                        PetitionActionResult.Fail(PetitionActionOutcome.対象外, ratification.summary));
+                    return;
+                }
+            }
+            else
+                RingiPipeline.Decide(pet, approve);
 
             if (!approve)
             {
                 DecisionResolutionRules.RecordResult(d,
-                    new PetitionActionResult(PetitionActionOutcome.対象外, "見送り（現状維持）"));
-                NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.情報,
-                    $"［見送り］{pet.title}（現状維持）");
+                    new PetitionActionResult(PetitionActionOutcome.対象外,
+                        pet.origin == PetitionOrigin.諮問 ? ratification.summary : "見送り（現状維持）"));
+                NotificationCenter.Push(NotificationCategory.政治,
+                    pet.origin == PetitionOrigin.諮問 ? NotificationSeverity.警告 : NotificationSeverity.情報,
+                    pet.origin == PetitionOrigin.諮問
+                        ? $"［諮問却下］{pet.title}：{ratification.summary}"
+                        : $"［見送り］{pet.title}（現状維持）");
                 return;
             }
 

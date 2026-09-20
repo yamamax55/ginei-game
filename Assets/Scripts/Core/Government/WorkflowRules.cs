@@ -2,6 +2,59 @@ using UnityEngine;
 
 namespace Ginei
 {
+    /// <summary>重大案件を目安箱へ諮問する閾値と、却下後の代償（MEYASU-4 #1300）。</summary>
+    public readonly struct RatificationParams
+    {
+        public readonly float disagreementThreshold;
+        public readonly float lowLegitimacyThreshold;
+        public readonly float democraticAgreementThreshold;
+        public readonly float democraticLegitimacyThreshold;
+        public readonly float rejectionCredibilityLoss;
+        public readonly float autocraticLegitimacyLoss;
+        public readonly float constitutionalLegitimacyLoss;
+        public readonly float democraticLegitimacyLoss;
+
+        public RatificationParams(float disagreementThreshold, float lowLegitimacyThreshold,
+            float democraticAgreementThreshold, float democraticLegitimacyThreshold,
+            float rejectionCredibilityLoss, float autocraticLegitimacyLoss,
+            float constitutionalLegitimacyLoss, float democraticLegitimacyLoss)
+        {
+            this.disagreementThreshold = Mathf.Clamp01(disagreementThreshold);
+            this.lowLegitimacyThreshold = Mathf.Clamp01(lowLegitimacyThreshold);
+            this.democraticAgreementThreshold = Mathf.Clamp01(democraticAgreementThreshold);
+            this.democraticLegitimacyThreshold = Mathf.Clamp01(democraticLegitimacyThreshold);
+            this.rejectionCredibilityLoss = Mathf.Max(0f, rejectionCredibilityLoss);
+            this.autocraticLegitimacyLoss = Mathf.Max(0f, autocraticLegitimacyLoss);
+            this.constitutionalLegitimacyLoss = Mathf.Max(0f, constitutionalLegitimacyLoss);
+            this.democraticLegitimacyLoss = Mathf.Max(0f, democraticLegitimacyLoss);
+        }
+
+        public static RatificationParams Default => new RatificationParams(
+            0.45f, 0.40f, 0.20f, 0.25f, 0.08f, 0.12f, 0.15f, 0.04f);
+    }
+
+    /// <summary>裁可/却下を適用した結果。数値は事後通知・検証用で、事前予測には使わない。</summary>
+    public readonly struct RatificationResult
+    {
+        public readonly bool applied;
+        public readonly bool approved;
+        public readonly bool constitutionalCrisis;
+        public readonly float credibilityDelta;
+        public readonly float legitimacyDelta;
+        public readonly string summary;
+
+        public RatificationResult(bool applied, bool approved, bool constitutionalCrisis,
+            float credibilityDelta, float legitimacyDelta, string summary)
+        {
+            this.applied = applied;
+            this.approved = approved;
+            this.constitutionalCrisis = constitutionalCrisis;
+            this.credibilityDelta = credibilityDelta;
+            this.legitimacyDelta = legitimacyDelta;
+            this.summary = summary ?? "";
+        }
+    }
+
     /// <summary>
     /// 稟議ワークフローの唯一の窓口（WF基盤＋MEYASU-1 #1297）。プレイヤー＝<b>序列外の目安箱</b>という制度として、
     /// 建白/注入を<b>越階</b>で受理し（権限ゲート無し＝箱は誰の下でもない）、官僚機構の伝播（<see cref="PetitionFlowRules"/>）を経て
@@ -11,6 +64,66 @@ namespace Ginei
     /// </summary>
     public static class WorkflowRules
     {
+        /// <summary>
+        /// 最高権力者が重大案件を箱へ問い返すか。立憲/専制は閣内不一致または正統性低下、
+        /// 民主政は合議が先に働くため両方が深刻な場合だけ諮問する。
+        /// </summary>
+        public static bool ShouldDeferToBox(Petition pet, FactionState government, float cabinetAgreement,
+            RatificationParams prm)
+        {
+            if (pet == null || government == null || pet.severity != DecisionSeverity.重大) return false;
+            float agreement = Mathf.Clamp01(cabinetAgreement);
+            float legitimacy = government.regime != null ? Mathf.Clamp01(government.regime.legitimacy) : 1f;
+            GovernmentAxes axes = GovernmentFormRules.Axes(government.governmentForm);
+            if (axes.elections && !axes.sovereign)
+                return agreement <= prm.democraticAgreementThreshold
+                    && legitimacy <= prm.democraticLegitimacyThreshold;
+            return agreement <= prm.disagreementThreshold || legitimacy <= prm.lowLegitimacyThreshold;
+        }
+
+        public static bool ShouldDeferToBox(Petition pet, FactionState government, float cabinetAgreement)
+            => ShouldDeferToBox(pet, government, cabinetAgreement, RatificationParams.Default);
+
+        /// <summary>
+        /// 箱へ届いた諮問を裁可/却下する唯一の窓口。裁可は承認へ、却下は終端へ進める。
+        /// 却下時だけ箱の信認と正統性を下げ、立憲君主制では憲政危機として結果へ残す。
+        /// </summary>
+        public static RatificationResult ApplyRatification(Petition pet, bool approved,
+            FactionState government, RatificationParams prm)
+        {
+            if (pet == null || government == null || pet.origin != PetitionOrigin.諮問
+                || pet.status != PetitionStatus.決裁待ち)
+                return new RatificationResult(false, approved, false, 0f, 0f, "裁可対象の諮問ではありません");
+
+            if (approved)
+            {
+                pet.status = PetitionStatus.承認;
+                return new RatificationResult(true, true, false, 0f, 0f, "諮問を裁可し、執行へ回しました");
+            }
+
+            pet.status = PetitionStatus.却下;
+            float credibilityBefore = CredibilityRules.Of(government.credibility, pet.box, pet.regionKey);
+            CredibilityRules.Adjust(government.credibility, pet.box, -prm.rejectionCredibilityLoss, pet.regionKey);
+            float credibilityAfter = CredibilityRules.Of(government.credibility, pet.box, pet.regionKey);
+
+            GovernmentForm form = government.governmentForm;
+            bool crisis = form == GovernmentForm.立憲君主制;
+            float loss = crisis ? prm.constitutionalLegitimacyLoss
+                : (GovernmentFormRules.Axes(form).elections
+                    ? prm.democraticLegitimacyLoss : prm.autocraticLegitimacyLoss);
+            float legitimacyBefore = government.regime != null ? government.regime.legitimacy : 0f;
+            if (government.regime != null)
+                government.regime.legitimacy = Mathf.Clamp01(government.regime.legitimacy - loss);
+            float legitimacyAfter = government.regime != null ? government.regime.legitimacy : legitimacyBefore;
+
+            return new RatificationResult(true, false, crisis,
+                credibilityAfter - credibilityBefore, legitimacyAfter - legitimacyBefore,
+                crisis ? "諮問を却下し、憲政危機が発生しました" : "諮問を却下し、箱への信認と正統性が低下しました");
+        }
+
+        public static RatificationResult ApplyRatification(Petition pet, bool approved, FactionState government)
+            => ApplyRatification(pet, approved, government, RatificationParams.Default);
+
         /// <summary>箱が越階で受理できるか＝建白/注入（プレイヤー発）の起案。諮問（上→箱）はここを通らない。</summary>
         public static bool CanSubmit(Petition pet)
             => pet != null

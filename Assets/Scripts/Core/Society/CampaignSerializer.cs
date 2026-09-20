@@ -604,6 +604,7 @@ namespace Ginei
                 {
                     id = p.id, title = p.title ?? "", faction = (int)p.faction,
                     box = (int)p.box, regionKey = p.regionKey ?? "", origin = (int)p.origin,
+                    severity = (int)p.severity + 1,
                     drafterId = p.drafterId, addresseeId = p.addresseeId,
                     effectKey = p.effectKey ?? "", status = (int)p.status,
                     carrierId = p.carrierId, distorted = p.distorted, vindicated = p.vindicated,
@@ -626,6 +627,8 @@ namespace Ginei
                                      (PetitionOrigin)s.origin, s.effectKey)
                 {
                     regionKey = s.regionKey ?? "",
+                    severity = s.severity > 0 && System.Enum.IsDefined(typeof(DecisionSeverity), s.severity - 1)
+                        ? (DecisionSeverity)(s.severity - 1) : DecisionSeverity.通常,
                     drafterId = s.drafterId,
                     addresseeId = s.addresseeId,
                     status = (PetitionStatus)s.status,

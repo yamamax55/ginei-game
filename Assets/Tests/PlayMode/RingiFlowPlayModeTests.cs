@@ -655,5 +655,53 @@ namespace Ginei.Tests
             Assert.AreEqual(before, fs.taxRate, 1e-4f, "見送りは世界を動かさない");
             yield return null;
         }
+
+        [UnityTest]
+        public IEnumerator Consultation_Approval_Uses_DecisionDeck_And_Executes_Once()
+        {
+            FactionState fs = SetupCampaign();
+            fs.governmentForm = GovernmentForm.共和制;
+            fs.regime.legitimacy = 0.2f;
+            RingiDirector dir = NewDirector();
+            yield return null;
+
+            float before = fs.taxRate;
+            int id = dir.SubmitConsultation("減税を箱へ諮問", "政府内で結論が出ない重大案件。", "tax.cut", 0.1f);
+            Assert.GreaterOrEqual(id, 0);
+            PendingDecision d = FindDecision(id);
+            Assert.AreEqual(DecisionSource.諮問, d.source);
+            Assert.AreEqual(DecisionSeverity.重大, d.severity);
+            Assert.AreEqual(PetitionOrigin.諮問, RingiDirector.Ledger.Get(d.petitionId).origin);
+
+            Assert.IsTrue(DecisionDeck.Resolve(id, 0));
+            Assert.Less(fs.taxRate, before);
+            Assert.AreEqual(PetitionStatus.執行済, RingiDirector.Ledger.Get(d.petitionId).status);
+            float after = fs.taxRate;
+            Assert.IsFalse(DecisionDeck.Resolve(id, 0));
+            Assert.AreEqual(after, fs.taxRate, 1e-5f);
+        }
+
+        [UnityTest]
+        public IEnumerator Constitutional_Consultation_Rejection_Leaves_World_And_Records_Crisis()
+        {
+            FactionState fs = SetupCampaign();
+            fs.governmentForm = GovernmentForm.立憲君主制;
+            RingiDirector dir = NewDirector();
+            yield return null;
+
+            float taxBefore = fs.taxRate;
+            float legitimacyBefore = fs.regime.legitimacy;
+            float credibilityBefore = CredibilityRules.Of(fs.credibility, BoxKind.政治家);
+            int id = dir.SubmitConsultation("増税を箱へ諮問", "憲政上の重大案件。", "tax.hike", 0.1f);
+            Assert.GreaterOrEqual(id, 0);
+            PendingDecision d = FindDecision(id);
+
+            Assert.IsTrue(DecisionDeck.Resolve(id, 1));
+            Assert.AreEqual(taxBefore, fs.taxRate, 1e-5f);
+            Assert.Less(fs.regime.legitimacy, legitimacyBefore);
+            Assert.Less(CredibilityRules.Of(fs.credibility, BoxKind.政治家), credibilityBefore);
+            Assert.AreEqual(PetitionStatus.却下, RingiDirector.Ledger.Get(d.petitionId).status);
+            StringAssert.Contains("憲政危機", d.resultDetail);
+        }
     }
 }

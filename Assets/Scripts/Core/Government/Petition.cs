@@ -29,6 +29,9 @@ namespace Ginei
 
         public PetitionOrigin origin = PetitionOrigin.建白;
 
+        /// <summary>案件の重要度。既存の建白は通常、箱へ諮問する案件は重大を使う。</summary>
+        public DecisionSeverity severity = DecisionSeverity.通常;
+
         /// <summary>起案者（ICharacter.id・0=なし）。人物が上司へ挙げる稟議で誰が起こしたか（<see cref="PersonRingiRules"/>）。</summary>
         public int drafterId;
 

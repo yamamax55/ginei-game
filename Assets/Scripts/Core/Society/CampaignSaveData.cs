@@ -180,6 +180,7 @@ namespace Ginei
         public int box;            // (int)BoxKind
         public string regionKey = "";
         public int origin;         // (int)PetitionOrigin
+        public int severity;       // (int)DecisionSeverity+1（0＝旧セーブ＝通常）
         public int drafterId;
         public int addresseeId;
         public string effectKey = "";

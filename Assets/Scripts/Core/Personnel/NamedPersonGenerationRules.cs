@@ -306,6 +306,44 @@ namespace Ginei
             return text;
         }
 
+        /// <summary>人物名簿のID・生成イベント・年代順を読み取り専用で監査する。</summary>
+        public static string DescribeIntegrity(IEnumerable<Person> people)
+        {
+            var ids = new HashSet<int>();
+            var eventIds = new HashSet<string>();
+            int duplicateIds = 0;
+            int invalidIds = 0;
+            int duplicateEvents = 0;
+            int reversedChronology = 0;
+
+            if (people != null)
+                foreach (Person person in people)
+                {
+                    if (person == null) continue;
+                    if (person.id <= 0) invalidIds++;
+                    else if (!ids.Add(person.id)) duplicateIds++;
+
+                    // 経歴不明の旧人物は空文字のまま許容し、重複イベントに数えない。
+                    if (!string.IsNullOrEmpty(person.generationEventId)
+                        && !eventIds.Add(person.generationEventId))
+                        duplicateEvents++;
+
+                    if (person.birthYear > 0 && person.graduationYear > 0
+                        && person.graduationYear < person.birthYear)
+                        reversedChronology++;
+                }
+
+            if (duplicateIds == 0 && invalidIds == 0 && duplicateEvents == 0 && reversedChronology == 0)
+                return "整合 OK";
+
+            var parts = new List<string>();
+            if (duplicateIds > 0) parts.Add("ID重複 " + duplicateIds);
+            if (invalidIds > 0) parts.Add("不正ID " + invalidIds);
+            if (duplicateEvents > 0) parts.Add("生成イベント重複 " + duplicateEvents);
+            if (reversedChronology > 0) parts.Add("年代逆転 " + reversedChronology);
+            return string.Join("／", parts);
+        }
+
         private static void AppendRelative(
             List<string> parts, string relation, int personId, System.Func<int, Person> resolve)
         {

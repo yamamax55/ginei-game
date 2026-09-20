@@ -96,6 +96,11 @@ namespace Ginei
             if (gv.CommanderRoster != null) all.AddRange(gv.CommanderRoster);
             if (gv.CivilianRoster != null) all.AddRange(gv.CivilianRoster);
 
+            string integrity = NamedPersonGenerationRules.DescribeIntegrity(all);
+            string integrityColor = integrity == "整合 OK" ? "#8fd694" : "#ff8c7a";
+            sb.Append("<color=").Append(integrityColor).Append(">名簿整合　")
+              .Append(integrity).Append("</color>\n");
+
             var factions = new List<Faction>();
             for (int i = 0; i < all.Count; i++)
             {

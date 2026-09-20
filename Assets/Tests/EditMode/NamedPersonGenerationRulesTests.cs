@@ -356,5 +356,47 @@ namespace Ginei.Tests
             StringAssert.Contains("科学者 1", text);
             StringAssert.Contains("技術者 1", text);
         }
+
+        [Test]
+        public void IntegrityDescription_DetectsIdEventAndChronologyProblems_WithoutTreatingUnknownHistoryAsDuplicate()
+        {
+            var people = new List<Person>
+            {
+                new Person(1, "正常", Faction.同盟, PersonRole.軍人)
+                {
+                    birthYear = 780, graduationYear = 802,
+                    generationEventId = "academy:1:802"
+                },
+                new Person(1, "ID重複", Faction.同盟, PersonRole.文民)
+                {
+                    birthYear = 790, graduationYear = 805,
+                    generationEventId = "university:1:805"
+                },
+                new Person(3, "イベント重複", Faction.帝国, PersonRole.文民)
+                {
+                    birthYear = 780, graduationYear = 805,
+                    generationEventId = "university:1:805"
+                },
+                new Person(0, "不正ID", Faction.帝国, PersonRole.文民),
+                new Person(5, "年代逆転", Faction.帝国, PersonRole.文民)
+                {
+                    birthYear = 810, graduationYear = 805
+                },
+                new Person(6, "旧人物A", Faction.同盟, PersonRole.文民),
+                new Person(7, "旧人物B", Faction.同盟, PersonRole.文民),
+                null
+            };
+
+            string text = NamedPersonGenerationRules.DescribeIntegrity(people);
+
+            StringAssert.Contains("ID重複 1", text);
+            StringAssert.Contains("不正ID 1", text);
+            StringAssert.Contains("生成イベント重複 1", text);
+            StringAssert.Contains("年代逆転 1", text);
+            StringAssert.DoesNotContain("生成イベント重複 3", text,
+                "経歴不明の空イベントIDを重複として数えている");
+            Assert.AreEqual("整合 OK", NamedPersonGenerationRules.DescribeIntegrity(null));
+            Assert.AreEqual("整合 OK", NamedPersonGenerationRules.DescribeIntegrity(new[] { people[0] }));
+        }
     }
 }

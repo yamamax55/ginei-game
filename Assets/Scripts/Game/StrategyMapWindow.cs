@@ -849,6 +849,8 @@ namespace Ginei
                 ("法令",   () => UnityEngine.Object.FindAnyObjectByType<LawObserverOverlay>()?.Toggle()),
                 ("政府",   () => UnityEngine.Object.FindAnyObjectByType<GovernmentObserverOverlay>()?.Toggle()),
                 ("官僚",   () => UnityEngine.Object.FindAnyObjectByType<BureaucracyObserverOverlay>()?.Toggle()),
+                // 官僚人事（#141）：省内職位の配属・異動・昇任・降任・解任を操作する窓（「官僚」は観測のまま）
+                ("官僚人事", CivilServiceAppointmentPanel.Toggle),
                 ("人口",   () => UnityEngine.Object.FindAnyObjectByType<DemographicsObserverOverlay>()?.Toggle()),
                 ("労働",   () => UnityEngine.Object.FindAnyObjectByType<LaborObserverOverlay>()?.Toggle()),
                 ("教育",   () => UnityEngine.Object.FindAnyObjectByType<EducationObserverOverlay>()?.Toggle()),

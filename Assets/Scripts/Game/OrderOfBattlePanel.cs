@@ -27,10 +27,18 @@ namespace Ginei
         private VisualElement root;     // UIDocument のルート（全画面）
         private VisualElement list;     // ScrollView（行の追加先）
         private Label hintLabel;
+        private GineiList<CommanderCandidate> commanderList;
         private Faction faction;
         private int selectedFleet;  // 移動対象の艦隊番号（0=未選択）
         private int commandTarget;  // 司令選任中の梯団id（0=未選択）
         private object escWindowToken; // UIWindowStack 登録トークン（#ウィンドウESC）
+
+        private sealed class CommanderCandidate
+        {
+            public AdmiralData admiral;
+            public bool eligible;
+            public string rank;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -94,6 +102,8 @@ namespace Ginei
         {
             if (list == null) return;
             list.Clear();
+            list.style.display = DisplayStyle.Flex;
+            if (commanderList != null) commanderList.style.display = DisplayStyle.None;
 
             if (hintLabel != null)
             {
@@ -170,16 +180,18 @@ namespace Ginei
             if (f.HasCommander)
                 AddRow("　現司令を解任して空席に", "解任", () => { OrderOfBattle.UnassignCommander(f.id); commandTarget = 0; Rebuild(); });
 
-            AddRow("― 任命候補 ―");
+            AddRow("― 任命候補（見出しでソート／選択後に決定／右クリックで戻る）―");
+            var candidates = new List<CommanderCandidate>();
             foreach (AdmiralData adm in CandidateAdmirals())
-            {
-                bool ok = OrderOfBattle.CanCommand(adm, f.echelon);
-                string mark = ok ? "○" : "×";
-                string suffix = ok ? "" : "　（階級不足）";
-                AddRow($"　{mark} {AdmiralLabel(adm)}{suffix}",
-                    ok ? "選ぶ" : null,
-                    ok ? (Action)(() => { OrderOfBattle.AssignCommander(f.id, adm); commandTarget = 0; Rebuild(); }) : null);
-            }
+                candidates.Add(new CommanderCandidate
+                {
+                    admiral = adm,
+                    eligible = OrderOfBattle.CanCommand(adm, f.echelon),
+                    rank = RankSystem.ResolveRankNameOrDefault(null, adm.rankTier)
+                });
+            commanderList.SetTitle($"{f.DisplayName} 司令候補");
+            commanderList.SetItems(candidates);
+            commanderList.style.display = DisplayStyle.Flex;
         }
 
         private List<AdmiralData> CandidateAdmirals()
@@ -254,6 +266,34 @@ namespace Ginei
             scroll.AddToClassList("scroll");
             panel.Add(scroll);
             list = scroll; // scroll.Add は contentContainer に入る
+
+            commanderList = new GineiList<CommanderCandidate>("司令候補") { PageSize = 12 };
+            commanderList.SetColumns(new[]
+            {
+                new GineiListColumn<CommanderCandidate>("可否", x => x.eligible ? "○" : "×", (a, b) => a.eligible.CompareTo(b.eligible), 64f),
+                new GineiListColumn<CommanderCandidate>("階級", x => x.rank, (a, b) => a.admiral.rankTier.CompareTo(b.admiral.rankTier), 120f),
+                new GineiListColumn<CommanderCandidate>("氏名", x => x.admiral.ShortName, (a, b) => string.Compare(a.admiral.ShortName, b.admiral.ShortName, StringComparison.Ordinal), 180f),
+                new GineiListColumn<CommanderCandidate>("統率", x => x.admiral.EffectiveLeadership.ToString(), (a, b) => a.admiral.EffectiveLeadership.CompareTo(b.admiral.EffectiveLeadership), 80f)
+            });
+            commanderList.SetDetailFormatter(x => x.eligible
+                ? $"{AdmiralLabel(x.admiral)}　統率{x.admiral.EffectiveLeadership}　任命できます"
+                : $"{AdmiralLabel(x.admiral)}　必要階級に達していないため任命できません");
+            commanderList.Confirmed += candidate =>
+            {
+                MilitaryFormation target = OrderOfBattle.Get(commandTarget);
+                if (target == null) { commandTarget = 0; Rebuild(); return; }
+                if (!candidate.eligible)
+                {
+                    hintLabel.text = "階級不足のため任命できません";
+                    return;
+                }
+                OrderOfBattle.AssignCommander(target.id, candidate.admiral);
+                commandTarget = 0;
+                Rebuild();
+            };
+            commanderList.Cancelled += () => { commandTarget = 0; Rebuild(); };
+            commanderList.style.display = DisplayStyle.None;
+            panel.Add(commanderList);
 
             var close = new Button(Close) { text = "閉じる (O / Esc)" };
             close.AddToClassList("footer-btn");

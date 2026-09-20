@@ -1,5 +1,9 @@
 using System.Collections.Generic;
+using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Ginei.Tests
 {
@@ -43,6 +47,25 @@ namespace Ginei.Tests
             list.SortByColumn(0);
             list.SortByColumn(0);
             Assert.AreEqual(new[] { 3, 2, 1 }, list.VisibleItems);
+        }
+
+        [UnityTest]
+        public IEnumerator OrderOfBattlePanel_BuildsCommanderPilotList()
+        {
+            var go = new GameObject("order-of-battle-list-pilot-test");
+            try
+            {
+                var panel = go.AddComponent<OrderOfBattlePanel>();
+                yield return null;
+                var field = typeof(OrderOfBattlePanel).GetField("commanderList",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.NotNull(field);
+                Assert.NotNull(field.GetValue(panel), "編制画面が共通GineiListを候補選択へ接続する");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
         }
     }
 }

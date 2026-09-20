@@ -821,6 +821,9 @@ namespace Ginei
             // 教育（#998）：確定した国家予算と所有人口から在学・卒業・品質を年次で一度だけ進める。
             RunEducationAnnualTick();
 
+            // 人材育成（#998）：9-box評価、師事・抜擢、現役教育、艦隊訓練、軍団演習を一度だけ進める。
+            RunTalentDevelopmentAnnualTick();
+
             // 軍の年（練度#練度／軍需兵站#2049／兵器産業#2020）：歴戦の艦隊が育ち、備蓄から軍需を消費し（払底で干上がる）、兵器メーカーが戦力を供給。
             RunVeterancyTick();
             RunMilitarySupplyConsumptionTick();

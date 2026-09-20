@@ -152,7 +152,29 @@ namespace Ginei
             vlg.childForceExpandHeight = false;
 
             WindowChrome.AddTitleBarLayout(frameRT, "教育", () => SetVisible(false));
+            BuildDevelopmentButton(frame.transform);
             BuildScrollBody(frame.transform);
+        }
+
+        private void BuildDevelopmentButton(Transform parent)
+        {
+            GameObject buttonObject = new GameObject("OpenTalentDevelopment", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            buttonObject.transform.SetParent(parent, false);
+            buttonObject.GetComponent<Image>().color = new Color(0.16f, 0.29f, 0.47f, 1f);
+            buttonObject.GetComponent<LayoutElement>().preferredHeight = 38f;
+            buttonObject.GetComponent<Button>().onClick.AddListener(() => TalentDevelopmentPanel.Show());
+            GameObject captionObject = new GameObject("Caption", typeof(RectTransform), typeof(TextMeshProUGUI));
+            captionObject.transform.SetParent(buttonObject.transform, false);
+            RectTransform captionRT = captionObject.GetComponent<RectTransform>();
+            captionRT.anchorMin = Vector2.zero;
+            captionRT.anchorMax = Vector2.one;
+            captionRT.sizeDelta = Vector2.zero;
+            TextMeshProUGUI caption = captionObject.GetComponent<TextMeshProUGUI>();
+            caption.text = "人材育成・艦隊訓練を開く";
+            caption.fontSize = 18f;
+            caption.color = Color.white;
+            caption.alignment = TextAlignmentOptions.Center;
+            ApplyJapaneseFont(caption);
         }
 
         private void BuildScrollBody(Transform parent)

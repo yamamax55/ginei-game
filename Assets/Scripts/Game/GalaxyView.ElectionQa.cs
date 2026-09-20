@@ -20,6 +20,9 @@ namespace Ginei
             civilians = qaCivilians ?? new List<Person>();
         }
 
+        /// <summary>試験用：艦隊訓練と出撃中断が読む戦略艦隊台帳を差し込む。</summary>
+        public void BindStrategicFleetRegistryForQa(StrategicFleetRegistry registry) => reg = registry;
+
         /// <summary>試験用：開幕・読込時の政府シード（要職・省庁・保存済みの首相/知事の復元）。</summary>
         public void SeedGovernmentForQa() => SeedGovernment();
 

@@ -317,6 +317,8 @@ namespace Ginei
                 reason = "移動を開始できませんでした";
                 return false;
             }
+            // 訓練中の出撃は命令を拒まず、訓練・共同演習を中断して即応状態へ戻す。
+            InterruptFleetTrainingForSortie(fleet);
             if (!string.IsNullOrEmpty(sortieNote)) reason = JoinNotes(reason, sortieNote);
 
             // ★実際に止まる星系を確かめて伝える（実機QAで判明した表示と実挙動の食い違い）。

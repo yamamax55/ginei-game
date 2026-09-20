@@ -119,7 +119,9 @@ namespace Ginei
                         hasCivilService = fs.civilService != null,
                         civilService = fs.civilService,
                         hasEducation = fs.education != null,
-                        education = fs.education
+                        education = fs.education,
+                        hasTalentDevelopment = fs.talentDevelopment != null,
+                        talentDevelopment = fs.talentDevelopment
                     });
                 }
             }
@@ -232,6 +234,12 @@ namespace Ginei
                 {
                     fs.education = fss.education;
                     EducationAnnualRules.NormalizeLoaded(fs.education);
+                }
+                // 育成台帳は読込だけで進行・修了させず、欠落一覧と採番だけを正規化する。
+                if (fss.hasTalentDevelopment && fss.talentDevelopment != null)
+                {
+                    fs.talentDevelopment = fss.talentDevelopment;
+                    TalentDevelopmentRules.NormalizeLoaded(fs.talentDevelopment);
                 }
                 state.states.Add(fs);
             }

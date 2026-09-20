@@ -50,10 +50,14 @@ namespace Ginei
         /// 本文が空でも属性だけは出す＝「誰の案件か分からない札」を作らない。
         /// </summary>
         public static string DetailText(PendingDecision d)
+            => DetailText(d, d != null ? d.body : "");
+
+        /// <summary>表示本文だけを差し替える。Core は外部生成器を参照せず、保存対象の body も変更しない。</summary>
+        public static string DetailText(PendingDecision d, string displayBody)
         {
             if (d == null) return "";
             var sb = new StringBuilder(320);
-            sb.Append(string.IsNullOrEmpty(d.body) ? "（詳細なし）" : d.body);
+            sb.Append(string.IsNullOrEmpty(displayBody) ? "（詳細なし）" : displayBody);
             sb.Append('\n').Append('\n');
             sb.Append(WhoLine(d)).Append('\n');
             sb.Append(TargetLine(d));

@@ -297,7 +297,7 @@ namespace Ginei
 
             detailTitle.text = $"<b>[{d.severity}]</b> {d.title}";
             // 本文＋「誰が出して誰が決めるか・何を対象にするか・権限の根拠・結果」（#67／⑤）。
-            detailBody.text = DecisionAttributionRules.DetailText(d);
+            detailBody.text = DecisionAttributionRules.DetailText(d, RingiNarrativeRuntime.TextFor(d));
 
             for (int i = detailChoices.childCount - 1; i >= 0; i--)
                 Destroy(detailChoices.GetChild(i).gameObject);

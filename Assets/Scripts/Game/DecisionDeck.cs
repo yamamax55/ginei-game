@@ -46,6 +46,7 @@ namespace Ginei
         public static void Enqueue(PendingDecision d)
         {
             if (StrategySession.Decisions == null) StrategySession.Decisions = new DecisionQueue();
+            RingiNarrativeRuntime.Prepare(d);
             Queue.Enqueue(d);
         }
 
@@ -56,6 +57,7 @@ namespace Ginei
         /// </summary>
         public static void ClearQueue()
         {
+            RingiNarrativeRuntime.Clear();
             if (StrategySession.Decisions == null) { StrategySession.Decisions = new DecisionQueue(); return; }
             Queue.items.Clear();
         }
@@ -349,7 +351,8 @@ namespace Ginei
             var sle = summary.gameObject.AddComponent<LayoutElement>();
             sle.flexibleWidth = 1f;
 
-            bool hasBody = !string.IsNullOrEmpty(d.body);
+            string displayBody = RingiNarrativeRuntime.TextFor(d);
+            bool hasBody = !string.IsNullOrEmpty(displayBody);
             GameObject collapsible = null;
 
             // 本文の開閉トグル（本文がある時だけ）
@@ -396,7 +399,7 @@ namespace Ginei
             cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
 
             if (hasBody)
-                AddLabel(collapsible.transform, d.body, 16f, new Color(0.86f, 0.9f, 0.95f));
+                AddLabel(collapsible.transform, displayBody, 16f, new Color(0.86f, 0.9f, 0.95f));
 
             for (int i = 0; i < d.choices.Count; i++)
             {

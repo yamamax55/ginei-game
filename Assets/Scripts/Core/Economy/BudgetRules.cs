@@ -11,7 +11,7 @@ namespace Ginei
     public static class BudgetRules
     {
         /// <summary>歳出分野の数（<see cref="BudgetCategory"/> の要素数）。</summary>
-        public const int CategoryCount = 6;
+        public const int CategoryCount = 7;
 
         /// <summary>出資度の上限倍率（必要額の MaxFundingFactor 倍で頭打ち＝過剰投資の逓減）。</summary>
         public const float MaxFundingFactor = 2f;
@@ -37,6 +37,7 @@ namespace Ginei
                 case BudgetCategory.社会保障: return b.welfare;
                 case BudgetCategory.研究: return b.research;
                 case BudgetCategory.外交: return b.diplomacy;
+                case BudgetCategory.教育: return b.education;
                 default: return 0f;
             }
         }
@@ -54,6 +55,7 @@ namespace Ginei
                 case BudgetCategory.社会保障: b.welfare = v; break;
                 case BudgetCategory.研究: b.research = v; break;
                 case BudgetCategory.外交: b.diplomacy = v; break;
+                case BudgetCategory.教育: b.education = v; break;
             }
         }
 
@@ -66,7 +68,8 @@ namespace Ginei
         {
             if (b == null) return 0f;
             return Mathf.Max(0f, b.military) + Mathf.Max(0f, b.shipbuilding) + Mathf.Max(0f, b.administration)
-                 + Mathf.Max(0f, b.welfare) + Mathf.Max(0f, b.research) + Mathf.Max(0f, b.diplomacy);
+                 + Mathf.Max(0f, b.welfare) + Mathf.Max(0f, b.research) + Mathf.Max(0f, b.diplomacy)
+                 + Mathf.Max(0f, b.education);
         }
 
         /// <summary>分野シェア 0..1＝その分野の配分/歳出総額（総額0は0＝優先度の重み）。</summary>
@@ -114,6 +117,7 @@ namespace Ginei
             b.welfare = Mathf.Max(0f, b.welfare) * k;
             b.research = Mathf.Max(0f, b.research) * k;
             b.diplomacy = Mathf.Max(0f, b.diplomacy) * k;
+            b.education = Mathf.Max(0f, b.education) * k;
         }
 
         /// <summary>歳入を超える歳出を歳入まで切り詰める（緊縮＝比例縮小・シェア保存）。実際に切ったら true。</summary>

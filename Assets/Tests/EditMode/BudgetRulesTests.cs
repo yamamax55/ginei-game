@@ -26,6 +26,9 @@ namespace Ginei.Tests
 
             BudgetRules.Set(b, BudgetCategory.研究, -5f); // 負は0へ
             Assert.AreEqual(0f, BudgetRules.Get(b, BudgetCategory.研究), 1e-4f);
+
+            BudgetRules.Set(b, BudgetCategory.教育, 9f);
+            Assert.AreEqual(9f, b.education, 1e-4f);
         }
 
         [Test]
@@ -140,17 +143,18 @@ namespace Ginei.Tests
         public void AllocateByWeights_ZeroWeights_DistributeEqually()
         {
             var b = new NationalBudget();
-            BudgetRules.AllocateByWeights(b, 60f, new[] { 0f, 0f, 0f, 0f, 0f, 0f });
-            Assert.AreEqual(60f, BudgetRules.Total(b), 1e-3f);
-            Assert.AreEqual(10f, b.military, 1e-3f); // 均等＝60/6
+            BudgetRules.AllocateByWeights(b, 70f, new[] { 0f, 0f, 0f, 0f, 0f, 0f, 0f });
+            Assert.AreEqual(70f, BudgetRules.Total(b), 1e-3f);
+            Assert.AreEqual(10f, b.military, 1e-3f); // 均等＝70/7
             Assert.AreEqual(10f, b.diplomacy, 1e-3f);
+            Assert.AreEqual(10f, b.education, 1e-3f);
         }
 
         [Test]
         public void AllocateByWeights_NullWeights_EqualSplit_ShortArrayPadsZero()
         {
             var b = new NationalBudget();
-            BudgetRules.AllocateByWeights(b, 60f, null); // null＝均等
+            BudgetRules.AllocateByWeights(b, 70f, null); // null＝均等
             Assert.AreEqual(10f, b.military, 1e-3f);
 
             var b2 = new NationalBudget();

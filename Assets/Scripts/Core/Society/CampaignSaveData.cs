@@ -268,7 +268,7 @@ namespace Ginei
         public bool commDissent;
         // 財政（在席フロー＝全永続化方針で保存）：国庫/税率/予算分野配分/形式債務。
         public float treasury, taxRate;
-        public float budgetMilitary, budgetShipbuilding, budgetAdministration, budgetWelfare, budgetResearch, budgetDiplomacy;
+        public float budgetMilitary, budgetShipbuilding, budgetAdministration, budgetWelfare, budgetResearch, budgetDiplomacy, budgetEducation;
         public float fiscalDebt;
         // 政治（政党・議席・衆参/知事選の日程・直近の開票・選出された首相/知事）。
         // hasPolitics=false（旧セーブ含む）は politics を読まない＝null のまま復元し、次の年次で初期化する。

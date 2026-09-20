@@ -70,7 +70,7 @@ namespace Ginei
             var camp = StrategySession.Campaign;
             if (camp == null || camp.states == null) return;
 
-            // ① 予算編成（帝国＝軍拡で赤字気味／同盟＝均衡・内政厚め）。重みは 軍事/建艦/内政/社会保障/研究/外交。
+            // ① 予算編成（帝国＝軍拡で赤字気味／同盟＝均衡・内政厚め）。重みは 軍事/建艦/内政/社会保障/研究/外交/教育。
             for (int i = 0; i < camp.states.Count; i++)
             {
                 FactionState s = camp.states[i];
@@ -78,8 +78,8 @@ namespace Ginei
                 float revenueRate = FiscalRules.TaxRevenue(CampaignRules.EconomyBase(s), s.taxRate);
                 float propensity = s.faction == Faction.帝国 ? 1.1f : 1.0f;
                 float[] weights = s.faction == Faction.帝国
-                    ? new float[] { 3, 2, 1, 1, 1, 1 }
-                    : new float[] { 1, 1, 2, 2, 1, 1 };
+                    ? new float[] { 3, 2, 1, 1, 1, 1, 1 }
+                    : new float[] { 1, 1, 2, 2, 1, 1, 2 };
                 BudgetRules.AllocateByWeights(s.budget, revenueRate * propensity, weights);
             }
 

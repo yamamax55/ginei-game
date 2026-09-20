@@ -39,6 +39,7 @@ namespace Ginei.Tests
                 // 実技（技術/生産）＞研究＝実務寄り、技才＞文才
                 Assert.GreaterOrEqual(p.engineering, p.research);
                 Assert.Greater(p.TechnicalAptitude, p.CivilAptitude);
+                Assert.AreEqual(TechnicalSpecialty.技術者, PersonVocationRules.TechnicalSpecialtyOf(p));
             }
             // 技術力の降順
             for (int i = 1; i < grads.Count; i++)

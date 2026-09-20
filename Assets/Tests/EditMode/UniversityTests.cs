@@ -55,6 +55,7 @@ namespace Ginei.Tests
                 Assert.AreEqual(PersonRole.文民, p.role);
                 Assert.AreEqual(0, p.examRank);                      // テクノクラートは科挙の席次を持たない
                 Assert.Greater(p.TechnicalAptitude, p.CivilAptitude); // 技才＞文才
+                Assert.AreEqual(TechnicalSpecialty.科学者, PersonVocationRules.TechnicalSpecialtyOf(p));
             }
             // 席次は技才の降順
             for (int i = 1; i < grads.Count; i++)

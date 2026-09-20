@@ -11,6 +11,7 @@ namespace Ginei
     /// </summary>
     public static class PersonVocationRules
     {
+        public const int TechnicalSpecialtyMargin = 4;
         /// <summary>
         /// 人物 → 職分。君主（元首）＞政治家＞軍人=武官＞文民（技術才≥文才で技術者・他は文官）。null は その他。
         /// 君主は <see cref="Person.isSovereign"/> でのみ立つ（POP 昇格では到達しない別格）。
@@ -33,8 +34,8 @@ namespace Ginei
             if (p == null) return TechnicalSpecialty.総合;
             int science = p.research + p.planning;
             int engineering = p.engineering + p.production;
-            if (science >= engineering + 10) return TechnicalSpecialty.科学者;
-            if (engineering >= science + 10) return TechnicalSpecialty.技術者;
+            if (science >= engineering + TechnicalSpecialtyMargin) return TechnicalSpecialty.科学者;
+            if (engineering >= science + TechnicalSpecialtyMargin) return TechnicalSpecialty.技術者;
             return TechnicalSpecialty.総合;
         }
 

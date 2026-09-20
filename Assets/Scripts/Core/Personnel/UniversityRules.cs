@@ -16,6 +16,7 @@ namespace Ginei
         public const int StatFloor = 30;          // 凡庸な卒業生の下限
         public const int StatCeil = 78;           // 名門首席級の上限
         public const float QualityWeight = 0.5f;  // 才能＝質×これ＋素質roll×(1-これ)
+        public const float AppliedTechSecondary = 0.75f; // 工科大学は研究・計画を主、技術・生産を副とする
         public static readonly int GraduationAge = SchoolAgeRules.GraduationAge(SchoolType.大学); // 卒業年齢=22（学部4年・出所＝SchoolAgeRules 史実精緻化）
         public const float CandidateFraction = 0.15f; // 候補（官吏層）のうち入学できる割合
 
@@ -55,7 +56,9 @@ namespace Ginei
                 var p = new Person(idStart + i, $"{u.name}{graduationYear}期{i + 1}", u.faction, PersonRole.文民);
                 if (technical)
                 {
-                    p.research = s; p.engineering = s; p.planning = s; p.production = s; // 技才
+                    int applied = StatFor(talent * AppliedTechSecondary);
+                    p.research = s; p.planning = s;                   // 大学研究者：理論・研究計画が主
+                    p.engineering = applied; p.production = applied; // 応用・生産も学ぶが高専より研究寄り
                     p.operation = sub; p.intelligence = sub;
                 }
                 else

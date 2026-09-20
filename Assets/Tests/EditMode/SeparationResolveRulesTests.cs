@@ -18,9 +18,15 @@ namespace Ginei.Tests
                 {
                     Vector2 diff = p[i] - p[j];
                     float dsq = diff.sqrMagnitude;
-                    if (dsq >= minSq || dsq <= 1e-6f) continue;
-                    float dist = Mathf.Sqrt(dsq);
-                    Vector2 push = diff / dist * ((minSep - dist) * 0.5f * strength);
+                    if (dsq >= minSq) continue;
+                    Vector2 push;
+                    if (dsq <= 1e-6f)
+                        push = SeparationResolveRules.CoincidentDirection(i, j) * (minSep * 0.5f * strength);
+                    else
+                    {
+                        float dist = Mathf.Sqrt(dsq);
+                        push = diff / dist * ((minSep - dist) * 0.5f * strength);
+                    }
                     d[i] += push;
                     d[j] -= push;
                 }
@@ -44,6 +50,20 @@ namespace Ginei.Tests
             var d = SeparationResolveRules.Resolve(p, 2, 0.6f, 1f);
             Assert.AreEqual(0f, d[0].magnitude, 1e-5f);
             Assert.AreEqual(0f, d[1].magnitude, 1e-5f);
+        }
+
+        [Test]
+        public void Resolve_ExactlyCoincident_PushesApartDeterministically()
+        {
+            var p = new List<Vector2> { Vector2.zero, Vector2.zero };
+            var first = SeparationResolveRules.Resolve(p, 2, 0.6f, 1f);
+            var second = SeparationResolveRules.Resolve(p, 2, 0.6f, 1f);
+
+            Assert.Greater(first[0].magnitude, 0f);
+            Assert.AreEqual(first[0].x, -first[1].x, 1e-5f);
+            Assert.AreEqual(first[0].y, -first[1].y, 1e-5f);
+            Assert.AreEqual(first[0].x, second[0].x, 1e-5f);
+            Assert.AreEqual(first[0].y, second[0].y, 1e-5f);
         }
 
         [Test]
@@ -84,6 +104,20 @@ namespace Ginei.Tests
                 Assert.AreEqual(fresh[i].x, displace[i].x, 1e-4f);
                 Assert.AreEqual(fresh[i].y, displace[i].y, 1e-4f);
             }
+        }
+
+        [Test]
+        public void Resolve_BufferReuse_CapsHistoricalGridCells()
+        {
+            var grid = new Dictionary<long, List<int>>();
+            var displace = new Vector2[2];
+            for (int step = 0; step < 200; step++)
+            {
+                float x = step * 10f;
+                var p = new List<Vector2> { new Vector2(x, 0f), new Vector2(x + 0.1f, 0f) };
+                SeparationResolveRules.Resolve(p, 2, 0.6f, 1f, displace, grid);
+            }
+            Assert.LessOrEqual(grid.Count, 66, "過去に通過したセルを無制限に保持しない");
         }
     }
 }

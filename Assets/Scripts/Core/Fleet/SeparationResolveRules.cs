@@ -12,6 +12,8 @@ namespace Ginei
     /// </summary>
     public static class SeparationResolveRules
     {
+        private const int MinimumRetainedGridCells = 64;
+
         /// <summary>各メンバの押し離し変位を返す（テスト/簡易用＝毎回確保）。</summary>
         public static Vector2[] Resolve(IList<Vector2> positions, int count, float minSeparation, float strength)
         {
@@ -34,8 +36,11 @@ namespace Ginei
             float minSq = minSeparation * minSeparation;
 
             var grid = gridBuf ?? new Dictionary<long, List<int>>(count);
-            // 再利用時は中身を空にする（リストは残して使い回し＝GC を増やさない）。
-            foreach (var kv in grid) kv.Value.Clear();
+            // 通常はリストを残して再利用する。長距離航行で過去セルが増え続けた場合だけ辞書を
+            // まとめて解放し、毎回すべての過去キーを走査する負荷と保持メモリを制限する。
+            int retainedCellLimit = Mathf.Max(MinimumRetainedGridCells, count * 4);
+            if (grid.Count > retainedCellLimit) grid.Clear();
+            else foreach (var kv in grid) kv.Value.Clear();
 
             // バケットへ投入。
             for (int i = 0; i < count; i++)
@@ -66,13 +71,43 @@ namespace Ginei
                             if (j <= i) continue; // 各ペア1回だけ
                             Vector2 d = pa - positions[j];
                             float dsq = d.sqrMagnitude;
-                            if (dsq >= minSq || dsq <= 1e-6f) continue;
-                            float dist = Mathf.Sqrt(dsq);
-                            Vector2 push = d / dist * ((minSeparation - dist) * 0.5f * strength);
+                            if (dsq >= minSq) continue;
+                            Vector2 push;
+                            if (dsq <= 1e-6f)
+                            {
+                                // 完全同位置でもスキップせず、ペア添字から決定論的な方向へ分離する。
+                                push = CoincidentDirection(i, j) * (minSeparation * 0.5f * strength);
+                            }
+                            else
+                            {
+                                float dist = Mathf.Sqrt(dsq);
+                                push = d / dist * ((minSeparation - dist) * 0.5f * strength);
+                            }
                             if (i < displace.Length) displace[i] += push;
                             if (j < displace.Length) displace[j] -= push;
                         }
                     }
+                }
+            }
+        }
+
+        /// <summary>完全同位置ペアを分離する決定論的な8方向。乱数やフレーム順序に依存しない。</summary>
+        public static Vector2 CoincidentDirection(int firstIndex, int secondIndex)
+        {
+            unchecked
+            {
+                int bucket = ((firstIndex * 73856093) ^ (secondIndex * 19349663)) & 7;
+                const float diagonal = 0.70710678f;
+                switch (bucket)
+                {
+                    case 0: return Vector2.right;
+                    case 1: return new Vector2(diagonal, diagonal);
+                    case 2: return Vector2.up;
+                    case 3: return new Vector2(-diagonal, diagonal);
+                    case 4: return Vector2.left;
+                    case 5: return new Vector2(-diagonal, -diagonal);
+                    case 6: return Vector2.down;
+                    default: return new Vector2(diagonal, -diagonal);
                 }
             }
         }

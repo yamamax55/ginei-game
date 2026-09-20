@@ -84,6 +84,28 @@ namespace Ginei
     /// </summary>
     public static class EducationAnnualRules
     {
+        /// <summary>3区分人口から1歳ぶんの学齢人口を見積もる。年少人口が無い旧状態は総人口の1/80を使う。</summary>
+        public static float AnnualAgeCohort(float youthPopulation, float totalPopulation)
+        {
+            float youth = Mathf.Max(0f, youthPopulation);
+            if (youth > 0f) return youth / 15f;
+            return Mathf.Max(0f, totalPopulation) / 80f;
+        }
+
+        /// <summary>基礎教育3段と大学の年次入学計画。進学率を定員として扱い、実入学は予算充足率でさらに絞る。</summary>
+        public static List<EducationIntakePlan> BuildPlans(
+            float annualAgeCohort, float elementaryRate, float middleRate, float highRate, float universityCapacity)
+        {
+            float cohort = Mathf.Max(0f, annualAgeCohort);
+            return new List<EducationIntakePlan>
+            {
+                new EducationIntakePlan(SchoolType.小学校, cohort, cohort * Mathf.Clamp01(elementaryRate)),
+                new EducationIntakePlan(SchoolType.中学校, cohort, cohort * Mathf.Clamp01(middleRate)),
+                new EducationIntakePlan(SchoolType.高校, cohort, cohort * Mathf.Clamp01(highRate)),
+                new EducationIntakePlan(SchoolType.大学, cohort, Mathf.Max(0f, universityCapacity))
+            };
+        }
+
         /// <summary>旧セーブや欠落フィールドを、年次処理を進めず安全な状態へ正規化する。</summary>
         public static void NormalizeLoaded(EducationState state)
         {

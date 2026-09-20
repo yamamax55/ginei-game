@@ -7,6 +7,19 @@ namespace Ginei.Tests
     public class EducationAnnualRulesTests
     {
         [Test]
+        public void BuildPlans_UsesAgeCohortRatesAndUniversityCapacity()
+        {
+            Assert.AreEqual(10f, EducationAnnualRules.AnnualAgeCohort(150f, 1000f), 1e-5f);
+            Assert.AreEqual(12.5f, EducationAnnualRules.AnnualAgeCohort(0f, 1000f), 1e-5f);
+            List<EducationIntakePlan> plans = EducationAnnualRules.BuildPlans(10f, 0.9f, 0.8f, 0.6f, 3f);
+            Assert.AreEqual(4, plans.Count);
+            Assert.AreEqual(9f, plans[0].capacity, 1e-5f);
+            Assert.AreEqual(8f, plans[1].capacity, 1e-5f);
+            Assert.AreEqual(6f, plans[2].capacity, 1e-5f);
+            Assert.AreEqual(3f, plans[3].capacity, 1e-5f);
+        }
+
+        [Test]
         public void Intake_IsBoundedByEligibleCapacityAndFunding()
         {
             var state = new EducationState();

@@ -749,6 +749,9 @@ namespace Ginei
             // 財政の年（#161-163 配線）：予算編成→形式財政（債務/利払い）で予算と執行の1年を閉じる。
             RunFiscalYearTick();
 
+            // 教育（#998）：確定した国家予算と所有人口から在学・卒業・品質を年次で一度だけ進める。
+            RunEducationAnnualTick();
+
             // 軍の年（練度#練度／軍需兵站#2049／兵器産業#2020）：歴戦の艦隊が育ち、備蓄から軍需を消費し（払底で干上がる）、兵器メーカーが戦力を供給。
             RunVeterancyTick();
             RunMilitarySupplyConsumptionTick();

@@ -106,7 +106,13 @@ namespace Ginei
         private bool HandleStrategyRightClickReturn()
         {
             if (Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame) return false;
-            if (!IsBoardModalOpen && !PointerOverUI()) return false;
+            return HandleStrategyRightClickReturn(IsBoardModalOpen, PointerOverUI());
+        }
+
+        /// <summary>入力装置から切り離した右クリック復帰の実処理。PlayModeで経路を固定検証する。</summary>
+        private bool HandleStrategyRightClickReturn(bool modalOpen, bool pointerOverUi)
+        {
+            if (!modalOpen && !pointerOverUi) return false;
             if (IsTextInputFocused()) return true;
 
             if (FleetClusterListPanel.IsOpen)

@@ -99,6 +99,33 @@ namespace Ginei
             if (menu != null) menu.Toggle();                  // 無ければシステムメニュー開閉
         }
 
+        /// <summary>
+        /// 戦略UI上の右クリックを「一つ上へ戻る」として統一する。
+        /// 盤面上の右クリックは近年仕様の艦隊メニュー入口として残し、UI窓上だけ万能撤回にする。
+        /// </summary>
+        private bool HandleStrategyRightClickReturn()
+        {
+            if (Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame) return false;
+            if (!IsBoardModalOpen && !PointerOverUI()) return false;
+            if (IsTextInputFocused()) return true;
+
+            if (FleetClusterListPanel.IsOpen)
+            {
+                FleetClusterListPanel.Hide();
+                openedCluster = null;
+                return true;
+            }
+            if (UIWindowStack.CloseTopmost()) return true;
+
+            // システムメニュー自体が最前面なら右クリックで閉じて固定トップバーへ戻る。
+            if (StrategySystemMenu.IsOpen)
+            {
+                StrategySystemMenu menu = Object.FindAnyObjectByType<StrategySystemMenu>();
+                if (menu != null) menu.Toggle();
+            }
+            return true; // メニューバー等のUI上では盤面右クリックへ流さない
+        }
+
         private void HandleKeys()
         {
             var kb = Keyboard.current;
@@ -236,7 +263,7 @@ namespace Ginei
             // 盤面の誤クリックで艦隊が動いてしまう事故を無くし、「誰を・どこへ・なぜ動かせるか」を
             // 一覧で確認してから出す形にする。MAP は「どこからどこへ移動中か」の表示に徹する。
             // 選択・詳細/艦隊メニューを開く・カメラ操作は従来どおり残す。
-            if (Mouse.current.rightButton.wasPressedThisFrame && !PointerOverUI())
+            if (!rightClickConsumedThisFrame && Mouse.current.rightButton.wasPressedThisFrame && !PointerOverUI())
             {
                 OpenFleetMenuForRightClick();
             }

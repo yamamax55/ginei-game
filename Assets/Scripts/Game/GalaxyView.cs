@@ -230,6 +230,7 @@ namespace Ginei
         private bool leftDragging;          // 左ドラッグ中（クリック判定は離した時＝誤選択防止。星系は動かさない）
         private Vector2 leftPressScreen;    // 左押下時のスクリーン座標（ドラッグ判定の起点）
         private bool midPanning;            // 中ボタンドラッグでスクロール中
+        private bool rightClickConsumedThisFrame; // UIの「戻る」で処理済みなら盤面の艦隊メニューを開かない
         private bool leftPressOverUI;       // 左押下が UI 上で始まったか（その間マップを動かさない）
         private LineRenderer marqueeLine;   // 矩形選択の枠（左ドラッグ中のみ表示）
         [Tooltip("矩形選択（左ドラッグ）の枠の色")]
@@ -474,6 +475,9 @@ namespace Ginei
             // ESC（#ウィンドウESC）：重ねたウィンドウを最前面から1枚ずつ閉じ、無くなったらシステムメニュー。
             // モーダル窓が盤面入力を塞ぐ前（下の early-return より前）に評価し、閉じた窓自身もここで処理する。
             if (GameInput.WasPressed(GameAction.キャンセル)) HandleStrategyEscape();
+
+            // UI窓上の右クリックは万能撤回。盤面上は艦隊メニュー入口として HandleMouse へ渡す。
+            rightClickConsumedThisFrame = HandleStrategyRightClickReturn();
 
             // イベント提示モーダル／艦隊編成画面／決裁／終了画面／システムメニュー 表示中は戦略マップの入力・進行を止める。
             // SystemDetailPanel は非モーダル窓化したので塞がない（開いたままマップ操作・進行が続く）。

@@ -178,6 +178,12 @@ namespace Ginei
         [Tooltip("実効間隔倍率の追従速度（/秒）。航行⇄戦闘の切替のなめらかさ")]
         public float spacingChangeSpeed = 1.5f;
 
+        [Tooltip("航行/停止の判定がこの秒数続いてから密度を切り替える。速度境界付近のちらつきを防ぐ")]
+        public float spacingStateHoldSeconds = 0.5f;
+
+        [Tooltip("航行隊形から停止隊形へ戻る速度閾値（進入閾値に対する比率）")]
+        [Range(0f, 1f)] public float cruiseExitSpeedRatio = 0.6f;
+
         // SmoothDamp用の速度バッファ（memberShips と添字同期）
         private List<Vector2> velocities = new List<Vector2>();
 
@@ -234,6 +240,7 @@ namespace Ginei
         private float spacingFactor = 1f;
         private Vector2 lastFlagshipPos;
         private float flagshipSpeed;
+        private FormationDensityState densityState;
 
         // 配下艦はライフサイクル管理のため旗艦の子に置くが、旗艦Transformの瞬間移動・回転を
         // そのまま継承させない。前フレームの親行列へ戻してからワールド空間で追従を解決する。
@@ -1036,8 +1043,9 @@ namespace Ginei
             flagshipSpeed = (dt > 0f) ? ((pos - lastFlagshipPos).magnitude / dt) : 0f;
             lastFlagshipPos = pos;
 
-            bool cruising = !inCombat && flagshipSpeed > headingMoveThreshold;
-            float target = cruising ? cruiseSpacingMul : combatSpacingMul;
+            densityState = FormationDensityRules.Step(densityState, flagshipSpeed, inCombat,
+                headingMoveThreshold, cruiseExitSpeedRatio, spacingStateHoldSeconds, dt);
+            float target = densityState.cruising ? cruiseSpacingMul : combatSpacingMul;
             spacingFactor = Mathf.MoveTowards(spacingFactor, target, Mathf.Max(0f, spacingChangeSpeed) * dt);
         }
 

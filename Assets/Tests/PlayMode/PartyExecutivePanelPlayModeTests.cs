@@ -152,7 +152,7 @@ namespace Ginei.Tests
             Assert.IsTrue(PartyExecutivePanel.IsOpen);
             Assert.IsTrue(panel.ListsHaveScrollbarsForTest, "党・職一覧と候補一覧にスクロールバーがない");
             Assert.IsTrue(panel.FilterAndReasonFieldsExistForTest, "絞り込み・理由の入力欄がない");
-            Assert.AreEqual(2, panel.ActionButtonCountForTest, "任命/解任の操作ボタン（党首の任命ボタンは作らない）");
+            Assert.AreEqual(8, panel.ActionButtonCountForTest, "任命/解任と総裁選・派閥の操作ボタンがそろわない");
             Assert.IsFalse(panel.ConfirmInteractableForTest, "操作を選ぶ前に確定できる");
 
             panel.SelectForTest(ruling.id, PartyPost.幹事長, -1, "", PartyExecutivePanel.PendingOp.なし);
@@ -162,6 +162,30 @@ namespace Ginei.Tests
 
             PartyExecutivePanel.Toggle();
             Assert.IsFalse(PartyExecutivePanel.IsOpen);
+        }
+
+        [Test]
+        public void LeadershipElection_AnnounceCandidacyCloseAndCount_ThroughVisiblePanel()
+        {
+            BuildLiveWorld();
+            int leader = ruling.leaderId;
+            view.BindPlayerCharacterForQa(P(leader));
+            ruling.leadership.lastElectionYear = 0;
+            ruling.leadership.process = new LeadershipElectionProcess();
+
+            PartyExecutivePanel.Show();
+            PartyExecutivePanel panel = PartyExecutivePanel.InstanceForTest;
+            panel.SelectPoliticsForTest(ruling.id, leader, -1);
+            panel.AnnounceElectionForTest();
+            Assert.AreEqual(LeadershipElectionPhase.立候補受付, ruling.leadership.process.phase, panel.MessageTextForTest);
+            panel.ToggleCandidacyForTest();
+            Assert.AreEqual(1, ruling.leadership.process.candidacies.Count, panel.MessageTextForTest);
+            panel.AdvanceElectionForTest();
+            Assert.AreEqual(LeadershipElectionPhase.投開票待ち, ruling.leadership.process.phase, panel.MessageTextForTest);
+            panel.AdvanceElectionForTest();
+            Assert.AreEqual(LeadershipElectionPhase.完了, ruling.leadership.process.phase, panel.MessageTextForTest);
+            Assert.IsNotNull(ruling.leadership.Latest, "画面の投開票で結果記録が作られない");
+            Assert.AreEqual(leader, ruling.leadership.Latest.winnerId, "単独立候補が党首にならない");
         }
 
         /// <summary>党首本人：理由なしは失敗→理由つき解任→同じメニューの確認→確定で任命。台帳は Party.posts/postHistory に載り、年次の補充で差し替わらない。</summary>

@@ -221,6 +221,14 @@ namespace Ginei
                 sb.Append("        <color=#ffb070>").Append(st.pendingReason).Append("</color>\n");
             if (st != null && !string.IsNullOrEmpty(st.termNote))
                 sb.Append("        <color=#6f8a9a>").Append(st.termNote).Append("</color>\n");
+            if (st != null && st.process != null && st.process.phase != LeadershipElectionPhase.未告示)
+            {
+                LeadershipElectionPhase phase = st.process.phase;
+                sb.Append("        手動総裁選：①告示済み → ")
+                  .Append(phase == LeadershipElectionPhase.立候補受付 ? "<color=#ffe08a>②立候補受付</color>" : "②立候補締切")
+                  .Append(" → ").Append(phase == LeadershipElectionPhase.投開票待ち ? "<color=#ffe08a>③投開票待ち</color>" : "③投開票済み")
+                  .Append(" → ").Append(phase == LeadershipElectionPhase.完了 ? "<color=#8ce08c>④決選・当選確定</color>" : "④決選・確定待ち").Append('\n');
+            }
             sb.Append("        <color=#6f8a9a>※党首は党内の役職（首相は組閣の手続き・閣僚任命・軍の指揮権は付かない）</color>\n");
             AppendPartyExecutives(sb, p);
 

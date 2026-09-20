@@ -25,6 +25,39 @@ namespace Ginei
         当選
     }
 
+    /// <summary>プレイヤーが進める総裁選の段階。投開票後も結果画面用に完了を保持する。</summary>
+    public enum LeadershipElectionPhase
+    {
+        未告示,
+        立候補受付,
+        投開票待ち,
+        完了
+    }
+
+    /// <summary>告示から投開票までの手動進行。総裁選記録とは分け、途中保存できる。</summary>
+    [System.Serializable]
+    public class LeadershipElectionProcess
+    {
+        public int year;
+        public string trigger = "";
+        public LeadershipElectionPhase phase;
+        public List<LeadershipCandidacyData> candidacies = new List<LeadershipCandidacyData>();
+
+        public bool Active => phase == LeadershipElectionPhase.立候補受付 || phase == LeadershipElectionPhase.投開票待ち;
+    }
+
+    /// <summary>保存可能な立候補届。推薦人は告示後の党内調整で自動確保する。</summary>
+    [System.Serializable]
+    public class LeadershipCandidacyData
+    {
+        public int candidateId = -1;
+        public bool withdrawn;
+        public int declaredYear;
+
+        public LeadershipCandidacyData() { }
+        public LeadershipCandidacyData(int candidateId, int year) { this.candidateId = candidateId; declaredYear = year; }
+    }
+
     /// <summary>
     /// 政党ごとの党首（総裁）の任期と総裁選の履歴（#165 GOV-7）。<see cref="Party.leadership"/> に1つ。
     /// 党首本人は <see cref="Party.leaderId"/> が単一の出所（ここは任期・日程・記録だけ）。国政の議席・首相・閣僚とは別の履歴。
@@ -51,6 +84,8 @@ namespace Ginei
         public int lastElectionYear;
         /// <summary>直近の総裁選の記録（古い順・上限つき）。</summary>
         public List<LeadershipElectionRecord> records = new List<LeadershipElectionRecord>();
+        /// <summary>手動総裁選の途中状態（旧セーブでは未告示）。</summary>
+        public LeadershipElectionProcess process = new LeadershipElectionProcess();
 
         public PartyLeadershipState() { }
 

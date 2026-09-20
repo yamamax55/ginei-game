@@ -89,6 +89,7 @@ namespace Ginei
         private bool postSelected;
         private PartyPost selectedPost = PartyPost.幹事長;
         private int selectedCandidateId = -1;
+        private int selectedFactionId = -1;
         private PendingOp pending = PendingOp.なし;
 
         private readonly List<GameObject> postRows = new List<GameObject>();
@@ -232,6 +233,16 @@ namespace Ginei
             Party own = ElectionCycleRules.PartyOf(op.politics.parties, op.actor.id);
             sb.Append("　所属：").Append(own != null ? own.partyName : "無所属");
             sb.Append("\n<color=#9aa7b2>党三役の任免権者はその党の党首だけ（党首は総裁選で選ぶ）。党三役は政府の決裁・国庫・軍の指揮権を持たない。</color>");
+            Party selected = SelectedParty(op);
+            LeadershipElectionProcess process = selected != null && selected.leadership != null ? selected.leadership.process : null;
+            if (selected != null)
+            {
+                LeadershipElectionPhase phase = process != null ? process.phase : LeadershipElectionPhase.未告示;
+                sb.Append("\n総裁選：").Append(phase == LeadershipElectionPhase.未告示 ? "①告示待ち" : "①告示済み")
+                  .Append(phase == LeadershipElectionPhase.立候補受付 ? " → <color=#ffe08a>②立候補受付</color>" : " → ②立候補締切")
+                  .Append(phase == LeadershipElectionPhase.投開票待ち ? " → <color=#ffe08a>③投開票待ち</color>" : " → ③投開票")
+                  .Append(phase == LeadershipElectionPhase.完了 ? " → <color=#8ce08c>④決選・当選確定</color>" : " → ④決選・確定");
+            }
             SetHeader(sb.ToString());
         }
 
@@ -257,8 +268,24 @@ namespace Ginei
                 if (party.id != selectedPartyId) continue;
                 for (int k = 0; k < PartyExecutiveRules.ExecutivePosts.Length; k++)
                     MakePostRow(gv, op, party, PartyExecutiveRules.ExecutivePosts[k], font, rowH);
+                if (party.factions != null)
+                    for (int k = 0; k < party.factions.Count; k++)
+                        if (party.factions[k] != null) MakeFactionRow(gv, party.factions[k], font, rowH);
                 BuildHistoryRows(gv, party, font, rowH);
             }
+        }
+
+        private void MakeFactionRow(GalaxyView gv, PartyFaction faction, float font, float rowH)
+        {
+            bool sel = selectedFactionId == faction.id;
+            int id = faction.id;
+            RectTransform rt = MakeRow(postContent, postRows, "Faction_" + id, rowH, sel,
+                new Color(0.13f, 0.11f, 0.18f, 1f), () => { selectedFactionId = selectedFactionId == id ? -1 : id; Rebuild(); });
+            MakeCell(rt, "　派閥 " + faction.name, font, sel ? new Color(1f, 0.92f, 0.62f) : Color.white, 0f, 0.25f, 8f);
+            MakeCell(rt, "領袖 " + gv.CabinetPersonName(faction.bossId) + "・所属" + faction.Weight + "名", font,
+                new Color(0.80f, 0.86f, 0.95f), 0.25f, 0.62f, 4f);
+            MakeCell(rt, "支持 " + gv.CabinetPersonName(faction.endorsedCandidateId) + (faction.mainstream ? "・主流" : ""), font,
+                new Color(0.72f, 0.82f, 0.90f), 0.62f, 1f, 4f);
         }
 
         private void MakePartyRow(GalaxyView gv, GalaxyView.CabinetOperation op, Party party, float font, float rowH)
@@ -358,9 +385,9 @@ namespace Ginei
         private void BuildCandidateRows(GalaxyView.CabinetOperation op, float font, float rowH)
         {
             Party party = SelectedParty(op);
-            if (party == null || !postSelected)
+            if (party == null)
             {
-                MakeNotice(candidateContent, candidateRows, "上の一覧で党を開き、職（幹事長・政調会長・総務会長）を選ぶと候補がここに並びます。", font, rowH);
+                MakeNotice(candidateContent, candidateRows, "上の一覧で党を開くと、総裁選・派閥操作の対象者がここに並びます。", font, rowH);
                 return;
             }
             CabinetParams prm = GalaxyView.CabinetParamsInUse;
@@ -377,11 +404,22 @@ namespace Ginei
                     if (p == null || p.faction != op.faction) continue;
                     if (!string.IsNullOrEmpty(filterText) && (p.name == null || p.name.IndexOf(filterText, System.StringComparison.Ordinal) < 0)) continue;
                     bool member = PartyOrganizationRules.IsMember(party, p.id);
-                    string problem = PartyExecutiveRules.CandidateProblem(op.politics, op.faction, party, p.id, op.roster, prm);
+                    string problem = postSelected
+                        ? PartyExecutiveRules.CandidateProblem(op.politics, op.faction, party, p.id, op.roster, prm)
+                        : (!member || !ElectionCycleRules.IsEligiblePolitician(p, op.faction) ? "同党の適格な政治家ではない" : null);
                     if (problem == null) eligibleCount++;
                     else if (eligibleOnly || (!member && string.IsNullOrEmpty(filterText))) continue; // 全員表示でも他党・無所属は絞り込み時だけ
                     Party own = ElectionCycleRules.PartyOf(op.politics.parties, p.id);
-                    float score = PartyExecutiveRules.Score(op.politics, party, p, prm, out string why);
+                    float score;
+                    string why;
+                    if (postSelected) score = PartyExecutiveRules.Score(op.politics, party, p, prm, out why);
+                    else
+                    {
+                        score = PartyLeadershipRules.CandidateStrength(op.politics, p, PartyLeadershipParams.Default);
+                        SeniorityInfo si = PartySeniorityRules.InfoOf(op.politics, p.id, PartySeniorityParams.Default);
+                        PartyFaction pf = PartyLeadershipRules.FactionOf(party, p.id);
+                        why = (pf != null ? pf.name : "無派閥") + "・" + SeniorityText(si) + "・総裁候補評価" + score.ToString("0.000");
+                    }
                     list.Add(new CandidateView
                     {
                         person = p, problem = problem, score = score, reason = why,
@@ -437,7 +475,9 @@ namespace Ginei
             var sb = new StringBuilder(160);
             Party party = SelectedParty(op);
             if (party == null) sb.Append("選択：党なし（上の一覧から党を開く）");
-            else if (!postSelected) sb.Append("選択：").Append(party.partyName).Append("　職なし（幹事長・政調会長・総務会長から選ぶ）");
+            else if (!postSelected) sb.Append("選択：").Append(party.partyName).Append("　総裁選・派閥の人物：")
+                .Append(selectedCandidateId >= 0 ? gv.CabinetPersonName(selectedCandidateId) : "（下の人物を選択）")
+                .Append("　派閥：").Append(selectedFactionId >= 0 ? "#" + selectedFactionId : "（上の派閥を選択）");
             else
             {
                 sb.Append("選択：").Append(party.partyName).Append(' ').Append(selectedPost)
@@ -554,6 +594,16 @@ namespace Ginei
         }
 
         public void ExecuteForTest() => ExecutePending();
+        public void SelectPoliticsForTest(int partyId, int personId, int factionId)
+        {
+            selectedPartyId = partyId;
+            selectedCandidateId = personId;
+            selectedFactionId = factionId;
+            Rebuild();
+        }
+        public void AnnounceElectionForTest() => AnnounceElection();
+        public void ToggleCandidacyForTest() => ToggleCandidacy();
+        public void AdvanceElectionForTest() => AdvanceElection();
 
         // ===== 大きさ・位置 =====
 
@@ -637,6 +687,7 @@ namespace Ginei
             candidateContent = MakeScrollArea(frameRT, "CandidateList", CandidateListShare, rowH * 5f, out candidateScroll);
 
             reasonField = MakeInputField(frameRT, "ReasonField", "任命・解任の理由を入力（必須）", font, rowH, null);
+            BuildLeadershipActionRow(frameRT, font, rowH);
             BuildActionRow(frameRT, font, rowH);
 
             confirmLabel = MakeSectionLabel(frameRT, "", font, new Color(0.92f, 0.94f, 1f), rowH * 1.8f);
@@ -668,6 +719,98 @@ namespace Ginei
             confirmButton = MakeButton(row, "確定して実行", font, ExecutePending, out _);
             confirmButton.interactable = false;
             MakeButton(row, "取消", font, () => { pending = PendingOp.なし; Rebuild(); }, out _);
+        }
+
+        private void BuildLeadershipActionRow(RectTransform parent, float font, float rowH)
+        {
+            RectTransform row = MakeHRow(parent, "LeadershipActions", rowH * 1.1f);
+            actionButtons.Add(MakeButton(row, "総裁選を告示", font, AnnounceElection, out _));
+            actionButtons.Add(MakeButton(row, "立候補／撤回", font, ToggleCandidacy, out _));
+            actionButtons.Add(MakeButton(row, "受付締切／投開票", font, AdvanceElection, out _));
+            actionButtons.Add(MakeButton(row, "派閥を結成", font, CreateFaction, out _));
+            actionButtons.Add(MakeButton(row, "派閥加入／変更", font, JoinFaction, out _));
+            actionButtons.Add(MakeButton(row, "離脱／候補支持", font, LeaveOrSupport, out _));
+        }
+
+        private void AnnounceElection()
+        {
+            GalaxyView.CabinetOperation op = View != null ? View.PartyOperationForPlayer() : default;
+            bool ok = PartyLeadershipOperationRules.Announce(SelectedParty(op), op.year, "プレイヤーによる総裁選の告示", out string why);
+            SetOperationMessage(ok, why);
+        }
+
+        private void ToggleCandidacy()
+        {
+            GalaxyView.CabinetOperation op = View != null ? View.PartyOperationForPlayer() : default;
+            Party party = SelectedParty(op);
+            int id = selectedCandidateId >= 0 ? selectedCandidateId : (op.actor != null ? op.actor.id : -1);
+            LeadershipCandidacyData c = FindCandidacy(party, id);
+            string why;
+            bool ok = c != null && !c.withdrawn
+                ? PartyLeadershipOperationRules.Withdraw(party, id, out why)
+                : PartyLeadershipOperationRules.Declare(party, op.faction, id, op.year, op.roster, out why);
+            SetOperationMessage(ok, why);
+        }
+
+        private void AdvanceElection()
+        {
+            GalaxyView.CabinetOperation op = View != null ? View.PartyOperationForPlayer() : default;
+            Party party = SelectedParty(op);
+            LeadershipElectionProcess p = party != null && party.leadership != null ? party.leadership.process : null;
+            string why;
+            if (p != null && p.phase == LeadershipElectionPhase.立候補受付)
+                SetOperationMessage(PartyLeadershipOperationRules.CloseNominations(party, out why), why);
+            else
+            {
+                LeadershipElectionRecord rec = PartyLeadershipOperationRules.Conduct(op.politics, op.faction, party, op.roster, null,
+                    PartyLeadershipParams.Default, out why);
+                SetOperationMessage(rec != null, why);
+            }
+        }
+
+        private void CreateFaction()
+        {
+            GalaxyView.CabinetOperation op = View != null ? View.PartyOperationForPlayer() : default;
+            int founder = selectedCandidateId >= 0 ? selectedCandidateId : (op.actor != null ? op.actor.id : -1);
+            string name = string.IsNullOrWhiteSpace(Reason) ? "新派閥" : Reason.Trim();
+            bool ok = PartyLeadershipOperationRules.CreateFaction(SelectedParty(op), founder, name, "", out string why);
+            SetOperationMessage(ok, why);
+        }
+
+        private void JoinFaction()
+        {
+            GalaxyView.CabinetOperation op = View != null ? View.PartyOperationForPlayer() : default;
+            int person = selectedCandidateId >= 0 ? selectedCandidateId : (op.actor != null ? op.actor.id : -1);
+            bool ok = PartyLeadershipOperationRules.JoinFaction(SelectedParty(op), person, selectedFactionId, out string why);
+            SetOperationMessage(ok, why);
+        }
+
+        private void LeaveOrSupport()
+        {
+            GalaxyView.CabinetOperation op = View != null ? View.PartyOperationForPlayer() : default;
+            Party party = SelectedParty(op);
+            bool support = selectedFactionId >= 0 && selectedCandidateId >= 0 && party != null && party.leadership != null
+                           && party.leadership.process != null && party.leadership.process.Active;
+            string why;
+            bool ok = support
+                ? PartyLeadershipOperationRules.SetFactionSupport(party, selectedFactionId, selectedCandidateId, out why)
+                : PartyLeadershipOperationRules.LeaveFaction(party, selectedCandidateId >= 0 ? selectedCandidateId : (op.actor != null ? op.actor.id : -1), out why);
+            SetOperationMessage(ok, why);
+        }
+
+        private void SetOperationMessage(bool ok, string why)
+        {
+            message = (ok ? "<color=#8ce08c>" : "<color=#ff9a7a>") + why + "</color>";
+            Rebuild();
+        }
+
+        private static LeadershipCandidacyData FindCandidacy(Party party, int id)
+        {
+            LeadershipElectionProcess p = party != null && party.leadership != null ? party.leadership.process : null;
+            if (p == null || p.candidacies == null) return null;
+            for (int i = 0; i < p.candidacies.Count; i++)
+                if (p.candidacies[i] != null && p.candidacies[i].candidateId == id) return p.candidacies[i];
+            return null;
         }
 
         private RectTransform MakeHRow(RectTransform parent, string name, float height)

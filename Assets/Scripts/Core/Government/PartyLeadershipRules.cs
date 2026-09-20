@@ -380,6 +380,12 @@ namespace Ginei
                 if (st.lastElectionYear < 0) st.lastElectionYear = 0;
                 if (st.consecutiveTerms < 0) st.consecutiveTerms = 0;
                 if (st.records == null) st.records = new List<LeadershipElectionRecord>();
+                if (st.process == null) st.process = new LeadershipElectionProcess();
+                if (st.process.trigger == null) st.process.trigger = "";
+                if (st.process.candidacies == null) st.process.candidacies = new List<LeadershipCandidacyData>();
+                for (int k = 0; k < st.process.candidacies.Count; k++)
+                    if (st.process.candidacies[k] == null || st.process.candidacies[k].candidateId < 0)
+                    { st.process.candidacies.RemoveAt(k); k--; }
                 for (int k = 0; k < st.records.Count; k++)
                 {
                     LeadershipElectionRecord r = st.records[k];
@@ -813,6 +819,11 @@ namespace Ginei
                 int before = previous != null && previous.TryGetValue(pf.id, out int pv) ? pv : -1;
                 if (!IsValidBoss(c, pf)) why = "領袖不在＝自主投票";
                 else if (before >= 0 && candidates.Contains(before)) { pick = before; why = "推した候補が決選に残り支持を維持"; }
+                else if (!runoff && candidates.Contains(pf.endorsedCandidateId))
+                {
+                    pick = pf.endorsedCandidateId;
+                    why = "派閥の事前決定による支持";
+                }
                 else
                 {
                     pick = BossChoice(c, pf, candidates);

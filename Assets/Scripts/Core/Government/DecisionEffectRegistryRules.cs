@@ -30,6 +30,8 @@ namespace Ginei
             // 省内職位の人事（"civilservice.post:1:{行為}:{省}:{人物}:{段}"・#141）＝RingiDirector が
             // CivilServicePostRules.Execute へ流す。復元できるキーだけを実装済みとみなす（壊れたキーは未実装として理由を出す）。
             if (CivilServiceRingiRules.TryDecode(effectKey, out _)) return true;
+            // EventEngineの選択肢効果。Game層のGalaxyViewがイベントIDを復号し、登録済み定義を一度だけ解決する。
+            if (EventDecisionRules.TryDecode(effectKey, out _)) return true;
             return false;
         }
 

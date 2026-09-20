@@ -50,6 +50,9 @@ namespace Ginei
         public string body;
         public List<EventChoice> choices = new List<EventChoice>();
 
+        [Tooltip("決裁デスクでの重要度。重大だけ中央モーダルとアクティブポーズを使う")]
+        public DecisionSeverity severity = DecisionSeverity.通常;
+
         [Tooltip("発火の重み（同時に複数が条件を満たしたときの抽選比率）")]
         public float weight = 1f;
         [Tooltip("繰り返し発火できるか（false＝一回限り）")]

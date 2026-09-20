@@ -90,6 +90,36 @@ namespace Ginei
             EventRules.ApplyChoice(def, choiceIndex, ctx);
         }
 
+        /// <summary>
+        /// 決裁デスクからイベントIDを指定して解決する。シーン復元後はEventEngineの一時キューが空でも、
+        /// 再登録済みの定義から同じ効果を適用できる。キュー中なら該当イベントだけを取り除く。
+        /// </summary>
+        public bool ResolveById(string eventId, int choiceIndex, EventContext ctx)
+        {
+            if (string.IsNullOrEmpty(eventId)) return false;
+            GameEventDef target = null;
+            for (int i = 0; i < entries.Count; i++)
+                if (entries[i].def != null && entries[i].def.id == eventId)
+                {
+                    target = entries[i].def;
+                    break;
+                }
+            if (target == null) return false;
+
+            if (pending.Count > 0)
+            {
+                int count = pending.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    GameEventDef queued = pending.Dequeue();
+                    if (queued == target) inQueue.Remove(queued);
+                    else pending.Enqueue(queued);
+                }
+            }
+            EventRules.ApplyChoice(target, choiceIndex, ctx);
+            return true;
+        }
+
         /// <summary>キューを空にする（シーン遷移・リセット用。発火履歴は保持）。</summary>
         public void ClearPending()
         {

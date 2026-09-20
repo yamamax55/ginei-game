@@ -301,6 +301,7 @@ namespace Ginei
         public float hopeEventThreshold = 0.35f;
         private EventEngine policyEngine;
         private EventContext policyCtx;
+        private const int PolicyDecisionIdBand = 93000;
         // TIME-6（#952）：暦の日境界でイベント判定を駆動するディスパッチャ（毎フレームでなく per-day＝倍速で暦比一定・ポーズで停止）。
         private CalendarDispatcher policyCalendar;
 
@@ -398,6 +399,8 @@ namespace Ginei
             BuildDemoGalaxy();
             SetupGovernance();
             SetupEvents(); // S6：支持低下イベント（#116 エンジン）を用意
+            DecisionDeck.Resolved -= OnPolicyDecisionResolved;
+            DecisionDeck.Resolved += OnPolicyDecisionResolved;
             BuildVisuals();
 
             // 新規・セーブ読み込みのどちらでも、開幕は銀河全体が入った状態から始める（#戦略MAP刷新）。
@@ -744,27 +747,60 @@ namespace Ginei
         }
 
         /// <summary>
-        /// 暦の日境界ごとに支持低下イベントの条件を判定し、発火したらモーダル提示する（S6・TIME-6 #952）。
+        /// 暦の日境界ごとに支持低下イベントの条件を判定し、発火したら決裁デスクへ積む（S6・TIME-6 #952、DESK-6 #1634）。
         /// EventEngine の cooldown 判定は <b>game-time（クロック経過秒）</b>を渡す＝倍速で暦比一定・ポーズで停止。
         /// </summary>
         private void RunDailyPolicyTick()
         {
-            if (policyEngine == null || StrategyEventPanel.IsOpen) return;
+            if (policyEngine == null || StrategyEventPanel.IsOpen || HasPendingPolicyDecision()) return;
             float nowGameSeconds = StrategySession.Clock != null ? (float)StrategySession.Clock.ElapsedSeconds : 0f;
             GameEventDef fired = policyEngine.Tick(policyCtx, nowGameSeconds, 0.5f);
             if (fired != null) ShowPolicyEvent(fired);
         }
 
-        /// <summary>発火したイベント定義を選択肢付きモーダルで提示し、選択で <see cref="EventEngine.Resolve"/> する。</summary>
+        /// <summary>保存復元後も同じイベント案件を再起案しない。</summary>
+        private static bool HasPendingPolicyDecision()
+        {
+            DecisionQueue queue = DecisionDeck.Queue;
+            if (queue?.items == null) return false;
+            for (int i = 0; i < queue.items.Count; i++)
+            {
+                PendingDecision d = queue.items[i];
+                if (d != null && !DecisionResolutionRules.IsSettled(d)
+                    && EventDecisionRules.TryDecode(d.effectKey, out _)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>発火したイベントを非ブロッキングの決裁デスクへ積む（DESK-6 #1634）。</summary>
         private void ShowPolicyEvent(GameEventDef def)
         {
+            if (def == null) return;
+            PendingDecision d = EventDecisionRules.Create(def,
+                DecisionDeck.NextDecisionId(PolicyDecisionIdBand), def.severity,
+                def.choices != null && def.choices.Count > 0 ? def.choices.Count - 1 : 0);
+            if (d == null) return;
+            DecisionDeck.Enqueue(d);
+            if (d.severity != DecisionSeverity.重大) return;
+
             var choices = new System.Collections.Generic.List<(string, System.Action)>();
-            for (int i = 0; i < def.choices.Count; i++)
+            for (int i = 0; i < d.choices.Count; i++)
             {
-                int idx = i; // クロージャ用に確定
-                choices.Add((def.choices[i].label, () => policyEngine.Resolve(idx, policyCtx)));
+                int idx = i;
+                choices.Add((d.choices[i], () => DecisionDeck.Resolve(d.id, idx)));
             }
-            StrategyEventPanel.Show(def.title, def.body, choices);
+            StrategyEventPanel.ShowCritical(d.title, d.body, choices);
+        }
+
+        /// <summary>手動裁可・期限切れのどちらも同じ入口からEventEngineの選択肢を一度だけ適用する。</summary>
+        private void OnPolicyDecisionResolved(PendingDecision d, int choiceIndex)
+        {
+            if (d == null || policyEngine == null || !EventDecisionRules.TryDecode(d.effectKey, out string eventId)) return;
+            if (!DecisionResolutionRules.ClaimForApply(d)) return;
+            bool applied = policyEngine.ResolveById(eventId, choiceIndex, policyCtx);
+            DecisionResolutionRules.RecordResult(d, applied
+                ? new PetitionActionResult(PetitionActionOutcome.実行, $"イベント「{d.title}」の選択を実行しました")
+                : PetitionActionResult.Fail(PetitionActionOutcome.対象外, $"イベント定義 {eventId} を復元できません"));
         }
 
         /// <summary>背景星雲をカメラ視野に追従させ常に覆う（ズーム/パンに連動）。</summary>
@@ -1554,6 +1590,7 @@ namespace Ginei
 
         private void OnDestroy()
         {
+            DecisionDeck.Resolved -= OnPolicyDecisionResolved;
             if (Active == this) Active = null;
             if (lineMat != null) Destroy(lineMat);
             if (disc != null && disc.texture != null) Destroy(disc.texture);

@@ -41,6 +41,17 @@ namespace Ginei
         public static void Show(string title, string body, IList<(string label, Action onClick)> choices)
         {
             if (!Enabled) return; // ON/OFF トグル：OFF の間は旧モーダルを出さない（決裁デスクへ集約）
+            ShowInternal(title, body, choices);
+        }
+
+        /// <summary>決裁デスクで「重大」と判定した案件だけを、抑制設定にかかわらず中央へ提示する。</summary>
+        public static void ShowCritical(string title, string body, IList<(string label, Action onClick)> choices)
+        {
+            ShowInternal(title, body, choices);
+        }
+
+        private static void ShowInternal(string title, string body, IList<(string label, Action onClick)> choices)
+        {
             if (instance == null)
             {
                 GameObject go = new GameObject("StrategyEventPanel");

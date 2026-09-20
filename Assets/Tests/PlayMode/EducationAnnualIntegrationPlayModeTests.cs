@@ -70,5 +70,46 @@ namespace Ginei.Tests
             Assert.AreEqual(800, loaded.states[0].education.lastProcessedYear);
             yield return null;
         }
+
+        [UnityTest]
+        public IEnumerator UniversityCohort_GraduatesAfterFourYearsAndCanBeConsumedOnce()
+        {
+            var map = new GalaxyMap();
+            map.AddSystem(new StarSystem(1, "大学試験星", Vector2.zero, Faction.同盟));
+            var province = new Province(1, "", 1000f)
+            {
+                demographics = new Population(youth: 150f, working: 750f, elderly: 100f)
+            };
+            var provinces = new Dictionary<int, Province> { { 1, province } };
+            var campaign = new CampaignState(map);
+            var state = new FactionState(Faction.同盟);
+            state.budget.education = 1000f;
+            campaign.states.Add(state);
+            StrategySession.Campaign = campaign;
+            StrategySession.Map = map;
+            StrategySession.Provinces = provinces;
+
+            viewObject = new GameObject("EducationGraduateSupplyQa");
+            viewObject.SetActive(false);
+            GalaxyView view = viewObject.AddComponent<GalaxyView>();
+            view.BindElectionQaWorld(map, provinces, new List<Person>(), new List<Person>());
+            view.BindEducationInstitutionsForQa(
+                new List<University> { new University(1, Faction.同盟, "工科大学", CareerTrack.テクノクラート, 4) },
+                new List<TechnicalCollege>(), new List<JuniorCollege>(), new List<VocationalSchool>());
+
+            for (int year = 800; year <= 803; year++) view.RunEducationAnnualTickForQa(year);
+            Assert.AreEqual(0f, EducationAnnualRules.AvailableGraduates(state.education, SchoolType.大学), 1e-5f);
+
+            view.RunEducationAnnualTickForQa(804);
+            Assert.AreEqual(4f, EducationAnnualRules.AvailableGraduates(state.education, SchoolType.大学), 1e-5f);
+            Assert.AreEqual(3, view.ConsumeEducationGraduatesForQa(Faction.同盟, SchoolType.大学, 3));
+            Assert.AreEqual(1f, EducationAnnualRules.AvailableGraduates(state.education, SchoolType.大学), 1e-5f);
+            view.RunEducationAnnualTickForQa(804);
+            Assert.AreEqual(1f, EducationAnnualRules.AvailableGraduates(state.education, SchoolType.大学), 1e-5f,
+                "同年の再処理で卒業者が補充されている");
+            Assert.AreEqual(1, view.ConsumeEducationGraduatesForQa(Faction.同盟, SchoolType.大学, 3));
+            Assert.AreEqual(0, view.ConsumeEducationGraduatesForQa(Faction.同盟, SchoolType.大学, 3));
+            yield return null;
+        }
     }
 }

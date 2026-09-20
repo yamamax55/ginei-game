@@ -47,6 +47,22 @@ namespace Ginei
             => SchoolAgeRules.EntryAge(schoolType) + Mathf.Max(0, year - entryYear);
     }
 
+    /// <summary>卒業済みで、まだネームド人物へ変換されていない学校種別ごとの人材供給。</summary>
+    [Serializable]
+    public class EducationGraduateSupply
+    {
+        public SchoolType schoolType;
+        public float available;
+
+        public EducationGraduateSupply() { }
+
+        public EducationGraduateSupply(SchoolType schoolType, float available)
+        {
+            this.schoolType = schoolType;
+            this.available = Mathf.Max(0f, available);
+        }
+    }
+
     /// <summary>教育の永続状態。activeCohorts は在学者だけを持ち、卒業済みは累計へ移す。</summary>
     [Serializable]
     public class EducationState
@@ -57,6 +73,7 @@ namespace Ginei
         public int nextCohortId = 1;
         public float totalGraduates;
         public List<EducationCohort> activeCohorts = new List<EducationCohort>();
+        public List<EducationGraduateSupply> graduateSupply = new List<EducationGraduateSupply>();
     }
 
     /// <summary>1年分の教育処理結果。表示・人材供給側が状態を再計算せず読める。</summary>
@@ -145,6 +162,7 @@ namespace Ginei
                 if (cohort.graduationYear <= year)
                 {
                     graduated += cohort.students;
+                    AddGraduateSupply(state, cohort.schoolType, cohort.students);
                     state.activeCohorts.RemoveAt(i);
                 }
             }
@@ -177,9 +195,71 @@ namespace Ginei
             EducationState state, int year, float funding, float fundingNeed, IList<EducationIntakePlan> plans)
             => TickYear(state, year, funding, fundingNeed, plans, EducationParams.Default);
 
+        public static float AvailableGraduates(EducationState state, SchoolType schoolType)
+        {
+            if (state == null) return 0f;
+            EnsureInitialized(state);
+            EducationGraduateSupply supply = FindGraduateSupply(state, schoolType);
+            return supply != null ? Mathf.Max(0f, supply.available) : 0f;
+        }
+
+        /// <summary>要求人数まで卒業者を一度だけ払い出す。端数は次年以降へ繰り越す。</summary>
+        public static int ConsumeGraduates(EducationState state, SchoolType schoolType, int requested)
+        {
+            if (state == null || requested <= 0) return 0;
+            EnsureInitialized(state);
+            EducationGraduateSupply supply = FindGraduateSupply(state, schoolType);
+            if (supply == null) return 0;
+            int count = Mathf.Min(requested, Mathf.FloorToInt(Mathf.Max(0f, supply.available)));
+            supply.available = Mathf.Max(0f, supply.available - count);
+            return count;
+        }
+
+        private static void AddGraduateSupply(EducationState state, SchoolType schoolType, float graduates)
+        {
+            float count = Mathf.Max(0f, graduates);
+            if (count <= 0f) return;
+            EducationGraduateSupply supply = FindGraduateSupply(state, schoolType);
+            if (supply == null)
+            {
+                supply = new EducationGraduateSupply(schoolType, 0f);
+                state.graduateSupply.Add(supply);
+            }
+            supply.available = Mathf.Max(0f, supply.available) + count;
+        }
+
+        private static EducationGraduateSupply FindGraduateSupply(EducationState state, SchoolType schoolType)
+        {
+            for (int i = 0; i < state.graduateSupply.Count; i++)
+            {
+                EducationGraduateSupply supply = state.graduateSupply[i];
+                if (supply != null && supply.schoolType == schoolType) return supply;
+            }
+            return null;
+        }
+
         private static void EnsureInitialized(EducationState state)
         {
             if (state.activeCohorts == null) state.activeCohorts = new List<EducationCohort>();
+            if (state.graduateSupply == null) state.graduateSupply = new List<EducationGraduateSupply>();
+            for (int i = state.graduateSupply.Count - 1; i >= 0; i--)
+            {
+                EducationGraduateSupply current = state.graduateSupply[i];
+                if (current == null)
+                {
+                    state.graduateSupply.RemoveAt(i);
+                    continue;
+                }
+                current.available = Mathf.Max(0f, current.available);
+                for (int j = 0; j < i; j++)
+                {
+                    EducationGraduateSupply earlier = state.graduateSupply[j];
+                    if (earlier == null || earlier.schoolType != current.schoolType) continue;
+                    earlier.available = Mathf.Max(0f, earlier.available) + current.available;
+                    state.graduateSupply.RemoveAt(i);
+                    break;
+                }
+            }
             int maxId = 0;
             for (int i = 0; i < state.activeCohorts.Count; i++)
                 if (state.activeCohorts[i] != null) maxId = Mathf.Max(maxId, state.activeCohorts[i].id);

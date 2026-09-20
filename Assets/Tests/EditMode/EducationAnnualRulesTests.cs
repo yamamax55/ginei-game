@@ -59,6 +59,30 @@ namespace Ginei.Tests
             Assert.IsFalse(duplicate.processed);
             Assert.AreEqual(0f, duplicate.graduated, 1e-5f);
             Assert.AreEqual(30f, state.totalGraduates, 1e-5f);
+            Assert.AreEqual(30f, EducationAnnualRules.AvailableGraduates(state, SchoolType.小学校), 1e-5f);
+        }
+
+        [Test]
+        public void GraduateSupply_IsSeparatedBySchoolAndConsumedOnlyOnce()
+        {
+            var state = new EducationState
+            {
+                lastProcessedYear = 803,
+                activeCohorts = new List<EducationCohort>
+                {
+                    new EducationCohort(1, SchoolType.大学, 800, 4.5f),
+                    new EducationCohort(2, SchoolType.短大, 802, 3f)
+                }
+            };
+
+            EducationAnnualRules.TickYear(state, 804, 0f, 100f, null);
+
+            Assert.AreEqual(4.5f, EducationAnnualRules.AvailableGraduates(state, SchoolType.大学), 1e-5f);
+            Assert.AreEqual(3f, EducationAnnualRules.AvailableGraduates(state, SchoolType.短大), 1e-5f);
+            Assert.AreEqual(4, EducationAnnualRules.ConsumeGraduates(state, SchoolType.大学, 10));
+            Assert.AreEqual(0, EducationAnnualRules.ConsumeGraduates(state, SchoolType.大学, 10));
+            Assert.AreEqual(0.5f, EducationAnnualRules.AvailableGraduates(state, SchoolType.大学), 1e-5f);
+            Assert.AreEqual(3, EducationAnnualRules.ConsumeGraduates(state, SchoolType.短大, 3));
         }
 
         [Test]
@@ -117,6 +141,7 @@ namespace Ginei.Tests
             faction.education.nextCohortId = 9;
             faction.education.totalGraduates = 12f;
             faction.education.activeCohorts.Add(new EducationCohort(8, SchoolType.小学校, 800, 30f));
+            faction.education.graduateSupply.Add(new EducationGraduateSupply(SchoolType.大学, 2.5f));
             faction.budget.education = 25f;
             campaign.states.Add(faction);
 
@@ -127,6 +152,7 @@ namespace Ginei.Tests
             Assert.AreEqual(0.7f, restored.schoolQuality, 1e-5f);
             Assert.AreEqual(1, restored.activeCohorts.Count);
             Assert.AreEqual(9, restored.nextCohortId);
+            Assert.AreEqual(2.5f, EducationAnnualRules.AvailableGraduates(restored, SchoolType.大学), 1e-5f);
             Assert.AreEqual(25f, loaded.states[0].budget.education, 1e-5f);
             EducationAnnualResult result = EducationAnnualRules.TickYear(restored, 806, 0f, 100f, null);
             Assert.AreEqual(30f, result.graduated, 1e-5f);

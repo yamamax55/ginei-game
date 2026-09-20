@@ -1296,6 +1296,7 @@ namespace Ginei
             // 高専は高校を経ない＝中学校のみの教育チェーン（includeHighSchool:false）。
             ResolveEducation(c.faction, c.quality, false, out float enroll, out float eq);
             int intake = TechnicalCollegeRules.Intake(c, TechnicalCandidatePoolOf(c.faction) * enroll);
+            intake = TakeEducationGraduates(c.faction, SchoolType.高専, intake);
             if (intake <= 0) return;
             var eff = new TechnicalCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
             var grads = TechnicalCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
@@ -1311,6 +1312,7 @@ namespace Ginei
         {
             ResolveEducation(c.faction, c.quality, out float enroll, out float eq); // 高校卒後＝高校チェーン込み
             int intake = JuniorCollegeRules.Intake(c, CivilCandidatePoolOf(c.faction) * enroll);
+            intake = TakeEducationGraduates(c.faction, SchoolType.短大, intake);
             if (intake <= 0) return;
             var eff = new JuniorCollege(c.schoolId, c.faction, c.name, c.capacity, eq);
             var grads = JuniorCollegeRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
@@ -1326,6 +1328,7 @@ namespace Ginei
         {
             ResolveEducation(s.faction, s.quality, out float enroll, out float eq);
             int intake = VocationalSchoolRules.Intake(s, TechnicalCandidatePoolOf(s.faction) * enroll);
+            intake = TakeEducationGraduates(s.faction, SchoolType.専門学校, intake);
             if (intake <= 0) return;
             var eff = new VocationalSchool(s.schoolId, s.faction, s.name, s.capacity, eq);
             var grads = VocationalSchoolRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));
@@ -1341,6 +1344,7 @@ namespace Ginei
         {
             ResolveEducation(u.faction, u.quality, out float enroll, out float eq);
             int intake = UniversityRules.Intake(u, CivilCandidatePoolOf(u.faction) * enroll);
+            intake = TakeEducationGraduates(u.faction, SchoolType.大学, intake);
             if (intake <= 0) return;
             var eff = new University(u.schoolId, u.faction, u.name, u.track, u.capacity, eq);
             var grads = UniversityRules.GraduateCohort(eff, campaignYear, intake, nextPersonId, _ => DetRoll(campaignYear, NextRollSeed()));

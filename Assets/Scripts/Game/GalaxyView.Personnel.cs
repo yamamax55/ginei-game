@@ -835,6 +835,9 @@ namespace Ginei
             // 政体進化（#117 配線）：首長制→民主(立憲君主制/共和制)or独裁(共産主義/指導者独裁)へ社会シグナルで分岐進化。
             RunRegimeEvolutionTick();
 
+            // 統治の実績を王道/覇道の国際的評判へ積み上げる（#1059）。
+            RunWangDaoAnnualTick();
+
             // 政党政治（#159 配線）：民主政治の勢力で政党制が成熟度に応じ二大政党へ収束し、衆参の選挙が回り、分断危機を通知。
             EnsurePoliticalCandidateSupply();
             RunPoliticsTick();

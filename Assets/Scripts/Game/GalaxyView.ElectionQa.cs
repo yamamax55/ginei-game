@@ -29,6 +29,8 @@ namespace Ginei
         /// <summary>試験用：年次の政党政治と選挙。</summary>
         public void RunPoliticsTickForQa() => RunPoliticsTick();
 
+        public void RunWangDaoAnnualTickForQa() => RunWangDaoAnnualTick();
+
         /// <summary>試験用：年次の宰相銓衡（民主政では選出首相の維持）。</summary>
         public void RunCivilAppointmentTickForQa() => RunCivilAppointmentTick();
 

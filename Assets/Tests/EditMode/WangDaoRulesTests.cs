@@ -29,6 +29,27 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void AnnualDrift_Uses_State_Outcomes_And_Remains_Bounded()
+        {
+            float kingly = WangDaoRules.AnnualDrift(0f, inclusiveness: 1f, hope: 1f, repression: 0f,
+                virtue: 1f, corruption: 0f, P);
+            float hegemon = WangDaoRules.AnnualDrift(0f, inclusiveness: 0f, hope: 0f, repression: 1f,
+                virtue: 0f, corruption: 1f, P);
+
+            Assert.AreEqual(0.1f, kingly, 1e-4f);
+            Assert.AreEqual(-0.1f, hegemon, 1e-4f);
+            Assert.AreEqual(1f, WangDaoRules.AnnualDrift(1f, 1f, 1f, 0f, 1f, 0f, P), 1e-4f);
+        }
+
+        [Test]
+        public void MutualDiplomaticAffinity_Trusts_Kingly_And_Warns_Against_Hegemons()
+        {
+            Assert.AreEqual(0.5f, WangDaoRules.MutualDiplomaticAffinity(1f, 1f), 1e-4f);
+            Assert.AreEqual(-0.5f, WangDaoRules.MutualDiplomaticAffinity(-1f, -1f), 1e-4f);
+            Assert.AreEqual(0f, WangDaoRules.MutualDiplomaticAffinity(1f, -1f), 1e-4f);
+        }
+
+        [Test]
         public void SubmissionQuality_Kingly_Cheaper_Than_Hegemon()
         {
             // 王道(+1)：兵力ありでも低コストで安定（心服）。

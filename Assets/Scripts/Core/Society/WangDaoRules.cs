@@ -57,6 +57,32 @@ namespace Ginei
             => DriftTick(daoValue, benevolentActs, coerciveActs, dt, WangDaoParams.Default);
 
         /// <summary>
+        /// 国家状態から年次の王道/覇道変化を求める。包摂・民心・徳を仁政として、収奪・抑圧・腐敗を
+        /// 武断として同じ重みで集約する。画面やAIが個別に評判値を書き換えず、国家の実績から一つの
+        /// 経路で評判を更新するための入口。
+        /// </summary>
+        public static float AnnualDrift(float daoValue, float inclusiveness, float hope, float repression,
+            float virtue, float corruption, WangDaoParams p)
+        {
+            float benevolent = (Mathf.Clamp01(inclusiveness) + Mathf.Clamp01(hope) + Mathf.Clamp01(virtue)) / 3f;
+            float coercive = ((1f - Mathf.Clamp01(inclusiveness)) + Mathf.Clamp01(repression) + Mathf.Clamp01(corruption)) / 3f;
+            return DriftTick(daoValue, benevolent, coercive, 1f, p);
+        }
+
+        public static float AnnualDrift(float daoValue, float inclusiveness, float hope, float repression,
+            float virtue, float corruption)
+            => AnnualDrift(daoValue, inclusiveness, hope, repression, virtue, corruption, WangDaoParams.Default);
+
+        /// <summary>
+        /// 二国の統治評判が関係値へ与える親和補正（-0.5..0.5）。王道同士は信頼を得やすく、
+        /// 覇道同士は警戒し、異なる道は互いの効果を相殺する。
+        /// </summary>
+        public static float MutualDiplomaticAffinity(float daoA, float daoB)
+        {
+            return Mathf.Clamp((Mathf.Clamp(daoA, -1f, 1f) + Mathf.Clamp(daoB, -1f, 1f)) * 0.25f, -0.5f, 0.5f);
+        }
+
+        /// <summary>
         /// 服従の質＝維持コスト（0..1、低いほど安定した支配）。道を 0..1 の王道度へ写し、
         /// 王道コスト基準と覇道コスト基準を線形補間する＝<b>王道（心服）は低コストで安定し、
         /// 覇道（力服）は高コストで武力に比例して跳ね上がる</b>（力で押さえるほど維持費がかさむ）。

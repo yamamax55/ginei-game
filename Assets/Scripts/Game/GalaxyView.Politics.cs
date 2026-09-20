@@ -122,6 +122,27 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 国家の年次実績を王道/覇道の国際的評判へ積み上げる（ALM-5 #1059）。
+        /// 包摂・希望・徳は王道へ、収奪・抑圧・腐敗は覇道へ動かす。旧データ/null構成にも安全。
+        /// </summary>
+        private void RunWangDaoAnnualTick()
+        {
+            var camp = StrategySession.Campaign;
+            if (camp == null || camp.states == null) return;
+
+            for (int i = 0; i < camp.states.Count; i++)
+            {
+                FactionState s = camp.states[i];
+                if (s == null) continue;
+                float hope = s.community != null ? s.community.hope : 0.5f;
+                float repression = s.community != null ? s.community.repression : 0f;
+                float virtue = s.regime != null ? s.regime.virtue : 0.5f;
+                float corruption = s.regime != null ? s.regime.corruption : 0f;
+                s.daoValue = WangDaoRules.AnnualDrift(s.daoValue, s.inclusiveness, hope, repression, virtue, corruption);
+            }
+        }
+
+        /// <summary>
         /// 政党政治と選挙の年次 Tick（#159 配線）：民主政治の勢力ごとに、成熟度に応じて政党制を二大政党へ収束させ、
         /// 衆参の日程どおりに国政選挙を開票して議席を確定し、下院選挙の後に組閣（首相＝宰相職へ就任）し、
         /// 星系知事選を行って知事職へ就ける。非民主へ移った勢力は選挙を止め、選出された首相/知事の権限を外す（任命制へ戻す）。
@@ -678,8 +699,11 @@ namespace Ginei
                     FactionState stateA = StateOf(fa), stateB = StateOf(fb);
                     ForeignDoctrine doctrineA = stateA != null ? stateA.foreignDoctrine : ForeignDoctrine.中立;
                     ForeignDoctrine doctrineB = stateB != null ? stateB.foreignDoctrine : ForeignDoctrine.中立;
+                    float daoAffinity = WangDaoRules.MutualDiplomaticAffinity(
+                        stateA != null ? stateA.daoValue : 0f,
+                        stateB != null ? stateB.daoValue : 0f);
                     float ideologyAffinity = ForeignDoctrineRules.BlendWithIdeology(
-                        -0.5f - warBias * 0.3f + weariness * WarWearinessPeaceWeight,
+                        -0.5f - warBias * 0.3f + weariness * WarWearinessPeaceWeight + daoAffinity,
                         doctrineA, doctrineB);
                     var factors = new DiplomacyRules.OpinionFactors(ideologyAffinity, 0.2f, true, 0f, false);
 

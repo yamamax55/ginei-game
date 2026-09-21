@@ -261,9 +261,17 @@ namespace Ginei
         private readonly System.Collections.Generic.Dictionary<long, List<int>> sepGrid
             = new System.Collections.Generic.Dictionary<long, List<int>>();
         private Camera mainCam;
+        // BattleSetup が旗艦画像を差し替える前のプレハブ画像を保持する。
+        // 自動生成する配下艦は従来どおり Triangle を使い、旗艦専用画像を複製しない（FSH-2）。
+        private SpriteRenderer initialBodyRenderer;
+        private Sprite initialEscortSprite;
+        private Color initialEscortColor;
+        private int initialEscortSortingLayerId;
+        private int initialEscortSortingOrder;
 
         private void Awake()
         {
+            CacheInitialEscortTemplate();
             // Squadron を持つ＝旗艦。識別マーカーを必ず付ける（未付与なら自動追加。プレハブ編集不要）。
             if (GetComponent<FlagshipMarker>() == null)
             {
@@ -273,6 +281,25 @@ namespace Ginei
             if (GetComponent<FleetSustainment>() == null)
             {
                 gameObject.AddComponent<FleetSustainment>();
+            }
+        }
+
+        private void CacheInitialEscortTemplate()
+        {
+            SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                SpriteRenderer renderer = renderers[i];
+                if (renderer == null) continue;
+                string objectName = renderer.gameObject.name;
+                if (objectName == "SelectionRing" || objectName == "FlagshipMarker" || objectName == "FlagshipMarkerGlow") continue;
+                if (renderer.GetComponent<EscortShip>() != null) continue;
+                initialBodyRenderer = renderer;
+                initialEscortSprite = renderer.sprite;
+                initialEscortColor = renderer.color;
+                initialEscortSortingLayerId = renderer.sortingLayerID;
+                initialEscortSortingOrder = renderer.sortingOrder;
+                return;
             }
         }
 
@@ -378,10 +405,11 @@ namespace Ginei
             go.transform.localScale = Vector3.one * memberScale;
 
             SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = template.sprite;
-            sr.sortingLayerID = template.sortingLayerID;
-            sr.sortingOrder = template.sortingOrder;
-            sr.color = template.color; // 陣営色は後段の RecolorFleet で再適用
+            bool useInitial = template == initialBodyRenderer && initialEscortSprite != null;
+            sr.sprite = useInitial ? initialEscortSprite : template.sprite;
+            sr.sortingLayerID = useInitial ? initialEscortSortingLayerId : template.sortingLayerID;
+            sr.sortingOrder = useInitial ? initialEscortSortingOrder : template.sortingOrder;
+            sr.color = useInitial ? initialEscortColor : template.color; // 陣営色は後段の RecolorFleet で再適用
 
             return go.transform;
         }

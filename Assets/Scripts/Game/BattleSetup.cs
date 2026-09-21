@@ -1,3 +1,4 @@
+using Ginei.Data;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -409,6 +410,10 @@ namespace Ginei
                 FactionColor color = fleet.GetComponent<FactionColor>();
                 if (color != null) color.ApplyColors();
 
+                // 会戦の旗艦だけを戦略マップと同じ勢力別画像へ差し替える（FSH-2）。
+                // 未登録勢力はプレハブの Triangle を維持し、配下艦は Squadron が保持した元画像を使う。
+                ApplyFlagshipSprite(fleet, strength.faction);
+
                 // 艦隊編制（#146）：番号指定があれば台帳へ登録し提督を配属、表示用に番号を持たせる。
                 // 未指定（0）なら従来どおり提督名のみ（後方互換）。
                 if (entry.fleetNumber > 0)
@@ -467,6 +472,40 @@ namespace Ginei
             string admiralName = entry.admiral != null ? entry.admiral.admiralName : "Unknown";
             fleet.name = $"Fleet_{entry.faction}_{admiralName}";
             return fleet;
+        }
+
+        /// <summary>
+        /// 旗艦本体のレンダラだけへ勢力別画像を適用する。画像が無ければ既存スプライトを変えない。
+        /// root の scale と、選択リング・旗艦マーカー・配下艦には触れない。
+        /// </summary>
+        public static bool ApplyFlagshipSprite(GameObject fleet, Faction faction)
+        {
+            if (fleet == null) return false;
+            Sprite sprite = FleetSpriteProvider.SpriteForFaction(faction);
+            if (sprite == null) return false;
+
+            SpriteRenderer body = FindFlagshipBodyRenderer(fleet);
+            if (body == null) return false;
+            body.sprite = sprite;
+            return true;
+        }
+
+        /// <summary>既存の固定子・EscortShipを除外し、旗艦本体の最初のSpriteRendererを返す。</summary>
+        public static SpriteRenderer FindFlagshipBodyRenderer(GameObject fleet)
+        {
+            if (fleet == null) return null;
+            SpriteRenderer[] renderers = fleet.GetComponentsInChildren<SpriteRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                SpriteRenderer renderer = renderers[i];
+                if (renderer == null) continue;
+                string objectName = renderer.gameObject.name;
+                if (objectName == "SelectionRing" || objectName == "FlagshipMarker" || objectName == "FlagshipMarkerGlow")
+                    continue;
+                if (renderer.GetComponent<EscortShip>() != null) continue;
+                return renderer;
+            }
+            return null;
         }
 
         /// <summary>

@@ -52,6 +52,7 @@ namespace Ginei
         private readonly List<GameObject> rows = new List<GameObject>();
         private readonly List<Image> tabBgs = new List<Image>();
         private readonly List<TextMeshProUGUI> tabTexts = new List<TextMeshProUGUI>();
+        private bool windowAttachDone;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -66,15 +67,19 @@ namespace Ginei
         private static void TryCreate(Scene scene)
         {
             if (scene.name != "Strategy" && scene.name != "Battle") return;
-            if (UnityEngine.Object.FindAnyObjectByType<NotificationFeed>() != null) return;
-            new GameObject("NotificationFeed").AddComponent<NotificationFeed>();
+            NotificationFeed[] feeds = UnityEngine.Object.FindObjectsByType<NotificationFeed>(FindObjectsSortMode.None);
+            for (int i = 0; i < feeds.Length; i++)
+                if (feeds[i] != null && feeds[i].gameObject.scene == scene) return;
+            var go = new GameObject("NotificationFeed");
+            SceneManager.MoveGameObjectToScene(go, scene);
+            go.AddComponent<NotificationFeed>();
         }
 
         private void Awake()
         {
             jpFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
             // 会戦シーンでは背景を透過し、主に戦術マップの出来事（戦闘/システム）を映す。
-            battleContext = SceneManager.GetActiveScene().name == "Battle";
+            battleContext = gameObject.scene.name == "Battle";
             BuildUI();
             UpdateTabVisuals();
             lastSeq = NotificationCenter.LastSeq; // 以降の新着を検知する基準
@@ -83,11 +88,33 @@ namespace Ginei
 
         private void Update()
         {
+            TryWindowAttach();
             // 新着が来たら（時間では消さず）行を作り直す＝最新 maxRows 件を常時表示。
             var fresh = NotificationCenter.Since(lastSeq);
             if (fresh.Count == 0) return;
             lastSeq = fresh[fresh.Count - 1].seq;
             RebuildRows();
+        }
+
+        /// <summary>additive 会戦の通知枠を、その会戦の窓内へ帰属させる。戦略/全画面会戦は従来位置を保つ。</summary>
+        private void TryWindowAttach()
+        {
+            if (windowAttachDone || window == null) return;
+            if (gameObject.scene == SceneManager.GetActiveScene()) { windowAttachDone = true; return; }
+            if (BattleWindowUI.TryAttach(gameObject.scene, window)) windowAttachDone = true;
+        }
+
+        public void AttachForTest() => TryWindowAttach();
+        public bool WindowAttachedForTest => windowAttachDone;
+        public bool BattleContextForTest => battleContext;
+        public Transform WindowParentForTest => window != null ? window.parent : null;
+        public static NotificationFeed EnsureForSceneForTest(Scene scene)
+        {
+            TryCreate(scene);
+            NotificationFeed[] feeds = UnityEngine.Object.FindObjectsByType<NotificationFeed>(FindObjectsSortMode.None);
+            for (int i = 0; i < feeds.Length; i++)
+                if (feeds[i] != null && feeds[i].gameObject.scene == scene) return feeds[i];
+            return null;
         }
 
         // ===== タブ・フィルタ =====

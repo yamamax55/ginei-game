@@ -12,6 +12,16 @@ namespace Ginei.Tests
         private GameObject secondRoot;
         private GameObject cameraObject;
         private GameObject mapObject;
+        private GameObject managerObject;
+        private GameClock savedClock;
+        private float savedTimeScale;
+
+        [SetUp]
+        public void SetUp()
+        {
+            savedClock = StrategySession.Clock;
+            savedTimeScale = Time.timeScale;
+        }
 
         [TearDown]
         public void TearDown()
@@ -23,6 +33,27 @@ namespace Ginei.Tests
             if (secondRoot != null) Object.DestroyImmediate(secondRoot);
             if (cameraObject != null) Object.DestroyImmediate(cameraObject);
             if (mapObject != null) Object.DestroyImmediate(mapObject);
+            if (managerObject != null) Object.DestroyImmediate(managerObject);
+            StrategySession.Clock = savedClock;
+            Time.timeScale = savedTimeScale;
+        }
+
+        [Test]
+        public void WindowedBattleReturn_PreservesUnifiedPauseAndSpeed()
+        {
+            StrategySession.Clock = new GameClock { paused = true, speed = 3f };
+            managerObject = new GameObject("WindowedBattleManager_Qa");
+            BattleManager manager = managerObject.AddComponent<BattleManager>();
+            manager.SetHandoffContext(new BattleHandoff.State());
+
+            Time.timeScale = 1f;
+            manager.RestoreTimeForReturnForQa();
+            Assert.AreEqual(0f, Time.timeScale, 0.001f, "会戦窓を閉じた時に戦略の一時停止が解除された");
+
+            StrategySession.Clock.paused = false;
+            StrategySession.Clock.speed = 2.5f;
+            manager.RestoreTimeForReturnForQa();
+            Assert.AreEqual(2.5f, Time.timeScale, 0.001f, "会戦窓を閉じた時に戦略の倍速が1倍へ戻された");
         }
 
         [Test]

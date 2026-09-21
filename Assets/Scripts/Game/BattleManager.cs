@@ -63,8 +63,9 @@ namespace Ginei
             // 受け渡し（BattleHandoff）はウィンドウ化会戦だとロード後に空けられるので、ここで控えておく。
             if (HBattlefield.IsValid) ActiveBattlefields.Register(gameObject.scene, HBattlefield);
 
-            // 開始時にタイムスケールをリセット
-            Time.timeScale = 1f;
+            // ウィンドウ会戦は戦略と時計を共有する。窓を開いた時に停止/倍速を解除しない。
+            if (SceneWindowed) BattleDirector.SyncUnifiedClock();
+            else Time.timeScale = 1f;
             GameInput.SetContext(InputContext.会戦); // 入力コンテキストを会戦に（#107）
             AudioManager.Instance.PlayBGM(AudioManager.Instance.bgmBattle);
             // 開始時の隻数記録は、全艦の登録(Start)が済んだ最初の Update で行う（実行順非依存）
@@ -239,7 +240,7 @@ namespace Ginei
             bool aWon = winner == HFactionA;
             int survivorStrategic = Mathf.Max(1, Mathf.RoundToInt(winnerTactical / (float)BattleHandoff.StrengthScale));
 
-            Time.timeScale = 1f; // 戦略へ戻すので通常速度へ
+            RestoreTimeForReturn();
             if (Windowed)
             {
                 // 複数同時会戦（WIN-3）：自分の受け渡しへ結果を書き、結果キューへ積む（global を奪い合わない）。
@@ -314,7 +315,7 @@ namespace Ginei
                 cap = false; surr = false;
             }
 
-            Time.timeScale = 1f;
+            RestoreTimeForReturn();
             if (Windowed)
             {
                 // 複数同時会戦（WIN-3）：攻城進捗を自分の受け渡しへ書いて結果キューへ（GalaxyView が惑星へ反映）。
@@ -492,7 +493,7 @@ namespace Ginei
             // 「攻めて全滅した」を戦略へ正しく伝えるため 0 を許す。
             int survivorStrategic = Mathf.Max(0, Mathf.RoundToInt(survivorTactical / (float)BattleHandoff.StrengthScale));
 
-            Time.timeScale = 1f;
+            RestoreTimeForReturn();
             if (Windowed)
             {
                 ctx.fortressBreached = breached;
@@ -518,7 +519,7 @@ namespace Ginei
         /// </summary>
         private void ReturnToStrategyView()
         {
-            Time.timeScale = 1f;
+            RestoreTimeForReturn();
             if (Windowed)
             {
                 // システムビューは結果が無い＝何も積まずに窓を閉じるだけ。
@@ -546,6 +547,14 @@ namespace Ginei
             }
             return (b > a) ? HFactionB : HFactionA;
         }
+
+        private void RestoreTimeForReturn()
+        {
+            if (Windowed) BattleDirector.SyncUnifiedClock();
+            else Time.timeScale = 1f;
+        }
+
+        public void RestoreTimeForReturnForQa() => RestoreTimeForReturn();
 
         /// <summary>
         /// シナリオの勝利条件に従って決着を評価する。決着していれば true＋勝者・勝因・勝者代表旗艦を返す。

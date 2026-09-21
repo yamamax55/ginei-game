@@ -129,7 +129,7 @@ namespace Ginei
             {
                 BattleViewport.Clear();
                 GameInput.SetContext(InputContext.戦略); // 会戦が無くなったら戦略入力へ戻す
-                Time.timeScale = 1f;                     // 会戦が無くなったら通常速度へ戻す
+                SyncUnifiedClock();                      // 最後の窓を閉じても戦略側の停止/倍速を維持する
             }
         }
 
@@ -147,8 +147,7 @@ namespace Ginei
 
             // 会戦は戦略マップと同じ時間で流す（WIN-3）：統一クロックの速度/ポーズを Time.timeScale へ写す。
             // ＝戦略を一時停止/倍速すると全会戦も同様に追従する（会戦ごとに別時間にはしない）。
-            GameClock clock = StrategySession.Clock;
-            if (clock != null) Time.timeScale = clock.paused ? 0f : Mathf.Max(0f, clock.speed);
+            SyncUnifiedClock();
 
             // フォーカス：カーソルが乗っている窓の会戦だけがプレイヤー入力を受ける。
             BattleWindow focus = null;
@@ -170,6 +169,16 @@ namespace Ginei
                 BattleViewport.Clear();
                 GameInput.SetContext(InputContext.戦略);
             }
+        }
+
+        /// <summary>
+        /// 戦略と全会戦が共有する時計を Unity の時間倍率へ反映する。
+        /// 会戦の開始・終了で停止や倍速を勝手に解除しないため、結果返却経路からも同じ入口を使う。
+        /// </summary>
+        public static void SyncUnifiedClock()
+        {
+            GameClock clock = StrategySession.Clock;
+            Time.timeScale = clock == null ? 1f : (clock.paused ? 0f : Mathf.Max(0f, clock.speed));
         }
 
         /// <summary>

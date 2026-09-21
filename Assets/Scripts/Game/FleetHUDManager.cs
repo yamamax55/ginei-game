@@ -100,6 +100,10 @@ namespace Ginei
                 messageAttachDone = true;
         }
 
+        public void AttachForTest() => TryWindowAttach();
+        public bool WindowAttachedForTest => windowAttachDone;
+        public Transform WindowParentForTest => hudPanel != null ? hudPanel.transform.parent : null;
+
         // ===== HUD生成 =====
 
         private void BuildHud()

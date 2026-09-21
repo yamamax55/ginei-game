@@ -173,6 +173,10 @@ namespace Ginei
             if (BattleWindowUI.TryAttach(gameObject.scene, frameRoot.GetComponent<RectTransform>())) windowAttachDone = true;
         }
 
+        public void AttachForTest() => TryWindowAttach();
+        public bool WindowAttachedForTest => windowAttachDone;
+        public Transform WindowParentForTest => frameRoot != null ? frameRoot.transform.parent : null;
+
         /// <summary>
         /// 戦場ワールド矩形（<b>この会戦の原点を含んだ絶対座標</b>）。
         ///

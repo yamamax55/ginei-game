@@ -59,6 +59,10 @@ namespace Ginei
             if (BattleWindowUI.TryAttach(gameObject.scene, menuRoot.GetComponent<RectTransform>())) windowAttachDone = true;
         }
 
+        public void AttachForTest() => TryWindowAttach();
+        public bool WindowAttachedForTest => windowAttachDone;
+        public Transform WindowParentForTest => menuRoot != null ? menuRoot.transform.parent : null;
+
         /// <summary>
         /// 陣形サブメニューを親（メインメニュー）のレイアウトグループから除外する。
         /// これをしないと VerticalLayoutGroup がサブメニューを縦積みの一員として扱い、

@@ -272,8 +272,6 @@ namespace Ginei
         private readonly List<float> labelNeighborDist = new List<float>();          // 最近傍距離（中央値で縮小率を決める）
         private readonly List<LineRenderer> corridorLines = new List<LineRenderer>();
         private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetMarks = new Dictionary<StrategicFleet, SpriteRenderer>();
-        // 勢力別の艦隊スプライト（帝国/同盟）。未登録の勢力はマル（disc）のまま。Start で Resources から読み込む。
-        private readonly Dictionary<Faction, Sprite> fleetSprites = new Dictionary<Faction, Sprite>();
         private readonly Dictionary<StrategicFleet, SpriteRenderer> fleetRings = new Dictionary<StrategicFleet, SpriteRenderer>();
         private readonly Dictionary<StrategicFleet, TextMesh> fleetEta = new Dictionary<StrategicFleet, TextMesh>();
         private readonly List<LineRenderer> routeLines = new List<LineRenderer>();

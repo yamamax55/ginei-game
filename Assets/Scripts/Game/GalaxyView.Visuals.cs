@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Ginei.Data;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -251,7 +252,7 @@ namespace Ginei
                 if (f == null || kv.Value == null) continue;
                 var anchor = kv.Value.transform.parent;                      // 移動アンカー（go）。本体（kv.Value）は子。
 
-                bool hasSprite = fleetSprites.ContainsKey(f.faction);
+                bool hasSprite = FleetSpriteProvider.SpriteForFaction(f.faction) != null;
                 kv.Value.color = hasSprite ? Color.white : FactionColor(f.faction);
                 // 移動方向（回廊の向き）へ本体だけ回す。停泊中は最後の向きを保つ。専用画像のみ回転。
                 if (hasSprite && TryFleetHeading(f, out var dir))
@@ -990,18 +991,14 @@ namespace Ginei
         private Color OwnerColor(Faction f) => (f == Faction.帝国) ? empireColor : allianceColor;
         private Color FactionColor(Faction f) => Color.Lerp((f == Faction.帝国) ? empireColor : allianceColor, Color.white, 0.35f);
 
-        /// <summary>勢力別の艦隊スプライトを Resources から読み込む（帝国/同盟）。無い勢力はマルのまま。</summary>
+        /// <summary>勢力別の艦隊スプライトを共通データ窓口で初期化する。無い勢力はマルのまま。</summary>
         private void LoadFleetSprites()
         {
-            fleetSprites.Clear();
-            var imperial = Resources.Load<Sprite>("Ships/ImperialFlagship");
-            if (imperial != null) fleetSprites[Faction.帝国] = imperial;
-            var alliance = Resources.Load<Sprite>("Ships/AllianceFlagship");
-            if (alliance != null) fleetSprites[Faction.同盟] = alliance;
+            FleetSpriteProvider.EnsureLoaded();
         }
 
         /// <summary>この勢力の艦隊スプライト（無ければ null＝マル表示）。</summary>
-        private Sprite FleetSpriteFor(Faction f) => fleetSprites.TryGetValue(f, out var s) ? s : null;
+        private Sprite FleetSpriteFor(Faction f) => FleetSpriteProvider.SpriteForFaction(f);
 
         /// <summary>艦隊の進行方向（回廊の向き）。回廊上のときだけ true。停泊中は向きを変えない。</summary>
         private bool TryFleetHeading(StrategicFleet f, out Vector2 dir)

@@ -154,6 +154,16 @@ namespace Ginei
                 ? prose : decision.body ?? "";
         }
 
+        /// <summary>プレイヤー入力などの一時文面を保存対象へ書かずに表示する。</summary>
+        public static void SetProse(PendingDecision decision, string prose)
+        {
+            if (!IsRingi(decision) || string.IsNullOrWhiteSpace(prose)) return;
+            if (!proseByDecision.ContainsKey(decision)) insertionOrder.Enqueue(decision);
+            proseByDecision[decision] = prose.Trim();
+            while (proseByDecision.Count > Capacity && insertionOrder.Count > 0)
+                proseByDecision.Remove(insertionOrder.Dequeue());
+        }
+
         public static bool TryAdjudicate(PendingDecision decision, out string reasoning)
             => new RingiAdjudicator(provider).TryResolve(decision, out reasoning);
 

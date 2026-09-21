@@ -79,6 +79,10 @@ namespace Ginei
         /// sampleIndex&lt;0 はランダム、0以上は <see cref="RingiSampleData"/> の指定サンプル。</summary>
         public int ForceRaise(int sampleIndex = -1) => TryRaisePetition(forced: true, sampleIndex: sampleIndex);
 
+        /// <summary>受信箱UIから、登録済みWHATへ任意のWHYを添えて建白する。WHYは実行時表示だけで保存しない。</summary>
+        public int SubmitPlayerPetition(int sampleIndex, string framing)
+            => TryRaisePetition(forced: false, sampleIndex: sampleIndex, framing: framing);
+
         /// <summary>
         /// 最高権力者が決めきれない重大案件を目安箱へ諮問する（MEYASU-4 #1300）。
         /// 建白の逆向きなので官僚伝播を通さず、同じ台帳と決裁デスクへ直接積む。
@@ -453,7 +457,7 @@ namespace Ginei
         // ----- 建白の起案＋官僚機構の伝播 -----
 
         /// <summary>サンプル建白を1件起こす。forced=true は同時上限を無視。決裁待ちへ載った決裁id（&lt;0=不発/死亡）を返す。</summary>
-        private int TryRaisePetition(bool forced, int sampleIndex)
+        private int TryRaisePetition(bool forced, int sampleIndex, string framing = "")
         {
             FactionState fs = PlayerState();
             if (fs == null || RingiSampleData.Count == 0) return -1;
@@ -491,6 +495,8 @@ namespace Ginei
             pd.petitionId = pet.id;
             pd.friction = friction;
             DecisionDeck.Enqueue(pd);
+            if (!string.IsNullOrWhiteSpace(framing))
+                RingiNarrativeRuntime.SetProse(pd, sample.body + "\n\n［建白の論旨］" + framing.Trim());
 
             NotificationCenter.Push(NotificationCategory.政治, NotificationSeverity.注意,
                 $"［建白］{sample.title} が決裁待ち（右下の決裁デスクへ）");

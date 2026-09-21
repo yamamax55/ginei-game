@@ -25,7 +25,8 @@ namespace Ginei
         /// </summary>
         public static bool IsBoardModalOpen =>
             StrategyEventPanel.IsOpen || FleetOrganizationPanel.IsOpen || DecisionBoardPanel.IsOpen
-            || DecisionBoardPanel.DetailOpen || CampaignEndOverlay.IsOpen || StrategySystemMenu.IsOpen;
+            || DecisionBoardPanel.DetailOpen || RingiObserverOverlay.IsOpen
+            || CampaignEndOverlay.IsOpen || StrategySystemMenu.IsOpen;
 
         /// <summary>指定星系の情報パネルを開く（I キー・星系図の入口ボタン共通）。星系が無い／モーダル表示中は false。</summary>
         public bool OpenSystemInfo(int sysId)

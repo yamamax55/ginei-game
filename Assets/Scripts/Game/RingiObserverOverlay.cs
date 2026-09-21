@@ -1,49 +1,41 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.InputSystem.UI;
-using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
-using TMPro;
+using UnityEngine.UIElements;
 
 namespace Ginei
 {
     /// <summary>
-    /// 稟議オブザーバ（観測層・read-only）。<b>Alt+I キー</b>で開閉し、進行中の稟議（<see cref="Petition"/>）を
-    /// <b>起案者（drafterId）と決裁者（addresseeId）の対応</b>で一覧する。税の稟議（<see cref="RingiDirector.Ledger"/>）と
-    /// 編制の稟議（<see cref="FleetRingiDirector.Ledger"/>）の両在庫を集約し、各件の 状態（<see cref="WorkflowRules"/>）・
-    /// 出自（建白/諮問/注入）・宛先の箱（国王/政治家/地方）・中継者を毎フレームライブダンプする。
-    /// 起案者/決裁者の人物 id は <see cref="GalaxyView"/> の人物ロスター（指揮官＋文民）で名前解決し、
-    /// 箱宛て（id=0＝プレイヤーの越階回路）はその箱を決裁者として表示する。決裁の Kanban 管理は K（<see cref="DecisionBoardPanel"/>）、
-    /// 本窓は<b>「誰が起案し誰が裁可するか」の見取り図</b>に特化＝操作はさせない（観測専用＝状態は変えない）。
-    /// `DiplomacyObserverOverlay` と同型の自動生成（Strategy/Battle）。
+    /// 箱の受信箱（MEYASU-7 #1303）。Alt+I で開く UI Toolkit モーダル。
+    /// 建白・諮問を箱/信認/状態つきで一覧し、伝播履歴を確認して共通 DecisionDeck 経路から裁可・却下する。
+    /// 下段の建白フォームは登録済みの WHAT を選び、任意の WHY を添える。結果確率は数値で確約しない。
     /// </summary>
     public class RingiObserverOverlay : MonoBehaviour
     {
-        [Header("外観")]
-        [Tooltip("オーバーレイ Canvas の描画順（他UIより手前）")]
+        private sealed class InboxRow
+        {
+            public Petition petition;
+            public PendingDecision decision;
+        }
+
+        private static RingiObserverOverlay instance;
+        public static bool IsOpen => instance != null && instance.isOpen;
+        public static RingiObserverOverlay InstanceForTest => instance;
+
         public int canvasSortingOrder = 1114;
-
-        [Tooltip("背景ディマーの不透明度（0〜1）")]
-        public float dimAlpha = 0.55f;
-
-        [Tooltip("パネルの幅（ピクセル）")]
-        public float panelWidth = 1020f;
-
-        [Tooltip("パネルの最大高さ（ピクセル）")]
-        public float panelMaxHeight = 900f;
-
-        [Tooltip("パネル背景色")]
-        public Color panelColor = new Color(0.05f, 0.05f, 0.04f, 0.96f);
-
-        [Tooltip("本文のフォントサイズ")]
-        public float bodyFontSize = 20f;
-
-        private GameObject overlayRoot;
-        private GameObject panel;
-        private TextMeshProUGUI bodyLabel;
+        private bool isOpen;
+        private float savedTimeScale = 1f;
+        private bool pausedClock;
+        private VisualElement root;
+        private ScrollView rows;
+        private Label hint;
+        private Label detail;
+        private DropdownField proposalChoice;
+        private TextField proposalWhy;
         private object escWindowToken;
+        private string lastSignature = "";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -57,295 +49,279 @@ namespace Ginei
 
         private static void TryCreate(Scene scene)
         {
-            if (scene.name != "Strategy" && scene.name != "Battle") return;
-            if (Object.FindAnyObjectByType<RingiObserverOverlay>() != null) return;
-            new GameObject("RingiObserverOverlay").AddComponent<RingiObserverOverlay>();
+            if (scene.name != "Strategy") return;
+            if (UnityEngine.Object.FindAnyObjectByType<RingiObserverOverlay>() != null) return;
+            new GameObject("RingiInboxPanel").AddComponent<RingiObserverOverlay>();
         }
 
         private void Awake()
         {
-            BuildUI();
-            SetVisible(false);
-            escWindowToken = UIWindowStack.Register(() => panel != null && panel.activeSelf, () => SetVisible(false), canvasSortingOrder, "稟議");
+            instance = this;
+            Build();
+            escWindowToken = UIWindowStack.Register(() => isOpen, Close, canvasSortingOrder, "箱の受信箱");
         }
-
-        private void OnDestroy() => UIWindowStack.Unregister(escWindowToken);
 
         private void Update()
         {
-            if (GameInput.WasPressed(GameAction.稟議観測切替))
-                Toggle();
-
-            if (panel != null && panel.activeSelf && bodyLabel != null)
-                bodyLabel.text = BuildDump();
+            if (GameInput.WasPressed(GameAction.稟議観測切替)) Toggle();
+            if (!isOpen) return;
+            Time.timeScale = 0f;
+            string sig = Signature();
+            if (sig != lastSignature) { Rebuild(); lastSignature = sig; }
         }
 
-        public void Toggle() => SetVisible(panel != null && !panel.activeSelf);
+        public void Toggle() { if (isOpen) Close(); else Open(); }
+        public void SetVisible(bool visible) { if (visible) Open(); else Close(); }
 
-        public void SetVisible(bool visible)
+        private void Open()
         {
-            if (panel != null) panel.SetActive(visible);
+            if (root == null || isOpen) return;
+            savedTimeScale = Time.timeScale;
+            Time.timeScale = 0f;
+            GameClock clock = StrategySession.Clock;
+            if (clock != null && !clock.paused) { clock.Pause(); pausedClock = true; }
+            isOpen = true;
+            root.style.display = DisplayStyle.Flex;
+            lastSignature = "";
+            Rebuild();
         }
 
-        // ===== ダンプ本体 =====
-
-        private string BuildDump()
+        public void Close()
         {
-            var sb = new StringBuilder(2048);
-            sb.Append("<b>稟議オブザーバ</b>　進行中の稟議の 起案者 → 決裁者　(Alt+I で閉じる)\n");
-            sb.Append("<color=#5b6b7a>──────────────────────────────────────────────</color>\n");
-
-            // 人物名の解決元（戦略マップの人物ロスター）。1回だけ取得して各件で使い回す。
-            GalaxyView gv = Object.FindAnyObjectByType<GalaxyView>();
-
-            int totalActive = AppendLedger(sb, "◤ 税の稟議（建白＝減税/増税）", RingiDirector.Ledger, "—（制度発議）", gv);
-            totalActive += AppendLedger(sb, "◤ 編制の稟議（艦隊の設立/解散）", FleetRingiDirector.Ledger, "参謀本部", gv);
-
-            if (totalActive == 0)
-                sb.Append("\n<color=#9aa7b2>現在、進行中の稟議はありません（戦略マップで時おり建白が起きます）。</color>\n");
-
-            sb.Append("\n<color=#6f8a9a>※ 起案者＝建白を起こした人物（id=0 は匿名/制度発議）。決裁者＝宛先＝裁可する人物、");
-            sb.Append("id=0 は箱宛て＝プレイヤーの越階回路（あなたが右下の決裁デスクで裁可）。</color>");
-            return sb.ToString();
+            if (!isOpen) return;
+            isOpen = false;
+            if (root != null) root.style.display = DisplayStyle.None;
+            Time.timeScale = savedTimeScale;
+            GameClock clock = StrategySession.Clock;
+            if (clock != null && pausedClock) { clock.Resume(); pausedClock = false; }
         }
 
-        /// <summary>1つの在庫（ledger）の進行中の稟議を起案者→決裁者で列挙する。進行中の件数を返す。</summary>
-        private int AppendLedger(StringBuilder sb, string heading, PetitionLedger ledger, string anonymousDrafter, GalaxyView gv)
+        private void Build()
         {
-            sb.Append("\n<color=#e7e0b0>").Append(heading).Append("</color>\n");
-            if (ledger == null)
+            GineiUITK.Attach(gameObject, canvasSortingOrder, out root);
+            if (root == null) return;
+
+            var dim = new VisualElement();
+            dim.AddToClassList("dim");
+            dim.RegisterCallback<ClickEvent>(evt => { if (evt.target == dim) Close(); });
+            root.Add(dim);
+
+            var panel = new VisualElement();
+            panel.AddToClassList("panel");
+            dim.Add(panel);
+            var title = new Label("箱の受信箱 ― 建白と諮問");
+            title.AddToClassList("title");
+            panel.Add(title);
+
+            hint = new Label("箱への信認は通りやすさの目安です。結果と代償は裁可後に確定します。");
+            hint.AddToClassList("hint");
+            panel.Add(hint);
+
+            rows = new ScrollView(ScrollViewMode.Vertical);
+            rows.verticalScrollerVisibility = ScrollerVisibility.AlwaysVisible;
+            rows.AddToClassList("scroll");
+            rows.style.flexGrow = 1f;
+            panel.Add(rows);
+
+            detail = new Label("行の［詳細］で、誰の手を経たかを確認できます。");
+            detail.style.whiteSpace = WhiteSpace.Normal;
+            detail.style.minHeight = 72f;
+            panel.Add(detail);
+
+            var formTitle = new Label("建白フォーム（宛先の箱・WHATを選び、WHYを添える）");
+            formTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            panel.Add(formTitle);
+            var choices = new List<string>();
+            for (int i = 0; i < RingiSampleData.Count; i++)
             {
-                sb.Append("  <color=#9aa7b2>（在庫なし）</color>\n");
-                return 0;
+                RingiSample s = RingiSampleData.At(i);
+                choices.Add($"{s.box}箱｜{s.title}");
+            }
+            proposalChoice = new DropdownField("誰の箱に・何を", choices, choices.Count > 0 ? 0 : -1);
+            panel.Add(proposalChoice);
+            proposalWhy = new TextField("どう書くか（任意）") { multiline = true };
+            proposalWhy.style.minHeight = 54f;
+            panel.Add(proposalWhy);
+            panel.Add(new Button(SubmitProposal) { text = "この内容で建白する" });
+            panel.Add(new Button(Close) { text = "閉じる (Alt+I / Esc)" });
+
+            root.style.display = DisplayStyle.None;
+        }
+
+        private void Rebuild()
+        {
+            if (rows == null) return;
+            rows.Clear();
+            List<InboxRow> inbox = GatherRows();
+            if (inbox.Count == 0)
+            {
+                rows.Add(new Label("現在、進行中の建白・諮問はありません。"));
+                return;
             }
 
+            inbox.Sort((a, b) =>
+            {
+                int c = ((int)b.petition.severity).CompareTo((int)a.petition.severity);
+                return c != 0 ? c : a.petition.id.CompareTo(b.petition.id);
+            });
+            for (int i = 0; i < inbox.Count; i++) AddInboxRow(inbox[i]);
+        }
+
+        private void AddInboxRow(InboxRow row)
+        {
+            Petition p = row.petition;
+            var line = new VisualElement();
+            line.AddToClassList("row");
+            line.style.flexDirection = FlexDirection.Row;
+            string direction = p.origin == PetitionOrigin.諮問 ? "↓諮問" : "↑建白";
+            var label = new Label($"{direction}　{p.box}箱　{CredibilityText(p)}　【{p.status}】 {p.title}");
+            label.AddToClassList("row-label");
+            line.Add(label);
+            line.Add(new Button(() => ShowDetail(row)) { text = "詳細" });
+
+            if (row.decision != null && !DecisionResolutionRules.IsSettled(row.decision))
+            {
+                string yes = p.origin == PetitionOrigin.諮問 ? "裁可" : "汲む";
+                string no = p.origin == PetitionOrigin.諮問 ? "却下" : "黙殺";
+                line.Add(new Button(() => Resolve(row, 0, yes)) { text = yes });
+                line.Add(new Button(() => Resolve(row, 1, no)) { text = no });
+            }
+            rows.Add(line);
+        }
+
+        private void Resolve(InboxRow row, int choice, string verb)
+        {
+            if (row == null || row.decision == null) return;
+            bool ok = DecisionDeck.Resolve(row.decision.id, choice);
+            hint.text = ok ? $"{row.petition.title}：{verb}を決裁経路へ渡しました。" :
+                $"{row.petition.title}：決裁できません。権限・状態・効果登録を確認してください。";
+            lastSignature = "";
+            Rebuild();
+        }
+
+        private void ShowDetail(InboxRow row)
+        {
+            Petition p = row.petition;
+            var sb = new StringBuilder();
+            sb.Append(p.title).Append("\n");
+            sb.Append("出自: ").Append(p.origin).Append("　宛先: ").Append(p.box).Append("箱")
+              .Append("　信認: ").Append(CredibilityText(p)).Append("\n");
+            sb.Append("起案: ").Append(ResolveNameOrId(p.drafterId)).Append("　決裁: ")
+              .Append(p.addresseeId == 0 ? p.box + "箱" : ResolveNameOrId(p.addresseeId)).Append("\n");
+            sb.Append("伝播履歴: ");
+            if (p.hops == null || p.hops.Count == 0) sb.Append("（中継なし）");
+            else for (int i = 0; i < p.hops.Count; i++)
+            {
+                if (i > 0) sb.Append(" → ");
+                sb.Append(ResolveNameOrId(p.hops[i]));
+            }
+            if (p.distorted) sb.Append("\n※ 伝播中に内容が歪められています");
+            if (row.decision != null) sb.Append("\n\n").Append(RingiNarrativeRuntime.TextFor(row.decision));
+            detail.text = sb.ToString();
+        }
+
+        private void SubmitProposal()
+        {
+            RingiDirector director = UnityEngine.Object.FindAnyObjectByType<RingiDirector>();
+            if (director == null || proposalChoice == null || proposalChoice.index < 0)
+            {
+                hint.text = "稟議機構が利用できません。";
+                return;
+            }
+            int id = director.SubmitPlayerPetition(proposalChoice.index, proposalWhy != null ? proposalWhy.value : "");
+            hint.text = id >= 0 ? "建白が箱へ届き、決裁待ちになりました。" :
+                "建白は官僚機構で止まりました。結果は信認・摩擦・正統性で変わります。";
+            if (id >= 0 && proposalWhy != null) proposalWhy.value = "";
+            lastSignature = "";
+            Rebuild();
+        }
+
+        private static List<InboxRow> GatherRows()
+        {
+            var result = new List<InboxRow>();
+            AppendLedger(result, RingiDirector.Ledger);
+            AppendLedger(result, FleetRingiDirector.Ledger);
+            return result;
+        }
+
+        private static void AppendLedger(List<InboxRow> result, PetitionLedger ledger)
+        {
+            if (ledger == null) return;
             List<Petition> active = ledger.Active();
-            if (active.Count == 0)
-            {
-                sb.Append("  <color=#9aa7b2>（進行中なし）</color>");
-                if (ledger.droppedCount > 0)
-                    sb.Append("　<color=#6f8a9a>（古い稟議履歴〔決着済・黙殺〕 ").Append(ledger.droppedCount).Append(" 件を容量整理）</color>");
-                sb.Append('\n');
-                return 0;
-            }
-
             for (int i = 0; i < active.Count; i++)
             {
                 Petition p = active[i];
-                if (p == null) continue;
-
-                sb.Append("  <color=").Append(StatusColor(p.status)).Append(">【").Append(p.status).Append("】</color> ");
-                sb.Append("<color=#e6e6e6>").Append(string.IsNullOrEmpty(p.title) ? "（無題）" : p.title).Append("</color>\n");
-
-                string drafter = ResolveDrafter(p, anonymousDrafter, gv);
-                string approver = ResolveApprover(p, gv);
-                sb.Append("      起案 <color=#9ad0ff>").Append(drafter).Append("</color>")
-                  .Append("　<color=#ffd28a>→</color>　決裁 <color=#ffcc66>").Append(approver).Append("</color>\n");
-
-                sb.Append("      <color=#6f8a9a>").Append(p.faction).Append(" / 出自:").Append(p.origin)
-                  .Append(" / ").Append(p.box).Append("箱");
-                if (!string.IsNullOrEmpty(p.regionKey)) sb.Append('(').Append(p.regionKey).Append(')');
-                string carrier = ResolveCarrier(p, gv);
-                if (!string.IsNullOrEmpty(carrier)) sb.Append(" / 中継:").Append(carrier);
-                if (p.hops != null && p.hops.Count > 0) sb.Append(" / 経由").Append(p.hops.Count).Append("名");
-                if (p.distorted) sb.Append(" / <color=#ff9a8a>歪曲</color>");
-                sb.Append("</color>\n");
-            }
-            return active.Count;
-        }
-
-        // ----- 起案者/決裁者/中継者の名前解決 -----
-
-        private static string ResolveDrafter(Petition p, string anonymousLabel, GalaxyView gv)
-        {
-            if (p.drafterId == 0) return anonymousLabel;
-            return ResolveName(p.drafterId, gv) ?? $"人物#{p.drafterId}";
-        }
-
-        private static string ResolveApprover(Petition p, GalaxyView gv)
-        {
-            if (p.addresseeId != 0)
-                return ResolveName(p.addresseeId, gv) ?? $"人物#{p.addresseeId}";
-            // 箱宛て（id=0）＝プレイヤーの越階回路。どの箱が裁可するかを示す。
-            switch (p.box)
-            {
-                case BoxKind.国王:   return "国王箱（越階＝あなた）";
-                case BoxKind.政治家: return "政治家箱（越階＝あなた）";
-                case BoxKind.地方:   return string.IsNullOrEmpty(p.regionKey)
-                    ? "地方箱（越階＝あなた）"
-                    : $"地方箱・{p.regionKey}（越階＝あなた）";
-                default: return "（箱宛て）";
+                if (p != null) result.Add(new InboxRow { petition = p, decision = FindDecision(p) });
             }
         }
 
-        private static string ResolveCarrier(Petition p, GalaxyView gv)
+        private static PendingDecision FindDecision(Petition p)
         {
-            if (p.carrierId == 0 || p.carrierId == p.drafterId) return null;
-            return ResolveName(p.carrierId, gv) ?? $"人物#{p.carrierId}";
-        }
-
-        /// <summary>人物 id（ICharacter.Id）を <see cref="GalaxyView"/> の指揮官/文民ロスターで名前解決（無ければ null）。</summary>
-        private static string ResolveName(int id, GalaxyView gv)
-        {
-            if (id == 0 || gv == null) return null;
-            string n = FindInRoster(id, gv.CommanderRoster);
-            if (n != null) return n;
-            return FindInRoster(id, gv.CivilianRoster);
-        }
-
-        private static string FindInRoster(int id, IReadOnlyList<Person> roster)
-        {
-            if (roster == null) return null;
-            for (int i = 0; i < roster.Count; i++)
+            DecisionQueue q = DecisionDeck.Queue;
+            if (p == null || q == null) return null;
+            for (int i = 0; i < q.items.Count; i++)
             {
-                Person person = roster[i];
-                if (person != null && person.id == id) return person.name;
+                PendingDecision d = q.items[i];
+                if (d != null && d.petitionId == p.id && string.Equals(d.effectKey, p.effectKey, StringComparison.Ordinal))
+                    return d;
             }
             return null;
         }
 
-        private static string StatusColor(PetitionStatus s)
+        private static string CredibilityText(Petition p)
         {
-            switch (s)
+            FactionState fs = CampaignRules.GetState(StrategySession.Campaign, p.faction);
+            float value = CredibilityRules.Heed(fs != null ? fs.credibility : null, p.box, p.regionKey);
+            string word = value >= 0.65f ? "顔が利く" : value >= 0.35f ? "中立" : "警戒";
+            return $"{word} {Mathf.RoundToInt(value * 100f)}";
+        }
+
+        private static string ResolveNameOrId(int id)
+        {
+            if (id == 0) return "匿名/制度発議";
+            GalaxyView gv = UnityEngine.Object.FindAnyObjectByType<GalaxyView>();
+            string name = Find(id, gv != null ? gv.CommanderRoster : null) ?? Find(id, gv != null ? gv.CivilianRoster : null);
+            return name ?? $"人物#{id}";
+        }
+
+        private static string Find(int id, IReadOnlyList<Person> roster)
+        {
+            if (roster == null) return null;
+            for (int i = 0; i < roster.Count; i++)
+                if (roster[i] != null && roster[i].id == id) return roster[i].name;
+            return null;
+        }
+
+        private static string Signature()
+        {
+            var sb = new StringBuilder();
+            AppendSignature(sb, RingiDirector.Ledger);
+            AppendSignature(sb, FleetRingiDirector.Ledger);
+            return sb.ToString();
+        }
+
+        private static void AppendSignature(StringBuilder sb, PetitionLedger ledger)
+        {
+            if (ledger == null) return;
+            for (int i = 0; i < ledger.items.Count; i++)
             {
-                case PetitionStatus.決裁待ち: return "#ffcc66";
-                case PetitionStatus.承認:     return "#8ce08c";
-                case PetitionStatus.却下:     return "#ff7a6a";
-                case PetitionStatus.再浮上:   return "#c9a0ff";
-                case PetitionStatus.執行済:   return "#7fd4ff";
-                default: return "#9aa7b2"; // 起案/伝播中/黙殺
+                Petition p = ledger.items[i];
+                if (p != null) sb.Append(p.id).Append(':').Append((int)p.status).Append(':').Append(p.hops.Count).Append('|');
             }
         }
 
-        // ===== UI 構築（DiplomacyObserverOverlay と同型・単一スクロールラベル版） =====
-
-        private void BuildUI()
+        private void OnDestroy()
         {
-            EnsureEventSystem();
-
-            overlayRoot = new GameObject("RingiObserverCanvas");
-            overlayRoot.transform.SetParent(transform);
-            Canvas canvas = overlayRoot.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = canvasSortingOrder;
-            CanvasScaler scaler = overlayRoot.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            overlayRoot.AddComponent<GraphicRaycaster>();
-
-            panel = new GameObject("ObserverPanel");
-            panel.transform.SetParent(overlayRoot.transform, false);
-            RectTransform panelRT = panel.AddComponent<RectTransform>();
-            panelRT.anchorMin = Vector2.zero;
-            panelRT.anchorMax = Vector2.one;
-            panelRT.sizeDelta = Vector2.zero;
-            panelRT.anchoredPosition = Vector2.zero;
-            Image dimImage = panel.AddComponent<Image>();
-            dimImage.color = new Color(0f, 0f, 0f, dimAlpha);
-            WindowChrome.MakeNonModal(dimImage);
-
-            BuildContentPanel(panel.transform);
+            UIWindowStack.Unregister(escWindowToken);
+            if (isOpen) Close();
+            if (instance == this) instance = null;
         }
 
-        private void BuildContentPanel(Transform parent)
-        {
-            GameObject frame = new GameObject("ObserverFrame");
-            frame.transform.SetParent(parent, false);
-            RectTransform frameRT = frame.AddComponent<RectTransform>();
-            frameRT.anchorMin = new Vector2(0f, 0.5f);
-            frameRT.anchorMax = new Vector2(0f, 0.5f);
-            frameRT.pivot = new Vector2(0f, 0.5f);
-            frameRT.anchoredPosition = new Vector2(24f, 0f);
-            frameRT.sizeDelta = new Vector2(panelWidth, panelMaxHeight);
-
-            Image frameImg = frame.AddComponent<Image>();
-            frameImg.color = panelColor;
-
-            VerticalLayoutGroup vlg = frame.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(16, 16, 12, 12);
-            vlg.spacing = 8f;
-            vlg.childAlignment = TextAnchor.UpperLeft;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = false;
-
-            WindowChrome.AddTitleBarLayout(frameRT, "稟議", () => SetVisible(false));
-            BuildScrollBody(frame.transform);
-        }
-
-        private void BuildScrollBody(Transform parent)
-        {
-            GameObject scrollObj = new GameObject("ObserverScrollRect");
-            scrollObj.transform.SetParent(parent, false);
-            scrollObj.AddComponent<RectTransform>();
-            LayoutElement scrollLE = scrollObj.AddComponent<LayoutElement>();
-            scrollLE.flexibleHeight = 1f;
-
-            ScrollRect scrollRect = scrollObj.AddComponent<ScrollRect>();
-            scrollRect.horizontal = false;
-            scrollRect.vertical = true;
-            scrollRect.scrollSensitivity = 30f;
-
-            GameObject viewport = new GameObject("Viewport");
-            viewport.transform.SetParent(scrollObj.transform, false);
-            RectTransform viewportRT = viewport.AddComponent<RectTransform>();
-            viewportRT.anchorMin = Vector2.zero;
-            viewportRT.anchorMax = Vector2.one;
-            viewportRT.sizeDelta = Vector2.zero;
-            viewportRT.anchoredPosition = Vector2.zero;
-            viewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
-            viewport.AddComponent<RectMask2D>();
-            scrollRect.viewport = viewportRT;
-
-            GameObject content = new GameObject("Content");
-            content.transform.SetParent(viewport.transform, false);
-            RectTransform contentRT = content.AddComponent<RectTransform>();
-            contentRT.anchorMin = new Vector2(0f, 1f);
-            contentRT.anchorMax = new Vector2(1f, 1f);
-            contentRT.pivot = new Vector2(0.5f, 1f);
-            contentRT.anchoredPosition = Vector2.zero;
-            contentRT.sizeDelta = Vector2.zero;
-
-            VerticalLayoutGroup contentVlg = content.AddComponent<VerticalLayoutGroup>();
-            contentVlg.padding = new RectOffset(8, 8, 4, 4);
-            contentVlg.childAlignment = TextAnchor.UpperLeft;
-            contentVlg.childControlWidth = true;
-            contentVlg.childControlHeight = true;
-            contentVlg.childForceExpandWidth = true;
-            contentVlg.childForceExpandHeight = false;
-
-            ContentSizeFitter csf = content.AddComponent<ContentSizeFitter>();
-            csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            scrollRect.content = contentRT;
-            UiScrollbars.Attach(scrollRect);   // #H スクロールできることを画面で示す（見えて掴めるバー）
-
-            GameObject bodyObj = new GameObject("Body");
-            bodyObj.transform.SetParent(content.transform, false);
-            bodyLabel = bodyObj.AddComponent<TextMeshProUGUI>();
-            bodyLabel.text = "";
-            bodyLabel.fontSize = bodyFontSize;
-            bodyLabel.color = new Color(0.9f, 0.93f, 0.96f);
-            bodyLabel.alignment = TextAlignmentOptions.TopLeft;
-            bodyLabel.richText = true;
-            bodyLabel.raycastTarget = false;
-            ApplyJapaneseFont(bodyLabel);
-        }
-
-        private static void ApplyJapaneseFont(TextMeshProUGUI tmp)
-        {
-            TMP_FontAsset jaFont = Resources.Load<TMP_FontAsset>("JapaneseFont_TMP");
-            if (jaFont != null) tmp.font = jaFont;
-        }
-
-        private static void EnsureEventSystem()
-        {
-            if (Object.FindAnyObjectByType<EventSystem>() != null) return;
-            GameObject esObj = new GameObject("EventSystem");
-            esObj.AddComponent<EventSystem>();
-            esObj.AddComponent<InputSystemUIInputModule>();
-        }
+        // PlayMode QA: UI Toolkit の入力配送を再実装せず、実画面の構築・停止・一覧・フォーム・Esc 配線を確認する。
+        public void OpenForTest() => Open();
+        public int InboxRowCountForTest => rows != null ? rows.childCount : 0;
+        public bool ScrollbarVisibleForTest => rows != null && rows.verticalScrollerVisibility == ScrollerVisibility.AlwaysVisible;
+        public bool ProposalFormExistsForTest => proposalChoice != null && proposalWhy != null;
+        public bool EscRegisteredForTest => escWindowToken != null;
     }
 }

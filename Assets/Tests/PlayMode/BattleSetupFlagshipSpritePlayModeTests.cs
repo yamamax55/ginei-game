@@ -20,7 +20,7 @@ namespace Ginei.Tests
             triangleTexture = new Texture2D(2, 2);
             flagshipTexture = new Texture2D(2, 2);
             triangle = Sprite.Create(triangleTexture, new Rect(0, 0, 2, 2), Vector2.one * 0.5f);
-            flagship = Sprite.Create(flagshipTexture, new Rect(0, 0, 2, 2), Vector2.one * 0.5f);
+            flagship = Sprite.Create(flagshipTexture, new Rect(0, 0, 2, 2), Vector2.zero);
         }
 
         [TearDown]
@@ -49,7 +49,9 @@ namespace Ginei.Tests
             FleetSpriteProvider.Register(Faction.帝国, flagship);
 
             Assert.IsTrue(BattleSetup.ApplyFlagshipSprite(fleet, Faction.帝国));
-            Assert.AreSame(flagship, body.sprite);
+            SpriteRenderer visual = fleet.transform.Find("FlagshipBody").GetComponent<SpriteRenderer>();
+            Assert.AreSame(flagship, visual.sprite);
+            Assert.IsFalse(body.enabled, "元のTriangleレンダラが重ね描きされる");
             Assert.AreSame(triangle, ring.sprite);
             Assert.AreSame(triangle, marker.sprite);
             Assert.AreSame(triangle, glow.sprite);
@@ -57,7 +59,28 @@ namespace Ginei.Tests
 
             FleetSpriteProvider.Register(Faction.帝国, null);
             Assert.IsFalse(BattleSetup.ApplyFlagshipSprite(fleet, Faction.帝国));
-            Assert.AreSame(flagship, body.sprite, "未登録時は現在のフォールバック画像を変更しない");
+            Assert.AreSame(flagship, visual.sprite, "未登録時は現在の表示画像を変更しない");
+            Object.DestroyImmediate(fleet);
+        }
+
+        [Test]
+        public void ChildVisualNormalizesSizeAndPivotWithoutScalingRoot()
+        {
+            GameObject fleet = new GameObject("Fleet");
+            SpriteRenderer source = fleet.AddComponent<SpriteRenderer>();
+            source.sprite = triangle;
+            Vector3 originalRootScale = new Vector3(1f, 1f, 1f);
+            fleet.transform.localScale = originalRootScale;
+            FleetSpriteProvider.Register(Faction.帝国, flagship);
+
+            Assert.IsTrue(BattleSetup.ApplyFlagshipSprite(fleet, Faction.帝国, 1.2f));
+
+            Transform body = fleet.transform.Find("FlagshipBody");
+            Assert.IsNotNull(body);
+            Assert.AreEqual(originalRootScale, fleet.transform.localScale, "陣形基準のroot scaleを変更した");
+            Assert.AreEqual(1.2f, body.GetComponent<SpriteRenderer>().bounds.size.y, 0.001f);
+            Assert.AreEqual(fleet.transform.position.x, body.GetComponent<SpriteRenderer>().bounds.center.x, 0.001f);
+            Assert.AreEqual(fleet.transform.position.y, body.GetComponent<SpriteRenderer>().bounds.center.y, 0.001f);
             Object.DestroyImmediate(fleet);
         }
 
@@ -75,7 +98,8 @@ namespace Ginei.Tests
             Assert.IsTrue(BattleSetup.ApplyFlagshipSprite(fleet, Faction.帝国));
             yield return null; // Squadron.Start → 配下艦生成
 
-            Assert.AreSame(flagship, body.sprite);
+            Assert.AreSame(flagship, fleet.transform.Find("FlagshipBody").GetComponent<SpriteRenderer>().sprite);
+            Assert.IsFalse(body.enabled);
             Transform escort = fleet.transform.Find("Escort_0");
             Assert.IsNotNull(escort);
             Assert.AreSame(triangle, escort.GetComponent<SpriteRenderer>().sprite,

@@ -20,6 +20,10 @@ namespace Ginei
         [Tooltip("使用するシナリオを直接指定（未設定なら GameSettings.scenarioName で Resources から検索）")]
         public ScenarioData scenarioOverride;
 
+        [Header("旗艦画像（FSH-3）")]
+        [Tooltip("勢力別旗艦画像を会戦内で表示する高さ。rootは拡縮せず、FlagshipBody子だけをこのworld unit高へ合わせる。")]
+        public float flagshipVisualHeight = 1.2f;
+
         [Header("配置")]
         [Tooltip("シナリオの生成位置を原点中心に拡大する倍率（大きいほど両軍が離れて開始＝いきなり交戦距離にしない）")]
         public float spawnSeparation = 2.5f;
@@ -412,7 +416,7 @@ namespace Ginei
 
                 // 会戦の旗艦だけを戦略マップと同じ勢力別画像へ差し替える（FSH-2）。
                 // 未登録勢力はプレハブの Triangle を維持し、配下艦は Squadron が保持した元画像を使う。
-                ApplyFlagshipSprite(fleet, strength.faction);
+                ApplyFlagshipSprite(fleet, strength.faction, flagshipVisualHeight);
 
                 // 艦隊編制（#146）：番号指定があれば台帳へ登録し提督を配属、表示用に番号を持たせる。
                 // 未指定（0）なら従来どおり提督名のみ（後方互換）。
@@ -478,15 +482,35 @@ namespace Ginei
         /// 旗艦本体のレンダラだけへ勢力別画像を適用する。画像が無ければ既存スプライトを変えない。
         /// root の scale と、選択リング・旗艦マーカー・配下艦には触れない。
         /// </summary>
-        public static bool ApplyFlagshipSprite(GameObject fleet, Faction faction)
+        public static bool ApplyFlagshipSprite(GameObject fleet, Faction faction, float worldHeight = 1.2f)
         {
             if (fleet == null) return false;
             Sprite sprite = FleetSpriteProvider.SpriteForFaction(faction);
             if (sprite == null) return false;
 
-            SpriteRenderer body = FindFlagshipBodyRenderer(fleet);
-            if (body == null) return false;
-            body.sprite = sprite;
+            Transform existing = fleet.transform.Find("FlagshipBody");
+            SpriteRenderer visual = existing != null ? existing.GetComponent<SpriteRenderer>() : null;
+            if (visual == null)
+            {
+                SpriteRenderer source = FindFlagshipBodyRenderer(fleet);
+                if (source == null) return false;
+                GameObject bodyObject = new GameObject("FlagshipBody");
+                bodyObject.transform.SetParent(fleet.transform, false);
+                visual = bodyObject.AddComponent<SpriteRenderer>();
+                visual.color = source.color;
+                visual.sortingLayerID = source.sortingLayerID;
+                visual.sortingOrder = source.sortingOrder;
+                source.enabled = false;
+            }
+
+            visual.sprite = sprite;
+            float spriteHeight = sprite.bounds.size.y;
+            float scale = spriteHeight > 0.0001f ? Mathf.Max(0.01f, worldHeight) / spriteHeight : 1f;
+            visual.transform.localScale = Vector3.one * scale;
+            // pivot が中央でない画像も、bounds中心を部隊原点へ戻して中心回転させる。
+            Vector3 center = sprite.bounds.center;
+            visual.transform.localPosition = new Vector3(-center.x * scale, -center.y * scale, 0f);
+            visual.transform.localRotation = Quaternion.identity;
             return true;
         }
 
@@ -500,6 +524,7 @@ namespace Ginei
                 SpriteRenderer renderer = renderers[i];
                 if (renderer == null) continue;
                 string objectName = renderer.gameObject.name;
+                if (objectName == "FlagshipBody") continue;
                 if (objectName == "SelectionRing" || objectName == "FlagshipMarker" || objectName == "FlagshipMarkerGlow")
                     continue;
                 if (renderer.GetComponent<EscortShip>() != null) continue;

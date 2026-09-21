@@ -336,7 +336,7 @@ namespace Ginei
             {
                 if (child.name == "StrengthDisplay" || child.name == "SelectionRing"
                     || child.name == "WeaponArcLine" || child.name == "MoraleLabel"
-                    || child.name == "FlagshipMarker") continue;
+                    || child.name == "FlagshipMarker" || child.name == "FlagshipBody") continue;
                 memberShips.Add(child);
             }
         }

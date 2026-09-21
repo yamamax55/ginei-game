@@ -138,9 +138,10 @@ namespace Ginei
         private void Update()
         {
             TryWindowAttach();
+            bool acceptsInput = BattleWindowUI.AcceptsInput(gameObject.scene);
 
             // 表示/非表示トグル（C・GameInput #107）
-            if (GameInput.WasPressed(GameAction.ミニマップ切替))
+            if (acceptsInput && GameInput.WasPressed(GameAction.ミニマップ切替))
             {
                 visible = !visible;
                 if (frameRoot != null) frameRoot.SetActive(visible); // 枠を直接トグル（窓内へ親替え後も効く・WIN-4）

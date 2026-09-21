@@ -76,6 +76,7 @@ namespace Ginei
         private void Update()
         {
             TryWindowAttach();
+            if (!BattleWindowUI.AcceptsInput(gameObject.scene)) return;
 
             // メニュー外クリックまたはEscで閉じる
             if (menuRoot.activeSelf)
@@ -668,4 +669,3 @@ namespace Ginei
         }
     }
 }
-

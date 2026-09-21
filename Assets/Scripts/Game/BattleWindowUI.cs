@@ -40,6 +40,9 @@ namespace Ginei
         /// <summary>当該シーンがウィンドウ化会戦か（登録された窓 UI 親矩形を持つか）。</summary>
         public static bool IsWindowed(Scene scene) => TryGetRoot(scene, out _);
 
+        /// <summary>その会戦UIが入力を受けてよいか。全画面は常時、窓内はフォーカス中だけ。</summary>
+        public static bool AcceptsInput(Scene scene) => !IsWindowed(scene) || BattleViewport.IsFocused(scene);
+
         /// <summary>
         /// 会戦シーンの UI パネルを、その窓内 UI 親矩形へ親替えする共通ヘルパ。親矩形がまだ未登録なら false
         /// （呼び出し側は次フレーム再試行）。RawImage 矩形に重なる親へ移すので、パネルのアンカー（右上/中央/右下）が

@@ -167,6 +167,7 @@ namespace Ginei
             else
             {
                 // どの窓にもカーソルが無い＝戦略マップ操作。会戦は AI で進む（入力は誰も受けない）。
+                BattleViewport.Clear();
                 GameInput.SetContext(InputContext.戦略);
             }
         }

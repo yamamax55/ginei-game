@@ -505,7 +505,7 @@ namespace Ginei
                 visual = bodyObject.AddComponent<SpriteRenderer>();
                 visual.color = source.color;
                 visual.sortingLayerID = source.sortingLayerID;
-                visual.sortingOrder = source.sortingOrder;
+                visual.sortingOrder = Mathf.Max(5, source.sortingOrder + 5);
                 source.enabled = false;
             }
 
@@ -520,7 +520,36 @@ namespace Ginei
             visual.transform.localPosition = -(rotation * center) * scale;
             // 勢力固有画像は固有色をそのまま表示。FactionColor再適用時も白が維持される。
             visual.color = Color.white;
+            ConfigureFlagshipAdornment(fleet, visual, Mathf.Max(0.01f, worldHeight));
             return true;
+        }
+
+        private static void ConfigureFlagshipAdornment(GameObject fleet, SpriteRenderer body, float bodyHeight)
+        {
+            Transform ringTransform = fleet.transform.Find("SelectionRing");
+            SpriteRenderer ring = ringTransform != null ? ringTransform.GetComponent<SpriteRenderer>() : null;
+            if (ring != null && ring.sprite != null)
+            {
+                float diameter = Mathf.Max(ring.sprite.bounds.size.x, ring.sprite.bounds.size.y);
+                float scale = diameter > 0.0001f ? bodyHeight * 1.25f / diameter : 1f;
+                ringTransform.localPosition = Vector3.zero;
+                ringTransform.localScale = Vector3.one * scale;
+                ring.sortingOrder = body.sortingOrder - 2;
+            }
+
+            FlagshipMarker marker = fleet.GetComponent<FlagshipMarker>();
+            if (marker != null) marker.ConfigureForArtwork(bodyHeight, body.sortingOrder);
+
+            PositionFlagshipLabel(fleet.transform.Find("StrengthDisplay"), new Vector3(bodyHeight * 0.65f, -bodyHeight * 0.65f, 0f));
+            PositionFlagshipLabel(fleet.transform.Find("MoraleLabel"), new Vector3(-bodyHeight * 0.65f, bodyHeight * 0.65f, 0f));
+        }
+
+        private static void PositionFlagshipLabel(Transform label, Vector3 localPosition)
+        {
+            if (label == null) return;
+            label.localPosition = localPosition;
+            MeshRenderer renderer = label.GetComponent<MeshRenderer>();
+            if (renderer != null) renderer.sortingOrder = 40;
         }
 
         /// <summary>既存の固定子・EscortShipを除外し、旗艦本体の最初のSpriteRendererを返す。</summary>

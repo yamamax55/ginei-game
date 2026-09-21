@@ -151,6 +151,11 @@ namespace Ginei
             moraleLabel.fontSize = 60;
             moraleLabel.characterSize = 0.4f;
 
+            // 兵力ラベルと同じくズームに追従し、引き／寄せで極端な縮小・肥大を防ぐ（FSH-5）。
+            LabelZoomScaler labelScaler = go.GetComponent<LabelZoomScaler>();
+            if (labelScaler == null) labelScaler = go.AddComponent<LabelZoomScaler>();
+            labelScaler.Configure(go.transform.localScale, 16f);
+
             var mr = go.GetComponent<MeshRenderer>();
             if (jaFont != null) mr.sharedMaterial = jaFont.material;
 

@@ -54,6 +54,29 @@ namespace Ginei
         private Transform markerTransform;
         private Transform glowTransform;
 
+        /// <summary>勢力別旗艦アートの高さに合わせ、マーカーの距離・大きさ・前後を調整する。</summary>
+        public void ConfigureForArtwork(float bodyHeight, int bodySortingOrder)
+        {
+            float h = Mathf.Max(0.01f, bodyHeight);
+            height = h * 0.72f;
+            markerScale = h * 0.28f;
+            sortingOrder = Mathf.Max(30, bodySortingOrder + 10);
+            glowScale = 2.2f;
+
+            if (markerTransform != null)
+            {
+                markerTransform.localScale = Vector3.one * markerScale;
+                markerTransform.position = transform.position + Vector3.up * height;
+                SpriteRenderer markerRenderer = markerTransform.GetComponent<SpriteRenderer>();
+                if (markerRenderer != null) markerRenderer.sortingOrder = sortingOrder;
+            }
+            if (glowTransform != null)
+            {
+                SpriteRenderer glowRenderer = glowTransform.GetComponent<SpriteRenderer>();
+                if (glowRenderer != null) glowRenderer.sortingOrder = sortingOrder - 1;
+            }
+        }
+
         private void Awake()
         {
             // Instantiate 直後（BattleSetup が ApplyColors を呼ぶ前）にマーカーを用意するため Awake で生成。

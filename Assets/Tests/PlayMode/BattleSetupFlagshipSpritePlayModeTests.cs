@@ -109,6 +109,57 @@ namespace Ginei.Tests
         }
 
         [UnityTest]
+        public IEnumerator ArtworkKeepsRingMarkerLabelsAndEscortsInReadableLayers()
+        {
+            GameObject cameraObject = new GameObject("FlagshipLayoutCamera");
+            cameraObject.tag = "MainCamera";
+            Camera camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = 8f;
+            GameObject fleet = new GameObject("Fleet");
+            SpriteRenderer source = fleet.AddComponent<SpriteRenderer>();
+            source.sprite = triangle;
+            fleet.AddComponent<FleetStrength>();
+            fleet.AddComponent<FleetMorale>();
+            Squadron squadron = fleet.AddComponent<Squadron>(); // AwakeでFlagshipMarkerを生成
+            squadron.escortCount = 1;
+            SpriteRenderer ring = ChildRenderer(fleet, "SelectionRing", triangle);
+            GameObject strengthLabel = new GameObject("StrengthDisplay");
+            strengthLabel.transform.SetParent(fleet.transform, false);
+            strengthLabel.AddComponent<MeshRenderer>();
+            GameObject moraleLabel = new GameObject("MoraleLabel");
+            moraleLabel.transform.SetParent(fleet.transform, false);
+            moraleLabel.AddComponent<MeshRenderer>();
+            FleetSpriteProvider.Register(Faction.帝国, flagship);
+
+            Assert.IsTrue(BattleSetup.ApplyFlagshipSprite(fleet, Faction.帝国, 1.2f));
+            yield return null;
+
+            SpriteRenderer body = fleet.transform.Find("FlagshipBody").GetComponent<SpriteRenderer>();
+            SpriteRenderer marker = fleet.transform.Find("FlagshipMarker").GetComponent<SpriteRenderer>();
+            SpriteRenderer glow = fleet.transform.Find("FlagshipMarker/FlagshipMarkerGlow").GetComponent<SpriteRenderer>();
+            SpriteRenderer escort = fleet.transform.Find("Escort_0").GetComponent<SpriteRenderer>();
+            Assert.Greater(ring.bounds.size.x, body.bounds.size.y, "選択リングが旗艦画像を囲めない");
+            Assert.Less(ring.sortingOrder, body.sortingOrder);
+            Assert.Greater(body.sortingOrder, escort.sortingOrder, "旗艦が配下艦に隠れる");
+            Assert.Greater(marker.sortingOrder, body.sortingOrder);
+            Assert.AreEqual(marker.sortingOrder - 1, glow.sortingOrder);
+            Assert.AreEqual(40, strengthLabel.GetComponent<MeshRenderer>().sortingOrder);
+            Assert.AreEqual(40, moraleLabel.GetComponent<MeshRenderer>().sortingOrder);
+            LabelZoomScaler strengthScaler = strengthLabel.GetComponent<LabelZoomScaler>();
+            LabelZoomScaler moraleScaler = moraleLabel.GetComponent<LabelZoomScaler>();
+            Assert.IsNotNull(strengthScaler);
+            Assert.IsNotNull(moraleScaler, "士気ラベルだけズーム追従から漏れた");
+            float nearScale = moraleLabel.transform.localScale.x;
+            camera.orthographicSize = 32f;
+            yield return null;
+            Assert.Greater(moraleLabel.transform.localScale.x, nearScale, "引きズームで士気ラベルが追従拡大しない");
+            Assert.Greater(strengthLabel.transform.localScale.x, nearScale, "引きズームで兵力ラベルが追従拡大しない");
+            Object.DestroyImmediate(fleet);
+            Object.DestroyImmediate(cameraObject);
+        }
+
+        [UnityTest]
         public IEnumerator ArtworkDamageFlashRestoresWhiteTint()
         {
             GameObject fleet = new GameObject("Fleet");

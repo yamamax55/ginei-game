@@ -146,6 +146,8 @@ namespace Ginei
         [Header("演出設定")]
         [Tooltip("被弾フラッシュの時間 (秒)")]
         public float flashDuration = 0.1f;
+        [Tooltip("無着色の勢力別旗艦画像に使う被弾色。白→白では変化が見えないため、短時間だけ暖色を乗せる。")]
+        public Color flagshipArtworkFlashColor = new Color(1f, 0.55f, 0.45f, 1f);
 
         [Header("退却設定")]
         [Tooltip("旗艦喪失（艦艇数0）時に離脱する距離")]
@@ -587,7 +589,10 @@ namespace Ginei
             isFlashing = true;
             for (int i = 0; i < bodyRenderers.Length; i++)
             {
-                if (bodyRenderers[i] != null) bodyRenderers[i].color = Color.white;
+                if (bodyRenderers[i] != null)
+                    bodyRenderers[i].color = bodyRenderers[i].gameObject.name == "FlagshipBody"
+                        ? flagshipArtworkFlashColor
+                        : Color.white;
             }
 
             yield return new WaitForSeconds(flashDuration);

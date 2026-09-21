@@ -23,6 +23,8 @@ namespace Ginei
         [Header("旗艦画像（FSH-3）")]
         [Tooltip("勢力別旗艦画像を会戦内で表示する高さ。rootは拡縮せず、FlagshipBody子だけをこのworld unit高へ合わせる。")]
         public float flagshipVisualHeight = 1.2f;
+        [Tooltip("旗艦画像の艦首をTransform.upへ合わせるZ回転補正（度）。現行画像は上向きなので0。")]
+        public float flagshipVisualRotationOffset;
 
         [Header("配置")]
         [Tooltip("シナリオの生成位置を原点中心に拡大する倍率（大きいほど両軍が離れて開始＝いきなり交戦距離にしない）")]
@@ -416,7 +418,7 @@ namespace Ginei
 
                 // 会戦の旗艦だけを戦略マップと同じ勢力別画像へ差し替える（FSH-2）。
                 // 未登録勢力はプレハブの Triangle を維持し、配下艦は Squadron が保持した元画像を使う。
-                ApplyFlagshipSprite(fleet, strength.faction, flagshipVisualHeight);
+                ApplyFlagshipSprite(fleet, strength.faction, flagshipVisualHeight, flagshipVisualRotationOffset);
 
                 // 艦隊編制（#146）：番号指定があれば台帳へ登録し提督を配属、表示用に番号を持たせる。
                 // 未指定（0）なら従来どおり提督名のみ（後方互換）。
@@ -482,7 +484,11 @@ namespace Ginei
         /// 旗艦本体のレンダラだけへ勢力別画像を適用する。画像が無ければ既存スプライトを変えない。
         /// root の scale と、選択リング・旗艦マーカー・配下艦には触れない。
         /// </summary>
-        public static bool ApplyFlagshipSprite(GameObject fleet, Faction faction, float worldHeight = 1.2f)
+        public static bool ApplyFlagshipSprite(
+            GameObject fleet,
+            Faction faction,
+            float worldHeight = 1.2f,
+            float rotationOffsetDegrees = 0f)
         {
             if (fleet == null) return false;
             Sprite sprite = FleetSpriteProvider.SpriteForFaction(faction);
@@ -509,8 +515,11 @@ namespace Ginei
             visual.transform.localScale = Vector3.one * scale;
             // pivot が中央でない画像も、bounds中心を部隊原点へ戻して中心回転させる。
             Vector3 center = sprite.bounds.center;
-            visual.transform.localPosition = new Vector3(-center.x * scale, -center.y * scale, 0f);
-            visual.transform.localRotation = Quaternion.identity;
+            Quaternion rotation = Quaternion.Euler(0f, 0f, rotationOffsetDegrees);
+            visual.transform.localRotation = rotation;
+            visual.transform.localPosition = -(rotation * center) * scale;
+            // 勢力固有画像は固有色をそのまま表示。FactionColor再適用時も白が維持される。
+            visual.color = Color.white;
             return true;
         }
 

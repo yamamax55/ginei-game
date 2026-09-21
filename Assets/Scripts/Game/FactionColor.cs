@@ -56,6 +56,13 @@ namespace Ginei
                 if (sr.gameObject.name == "SelectionRing") continue;
                 if (sr.gameObject.name == "FlagshipMarker") continue;
 
+                // 勢力固有の旗艦画像はアート自体で帝国/同盟を識別するためtintしない（FSH-4）。
+                if (sr.gameObject.name == "FlagshipBody")
+                {
+                    sr.color = Color.white;
+                    continue;
+                }
+
                 // 旗艦の発光ハローだけは陣営色を薄く乗せる（帝国/同盟の識別＋マーカー強調）。
                 // 金ダイヤ＝旗艦の目印、ハロー色＝陣営、と役割を分ける。
                 if (sr.gameObject.name == "FlagshipMarkerGlow")

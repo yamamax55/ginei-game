@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Reflection;
 using Ginei.Data;
 using NUnit.Framework;
 using UnityEngine;
@@ -81,6 +82,51 @@ namespace Ginei.Tests
             Assert.AreEqual(1.2f, body.GetComponent<SpriteRenderer>().bounds.size.y, 0.001f);
             Assert.AreEqual(fleet.transform.position.x, body.GetComponent<SpriteRenderer>().bounds.center.x, 0.001f);
             Assert.AreEqual(fleet.transform.position.y, body.GetComponent<SpriteRenderer>().bounds.center.y, 0.001f);
+            Object.DestroyImmediate(fleet);
+        }
+
+        [Test]
+        public void ArtworkFacesTransformUpAndFactionColorKeepsItWhite()
+        {
+            GameObject fleet = new GameObject("Fleet");
+            fleet.transform.rotation = Quaternion.Euler(0f, 0f, 37f);
+            SpriteRenderer source = fleet.AddComponent<SpriteRenderer>();
+            source.sprite = triangle;
+            FleetStrength strength = fleet.AddComponent<FleetStrength>();
+            strength.faction = Faction.帝国;
+            FactionColor factionColor = fleet.AddComponent<FactionColor>();
+            FleetSpriteProvider.Register(Faction.帝国, flagship);
+
+            Assert.IsTrue(BattleSetup.ApplyFlagshipSprite(fleet, Faction.帝国));
+            SpriteRenderer visual = fleet.transform.Find("FlagshipBody").GetComponent<SpriteRenderer>();
+            factionColor.ApplyColors();
+
+            Assert.Less(Vector3.Angle(fleet.transform.up, visual.transform.up), 0.01f,
+                "画像の上方向（艦首）が旗艦Transform.upと一致しない");
+            Assert.AreEqual(Color.white, visual.color, "勢力固有画像へ陣営tintが重ねられた");
+            Assert.AreNotEqual(Color.white, source.color, "Triangleフォールバックまで無着色になった");
+            Object.DestroyImmediate(fleet);
+        }
+
+        [UnityTest]
+        public IEnumerator ArtworkDamageFlashRestoresWhiteTint()
+        {
+            GameObject fleet = new GameObject("Fleet");
+            SpriteRenderer source = fleet.AddComponent<SpriteRenderer>();
+            source.sprite = triangle;
+            FleetStrength strength = fleet.AddComponent<FleetStrength>();
+            strength.flashDuration = 0.01f;
+            FleetSpriteProvider.Register(Faction.帝国, flagship);
+            BattleSetup.ApplyFlagshipSprite(fleet, Faction.帝国);
+            SpriteRenderer visual = fleet.transform.Find("FlagshipBody").GetComponent<SpriteRenderer>();
+
+            MethodInfo flash = typeof(FleetStrength).GetMethod("Flash", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(flash);
+            flash.Invoke(strength, null);
+            Assert.AreEqual(strength.flagshipArtworkFlashColor, visual.color, "専用画像の被弾変化が見えない");
+
+            yield return new WaitForSeconds(0.03f);
+            Assert.AreEqual(Color.white, visual.color, "被弾後に無着色へ復帰しなかった");
             Object.DestroyImmediate(fleet);
         }
 

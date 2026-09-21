@@ -124,7 +124,9 @@ namespace Ginei
                         hasEducation = fs.education != null,
                         education = fs.education,
                         hasTalentDevelopment = fs.talentDevelopment != null,
-                        talentDevelopment = fs.talentDevelopment
+                        talentDevelopment = fs.talentDevelopment,
+                        hasShipDesigns = fs.shipDesigns != null,
+                        shipDesigns = fs.shipDesigns
                     });
                 }
             }
@@ -248,6 +250,12 @@ namespace Ginei
                 {
                     fs.talentDevelopment = fss.talentDevelopment;
                     TalentDevelopmentRules.NormalizeLoaded(fs.talentDevelopment);
+                }
+                // 設計台帳は読込だけで登録・現役化を起こさず、欠落配列と採番だけを正規化する。
+                if (fss.hasShipDesigns && fss.shipDesigns != null)
+                {
+                    fs.shipDesigns = fss.shipDesigns;
+                    ShipDesignRules.NormalizeLoaded(fs.shipDesigns);
                 }
                 state.states.Add(fs);
             }

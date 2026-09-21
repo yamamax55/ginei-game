@@ -290,6 +290,9 @@ namespace Ginei
         // 人材育成・部隊訓練の台帳（#998）。false=旧セーブ＝空の台帳から開始。
         public bool hasTalentDevelopment;
         public TalentDevelopmentState talentDevelopment;
+        // 艦艇再設計台帳（#1066）。false=旧セーブ＝空の台帳から開始。
+        public bool hasShipDesigns;
+        public ShipDesignState shipDesigns;
     }
 
     /// <summary>戦略艦隊（盤面の駒）のセーブ平データ。回廊上の精密位置（私有）は保存せず、停泊星系に再構築（移動中は目的地へ再ワープ）。</summary>

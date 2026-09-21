@@ -62,6 +62,9 @@ namespace Ginei
         /// <summary>人物の育成投資、現役教育、艦隊訓練、軍団共同演習の保存台帳（#998）。</summary>
         public TalentDevelopmentState talentDevelopment = new TalentDevelopmentState();
 
+        /// <summary>艦艇再設計の登録履歴と艦種別の現役設計（#1066）。</summary>
+        public ShipDesignState shipDesigns = new ShipDesignState();
+
         /// <summary>通貨状態＝固有名＋為替/物価/通貨供給（#通貨）。<see cref="CurrencyRules"/> が年次で回す
         /// （赤字の貨幣化→インフレ／財政健全度→為替）。budget/fiscal/politics と同じく在席のセッション状態
         /// （セーブ非対象・null=未設定＝復元時は名前を決定論で再割当）。</summary>

@@ -108,8 +108,22 @@ namespace Ginei
               .Append("／真相 ").Append(gv.IsDisclosureRevealed("ancient_truth") ? "◎" : "—")
               .Append("／結末 ").Append(gv.IsDisclosureRevealed("ending_unlocked") ? "◎" : "—").Append('\n');
 
+            sb.Append("\n<color=#e7e0b0>◤ 世界観Codex：名を残さない建白</color>\n");
+            AppendMeyasuLore(sb, gv, MeyasubakoDisclosures.Seed, "撒かれた種");
+            AppendMeyasuLore(sb, gv, MeyasubakoDisclosures.Relay, "無名の手のリレー");
+            AppendMeyasuLore(sb, gv, MeyasubakoDisclosures.Legacy, "名を残さない政策");
+            sb.Append("  <color=#9fb0c0>直近の列伝</color> ＝ ").Append(gv.RingiRelaySummary()).Append('\n');
+
             sb.Append("\n<color=#6f8a9a>※ 提示中＝プレイヤーへ提示すべきイベント。保留＝発火待ちキュー。履歴の列挙APIは無いため現状値のみ。</color>");
             return sb.ToString();
+        }
+
+        private static void AppendMeyasuLore(StringBuilder sb, GalaxyView gv, string id, string title)
+        {
+            bool revealed = gv.IsDisclosureRevealed(id);
+            sb.Append("  ").Append(revealed ? "◎ " : "— ").Append(title);
+            if (revealed) sb.Append("：").Append(gv.DisclosureBody(id));
+            sb.Append('\n');
         }
 
         // ===== UI 構築（EconomyObserverOverlay と同型・単一スクロールラベル版） =====

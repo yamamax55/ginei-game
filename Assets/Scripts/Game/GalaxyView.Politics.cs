@@ -916,6 +916,13 @@ namespace Ginei
         public float DisclosureProgress() => disclosureLedger != null ? disclosureLedger.Progress() : 0f;
         /// <summary>指定 id の秘史が開示済みか（観測層専用）。</summary>
         public bool IsDisclosureRevealed(string id) => disclosureLedger != null && disclosureLedger.IsRevealed(id);
+        /// <summary>開示済み項目の本文（codex/観測層用）。未開示なら空。</summary>
+        public string DisclosureBody(string id)
+        {
+            if (disclosureLedger == null || !disclosureLedger.IsRevealed(id)) return "";
+            DisclosureEntry entry = disclosureLedger.Get(id);
+            return entry != null ? entry.body : "";
+        }
 
         /// <summary>
         /// 開示（P3 配線）：`DisclosureLedger` に秘史連鎖（`SampleDisclosures`）を登録し、年次で `Evaluate`＝
@@ -930,6 +937,9 @@ namespace Ginei
                 disclosureLedger.Register(SampleDisclosures.SecretFragment());
                 disclosureLedger.Register(SampleDisclosures.AncientTruth());
                 disclosureLedger.Register(SampleDisclosures.EndingUnlock());
+                disclosureLedger.Register(MeyasubakoDisclosures.SeedSown(GatherRingiPetitionsForLore));
+                disclosureLedger.Register(MeyasubakoDisclosures.UnsungRelay(GatherRingiPetitionsForLore));
+                disclosureLedger.Register(MeyasubakoDisclosures.AnonymousLegacy(GatherRingiPetitionsForLore));
                 chronicle = new SampleDisclosures.Chronicle();
             }
             if (!chronicle.fragmentFound && campaignYear >= TimeDisplay.StartYear + 5)
@@ -940,6 +950,44 @@ namespace Ginei
                 for (int i = 0; i < revealed.Count; i++)
                     NotificationCenter.Push(NotificationCategory.システム, NotificationSeverity.情報,
                         $"【{revealed[i].category}】{revealed[i].title}");
+        }
+
+        public void RunDisclosureTickForQa() => RunDisclosureTick();
+
+        private static IReadOnlyList<Petition> GatherRingiPetitionsForLore()
+        {
+            var result = new List<Petition>();
+            AppendPetitions(result, RingiDirector.Ledger);
+            AppendPetitions(result, FleetRingiDirector.Ledger);
+            return result;
+        }
+
+        private static void AppendPetitions(List<Petition> result, PetitionLedger ledger)
+        {
+            if (ledger == null) return;
+            for (int i = 0; i < ledger.items.Count; i++)
+                if (ledger.items[i] != null) result.Add(ledger.items[i]);
+        }
+
+        /// <summary>列伝表示用。プレイヤー名は足さず、既存 hops の中継者だけを人物名へ解決する。</summary>
+        public string RingiRelaySummary()
+        {
+            IReadOnlyList<Petition> all = GatherRingiPetitionsForLore();
+            Petition latest = null;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i].drafterId == 0 && all[i].hops != null && all[i].hops.Count > 0
+                    && (latest == null || all[i].id >= latest.id)) latest = all[i];
+            if (latest == null) return "まだ記録された中継はない。";
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append(latest.title).Append("：匿名の投書");
+            for (int i = 0; i < latest.hops.Count; i++)
+            {
+                Person person = FindPersonById(latest.hops[i]);
+                sb.Append(" → ").Append(person != null ? person.name : "無名の中継者");
+            }
+            if (latest.distorted) sb.Append("（伝播中に歪曲）");
+            return sb.ToString();
         }
 
         /// <summary>

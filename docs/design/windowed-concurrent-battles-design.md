@@ -12,7 +12,8 @@ tags: [design]
 ## ゴール
 1. 戦術マップ（会戦）を**ウィンドウ化**（全画面シーン置換をやめ、戦略マップの上に重なる会戦ウィンドウ）。
 2. 戦略マップで**潜行すると新規ウィンドウが開く**（戦略マップは背後に生き続ける）。
-3. **複数の会戦を同時に潜行**でき、各ウィンドウが**それぞれライブ進行**（独立した一時停止/倍速）。
+3. **複数の会戦を同時に潜行**でき、各ウィンドウがそれぞれライブ進行する。時間は最終仕様として
+   `StrategySession.Clock` に統一し、戦略の停止・倍速を全会戦へ同時反映する。
 
 ## 現状の制約（なぜ大改修か）
 調査結果（`docs/` 調査ログ参照）より、会戦コアは**グローバル単一**前提：
@@ -30,7 +31,7 @@ tags: [design]
 - **専用 additive シーン**（`LoadSceneMode.Additive` ＋ `LocalPhysicsMode.Physics2D`）＝在庫/物理/GameObject を会戦ごとに**自然に隔離**（Unity が物理を per-scene に分ける）。
 - **専用 `FleetRegistryScope`**（static `FleetRegistry` を会戦ごとのインスタンスへ）。
 - **専用カメラ → RenderTexture**＝戦略マップ上の uGUI ウィンドウへ表示（`SystemMapWindow` の実証済みパターンを踏襲）。
-- **専用 時間係数**（`BattleClock`＝realDt×自前 speed／pause。`Time.timeScale` に依存しない）。
+- **統一時間**（`StrategySession.Clock`）。窓の開始・終了・結果返却で速度を初期化せず、戦略の停止・倍速を維持する。
 - **専用 `BattleManager`/`BattleSetup`/`FleetCommander`**（そのシーン内に常駐し自分の Context だけを操作）。
 - `BattleHandoff` 相当のデータ（参戦艦隊・防御側・攻城/通常）。
 
@@ -64,6 +65,17 @@ tags: [design]
 - 各会戦の決着を戦略へ個別反映（`BattleHandoff` 経路をマルチ化／結果キュー）。
 - 窓ごと HUD・通知の宛先（どの会戦の出来事か）・カメラ枠/ミニマップの会戦対応。
 - 旧フルスクリーン経路の整理（または設定で選択）。
+
+#### Stage 4 実装記録（2026-09-21）
+
+- `BattleWindowUI` が会戦シーン→`BattleUIRoot` を登録し、HUD・コマンドメニュー・ミニマップ・通知を対応窓へ帰属する。
+- `BattleViewport` と `BattleWindowUI.AcceptsInput` により、カーソルのある会戦だけが入力を受け、窓外では戦略へ返す。
+- `BattleDirector.SyncUnifiedClock` を開始・更新・終了・結果返却の共通入口とし、停止/倍速を維持する。
+- `BattleResultQueue` は1フレーム1件で直列反映する。独立2会戦を同時投入して勝者兵力を取り違えないことを
+  `BattleResultQueueLifecyclePlayModeTests` で固定した。新規戦役・ロード前・タイトル帰還では結果と援軍差し戻しを消去する。
+- 戦役全体の `FleetRoster` / `OrderOfBattle` は人事・編制の権威として共有を維持する。会戦固有の識別は各シーンの
+  `FleetStrength.strategicFleetId` / `fleetNumber` に保持し、単隊・複数艦隊の双方で別窓と混同しない。
+- 残る受け入れ確認は、複数潜行→各窓で指揮→各決着→戦略反映を通した実画面QA。
 
 ## 後方互換・リスク管理
 - 各段階で既存のフルスクリーン会戦を**壊さない**（Stage 1 はフォールバック温存、Stage 2 の static facade は既定スコープで従来動作）。

@@ -37,9 +37,13 @@ namespace Ginei
 
         private static readonly List<Notification> items = new List<Notification>();
         private static long nextSeq = 1;
+        private static long droppedCount;
 
         /// <summary>最後に採番した seq（未通知なら0）。フィードが生成時にここまでを既読扱いにしてフラッドを防ぐ。</summary>
         public static long LastSeq => nextSeq - 1;
+
+        /// <summary>容量超過で履歴から落ちた総件数。打ち切りを観測可能にして silent truncation を防ぐ。</summary>
+        public static long DroppedCount => droppedCount;
 
         /// <summary>全保持通知（古い順・読み取り専用）。</summary>
         public static IReadOnlyList<Notification> All => items;
@@ -49,7 +53,12 @@ namespace Ginei
         {
             long seq = nextSeq++;
             items.Add(new Notification(seq, category, severity, message));
-            if (items.Count > Capacity) items.RemoveRange(0, items.Count - Capacity);
+            if (items.Count > Capacity)
+            {
+                int dropped = items.Count - Capacity;
+                items.RemoveRange(0, dropped);
+                droppedCount += dropped;
+            }
             return seq;
         }
 
@@ -61,6 +70,12 @@ namespace Ginei
         public static List<Notification> Since(long afterSeq)
         {
             var r = new List<Notification>();
+            if (items.Count > 0 && afterSeq < items[0].seq - 1)
+            {
+                long omitted = items[0].seq - afterSeq - 1;
+                r.Add(new Notification(items[0].seq - 1, NotificationCategory.システム,
+                    NotificationSeverity.注意, $"［通知履歴］容量上限により古い通知 {omitted} 件を省略"));
+            }
             for (int i = 0; i < items.Count; i++)
                 if (items[i].seq > afterSeq) r.Add(items[i]);
             return r;
@@ -76,6 +91,6 @@ namespace Ginei
         }
 
         /// <summary>全消去＋採番リセット（シーン初期化・テスト）。</summary>
-        public static void Clear() { items.Clear(); nextSeq = 1; }
+        public static void Clear() { items.Clear(); nextSeq = 1; droppedCount = 0; }
     }
 }

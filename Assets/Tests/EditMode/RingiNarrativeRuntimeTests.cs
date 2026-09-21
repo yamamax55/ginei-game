@@ -127,6 +127,16 @@ namespace Ginei.Tests
             StringAssert.StartsWith("一時生成文", detail);
             Assert.AreEqual("決定論テンプレ", d.body);
         }
+
+        [Test]
+        public void RuntimeProseCache_IsBounded()
+        {
+            RingiNarrativeRuntime.Configure(new Provider());
+            for (int i = 0; i < RingiNarrativeRuntime.Capacity + 9; i++)
+                RingiNarrativeRuntime.Prepare(Decision(72000 + i));
+
+            Assert.AreEqual(RingiNarrativeRuntime.Capacity, RingiNarrativeRuntime.CachedCount);
+        }
     }
 }
 #endif

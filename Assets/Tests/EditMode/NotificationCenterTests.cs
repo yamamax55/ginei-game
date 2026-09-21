@@ -51,6 +51,12 @@ namespace Ginei.Tests
             // 最古の seq=1..10 は捨てられ、最新の seq が残る
             Assert.AreEqual(NotificationCenter.Capacity + 10, NotificationCenter.LastSeq);
             Assert.AreEqual(11, NotificationCenter.All[0].seq); // 先頭は11番目
+            Assert.AreEqual(10, NotificationCenter.DroppedCount);
+
+            var sinceBeginning = NotificationCenter.Since(0);
+            Assert.AreEqual(NotificationCenter.Capacity + 1, sinceBeginning.Count,
+                "欠落を示す合成ログ1件＋保持中の通知を返す");
+            StringAssert.Contains("古い通知 10 件を省略", sinceBeginning[0].message);
         }
 
         [Test]
@@ -67,6 +73,7 @@ namespace Ginei.Tests
             NotificationCenter.Clear();
             Assert.AreEqual(0, NotificationCenter.All.Count);
             Assert.AreEqual(0, NotificationCenter.LastSeq);
+            Assert.AreEqual(0, NotificationCenter.DroppedCount);
             Assert.AreEqual(1, NotificationCenter.Push(NotificationCategory.建艦, "y")); // 採番リセット
         }
     }

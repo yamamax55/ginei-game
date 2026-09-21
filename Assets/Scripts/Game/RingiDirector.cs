@@ -14,8 +14,8 @@ namespace Ginei
     /// </summary>
     public class RingiDirector : MonoBehaviour
     {
-        [Header("生起ペース（game-秒）")]
-        [Tooltip("この game-秒ごとに建白の発生判定を行う（ポーズ中は進まない・倍速で速まる）")]
+        [Header("生起ペース（旧互換）")]
+        [Tooltip("旧セーブ/Prefab互換用。建白判定は現在、GalaxyView の暦の日境界で1回だけ行う")]
         public float raiseInterval = 50f;
         [Tooltip("判定ごとに建白が起きる確率")]
         [Range(0f, 1f)] public float raiseChance = 0.6f;
@@ -33,7 +33,6 @@ namespace Ginei
         private struct Pending { public Petition pet; public float friction; }
         private readonly Dictionary<int, Pending> pending = new Dictionary<int, Pending>();
 
-        private float accum;
         /// <summary>
         /// この Director が使う決裁idの番号帯（デモ決裁 9001+ と衝突させない）。
         /// 実際の採番は <see cref="DecisionDeck.NextDecisionId"/>＝シーン往復で巻き戻らない。
@@ -67,17 +66,14 @@ namespace Ginei
             // テスト用：F7 で即サンプル建白を1件起こす（決裁フローを Unity で即確認するため）
             if (Keyboard.current != null && Keyboard.current.f7Key.wasPressedThisFrame)
                 ForceRaise();
-
-            GameClock clock = StrategySession.Clock;
-            float gdt = clock != null ? (float)clock.EffectiveDt(Time.unscaledDeltaTime) : Time.deltaTime;
-            accum += gdt;
-            if (accum < raiseInterval) return;
-            accum = 0f;
-
-            // ★状況起案（作業票④）：実状態を見て意味のある建白だけを出す。
-            // 出すものが無ければ<b>何も出さない</b>（間を持たせるための定型案を混ぜない）。
-            TryRaiseFromSituation();
         }
+
+        /// <summary>
+        /// 暦の日境界から呼ぶ状況起案（MEYASU-6）。毎フレーム全件を走査せず、既存の暦Tickに相乗りする。
+        /// 安い Core 生存ロールを通過した案件だけが DecisionDeck.Enqueue → 文面生成へ届く。
+        /// </summary>
+        public int RunCalendarDayTick()
+            => StrategySession.Campaign != null ? TryRaiseFromSituation() : -1;
 
         /// <summary>サンプル建白を1件起こす（同時上限を無視＝F7/スクリプト/テスト用）。決裁デスクへ載った決裁id（&lt;0=官僚機構で死んだ）を返す。
         /// sampleIndex&lt;0 はランダム、0以上は <see cref="RingiSampleData"/> の指定サンプル。</summary>

@@ -120,13 +120,16 @@ namespace Ginei
     /// </summary>
     public static class RingiNarrativeRuntime
     {
+        public const int Capacity = 32;
         private static readonly Dictionary<PendingDecision, string> proseByDecision = new Dictionary<PendingDecision, string>();
+        private static readonly Queue<PendingDecision> insertionOrder = new Queue<PendingDecision>();
         private static IRingiNarrativeProvider provider;
+        public static int CachedCount => proseByDecision.Count;
 
         public static void Configure(IRingiNarrativeProvider value)
         {
             provider = value;
-            proseByDecision.Clear();
+            Clear();
         }
 
         public static void Prepare(PendingDecision decision)
@@ -134,7 +137,12 @@ namespace Ginei
             if (!IsRingi(decision)) return;
             string prose = new RingiDrafter(provider).Draft(decision, decision.body);
             if (!string.IsNullOrEmpty(prose) && prose != decision.body)
+            {
+                if (!proseByDecision.ContainsKey(decision)) insertionOrder.Enqueue(decision);
                 proseByDecision[decision] = prose;
+                while (proseByDecision.Count > Capacity && insertionOrder.Count > 0)
+                    proseByDecision.Remove(insertionOrder.Dequeue());
+            }
             else
                 proseByDecision.Remove(decision);
         }
@@ -149,7 +157,11 @@ namespace Ginei
         public static bool TryAdjudicate(PendingDecision decision, out string reasoning)
             => new RingiAdjudicator(provider).TryResolve(decision, out reasoning);
 
-        public static void Clear() => proseByDecision.Clear();
+        public static void Clear()
+        {
+            proseByDecision.Clear();
+            insertionOrder.Clear();
+        }
 
         private static bool IsRingi(PendingDecision decision)
             => decision != null && (decision.source == DecisionSource.建白結果 || decision.source == DecisionSource.諮問);

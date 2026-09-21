@@ -669,6 +669,8 @@ namespace Ginei
             CampaignRules.TickBudgetDay(StrategySession.Campaign, secondsPerDay); // 歳出＝予算総額を国庫から（国家予算の基盤）
             TickShipyard(secondsPerDay); // 建艦を1日進め、完成を勢力プールへ（#884→#148）
             RunDailyPolicyTick();
+            // MEYASU-6：建白候補の評価は毎フレームでなく暦の日境界に相乗り。
+            Object.FindAnyObjectByType<RingiDirector>()?.RunCalendarDayTick();
             RunMilitarySupplyTick(); // 軍要求物資（#2049）：補給切れの前線艦隊が干上がる
             RunDailyStockTick();     // 株価は日次で動く（#株価日次）：収益/配当は月次のまま価格だけ細かく収束
         }

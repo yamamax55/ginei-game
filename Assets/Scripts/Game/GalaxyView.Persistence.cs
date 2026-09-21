@@ -166,6 +166,10 @@ namespace Ginei
         public static void ResetCampaignStatics()
         {
             objectiveAnnounced = false;
+            // 複数会戦の結果と援軍差し戻しは戦役固有。タイトル帰還・新規開始・ロード前に必ず捨て、
+            // 前の戦役の決着が次の銀河へ適用されたり、旧艦隊IDを操作したりしないようにする（WIN-4）。
+            BattleResultQueue.Clear();
+            ReinforcementReturnQueue.Clear();
             GrowthRegistry.Clear(); // 提督の会戦成長（XP）は戦役固有＝新規キャンペーンへ持ち越さない（P1-b 永続の前提＝続きからは別途復元）
             FameRegistry.Clear();   // 実行時武名（ADM-3）も戦役固有＝持ち越さない（続きからは ProtagonistCareerSave.fame から復元）
             PersonDecisionLedger.Clear(); // 人物の決裁履歴も戦役を跨いで持ち越さない（稟議基盤整備）

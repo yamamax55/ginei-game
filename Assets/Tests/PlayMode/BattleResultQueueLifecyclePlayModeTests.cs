@@ -48,6 +48,36 @@ namespace Ginei.Tests
             Assert.IsFalse(BattleHandoff.Pending);
         }
 
+        [Test]
+        public void WindowedFleetIdentity_IsStoredOnEachSceneObjectWithoutMutatingCampaignRoster()
+        {
+            FleetRoster.Clear();
+            GameObject first = new GameObject("WindowFleet_A");
+            GameObject second = new GameObject("WindowFleet_B");
+            try
+            {
+                FleetStrength a = first.AddComponent<FleetStrength>();
+                FleetStrength b = second.AddComponent<FleetStrength>();
+
+                BattleSetup.LinkStrategicFleet(first, 101);
+                BattleSetup.LinkStrategicFleet(second, 202);
+
+                Assert.AreEqual(101, a.strategicFleetId);
+                Assert.AreEqual(101, a.fleetNumber);
+                Assert.AreEqual("第101艦隊", a.fleetUnitName);
+                Assert.AreEqual(202, b.strategicFleetId);
+                Assert.AreEqual(202, b.fleetNumber);
+                Assert.AreEqual("第202艦隊", b.fleetUnitName);
+                Assert.IsEmpty(FleetRoster.AllFleets(a.faction), "会戦窓が戦役全体の艦隊人事台帳を上書きした");
+            }
+            finally
+            {
+                Object.DestroyImmediate(first);
+                Object.DestroyImmediate(second);
+                FleetRoster.Clear();
+            }
+        }
+
         private static BattleHandoff.State Result(int fleetA, int fleetB, bool sideAWon, int survivor)
         {
             return new BattleHandoff.State

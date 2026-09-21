@@ -535,6 +535,8 @@ namespace Ginei
             eB.loyalty = BattleHandoff.loyaltyB; eB.intrigue = BattleHandoff.intrigueB;
             GameObject ga = SpawnFleet(eA, playerFaction);
             GameObject gb = SpawnFleet(eB, playerFaction);
+            LinkStrategicFleet(ga, BattleHandoff.fleetIdA);
+            LinkStrategicFleet(gb, BattleHandoff.fleetIdB);
             // 軍の質（C4）：戦略側が補給/練度から積んだ戦闘力倍率を旗艦へ（既定1.0＝従来動作）
             if (ga != null) { var fa = ga.GetComponent<FleetStrength>(); if (fa != null) fa.qualityFactor = BattleHandoff.qualityA; }
             if (gb != null) { var fb = gb.GetComponent<FleetStrength>(); if (fb != null) fb.qualityFactor = BattleHandoff.qualityB; }
@@ -585,6 +587,7 @@ namespace Ginei
                     e.loyalty = hf.loyalty; e.intrigue = hf.intrigue;
                     GameObject g = SpawnFleet(e, playerFaction);
                     if (g == null) continue;
+                    LinkStrategicFleet(g, hf.fleetId);
                     var fsc = g.GetComponent<FleetStrength>();
                     if (fsc != null) fsc.qualityFactor = hf.quality;
                     fleets.Add(g);
@@ -608,10 +611,27 @@ namespace Ginei
                 e.loyalty = hf.loyalty; e.intrigue = hf.intrigue;
                 GameObject g = SpawnFleet(e, playerFaction);
                 if (g == null) continue;
+                LinkStrategicFleet(g, hf.fleetId);
                 var fsc = g.GetComponent<FleetStrength>();
                 if (fsc != null) fsc.qualityFactor = hf.quality;
                 fleets.Add(g);
             }
+        }
+
+        /// <summary>
+        /// 戦略艦隊と、その会戦シーン内の旗艦を結び付ける。static の <see cref="FleetRoster"/> は戦役全体の
+        /// 人事台帳なので変更せず、会戦ごとの識別は <see cref="FleetStrength"/> にだけ保持する（WIN-4）。
+        /// これにより複数会戦で同時に同じ勢力が戦っても、各窓の艦隊番号・戦果の対応が混ざらない。
+        /// </summary>
+        public static void LinkStrategicFleet(GameObject fleet, int strategicFleetId)
+        {
+            if (fleet == null || strategicFleetId <= 0) return;
+            FleetStrength strength = fleet.GetComponent<FleetStrength>();
+            if (strength == null) return;
+            strength.strategicFleetId = strategicFleetId;
+            strength.fleetNumber = strategicFleetId;
+            if (string.IsNullOrEmpty(strength.fleetUnitName))
+                strength.fleetUnitName = $"第{strategicFleetId}艦隊";
         }
 
         /// <summary>遭遇の1勢力ぶんのエントリを作る。提督が無ければ戦略兵力から臨時提督を生成。</summary>

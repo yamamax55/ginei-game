@@ -443,8 +443,29 @@ namespace Ginei
             }
         }
 
-        /// <summary>艦種ごとの倍率セットを返す。</summary>
+        /// <summary>
+        /// 艦種ごとの<b>実効</b>倍率セットを返す（#1066 第2段階）。
+        /// Inspector 調整値（battleshipStats 等の共有基準）を破壊せず、所属勢力の現役 ShipDesign
+        /// （<see cref="ShipDesignRules.ActiveFor"/>→<see cref="ShipDesignRules.PerformanceOf"/>）の
+        /// 倍率を掛けた新しい値を毎回生成する＝多重呼出しでも累積しない。
+        /// 接続は firepower→firepowerMultiplier・durability→durabilityMultiplier・mobility→speedMultiplier
+        /// のみ（support・scale/tint に対応する既存フィールドは無い）。
+        /// 設計なし・不正設計・Campaign/FactionState なしは基準値そのまま＝従来値と完全互換。
+        /// </summary>
         private ShipClassStats StatsFor(ShipClass cls)
+        {
+            ShipClassStats baseline = BaseStatsFor(cls);
+            ShipDesignPerformance perf = DesignPerformanceFor(cls);
+            return new ShipClassStats(
+                baseline.durabilityMultiplier * perf.durability,
+                baseline.firepowerMultiplier * perf.firepower,
+                baseline.speedMultiplier * perf.mobility,
+                baseline.scaleMultiplier,
+                baseline.tint);
+        }
+
+        /// <summary>Inspector 基準の艦種倍率（共有インスタンスをそのまま返す。実効値は StatsFor が毎回生成）。</summary>
+        private ShipClassStats BaseStatsFor(ShipClass cls)
         {
             switch (cls)
             {
@@ -453,6 +474,20 @@ namespace Ginei
                 case ShipClass.巡航艦:
                 default:               return cruiserStats;
             }
+        }
+
+        /// <summary>
+        /// 所属勢力の艦種別現役設計の性能倍率を返す（#1066 第2段階）。
+        /// 旗艦の FleetStrength.faction → StrategySession.Campaign → FactionState.shipDesigns の経路。
+        /// 経路のどこかが欠けていても基準倍率(=1)へ安全に落ちる（従来値と同じ）。
+        /// </summary>
+        private ShipDesignPerformance DesignPerformanceFor(ShipClass cls)
+        {
+            FleetStrength strength = flagshipStrength != null ? flagshipStrength : GetComponent<FleetStrength>();
+            if (strength == null) return ShipDesignPerformance.Baseline;
+            FactionState factionState = CampaignRules.GetState(StrategySession.Campaign, strength.faction);
+            if (factionState == null) return ShipDesignPerformance.Baseline;
+            return ShipDesignRules.PerformanceOf(ShipDesignRules.ActiveFor(factionState.shipDesigns, cls));
         }
 
         /// <summary>

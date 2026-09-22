@@ -869,6 +869,7 @@ namespace Ginei
             {
                 ("軍事",   () => UnityEngine.Object.FindAnyObjectByType<MilitaryObserverOverlay>()?.Toggle()),
                 ("艦艇",   () => UnityEngine.Object.FindAnyObjectByType<FleetObserverOverlay>()?.Toggle()),
+                ("艦艇設計", ShipDesignPanel.Toggle),
                 ("人物動", () => UnityEngine.Object.FindAnyObjectByType<PersonnelDynamicsObserverOverlay>()?.Toggle()),
             }),
             ("政治", new (string, System.Action)[]

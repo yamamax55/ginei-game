@@ -15,7 +15,7 @@ namespace Ginei.Tests
         [Test]
         public void Defaults_ContainKnownTalents()
         {
-            Assert.AreEqual(18, TalentCatalog.Count);
+            Assert.AreEqual(24, TalentCatalog.Count);
             var oni = TalentCatalog.Get("鬼神");
             Assert.IsNotNull(oni);
             Assert.AreEqual(TalentAspect.武勇, oni.aspect);
@@ -29,10 +29,31 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void Defaults_ContainNewTalents()
+        {
+            // 殿軍：統率の特性・防御強化・劣勢時に効く（しんがりの名将）。
+            var dengun = TalentCatalog.Get("殿軍");
+            Assert.IsNotNull(dengun);
+            Assert.AreEqual(TalentAspect.統率, dengun.aspect);
+            Assert.AreEqual(TalentKind.特性, dengun.kind);
+            Assert.AreEqual(TalentEffect.防御強化, dengun.effect);
+            Assert.AreEqual(SkillCondition.劣勢時, dengun.condition);
+
+            // 先見：知略の索敵強化（加算量）。
+            Assert.AreEqual(TalentEffect.索敵強化, TalentCatalog.Get("先見").effect);
+            // 不屈：武勇の士気維持・劣勢時。
+            Assert.AreEqual(SkillCondition.劣勢時, TalentCatalog.Get("不屈").condition);
+            // 韜晦：知略の奇襲。猛追/斉射：統率の戦法。
+            Assert.AreEqual(TalentEffect.奇襲, TalentCatalog.Get("韜晦").effect);
+            Assert.AreEqual(TalentKind.戦法, TalentCatalog.Get("猛追").kind);
+            Assert.AreEqual(TalentEffect.砲撃戦法, TalentCatalog.Get("斉射").effect);
+        }
+
+        [Test]
         public void All_IsStablySortedById()
         {
             var all = TalentCatalog.All;
-            Assert.AreEqual(18, all.Count);
+            Assert.AreEqual(24, all.Count);
             for (int i = 1; i < all.Count; i++)
                 Assert.LessOrEqual(string.CompareOrdinal(all[i - 1].id, all[i].id), 0);
         }
@@ -41,7 +62,7 @@ namespace Ginei.Tests
         public void Register_AddsOrOverrides_ResetRestores()
         {
             TalentCatalog.Register(new TalentDef("固有特技", "暗黒物質砲", TalentAspect.知略, TalentKind.戦法, TalentEffect.範囲攻撃戦法, 0.6f));
-            Assert.AreEqual(19, TalentCatalog.Count);
+            Assert.AreEqual(25, TalentCatalog.Count);
             Assert.AreEqual("暗黒物質砲", TalentCatalog.Get("固有特技").talentName);
 
             // 上書き
@@ -49,7 +70,7 @@ namespace Ginei.Tests
             Assert.AreEqual("改・鬼神", TalentCatalog.Get("鬼神").talentName);
 
             TalentCatalog.ResetToDefaults();
-            Assert.AreEqual(18, TalentCatalog.Count);
+            Assert.AreEqual(24, TalentCatalog.Count);
             Assert.AreEqual("鬼神", TalentCatalog.Get("鬼神").talentName);
         }
     }

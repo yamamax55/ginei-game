@@ -98,6 +98,28 @@ namespace Ginei.Tests
         }
 
         [Test]
+        public void NewTalents_BridgeThroughExistingPipeline()
+        {
+            // 殿軍（統率・防御強化・乗算・劣勢時）→ 防御倍率・magnitude=1+0.20×1.0×1.3＝1.26（統率80）。
+            var dengun = TalentRules.ToAdmiralSkill(TalentCatalog.Get("殿軍"), TalentGrade.中, Admiral(leadership: 80));
+            Assert.IsNotNull(dengun);
+            Assert.AreEqual(SkillEffectType.防御倍率, dengun.effectType);
+            Assert.AreEqual(SkillCondition.劣勢時, dengun.condition);
+            Assert.AreEqual(1.26f, dengun.magnitude, 1e-4f);
+
+            // 先見（知略・索敵強化・加算）→ 索敵範囲・magnitude=8×1.0×1.3＝10.4（知略80）。
+            var senken = TalentRules.ToAdmiralSkill(TalentCatalog.Get("先見"), TalentGrade.中, Admiral(intelligence: 80));
+            Assert.IsNotNull(senken);
+            Assert.AreEqual(SkillEffectType.索敵範囲, senken.effectType);
+            Assert.AreEqual(10.4f, senken.magnitude, 1e-4f);
+
+            // 斉射/猛追（戦法）は AdmiralSkill へ写らず、既存アクティブ指揮へ橋渡しされる。
+            Assert.IsNull(TalentRules.ToAdmiralSkill(TalentCatalog.Get("斉射"), TalentGrade.中, Admiral(leadership: 80)));
+            Assert.IsTrue(TalentRules.TryGetActiveCommand(TalentCatalog.Get("斉射").effect, out var c));
+            Assert.AreEqual(ActiveCommand.一斉砲撃, c);
+        }
+
+        [Test]
         public void EffectChannel_Classification_AndActiveCommandBridge()
         {
             Assert.IsTrue(TalentRules.MapsToAdmiralSkill(TalentEffect.攻撃強化, out var t1));

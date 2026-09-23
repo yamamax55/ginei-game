@@ -62,6 +62,8 @@ tags: [catalog]
 
 - **車懸かりの旋回運動 `KurumagakariRules`（#軍神・Core純ロジック・test-first）**：史実(俗説＝江戸期軍学者の解釈)の車懸かり＝部隊を絶え間なく入れ替え、疲れた前線を後退させ新手を前へ回す＝陣がぐるぐる旋回し常に新手が敵に当たる（上杉謙信＝軍神の戦法）。配下艦の陣形スロットを旗艦中心に旋回させ巡回運動にする運動の核。`AdvanceAngle(angle, speedDeg, dt)`＝累積旋回角を dt ぶん進め 0..360 にラップ（フレームレート非依存・timeScale 追従・負速度=逆旋回）／`RotateLocalSlot(localSlot, angleDeg)`＝渦巻きスロットを旋回角ぶん回す（magnitude 保存）／`DefaultRotationSpeedDeg=30`（12秒/周）。Game配線＝`Squadron.UpdateShipPositions` が車懸かり陣形のあいだ `wheelAngle` を進め `ComputeWheel` のスロットを毎フレーム旋回（`kurumagakariRotationSpeed`・SmoothDamp 追従で外周艦が遅れて渦を引く）。`KurumagakariRulesTests`(旋回角の累積/ラップ/0dt・スロット回転の magnitude 保存/90度/恒等) が固定。
 
+- **会戦中の旗艦成長 `FlagshipBattleGrowthRules`／`FlagshipGrowthParams`（#2757・Core純ロジック・test-first・LoL参考）**：MOBAの「試合中レベリング」の雪だるまカタルシスを会戦へ＝旗艦が会戦内XPでレベルアップし、レベルに応じて実効戦闘倍率と能力（戦法スロット・号令ティア）が**解放**される。**会戦限定**（終了で破棄＝累積XPの純関数で state を持たない＝消費側が会戦開始で totalXp=0 に戻す）。**人物能力には触れない**（永続成長は `VeterancyRules`＋覚醒GIR-2＝二重計上回避）。`XpForNextLevel`（LoL：280・以降+100/Lv）／`CumulativeXpForLevel`／`LevelForXp`（1..maxLevel クランプ）／`GrowthFactor`＝LoL成長式 (n-1)(0.7025+0.0175(n-1))＝後半ほど伸びる／`PowerBonusAtLevel`（1.0起点・上限1+maxPowerBonus）／`WeaponSlotsAtLevel`（戦法3スロットをL1/2/3で解放）／`CommandTierAtLevel`（号令ult＝LoL 6/11/16 を会戦尺で 4/7/11）／`Progress`（HUD用の次Lv進捗）。既定＝最大12Lv・倍率最大約+39%(上限+45%)。`#2757` の土台で `HeroProgressionRules`(HERO-5)＝ヒーロー視点の上物・暴走の歯止めは賞金首(LOL-3)。`FlagshipBattleGrowthRulesTests`(必要XP/累積/レベル境界とクランプ・back-loaded倍率と上限・スロット/号令解放・進捗) が固定。
+
 ## 関連
 - [[components-catalog]] — Game層コンポーネントの索引（姉妹カタログ）
 - [[core-orphan-audit]] — 量産Coreの未配線棚卸し

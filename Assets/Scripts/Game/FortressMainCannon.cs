@@ -46,6 +46,17 @@ namespace Ginei
         private enum Phase { 待機, チャージ }
         private Phase phase = Phase.待機;
 
+        // ── 危険域の公開（#641 AI ハメ防止）：チャージ中だけ射線が固定＝AIが横へ散開して回避できる窓 ──
+        /// <summary>チャージ中（予告線が出て射線が固定されている）か。AI回避が効く窓。</summary>
+        public bool IsCharging => phase == Phase.チャージ && owner != null && owner.IsAlive;
+        /// <summary>チャージ中に固定された射線方向（正規化）。</summary>
+        public Vector2 AimDirection => aimDir.sqrMagnitude > 1e-6f ? aimDir.normalized : Vector2.up;
+        /// <summary>主砲の発射原点（要塞中心）。</summary>
+        public Vector2 Origin => (Vector2)transform.position;
+        public float MinRange => minRange;
+        public float MaxRange => maxRange;
+        public float HalfWidth => halfWidth;
+
         private FortressUnit owner;
         private float chargeEndTime;
         private float readyTime;          // この時刻まではクールダウン中で撃てない

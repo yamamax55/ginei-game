@@ -52,6 +52,9 @@ namespace Ginei
         private bool HPending => ctx != null ? ctx.Pending : BattleHandoff.Pending;
         private bool HSystemView => ctx != null ? ctx.IsSystemView : BattleHandoff.IsSystemView;
         private bool HPlanetSiege => ctx != null ? ctx.IsPlanetSiege : BattleHandoff.IsPlanetSiege;
+        private bool HFortressSiege => ctx != null ? ctx.IsFortressSiege : BattleHandoff.IsFortressSiege;
+        private Faction HFortressOwner => ctx != null ? ctx.fortressOwner : BattleHandoff.fortressOwner;
+        private Faction HFortressAttacker => ctx != null ? ctx.fortressAttacker : BattleHandoff.fortressAttacker;
         private Faction HFactionA => ctx != null ? ctx.factionA : BattleHandoff.factionA;
         private Faction HFactionB => ctx != null ? ctx.factionB : BattleHandoff.factionB;
         private string HReturnScene => ctx != null ? ctx.returnScene : BattleHandoff.returnScene;
@@ -156,7 +159,8 @@ namespace Ginei
             // 戦略マップからの実会戦（C-3）なら、結果を書き戻して戦略へ戻る
             if (HPending)
             {
-                WriteHandoffResultAndReturn(winner);
+                if (HFortressSiege) WriteFortressResultAndReturn(winner); // 回廊要塞の攻略戦（#40）
+                else WriteHandoffResultAndReturn(winner);
                 return;
             }
 
@@ -202,6 +206,45 @@ namespace Ginei
         }
 
         /// <summary>
+        /// 回廊要塞の攻略戦（#40 戦術潜行）の決着を書き戻して戦略へ戻る。制圧（攻撃側勝利）なら captured、
+        /// 撃退/離脱なら not captured。攻撃側の残存兵力は攻撃側の生存旗艦から戦略スケールへ逆算する
+        /// （守備側が勝っても攻撃側の残存を返す＝GalaxyView が潜行艦隊へ反映するため）。
+        /// </summary>
+        private void WriteFortressResultAndReturn(Faction winner)
+        {
+            Faction attacker = HFortressAttacker;
+            bool captured = winner == attacker;
+
+            int attackerTactical = 0;
+            IReadOnlyList<FleetStrength> alive = Flagships;
+            for (int i = 0; i < alive.Count; i++)
+            {
+                FleetStrength fs = alive[i];
+                if (fs != null && LegacyOf(fs) == attacker) attackerTactical += fs.strength;
+            }
+
+            ReportProtagonistBattle(winner);     // 主人公の戦果（潜行会戦の穴を塞ぐ・#2477）
+            GrantBattleGrowthAndMedals(winner);  // 提督の成長・叙勲
+
+            int attackerSurvivor = Mathf.Max(0, Mathf.RoundToInt(attackerTactical / (float)BattleHandoff.StrengthScale));
+
+            Time.timeScale = 1f;
+            if (Windowed)
+            {
+                ctx.fortressResultCaptured = captured;
+                ctx.fortressResultAttackerSurvivor = attackerSurvivor;
+                ctx.fortressResolved = true;
+                BattleResultQueue.Push(ctx);
+                ReturnToStrategy(null);
+            }
+            else
+            {
+                BattleHandoff.SetFortressResult(captured, attackerSurvivor);
+                ReturnToStrategy(BattleHandoff.returnScene);
+            }
+        }
+
+        /// <summary>
         /// 戦略へ戻る共通処理（WIN-1）。ウィンドウ化会戦では会戦ウィンドウを閉じてシーンをアンロードする
         /// （戦略は背後に生きているので結果は GalaxyView が BattleHandoff から反映する）。
         /// フルスクリーン会戦では従来どおり戦略シーンへ遷移する。
@@ -228,6 +271,7 @@ namespace Ginei
             if (!SceneWindowed) Time.timeScale = 0f;
             if (!HPending) { ReturnToStrategy(HReturnScene); return; }
             if (HPlanetSiege) ReturnFromPlanetSiege(); // 攻城は戦略側で継続（決着は書き戻さない）
+            else if (HFortressSiege) WriteFortressResultAndReturn(LeadingFaction()); // 要塞攻略の途中離脱（#40）
             else WriteHandoffResultAndReturn(LeadingFaction());
         }
 
@@ -499,7 +543,20 @@ namespace Ginei
         {
             // Handoff 経由（潜行・複数同時）は創発会戦＝殲滅判定。static な ActiveScenario（他会戦の
             // ロードで上書きされうる）を引き継がない（WIN-3：別会戦の勝利条件で即決着するのを防ぐ）。
-            activeScenario = HPending ? null : ScenarioData.ActiveScenario;
+            if (HPending && HFortressSiege)
+            {
+                // 回廊要塞の攻略戦（#40）：要塞攻略の勝利条件を ctx（受け渡し）からランタイム構築する。
+                // static な ActiveScenario に依存しない＝複数同時会戦（WIN-3）でも別会戦に汚染されない。
+                activeScenario = ScriptableObject.CreateInstance<ScenarioData>();
+                activeScenario.scenarioName = "要塞攻略戦";
+                activeScenario.victoryCondition = VictoryCondition.要塞攻略;
+                activeScenario.objectiveFaction = HFortressOwner;
+                activeScenario.timeLimit = 0f; // 無制限＝落とすまで終わらない（撤退はプレイヤー判断）
+            }
+            else
+            {
+                activeScenario = HPending ? null : ScenarioData.ActiveScenario;
+            }
             // 戦略マップからの実会戦（潜行・複数艦隊・攻城など Handoff 経由）は**創発的な艦隊戦**なので、
             // 直前に遊んだ単発シナリオの勝利条件（旗艦撃破/護衛/時間防衛 等）を引き継がない＝殲滅で判定する。
             // 以前は scenarioName に残った別シナリオを Resolve してしまい、対象VIPが居らず**会戦が即決着**していた。

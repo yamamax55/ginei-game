@@ -131,6 +131,7 @@ namespace Ginei
                 : $"参謀本部が第{p.fleetNumber}艦隊の解散を上申。兵力を総プールへ戻す。";
             var pd = new PendingDecision(nextDecisionId++, $"［編制］{p.Summary}", DecisionSeverity.通常,
                 DecisionSource.建白結果, pet.effectKey, defaultChoiceIndex: 1, body: body);
+            pd.addresseeBox = BoxKind.国王; pd.boxRouted = true; // 編制の上申は国王箱＝プレイヤー（元首）の決裁
             pd.choices.Add("裁可する");
             pd.choices.Add("見送る（現状維持）");
             DecisionDeck.Enqueue(pd);

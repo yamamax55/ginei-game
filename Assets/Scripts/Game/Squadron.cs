@@ -985,6 +985,7 @@ namespace Ginei
                 case Formation.横陣:   return ComputeLine(n);
                 case Formation.方陣:   return ComputeSquare(n);
                 case Formation.車懸かり: return ComputeWheel(n);
+                case Formation.八陣:   return ComputeBaZhen(n);
                 case Formation.紡錘陣:
                 default:               return ComputeSpindle(n);
             }
@@ -1105,6 +1106,39 @@ namespace Ginei
                     float angleDeg = armBaseDeg + k * twistPerStep; // 外側ほどひねる＝渦巻き
                     float rad = angleDeg * Mathf.Deg2Rad;
                     slots.Add(new Vector2(Mathf.Cos(rad) * radius, Mathf.Sin(rad) * radius));
+                    idx++;
+                }
+            }
+            return slots;
+        }
+
+        /// <summary>
+        /// 八陣（石兵八陣）：旗艦を中心に八方へ八つの石塁を据え、各塁を小集団で固める防御迷宮。
+        /// 配置は `StoneMazeRules.MazeNodeLocal`（八角形）に委譲＝門の方位と一致させる。
+        /// </summary>
+        private List<Vector2> ComputeBaZhen(int n)
+        {
+            var slots = new List<Vector2>(n);
+            if (n <= 0) return slots;
+
+            float gateRadius = spacing * 3f;           // 旗艦から各石塁の中心までの距離
+            int gates = StoneMazeRules.GateCount;       // 八門＝八塁
+            int perGate = Mathf.CeilToInt((float)n / gates);
+            int idx = 0;
+            for (int g = 0; g < gates && idx < n; g++)
+            {
+                Vector2 center = StoneMazeRules.MazeNodeLocal(g, gateRadius); // 塁の中心（八角形上）
+                int c = Mathf.Min(perGate, n - idx);
+                // 各塁内は小さな格子で固める（石塁＝密集ブロック）。
+                int cols = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(c)));
+                int rows = Mathf.CeilToInt((float)c / cols);
+                for (int k = 0; k < c; k++)
+                {
+                    int r = k / cols;
+                    int col = k % cols;
+                    float ox = (col - (cols - 1) / 2f) * spacing * 0.7f;
+                    float oy = (r - (rows - 1) / 2f) * spacing * 0.7f;
+                    slots.Add(new Vector2(center.x + ox, center.y + oy));
                     idx++;
                 }
             }

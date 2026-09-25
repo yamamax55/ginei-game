@@ -19,7 +19,8 @@ namespace Ginei
     /// 陣形ごとの戦術特性（#72・史実ベースのメリット/デメリット）。`CombatModifiers` 方針に沿った係数の単一窓口。
     /// 紡錘陣＝中央突破（攻撃・機動↑／薄く脆い）／鶴翼陣＝包囲（攻撃↑↑／中央薄く展開鈍い）／円陣＝全周防御（堅い／火力・機動↓）／
     /// 横陣＝全砲門の最大火力（攻撃↑↑↑／側背面に脆く回頭鈍い）／方陣＝均整の防御（堅い／火力控えめ・鈍重）／
-    /// 車懸かり＝旋回突撃（攻撃/機動↑↑↑・やや脆い／軍神専用＝`FormationAccessRules`）。
+    /// 車懸かり＝旋回突撃（攻撃/機動↑↑↑・やや脆い／軍神専用＝`FormationAccessRules`）／
+    /// 八陣＝石兵八陣の防御迷宮（被ダメ↓↓↓＝鉄壁・火力/機動↓↓／天才専用＝`FormationAccessRules`）。
     /// `ShipCombat.ComputeDamage`(攻撃)・`FleetStrength.TakeDamage`(防御)・`FleetMovement.GetMobilityFactor`(機動) が消費。test-first。
     /// </summary>
     public static class FormationTraitRules
@@ -36,6 +37,7 @@ namespace Ginei
                 case Formation.横陣:   return new FormationTrait(1.25f, 1.10f, 0.90f); // 全砲門＝最大火力・側背面に脆く回頭鈍い
                 case Formation.方陣:   return new FormationTrait(0.95f, 0.85f, 0.80f); // 均整の防御＝堅い・火力控えめ・鈍重
                 case Formation.車懸かり: return new FormationTrait(1.30f, 1.05f, 1.30f); // 旋回突撃（軍神専用）＝最大級の攻撃/機動・やや脆い
+                case Formation.八陣:   return new FormationTrait(0.85f, 0.60f, 0.70f); // 石兵八陣（天才専用）＝鉄壁の防御迷宮・火力/機動を捨てる
                 default:               return new FormationTrait(1.00f, 1.00f, 1.00f);
             }
         }

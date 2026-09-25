@@ -864,7 +864,7 @@ namespace Ginei
             }
             if (anyAccessDenied)
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.注意,
-                    "車懸かりは軍神のみが布陣できる陣形だ");
+                    $"{f} は軍神・天才のみが布陣できる伝説の陣形だ");
             if (anyBlocked)
                 NotificationCenter.Push(NotificationCategory.戦闘, NotificationSeverity.情報,
                     "指揮スキルポイント不足で陣形を変更できない隊があった（戦闘中はコストが重い）");
